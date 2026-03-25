@@ -100,8 +100,12 @@ const LoginPage = () => {
       
       // Simulate role-based redirect (will come from actual API)
       setTimeout(() => {
-        // Redirect based on role (this will come from your auth hook)
-        router.push('/student'); // Example redirect
+        const email = formData.email.trim().toLowerCase();
+        if (email === "admin@internlink.com") {
+          router.push("/admin");
+          return;
+        }
+        router.push("/student");
       }, 1000);
       
     } catch (err) {
