@@ -28,10 +28,28 @@ body {
   }
 }
 
+@keyframes progress {
+  0% { width: 100%; }
+  100% { width: 0%; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
 .animate-fade-in {
   animation: fade-in 0.4s ease-out;
 }
 
 .animate-slide-down {
   animation: slide-down 0.3s ease-out;
+}
+
+.animate-bounce {
+  animation: bounce 0.5s ease-in-out;
+}
+
+.animate-progress-fast {
+  animation: progress 3s linear forwards;
 }
