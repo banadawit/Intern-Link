@@ -170,14 +170,23 @@ export const useAuth = create<AuthState>()(
 
       verifyEmail: async (token) => {
         set({ isLoading: true, error: null });
-        
+
         try {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          // Mock API call - replace with real endpoint
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/auth/verify-email?token=${token}`, {
+            method: 'POST',
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.message || 'Verification failed');
+          }
+
           set({ isLoading: false });
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Verification failed',
-            isLoading: false,
+            isLoading: false
           });
           throw error;
         }
