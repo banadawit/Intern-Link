@@ -1,0 +1,2 @@
+# Reset Password with Token
+This directory contains the dynamic route for password reset using verification tokens.
