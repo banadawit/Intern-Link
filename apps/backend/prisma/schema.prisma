@@ -1,0 +1,218 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+
+}
+
+
+enum Role {
+  SUPER_ADMIN
+  COORDINATOR
+  SUPERVISOR
+  STUDENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InternshipStatus {
+  PENDING
+  PLACED
+  COMPLETED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+// --- MODELS (Tables 2 - 17) ---
+
+model User {
+  id                Int            @id @default(autoincrement())
+  full_name         String
+  email             String         @unique
+  password_hash     String
+  role              Role
+  verification_status ApprovalStatus @default(PENDING)
+  created_at        DateTime       @default(now())
+  updated_at        DateTime       @updatedAt
+
+  // Specific Role Relations
+  studentProfile    Student?
+  coordinatorProfile Coordinator?
+  supervisorProfile Supervisor?
+  
+  // Announcements & Notifications
+  announcements     Announcement[]
+  notifications     Notification[]
+}
+
+model University {
+  id                Int            @id @default(autoincrement())
+  name              String
+  official_email    String         @unique
+  address           String?
+  verification_doc  String?        // URL/Path to PDF
+  approval_status   ApprovalStatus @default(PENDING)
+  created_at        DateTime       @default(now())
+
+  coordinators      Coordinator[]
+  students          Student[]
+  proposalsSent     InternshipProposal[]
+}
+
+model Company {
+  id                Int            @id @default(autoincrement())
+  name              String
+  official_email    String         @unique
+  address           String?
+  stamp_image_url   String?
+  verification_doc  String?
+  approval_status   ApprovalStatus @default(PENDING)
+  created_at        DateTime       @default(now())
+
+  supervisors       Supervisor[]
+  assignments       InternshipAssignment[]
+  proposalsReceived InternshipProposal[]
+}
+
+model Coordinator {
+  id            Int         @id @default(autoincrement())
+  user          User        @relation(fields: [userId], references: [id])
+  userId        Int         @unique
+  university    University  @relation(fields: [universityId], references: [id])
+  universityId  Int
+  phone_number  String?
+}
+
+model Supervisor {
+  id            Int       @id @default(autoincrement())
+  user          User      @relation(fields: [userId], references: [id])
+  userId        Int       @unique
+  company       Company   @relation(fields: [companyId], references: [id])
+  companyId     Int
+  phone_number  String?
+  
+  evaluations   FinalEvaluation[]
+  weeklyReports WeeklyReport[]
+}
+
+model Student {
+  id                Int              @id @default(autoincrement())
+  user              User             @relation(fields: [userId], references: [id])
+  userId            Int              @unique
+  university        University       @relation(fields: [universityId], references: [id])
+  universityId      Int
+  registration_type String           // e.g. "Official" or "Personal"
+  internship_status InternshipStatus @default(PENDING)
+  created_at        DateTime         @default(now())
+
+  assignments       InternshipAssignment[]
+  weeklyPlans       WeeklyPlan[]
+  proposals         InternshipProposal[]
+  finalEvaluation   FinalEvaluation?
+  finalReport       Report?
+}
+
+model InternshipProposal {
+  id            Int            @id @default(autoincrement())
+  university    University     @relation(fields: [universityId], references: [id])
+  universityId  Int
+  company       Company        @relation(fields: [companyId], references: [id])
+  companyId     Int
+  student       Student        @relation(fields: [studentId], references: [id])
+  studentId     Int
+  status        ApprovalStatus @default(PENDING)
+  proposal_type String         // "University_Initiated" or "Open_Letter"
+  submitted_at  DateTime       @default(now())
+}
+
+model InternshipAssignment {
+  id            Int              @id @default(autoincrement())
+  student       Student          @relation(fields: [studentId], references: [id])
+  studentId     Int
+  company       Company          @relation(fields: [companyId], references: [id])
+  companyId     Int
+  start_date    DateTime
+  end_date      DateTime?
+  status        AssignmentStatus @default(ACTIVE)
+}
+
+model WeeklyPlan {
+  id               Int            @id @default(autoincrement())
+  student          Student        @relation(fields: [studentId], references: [id])
+  studentId        Int
+  week_number      Int
+  plan_description String         @db.Text
+  status           ApprovalStatus @default(PENDING)
+  submitted_at     DateTime       @default(now())
+  
+  presentation     WeeklyPresentation?
+}
+
+model WeeklyPresentation {
+  id             Int        @id @default(autoincrement())
+  weeklyPlan     WeeklyPlan @relation(fields: [weeklyPlanId], references: [id])
+  weeklyPlanId   Int        @unique
+  file_url       String     // Path to PPT/PDF
+  uploaded_at    DateTime   @default(now())
+}
+
+model WeeklyReport {
+  id            Int        @id @default(autoincrement())
+  studentId     Int
+  supervisor    Supervisor @relation(fields: [supervisorId], references: [id])
+  supervisorId  Int
+  attendance    Boolean    @default(false)
+  remarks       String?    @db.Text
+  submitted_at  DateTime   @default(now())
+}
+
+model FinalEvaluation {
+  id              Int        @id @default(autoincrement())
+  student         Student    @relation(fields: [studentId], references: [id])
+  studentId       Int        @unique
+  supervisor      Supervisor @relation(fields: [supervisorId], references: [id])
+  supervisorId    Int
+  technical_score Decimal    @db.Decimal(5, 2)
+  soft_skill_score Decimal   @db.Decimal(5, 2)
+  comments        String?    @db.Text
+  evaluated_at    DateTime   @default(now())
+}
+
+model Report {
+  id              Int      @id @default(autoincrement())
+  student         Student  @relation(fields: [studentId], references: [id])
+  studentId       Int      @unique
+  pdf_url         String
+  stamped         Boolean  @default(false)
+  generated_at    DateTime @default(now())
+}
+
+model Announcement {
+  id         Int      @id @default(autoincrement())
+  author     User     @relation(fields: [authorId], references: [id])
+  authorId   Int
+  title      String
+  content    String   @db.Text
+  created_at DateTime @default(now())
+}
+
+model Notification {
+  id           Int      @id @default(autoincrement())
+  recipient    User     @relation(fields: [recipientId], references: [id])
+  recipientId  Int
+  message      String   @db.Text
+  is_read      Boolean  @default(false)
+  created_at   DateTime @default(now())
+}
