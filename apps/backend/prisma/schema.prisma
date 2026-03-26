@@ -39,6 +39,8 @@ enum AssignmentStatus {
 
 model User {
   id                Int            @id @default(autoincrement())
+  reset_password_token   String?
+  reset_password_expires DateTime?
   full_name         String
   email             String         @unique
   password_hash     String
