@@ -11,10 +11,11 @@ datasource db {
 
 
 enum Role {
-  SUPER_ADMIN
+  ADMIN        
   COORDINATOR
   SUPERVISOR
   STUDENT
+
 }
 
 enum ApprovalStatus {
@@ -68,6 +69,7 @@ model University {
   approval_status   ApprovalStatus @default(PENDING)
   created_at        DateTime       @default(now())
 
+  rejection_reason String?
   coordinators      Coordinator[]
   students          Student[]
   proposalsSent     InternshipProposal[]
@@ -80,6 +82,7 @@ model Company {
   address           String?
   stamp_image_url   String?
   verification_doc  String?
+  rejection_reason String?
   approval_status   ApprovalStatus @default(PENDING)
   created_at        DateTime       @default(now())
 
@@ -95,6 +98,7 @@ model Coordinator {
   university    University  @relation(fields: [universityId], references: [id])
   universityId  Int
   phone_number  String?
+  
 }
 
 model Supervisor {
@@ -137,6 +141,7 @@ model InternshipProposal {
   status        ApprovalStatus @default(PENDING)
   proposal_type String         // "University_Initiated" or "Open_Letter"
   submitted_at  DateTime       @default(now())
+  
 }
 
 model InternshipAssignment {
@@ -148,6 +153,7 @@ model InternshipAssignment {
   start_date    DateTime
   end_date      DateTime?
   status        AssignmentStatus @default(ACTIVE)
+   project_name String? 
 }
 
 model WeeklyPlan {
@@ -217,4 +223,12 @@ model Notification {
   message      String   @db.Text
   is_read      Boolean  @default(false)
   created_at   DateTime @default(now())
+}
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  adminId     Int
+  action      String   // e.g., "APPROVED_UNIVERSITY"
+  targetId    Int      // ID of the university or company
+  details     String?  // e.g., "Approved Haramaya University"
+  timestamp   DateTime @default(now())
 }
