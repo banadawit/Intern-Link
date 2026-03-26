@@ -1,12 +1,12 @@
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
+
 }
 
 datasource db {
   provider = "postgresql"
-
+ url      = env("DATABASE_URL") 
 }
 
 
@@ -39,6 +39,8 @@ enum AssignmentStatus {
 
 model User {
   id                Int            @id @default(autoincrement())
+  reset_password_token   String?
+  reset_password_expires DateTime?
   full_name         String
   email             String         @unique
   password_hash     String
