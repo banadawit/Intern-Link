@@ -28,3 +28,12 @@ export const uploadStamp = multer({
         cb(new Error("Only images (JPG/PNG) are allowed for stamps"));
     }
 });
+export const uploadPresentation = multer({
+    storage: multer.diskStorage({
+        destination: 'uploads/presentations/',
+        filename: (req, file, cb) => {
+            cb(null, `plan-${Date.now()}${path.extname(file.originalname)}`);
+        }
+    }),
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit per SDD 2.6.2
+});

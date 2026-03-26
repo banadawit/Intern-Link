@@ -15,7 +15,7 @@ enum Role {
   COORDINATOR
   SUPERVISOR
   STUDENT
-  
+
 }
 
 enum ApprovalStatus {
@@ -141,6 +141,7 @@ model InternshipProposal {
   status        ApprovalStatus @default(PENDING)
   proposal_type String         // "University_Initiated" or "Open_Letter"
   submitted_at  DateTime       @default(now())
+  
 }
 
 model InternshipAssignment {
@@ -152,6 +153,7 @@ model InternshipAssignment {
   start_date    DateTime
   end_date      DateTime?
   status        AssignmentStatus @default(ACTIVE)
+   project_name String? 
 }
 
 model WeeklyPlan {
