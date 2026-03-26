@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { 
   Plus, 
@@ -11,10 +13,10 @@ import {
   History,
   ExternalLink
 } from 'lucide-react';
-import { MOCK_WEEKLY_PLANS } from '../../mockData';
-import { WeeklyPlan, PlanStatus } from '../../types';
-import { cn } from '../../lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { MOCK_WEEKLY_PLANS } from '@/lib/superadmin/mockData';
+import { WeeklyPlan } from '@/lib/superadmin/types';
+import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const WeeklyPlans = () => {
   const [plans, setPlans] = useState<WeeklyPlan[]>(MOCK_WEEKLY_PLANS);
@@ -46,12 +48,12 @@ const WeeklyPlans = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Weekly Plans</h1>
-          <p className="text-text-muted">Submit your weekly tasks and track supervisor feedback.</p>
+          <h1 className="text-3xl font-bold mb-2 text-slate-900">Weekly Plans</h1>
+          <p className="text-slate-600">Submit your weekly tasks and track supervisor feedback.</p>
         </div>
         <button 
           onClick={() => setShowSubmitForm(true)}
-          className="btn-primary flex items-center gap-2"
+          className="btn-primary flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-all"
         >
           <Plus className="w-5 h-5" />
           Submit New Plan
@@ -66,8 +68,8 @@ const WeeklyPlans = () => {
               key={plan.id} 
               onClick={() => setSelectedPlan(plan)}
               className={cn(
-                "card p-6 cursor-pointer transition-all hover:border-primary-base/50",
-                selectedPlan?.id === plan.id ? "border-primary-base ring-1 ring-primary-base" : ""
+                "card p-6 cursor-pointer transition-all hover:border-teal-600/50 bg-white border border-slate-200",
+                selectedPlan?.id === plan.id ? "border-teal-600 ring-1 ring-teal-600" : ""
               )}
             >
               <div className="flex items-center justify-between mb-4">
@@ -75,25 +77,25 @@ const WeeklyPlans = () => {
                   <div className={cn(
                     "p-3 rounded-xl",
                     plan.status === 'Approved' ? "bg-green-50 text-green-600" : 
-                    plan.status === 'Rejected' ? "bg-red-50 text-red-600" : "bg-yellow-50 text-yellow-600"
+                    plan.status === 'Rejected' ? "bg-red-50 text-red-500" : "bg-yellow-50 text-yellow-500"
                   )}>
                     {plan.status === 'Approved' ? <CheckCircle2 className="w-5 h-5" /> : 
                      plan.status === 'Rejected' ? <XCircle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">Week {plan.weekNumber}</h3>
-                    <p className="text-xs text-text-muted">Version {plan.version} • Submitted {new Date(plan.submittedAt).toLocaleDateString()}</p>
+                    <h3 className="font-bold text-lg text-slate-900">Week {plan.weekNumber}</h3>
+                    <p className="text-xs text-slate-500">Version {plan.version} • Submitted {new Date(plan.submittedAt).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <span className={cn(
                   "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                  plan.status === 'Approved' ? "bg-green-100 text-green-700" : 
-                  plan.status === 'Rejected' ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+                  plan.status === 'Approved' ? "bg-green-50 text-green-600" : 
+                  plan.status === 'Rejected' ? "bg-red-50 text-red-500" : "bg-yellow-50 text-yellow-500"
                 )}>
                   {plan.status}
                 </span>
               </div>
-              <p className="text-sm text-text-body line-clamp-2">{plan.tasks}</p>
+              <p className="text-sm text-slate-600 line-clamp-2">{plan.tasks}</p>
             </div>
           ))}
         </div>
@@ -107,35 +109,35 @@ const WeeklyPlans = () => {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="card p-6 sticky top-24"
+                className="card p-6 sticky top-24 bg-white border border-slate-200"
               >
                 <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary-base" />
+                  <FileText className="w-5 h-5 text-teal-600" />
                   Week {selectedPlan.weekNumber} Details
                 </h3>
                 
                 <div className="space-y-6">
                   <div>
-                    <p className="text-xs text-text-muted uppercase font-bold tracking-tight mb-2">Tasks Planned</p>
-                    <p className="text-sm leading-relaxed text-text-body bg-bg-secondary p-4 rounded-xl border border-border-default">
+                    <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-2">Tasks Planned</p>
+                    <p className="text-sm leading-relaxed text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200">
                       {selectedPlan.tasks}
                     </p>
                   </div>
 
                   {selectedPlan.presentationUrl && (
                     <div>
-                      <p className="text-xs text-text-muted uppercase font-bold tracking-tight mb-2">Presentation</p>
+                      <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-2">Presentation</p>
                       <a 
                         href={selectedPlan.presentationUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between p-3 rounded-xl border border-border-default hover:bg-bg-tertiary transition-all group"
+                        className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all group"
                       >
                         <div className="flex items-center gap-3">
-                          <FileText className="w-5 h-5 text-text-muted group-hover:text-primary-base" />
+                          <FileText className="w-5 h-5 text-slate-500 group-hover:text-teal-600" />
                           <span className="text-sm font-medium">Weekly_Presentation.pdf</span>
                         </div>
-                        <ExternalLink className="w-4 h-4 text-text-muted group-hover:text-primary-base" />
+                        <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-teal-600" />
                       </a>
                     </div>
                   )}
@@ -143,12 +145,12 @@ const WeeklyPlans = () => {
                   {selectedPlan.feedback && (
                     <div className={cn(
                       "p-4 rounded-xl border",
-                      selectedPlan.status === 'Approved' ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"
+                      selectedPlan.status === 'Approved' ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
                     )}>
-                      <p className="text-xs text-text-muted uppercase font-bold tracking-tight mb-2">Supervisor Feedback</p>
+                      <p className="text-xs text-slate-500 uppercase font-bold tracking-tight mb-2">Supervisor Feedback</p>
                       <p className={cn(
                         "text-sm font-medium",
-                        selectedPlan.status === 'Approved' ? "text-green-900" : "text-red-900"
+                        selectedPlan.status === 'Approved' ? "text-green-700" : "text-red-700"
                       )}>
                         {selectedPlan.feedback}
                       </p>
@@ -156,7 +158,7 @@ const WeeklyPlans = () => {
                   )}
 
                   {selectedPlan.status === 'Rejected' && (
-                    <button className="w-full btn-primary flex items-center justify-center gap-2">
+                    <button className="w-full bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-all flex items-center justify-center gap-2">
                       <History className="w-5 h-5" />
                       Revise and Resubmit
                     </button>
@@ -164,8 +166,8 @@ const WeeklyPlans = () => {
                 </div>
               </motion.div>
             ) : (
-              <div className="card p-12 text-center flex flex-col items-center justify-center space-y-4 text-text-muted">
-                <div className="p-4 bg-bg-secondary rounded-full">
+              <div className="card p-12 text-center flex flex-col items-center justify-center space-y-4 text-slate-500 bg-white border border-slate-200">
+                <div className="p-4 bg-slate-50 rounded-full">
                   <FileText className="w-8 h-8" />
                 </div>
                 <p className="text-sm font-medium">Select a plan to view details and feedback.</p>
@@ -183,30 +185,30 @@ const WeeklyPlans = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-bg-main rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200"
             >
-              <header className="p-6 border-b border-border-default flex items-center justify-between">
-                <h2 className="text-xl font-bold">Submit Weekly Plan</h2>
-                <button onClick={() => setShowSubmitForm(false)} className="p-2 hover:bg-bg-tertiary rounded-full transition-colors">
+              <header className="p-6 border-b border-slate-200 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-900">Submit Weekly Plan</h2>
+                <button onClick={() => setShowSubmitForm(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                   <XCircle className="w-6 h-6 text-text-muted" />
                 </button>
               </header>
 
               <form onSubmit={handleSubmit} className="p-6 space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-text-muted">Week Number</label>
+                  <label className="text-sm font-bold text-slate-500">Week Number</label>
                   <input 
                     type="number" 
-                    className="input-field w-full"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent transition-all bg-white text-slate-900"
                     value={formData.weekNumber}
                     onChange={(e) => setFormData({ ...formData, weekNumber: parseInt(e.target.value) })}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-text-muted">Planned Tasks</label>
+                  <label className="text-sm font-bold text-slate-500">Planned Tasks</label>
                   <textarea 
-                    className="input-field w-full min-h-[150px] text-sm"
+                    className="w-full min-h-[150px] px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-transparent transition-all bg-white text-slate-900 text-sm"
                     placeholder="Describe your planned tasks for the upcoming week..."
                     value={formData.tasks}
                     onChange={(e) => setFormData({ ...formData, tasks: e.target.value })}
@@ -215,20 +217,20 @@ const WeeklyPlans = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-text-muted">Presentation (Optional)</label>
-                  <div className="border-2 border-dashed border-border-default rounded-xl p-8 text-center hover:border-primary-base transition-all cursor-pointer bg-bg-secondary group">
-                    <Upload className="w-8 h-8 text-text-muted mx-auto mb-2 group-hover:text-primary-base transition-all" />
-                    <p className="text-sm font-medium text-text-body">Click to upload or drag and drop</p>
-                    <p className="text-xs text-text-muted mt-1">PDF, PPT, PPTX (Max 10MB)</p>
+                  <label className="text-sm font-bold text-slate-500">Presentation (Optional)</label>
+                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-teal-600 transition-all cursor-pointer bg-slate-50 group">
+                    <Upload className="w-8 h-8 text-slate-500 mx-auto mb-2 group-hover:text-teal-600 transition-all" />
+                    <p className="text-sm font-medium text-slate-600">Click to upload or drag and drop</p>
+                    <p className="text-xs text-slate-500 mt-1">PDF, PPT, PPTX (Max 10MB)</p>
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button type="submit" className="flex-1 btn-primary">Submit Plan</button>
+                  <button type="submit" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-all">Submit Plan</button>
                   <button 
                     type="button" 
                     onClick={() => setShowSubmitForm(false)}
-                    className="px-6 py-2 border border-border-default rounded-lg hover:bg-bg-tertiary transition-colors"
+                    className="px-6 py-2 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors text-slate-600 font-medium"
                   >
                     Cancel
                   </button>
