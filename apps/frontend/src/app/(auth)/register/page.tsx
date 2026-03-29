@@ -124,10 +124,6 @@ const RegisterPage = () => {
     if (!email) return 'Email is required';
     if (!emailRegex.test(email)) return 'Please enter a valid email address';
     
-    // Role-specific email validation
-    if (role === 'coordinator' && !email.match(/\.edu\.et$/)) {
-      return 'University coordinators must use a .edu.et email address';
-    }
     return '';
   };
 

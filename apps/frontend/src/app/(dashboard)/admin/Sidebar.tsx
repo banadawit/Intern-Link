@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   LayoutDashboard,
   CheckCircle,
@@ -10,6 +10,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import LogoutModal from "@/components/common/LogoutModal";
 
 type ViewKey =
   | "dashboard"
@@ -25,6 +28,21 @@ interface Props {
 }
 
 const Sidebar = ({ activeView, onNavigate }: Props) => {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const [showLogout, setShowLogout] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
+  const initials = user?.fullName
+    ?.split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) ?? 'AD';
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
     { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" },
     { icon: Clock, label: "Pending Approvals", view: "pending" },
@@ -36,6 +54,9 @@ const Sidebar = ({ activeView, onNavigate }: Props) => {
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 h-screen sticky top-0 flex flex-col">
+      {showLogout && (
+        <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />
+      )}
       <div className="p-6 flex items-center gap-3 border-b border-slate-200">
         <div className="bg-teal-600 p-2 rounded-lg">
           <ShieldCheck className="text-white w-6 h-6" />
@@ -64,14 +85,17 @@ const Sidebar = ({ activeView, onNavigate }: Props) => {
       <div className="p-4 border-t border-slate-200 space-y-4">
         <div className="flex items-center gap-3 px-4 py-2">
           <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center text-teal-600 font-bold">
-            EA
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900 truncate">Emmanuella Abate</p>
+            <p className="text-sm font-bold text-slate-900 truncate">{user?.fullName ?? 'Admin'}</p>
             <p className="text-xs text-slate-500 truncate">Super Admin</p>
           </div>
         </div>
-        <button className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-red-500 hover:bg-red-50 transition-all font-medium">
+        <button
+          onClick={() => setShowLogout(true)}
+          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-red-500 hover:bg-red-50 transition-all font-medium"
+        >
           <LogOut className="w-5 h-5" />
           Logout
         </button>

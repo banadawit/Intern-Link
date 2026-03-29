@@ -14,7 +14,7 @@ interface FormErrors {
 
 const LoginPage = () => {
   const router = useRouter();
-  const { login, isLoading: authLoading, error: authError } = useAuth();
+  const { login } = useAuth();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,18 +70,13 @@ const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Mark all fields as touched
     setTouched({ email: true, password: true });
     
-    // Validate all fields
     const emailError = validateEmail(formData.email);
     const passwordError = validatePassword(formData.password);
     
     if (emailError || passwordError) {
-      setErrors({
-        email: emailError,
-        password: passwordError,
-      });
+      setErrors({ email: emailError, password: passwordError });
       return;
     }
     
@@ -89,29 +84,31 @@ const LoginPage = () => {
     setErrors({});
     
     try {
-      // Mock API call - replace with actual login
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // Mock successful login
-      console.log('Logging in with:', { ...formData, rememberMe });
-      
-      // Show success message
+      await login(formData.email, formData.password, rememberMe);
+
       setSuccessMessage('Login successful! Redirecting...');
-      
-      // Simulate role-based redirect (will come from actual API)
+
+      // Role-based redirect using the stored user
+      const role = useAuth.getState().user?.role;
+      const redirectMap: Record<string, string> = {
+        ADMIN: '/admin',
+        COORDINATOR: '/coordinator',
+        SUPERVISOR: '/supervisor',
+        STUDENT: '/student',
+      };
+
       setTimeout(() => {
-        const email = formData.email.trim().toLowerCase();
-        if (email === "admin@internlink.com") {
-          router.push("/admin");
-          return;
-        }
-        router.push("/student");
-      }, 1000);
-      
-    } catch (err) {
-      setErrors({
-        general: 'Invalid email or password. Please try again.',
-      });
+        router.push(redirectMap[role ?? ''] || '/');
+      }, 800);
+
+    } catch (err: any) {
+      // Check if backend says email not verified
+      const data = err?.response?.data;
+      if (data?.requiresVerification) {
+        router.push(`/verify-email?email=${encodeURIComponent(data.email || formData.email)}`);
+        return;
+      }
+      setErrors({ general: data?.message || 'Invalid email or password. Please try again.' });
     } finally {
       setIsLoading(false);
     }
