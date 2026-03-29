@@ -49,3 +49,6 @@ Thumbs.db
 
 # Infrastructure (Docker data)
 infrastructure/db-data/
+
+# Uploaded files
+**/uploads/

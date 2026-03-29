@@ -13,35 +13,28 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
   // If already logged in, redirect to appropriate dashboard
   useEffect(() => {
-    if (!isLoading && user) {
-      // Redirect based on role
+    if (user) {
       switch (user.role) {
-        case 'SuperAdmin':
+        case 'ADMIN':
           router.push('/admin');
           break;
-        case 'Coordinator':
+        case 'COORDINATOR':
           router.push('/coordinator');
           break;
-        case 'Supervisor':
+        case 'SUPERVISOR':
           router.push('/supervisor');
           break;
-        case 'Student':
+        case 'STUDENT':
           router.push('/student');
           break;
       }
     }
-  }, [user, isLoading, router]);
-
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">
-      Loading...
-    </div>;
-  }
+  }, [user, router]);
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-white">
