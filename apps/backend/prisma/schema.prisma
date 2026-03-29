@@ -47,8 +47,16 @@ model User {
   password_hash     String
   role              Role
   verification_status ApprovalStatus @default(PENDING)
+
+  // ✅ NEW: Email Verification Fields
+  verification_token       String?        @unique
+  verification_token_expiry DateTime?
+  verification_document    String?
+
   created_at        DateTime       @default(now())
   updated_at        DateTime       @updatedAt
+
+  
 
   // Specific Role Relations
   studentProfile    Student?
@@ -122,6 +130,9 @@ model Student {
   registration_type String           // e.g. "Official" or "Personal"
   internship_status InternshipStatus @default(PENDING)
   created_at        DateTime         @default(now())
+
+  studentId         String?          
+  department        String?
 
   assignments       InternshipAssignment[]
   weeklyPlans       WeeklyPlan[]

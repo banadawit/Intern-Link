@@ -4,17 +4,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '../api/client';
+import { AxiosError } from 'axios';
 
 interface User {
-  id: string;
+  id: number;
   email: string;
   fullName: string;
-  role: 'SuperAdmin' | 'Coordinator' | 'Supervisor' | 'Student';
+  role: 'ADMIN' | 'COORDINATOR' | 'SUPERVISOR' | 'STUDENT';
   isVerified: boolean;
   profile?: {
-    universityId?: string;
+    universityId?: number;
     universityName?: string;
-    companyId?: string;
+    companyId?: number;
     companyName?: string;
     studentId?: string;
   };
@@ -31,219 +32,263 @@ interface AuthState {
   logout: () => void;
   register: (data: RegisterData) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updatePassword: (token: string, password: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
   clearError: () => void;
 }
+
+type RegistrationRole = 'student' | 'coordinator' | 'supervisor';
 
 interface RegisterData {
   email: string;
   password: string;
   fullName: string;
-  role: string;
-  organizationDetails?: {
-    universityId?: string;
-    companyId?: string;
-    universityName?: string;
-    companyName?: string;
-  };
+  role: RegistrationRole;
+  // Role-specific fields
+  universityName?: string;
+  companyName?: string;
+  department?: string;
+  studentId?: string;
+  position?: string;
   verificationDocument?: File;
 }
+
+// API Response Types
+interface LoginResponse {
+  success: boolean;
+  data: {
+    token: string;
+    user: {
+      id: number;
+      email: string;
+      fullName: string;
+      role: 'ADMIN' | 'COORDINATOR' | 'SUPERVISOR' | 'STUDENT';
+      isVerified: boolean;
+    };
+  };
+}
+
+interface ApiErrorResponse {
+  success: boolean;
+  message: string;
+  requiresVerification?: boolean;
+  email?: string;
+}
+
+// Error type for API calls
+type ApiError = AxiosError<ApiErrorResponse>;
 
 // Zustand store with persistence
 export const useAuth = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       token: null,
       isLoading: false,
       error: null,
 
+      // ============================================
+      // LOGIN - Real API Call
+      // ============================================
       login: async (email, password, rememberMe = false) => {
         set({ isLoading: true, error: null });
         
         try {
-          // Mock API call - replace with real endpoint
-          const response = await new Promise<{ user: User; token: string }>((resolve) => {
-            setTimeout(() => {
-              // Mock response based on email domain for testing
-              let user: User;
-              
-              if (email.includes('admin')) {
-                user = {
-                  id: '1',
-                  email,
-                  fullName: 'System Admin',
-                  role: 'SuperAdmin',
-                  isVerified: true,
-                };
-              } else if (email.includes('coordinator') || email.includes('@haramaya.edu')) {
-                user = {
-                  id: '2',
-                  email,
-                  fullName: 'Dr. Abebe Kebede',
-                  role: 'Coordinator',
-                  isVerified: true,
-                  profile: {
-                    universityId: 'uni-1',
-                    universityName: 'Haramaya University',
-                  },
-                };
-              } else if (email.includes('supervisor') || email.includes('@company.com')) {
-                user = {
-                  id: '3',
-                  email,
-                  fullName: 'Tigist Bekele',
-                  role: 'Supervisor',
-                  isVerified: true,
-                  profile: {
-                    companyId: 'comp-1',
-                    companyName: 'Ethio Telecom',
-                  },
-                };
-              } else {
-                user = {
-                  id: '4',
-                  email,
-                  fullName: 'John Doe',
-                  role: 'Student',
-                  isVerified: true,
-                  profile: {
-                    universityId: 'uni-1',
-                    universityName: 'Haramaya University',
-                    studentId: 'STU-2024-001',
-                  },
-                };
-              }
-              
-              resolve({
-                user,
-                token: 'mock-jwt-token-' + Date.now(),
-              });
-            }, 1500);
-          });
+          const response = await api.post<LoginResponse>('/auth/login', { email, password });
+          
+          const { token, user } = response.data.data;
           
           set({
-            user: response.user,
-            token: response.token,
+            user: {
+              id: user.id,
+              email: user.email,
+              fullName: user.fullName,
+              role: user.role,
+              isVerified: user.isVerified,
+            },
+            token,
             isLoading: false,
           });
           
-          // Store token in localStorage for API calls
           if (rememberMe) {
-            localStorage.setItem('token', response.token);
+            localStorage.setItem('token', token);
           }
           
-        } catch (error) {
+        } catch (err) {
+          const error = err as ApiError;
+          const errorMessage = error.response?.data?.message || 'Login failed';
           set({
-            error: error instanceof Error ? error.message : 'Login failed',
+            error: errorMessage,
             isLoading: false,
           });
-          throw error;
+          throw err;
         }
       },
 
+      // ============================================
+      // LOGOUT
+      // ============================================
       logout: () => {
         set({ user: null, token: null });
         localStorage.removeItem('token');
-        localStorage.removeItem('auth-storage'); // Clear persisted state
+        localStorage.removeItem('auth-storage');
       },
 
-      register: async (data) => {
+      // ============================================
+      // REGISTER - Real API Call (multipart/form-data)
+      // ============================================
+      register: async (data: RegisterData) => {
         set({ isLoading: true, error: null });
         
         try {
-          // Mock registration - replace with real API
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          
-          // After registration, user needs to verify email
-          set({ isLoading: false });
-          
-        } catch (error) {
-          set({
-            error: error instanceof Error ? error.message : 'Registration failed',
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
+          // Use FormData to support file upload
+          const formData = new FormData();
+          formData.append('full_name', data.fullName);
+          formData.append('email', data.email);
+          formData.append('password', data.password);
+          formData.append('role', data.role.toUpperCase());
 
-      verifyEmail: async (token) => {
-        set({ isLoading: true, error: null });
-
-        try {
-          // Mock API call - replace with real endpoint
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/auth/verify-email?token=${token}`, {
-            method: 'POST',
-          });
-
-          if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.message || 'Verification failed');
+          // Add role-specific fields
+          if (data.role === 'coordinator') {
+            if (data.universityName) formData.append('university_name', data.universityName);
+            if (data.position) formData.append('position', data.position);
+          } else if (data.role === 'supervisor') {
+            if (data.companyName) formData.append('company_name', data.companyName);
+            if (data.position) formData.append('position', data.position);
+          } else if (data.role === 'student') {
+            if (data.universityName) formData.append('university_name', data.universityName);
+            if (data.department) formData.append('department', data.department);
+            if (data.studentId) formData.append('student_id', data.studentId);
           }
 
+          // Append file if provided
+          if (data.verificationDocument) {
+            formData.append('verification_document', data.verificationDocument);
+          }
+
+          // Send as multipart/form-data (let browser set Content-Type with boundary)
+          await api.post('/auth/register', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          
           set({ isLoading: false });
-        } catch (error) {
+          
+        } catch (err) {
+          const error = err as ApiError;
+          const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
+          set({ 
+            error: errorMessage, 
+            isLoading: false 
+          });
+          throw new Error(errorMessage);
+        }
+      },
+
+      // ============================================
+      // VERIFY EMAIL - Real API Call
+      // ============================================
+      verifyEmail: async (token: string) => {
+        set({ isLoading: true, error: null });
+
+        try {
+          await api.post('/auth/verify-email', { token });
+          set({ isLoading: false });
+          
+        } catch (err) {
+          const error = err as ApiError;
+          const errorMessage = error.response?.data?.message || 'Verification failed. The link may be invalid or expired.';
           set({
-            error: error instanceof Error ? error.message : 'Verification failed',
+            error: errorMessage,
             isLoading: false
           });
-          throw error;
+          throw new Error(errorMessage);
         }
       },
 
-      resetPassword: async (email) => {
+      // ============================================
+      // RESEND VERIFICATION EMAIL - Real API Call
+      // ============================================
+      resendVerification: async (email: string) => {
         set({ isLoading: true, error: null });
-        
+
         try {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await api.post('/auth/resend-verification', { email });
           set({ isLoading: false });
-        } catch (error) {
+          
+        } catch (err) {
+          const error = err as ApiError;
+          const errorMessage = error.response?.data?.message || 'Failed to resend verification email';
           set({
-            error: error instanceof Error ? error.message : 'Password reset failed',
-            isLoading: false,
+            error: errorMessage,
+            isLoading: false
           });
-          throw error;
+          throw new Error(errorMessage);
         }
       },
 
-      updatePassword: async (token, password) => {
+      // ============================================
+      // FORGOT PASSWORD - Real API Call
+      // ============================================
+      forgotPassword: async (email: string) => {
         set({ isLoading: true, error: null });
         
         try {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await api.post('/auth/forgot-password', { email });
           set({ isLoading: false });
-        } catch (error) {
+          
+        } catch (err) {
+          const error = err as ApiError;
+          const errorMessage = error.response?.data?.message || 'Password reset request failed';
           set({
-            error: error instanceof Error ? error.message : 'Password update failed',
+            error: errorMessage,
             isLoading: false,
           });
-          throw error;
+          throw new Error(errorMessage);
+        }
+      },
+
+      // ============================================
+      // RESET PASSWORD - Real API Call
+      // ============================================
+      resetPassword: async (token: string, password: string) => {
+        set({ isLoading: true, error: null });
+        
+        try {
+          await api.post('/auth/reset-password', { token, newPassword: password });
+          set({ isLoading: false });
+          
+        } catch (err) {
+          const error = err as ApiError;
+          const errorMessage = error.response?.data?.message || 'Password reset failed';
+          set({
+            error: errorMessage,
+            isLoading: false,
+          });
+          throw new Error(errorMessage);
         }
       },
 
       clearError: () => set({ error: null }),
     }),
     {
-      name: 'auth-storage', // localStorage key
-      partialize: (state) => ({ user: state.user, token: state.token }), // Only persist these
+      name: 'auth-storage',
+      partialize: (state) => ({ user: state.user, token: state.token }),
     }
   )
 );
 
-// Helper hook to check if user is authenticated
+// Helper hooks
 export const useIsAuthenticated = () => {
   const { user, token } = useAuth();
   return !!user && !!token;
 };
 
-// Helper hook to check user role
 export const useUserRole = () => {
   const { user } = useAuth();
   return user?.role;
 };
 
-// Helper hook to check if user has specific role
 export const useHasRole = (roles: string | string[]) => {
   const { user } = useAuth();
   const role = user?.role;

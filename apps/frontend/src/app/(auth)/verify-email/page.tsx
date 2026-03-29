@@ -17,28 +17,30 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 
-type VerificationStatus = 'idle' | 'verifying' | 'success' | 'error' | 'expired' | 'already_verified';
+type VerificationStatus = 'idle' | 'verifying' | 'success' | 'error' | 'expired';
 
 // Separate component that uses useSearchParams
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { verifyEmail } = useAuth();
+  const { verifyEmail, resendVerification } = useAuth();
   
   const token = searchParams.get('token');
-  const email = searchParams.get('email');
+  const emailParam = searchParams.get('email');
   
-  const [status, setStatus] = useState<VerificationStatus>('idle');
+  const [status, setStatus] = useState<VerificationStatus>(token ? 'verifying' : 'idle');
   const [isResending, setIsResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
-  const [resendEmail, setResendEmail] = useState(email || '');
+  const [resendEmail, setResendEmail] = useState(emailParam || '');
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   // Auto-verify when page loads with token
   useEffect(() => {
-    if (token && status === 'idle') {
+    if (token && status === 'verifying') {
       handleVerifyToken();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   // Handle countdown for resend
@@ -52,11 +54,9 @@ function VerifyEmailContent() {
   const handleVerifyToken = async () => {
     if (!token) return;
     
-    setStatus('verifying');
     setErrorMessage('');
     
     try {
-      // Call your verify email API
       await verifyEmail(token);
       setStatus('success');
       
@@ -65,38 +65,38 @@ function VerifyEmailContent() {
         router.push('/login?verified=true');
       }, 3000);
       
-    } catch (error: any) {
-      setStatus('error');
-      setErrorMessage(error.message || 'Verification failed. The link may be invalid or expired.');
+    } catch (error: unknown) {
+      const err = error as Error;
+      const message = err.message || 'Verification failed. The link may be invalid or expired.';
+      setErrorMessage(message);
       
       // Check if it's an expired token error
-      if (error.message?.toLowerCase().includes('expired')) {
+      if (message.toLowerCase().includes('expired')) {
         setStatus('expired');
+      } else {
+        setStatus('error');
       }
     }
   };
 
   const handleResend = async () => {
+    if (!resendEmail) {
+      setErrorMessage('Please enter your email address');
+      return;
+    }
+    
     setIsResending(true);
     setErrorMessage('');
+    setResendSuccess(false);
     
     try {
-      // Call your resend verification API
-      const response = await fetch('/api/auth/resend-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resendEmail }),
-      });
-      
-      if (response.ok) {
-        setCountdown(60); // 60 second cooldown
-        setStatus('idle');
-      } else {
-        const data = await response.json();
-        setErrorMessage(data.message || 'Failed to resend verification email');
-      }
-    } catch (error) {
-      setErrorMessage('Network error. Please try again.');
+      await resendVerification(resendEmail);
+      setResendSuccess(true);
+      setCountdown(60); // 60 second cooldown
+      setStatus('idle');
+    } catch (error: unknown) {
+      const err = error as Error;
+      setErrorMessage(err.message || 'Failed to resend verification email');
     } finally {
       setIsResending(false);
     }
@@ -151,6 +151,13 @@ function VerifyEmailContent() {
           </div>
         </div>
 
+        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-emerald-500 rounded-full animate-progress-fast" 
+            style={{ width: '100%' }}
+          />
+        </div>
+
         <Link
           href="/login"
           className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
@@ -186,10 +193,26 @@ function VerifyEmailContent() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700">
+              Email Address
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <input
+                type="email"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+              />
+            </div>
+          </div>
+
           <button
             onClick={handleResend}
-            disabled={isResending || countdown > 0}
+            disabled={isResending || countdown > 0 || !resendEmail}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700 disabled:opacity-50"
           >
             {isResending ? (
@@ -199,6 +222,13 @@ function VerifyEmailContent() {
             )}
             {countdown > 0 ? `Resend in ${countdown}s` : 'Request new verification link'}
           </button>
+
+          {resendSuccess && (
+            <div className="flex items-center gap-2 text-emerald-600 text-sm justify-center">
+              <CheckCircle2 className="h-4 w-4" />
+              Verification email sent! Check your inbox.
+            </div>
+          )}
 
           <Link
             href="/login"
@@ -233,7 +263,6 @@ function VerifyEmailContent() {
         </div>
 
         <div className="space-y-4">
-          {/* Email input for resend */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">
               Email Address
@@ -262,6 +291,13 @@ function VerifyEmailContent() {
             )}
             {countdown > 0 ? `Resend in ${countdown}s` : 'Send new verification link'}
           </button>
+
+          {resendSuccess && (
+            <div className="flex items-center gap-2 text-emerald-600 text-sm justify-center">
+              <CheckCircle2 className="h-4 w-4" />
+              Verification email sent! Check your inbox.
+            </div>
+          )}
 
           <Link
             href="/login"
@@ -314,7 +350,7 @@ function VerifyEmailContent() {
       </div>
 
       {/* Email Input for Resend (if email not in URL) */}
-      {!email && (
+      {!emailParam && (
         <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-700">
             Didn&apos;t receive the email?
@@ -346,6 +382,13 @@ function VerifyEmailContent() {
           )}
           {countdown > 0 ? `Resend in ${countdown}s` : 'Resend verification email'}
         </button>
+
+        {resendSuccess && (
+          <div className="flex items-center gap-2 text-emerald-600 text-sm justify-center">
+            <CheckCircle2 className="h-4 w-4" />
+            Verification email sent! Check your inbox.
+          </div>
+        )}
 
         <Link
           href="/login"
