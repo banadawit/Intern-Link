@@ -110,18 +110,20 @@ export const useAuth = create<AuthState>()(
             token,
             isLoading: false,
           });
-          
-          if (rememberMe) {
-            localStorage.setItem('token', token);
+
+          // Always store token so api/client.ts interceptor can use it
+          localStorage.setItem('token', token);
+
+          // If not rememberMe, clear on tab close
+          if (!rememberMe) {
+            sessionStorage.setItem('token', token);
           }
           
         } catch (err) {
           const error = err as ApiError;
+          // Pass through the full error so login page can check requiresVerification
           const errorMessage = error.response?.data?.message || 'Login failed';
-          set({
-            error: errorMessage,
-            isLoading: false,
-          });
+          set({ error: errorMessage, isLoading: false });
           throw err;
         }
       },
