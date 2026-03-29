@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { generateVerificationToken, getVerificationTokenExpiry } from '../utils/token.utils';
-import { sendVerificationEmail } from '../services/email.service';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service';
 
 // ============================================
 // REGISTER - with email verification
@@ -396,12 +396,21 @@ export const forgotPassword = async (req: Request, res: Response) => {
         });
 
         // TODO: Send email with reset link
-        // await sendPasswordResetEmail(email, resetToken);
+        let emailError = null;
+        try {
+            await sendPasswordResetEmail(email, resetToken);
+        } catch (err: any) {
+            emailError = err?.message;
+        }
+
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`\n🔑 RESET PASSWORD TOKEN for ${email}:`);
+            console.log(`   http://localhost:3000/reset-password/${resetToken}\n`);
+        }
 
         res.json({ 
             success: true,
             message: "Password reset email sent",
-            // Remove token in production, keep for testing
             token: process.env.NODE_ENV === 'development' ? resetToken : undefined
         });
         
