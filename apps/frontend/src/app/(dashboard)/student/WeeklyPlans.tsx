@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Plus, 
   FileText, 
@@ -20,6 +21,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { STUDENT_WEEKLY_PLANS_EVENT } from '@/lib/student/planNotificationEvents';
 
 const WeeklyPlans = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [plans, setPlans] = useState<WeeklyPlan[]>(MOCK_WEEKLY_PLANS);
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<WeeklyPlan | null>(null);
@@ -42,6 +45,25 @@ const WeeklyPlans = () => {
       new CustomEvent(STUDENT_WEEKLY_PLANS_EVENT, { detail: { plans } })
     );
   }, [plans]);
+
+  /** Open the matching plan from /student/plans?plan=<id> (e.g. notification link). */
+  useEffect(() => {
+    const planId = searchParams.get('plan');
+    if (!planId) return;
+    const found = plans.find((p) => p.id === planId);
+    if (!found) {
+      router.replace('/student/plans', { scroll: false });
+      return;
+    }
+    setSelectedPlan(found);
+    queueMicrotask(() => {
+      document.getElementById(`weekly-plan-${planId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
+    router.replace('/student/plans', { scroll: false });
+  }, [searchParams, plans, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +124,8 @@ const WeeklyPlans = () => {
         <div className="lg:col-span-2 space-y-4">
           {plans.slice().reverse().map((plan) => (
             <div 
-              key={plan.id} 
+              key={plan.id}
+              id={`weekly-plan-${plan.id}`}
               onClick={() => setSelectedPlan(plan)}
               className={cn(
                 "card p-6 cursor-pointer transition-all hover:border-primary-base/50",
