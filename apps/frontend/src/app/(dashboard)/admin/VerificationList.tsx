@@ -1,9 +1,13 @@
+"use client";
+
 import React, { useState } from "react";
 import { Search, Filter, Eye, Calendar, Building2, GraduationCap } from "lucide-react";
 import { format } from "date-fns";
 import { VerificationProposal } from "@/lib/superadmin/types";
+import { getPendingVerificationSla } from "@/lib/superadmin/verificationSla";
 import { cn } from "@/lib/utils";
 import AdminPageHero from "./AdminPageHero";
+import { Timer } from "lucide-react";
 
 interface Props {
   title: string;
@@ -29,7 +33,7 @@ const VerificationList = ({ title, proposals, onReview }: Props) => {
         description="Manage and review institutional verification requests."
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <div className="card overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -55,13 +59,16 @@ const VerificationList = ({ title, proposals, onReview }: Props) => {
                 <th className="px-6 py-4 font-semibold">Organization</th>
                 <th className="px-6 py-4 font-semibold">Type</th>
                 <th className="px-6 py-4 font-semibold">Submitted</th>
+                <th className="px-6 py-4 font-semibold">24h response</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {filteredProposals.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50 transition-colors group">
+              {filteredProposals.map((p) => {
+                const sla = p.status === "Pending" ? getPendingVerificationSla(p.submittedAt) : null;
+                return (
+                <tr key={p.id} className={cn("hover:bg-slate-50 transition-colors group", sla?.isOverdue && "bg-red-50/40")}>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className={cn("p-2 rounded-lg", p.organizationType === "University" ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600")}>
@@ -74,8 +81,30 @@ const VerificationList = ({ title, proposals, onReview }: Props) => {
                   <td className="px-6 py-4 text-sm text-slate-500">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
-                      {format(new Date(p.submittedAt), "MMM d, yyyy")}
+                      {format(new Date(p.submittedAt), "MMM d, yyyy HH:mm")}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    {sla ? (
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={cn(
+                            "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
+                            sla.isOverdue
+                              ? "bg-red-100 text-red-800 ring-1 ring-red-200"
+                              : "bg-amber-50 text-amber-900 ring-1 ring-amber-200"
+                          )}
+                        >
+                          <Timer className="h-3 w-3 shrink-0" aria-hidden />
+                          {sla.label}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          Due {format(sla.deadline, "MMM d, HH:mm")}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span
@@ -83,7 +112,8 @@ const VerificationList = ({ title, proposals, onReview }: Props) => {
                         "px-2.5 py-1 rounded-full text-xs font-medium",
                         p.status === "Pending" && "bg-yellow-50 text-yellow-500 border border-yellow-100",
                         p.status === "Approved" && "bg-green-50 text-green-600 border border-green-100",
-                        p.status === "Rejected" && "bg-red-50 text-red-500 border border-red-100"
+                        p.status === "Rejected" && "bg-red-50 text-red-500 border border-red-100",
+                        p.status === "Suspended" && "bg-slate-100 text-slate-700 border border-slate-200"
                       )}
                     >
                       {p.status}
@@ -95,10 +125,11 @@ const VerificationList = ({ title, proposals, onReview }: Props) => {
                     </button>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
               {filteredProposals.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                     No proposals found matching your criteria.
                   </td>
                 </tr>

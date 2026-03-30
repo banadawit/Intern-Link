@@ -1,5 +1,5 @@
 export type OrgType = 'University' | 'Company';
-export type VerificationStatus = 'Pending' | 'Approved' | 'Rejected';
+export type VerificationStatus = 'Pending' | 'Approved' | 'Rejected' | 'Suspended';
 
 export interface VerificationProposal {
   id: string;
@@ -15,7 +15,7 @@ export interface VerificationProposal {
 
 export interface AuditLogEntry {
   id: string;
-  action: 'Approve' | 'Reject';
+  action: 'Approve' | 'Reject' | 'Suspend' | 'Reactivate';
   targetId: string;
   targetName: string;
   adminId: string;

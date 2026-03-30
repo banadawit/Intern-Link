@@ -1,6 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
-import { CheckCircle, XCircle, User, Clock } from "lucide-react";
+import { CheckCircle, XCircle, User, Clock, Ban, RotateCcw } from "lucide-react";
 import { AuditLogEntry } from "@/lib/superadmin/types";
 import { cn } from "@/lib/utils";
 import AdminPageHero from "./AdminPageHero";
@@ -18,7 +18,7 @@ const AuditLog = ({ logs }: Props) => {
         description="Complete history of verification decisions and system actions."
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -34,8 +34,19 @@ const AuditLog = ({ logs }: Props) => {
               {logs.map((log) => (
                 <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
-                    <div className={cn("flex items-center gap-2 text-sm font-bold", log.action === "Approve" ? "text-green-600" : "text-red-500")}>
-                      {log.action === "Approve" ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 text-sm font-bold",
+                        log.action === "Approve" && "text-green-600",
+                        log.action === "Reject" && "text-red-500",
+                        log.action === "Suspend" && "text-slate-700",
+                        log.action === "Reactivate" && "text-teal-700"
+                      )}
+                    >
+                      {log.action === "Approve" && <CheckCircle className="w-4 h-4" />}
+                      {log.action === "Reject" && <XCircle className="w-4 h-4" />}
+                      {log.action === "Suspend" && <Ban className="w-4 h-4" />}
+                      {log.action === "Reactivate" && <RotateCcw className="w-4 h-4" />}
                       {log.action}
                     </div>
                   </td>

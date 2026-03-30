@@ -93,7 +93,7 @@ const config: Config = {
           900: "#0F172A", // Headings, dark surfaces
         },
 
-        // Dashboard semantic tokens (Student / SuperAdmin UI)
+        // Dashboard semantic tokens (Student / Admin UI)
         // e.g. bg-bg-main, bg-bg-secondary, text-text-heading, border-border-default
         bg: {
           main: "#FFFFFF",

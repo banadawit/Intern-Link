@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
+  Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -19,15 +20,18 @@ type ViewKey =
   | "pending"
   | "approved"
   | "rejected"
+  | "suspended"
   | "audit-log"
   | "settings";
 
 interface Props {
   activeView: ViewKey;
   onNavigate: (view: ViewKey) => void;
+  /** Pending organization verification requests (badge on nav). */
+  pendingCount?: number;
 }
 
-const Sidebar = ({ activeView, onNavigate }: Props) => {
+const Sidebar = ({ activeView, onNavigate, pendingCount = 0 }: Props) => {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
@@ -47,6 +51,7 @@ const Sidebar = ({ activeView, onNavigate }: Props) => {
     { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" },
     { icon: Clock, label: "Pending Approvals", view: "pending" },
     { icon: CheckCircle, label: "Approved History", view: "approved" },
+    { icon: Ban, label: "Suspended", view: "suspended" },
     { icon: XCircle, label: "Rejected History", view: "rejected" },
     { icon: FileText, label: "Audit Log", view: "audit-log" },
     { icon: Settings, label: "System Config", view: "settings" },
@@ -62,7 +67,7 @@ const Sidebar = ({ activeView, onNavigate }: Props) => {
           <ShieldCheck className="h-6 w-6 text-white" />
         </div>
         <div className="min-w-0">
-          <span className="block truncate text-lg font-bold tracking-tight text-slate-900">SuperAdmin</span>
+          <span className="block truncate text-lg font-bold tracking-tight text-slate-900">Admin</span>
           <span className="hidden text-xs text-slate-500 sm:block">Verification & platform</span>
         </div>
       </div>
@@ -84,7 +89,12 @@ const Sidebar = ({ activeView, onNavigate }: Props) => {
             )}
           >
             <item.icon className="h-5 w-5 shrink-0" />
-            <span className="whitespace-nowrap">{item.label}</span>
+            <span className="min-w-0 flex-1 whitespace-nowrap text-left">{item.label}</span>
+            {item.view === "pending" && pendingCount > 0 && (
+              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-800 ring-1 ring-amber-200/80">
+                {pendingCount > 99 ? "99+" : pendingCount}
+              </span>
+            )}
           </button>
         ))}
       </nav>
@@ -96,7 +106,7 @@ const Sidebar = ({ activeView, onNavigate }: Props) => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-slate-900">{user?.fullName ?? "Admin"}</p>
-            <p className="truncate text-xs text-slate-500">Super Admin</p>
+            <p className="truncate text-xs text-slate-500">Admin</p>
           </div>
         </div>
         <button

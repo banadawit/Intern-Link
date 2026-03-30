@@ -16,6 +16,7 @@ type ViewKey =
   | "pending"
   | "approved"
   | "rejected"
+  | "suspended"
   | "audit-log"
   | "settings";
 
@@ -24,6 +25,7 @@ const VALID_VIEWS: ViewKey[] = [
   "pending",
   "approved",
   "rejected",
+  "suspended",
   "audit-log",
   "settings",
 ];
@@ -67,7 +69,7 @@ export default function App() {
       action: "Approve",
       targetId: id,
       targetName: proposal.organizationName,
-      adminId: "SuperAdmin_1",
+      adminId: "Admin_1",
       timestamp: new Date().toISOString(),
       notes: "Organization credentials verified and approved.",
     };
@@ -91,7 +93,7 @@ export default function App() {
       action: "Reject",
       targetId: id,
       targetName: proposal.organizationName,
-      adminId: "SuperAdmin_1",
+      adminId: "Admin_1",
       timestamp: new Date().toISOString(),
       notes: `Rejected: ${reason}`,
     };
@@ -99,8 +101,53 @@ export default function App() {
     setSelectedProposal(null);
   };
 
+  const handleSuspend = (id: string) => {
+    const proposal = proposals.find((p) => p.id === id);
+    if (!proposal) return;
+    setProposals(
+      proposals.map((p) =>
+        p.id === id ? { ...p, status: "Suspended" as const, reviewedAt: new Date().toISOString() } : p
+      )
+    );
+    const newLog: AuditLogEntry = {
+      id: `log_${Date.now()}`,
+      action: "Suspend",
+      targetId: id,
+      targetName: proposal.organizationName,
+      adminId: "Admin_1",
+      timestamp: new Date().toISOString(),
+      notes: "Organization suspended after approval — access blocked for org users.",
+    };
+    setAuditLogs([newLog, ...auditLogs]);
+    setSelectedProposal(null);
+  };
+
+  const handleReactivate = (id: string) => {
+    const proposal = proposals.find((p) => p.id === id);
+    if (!proposal) return;
+    setProposals(
+      proposals.map((p) =>
+        p.id === id ? { ...p, status: "Approved" as const, reviewedAt: new Date().toISOString() } : p
+      )
+    );
+    const newLog: AuditLogEntry = {
+      id: `log_${Date.now()}`,
+      action: "Reactivate",
+      targetId: id,
+      targetName: proposal.organizationName,
+      adminId: "Admin_1",
+      timestamp: new Date().toISOString(),
+      notes: "Organization reactivated — Approved status restored.",
+    };
+    setAuditLogs([newLog, ...auditLogs]);
+    setSelectedProposal(null);
+  };
+
+  const pendingVerificationCount = proposals.filter((p) => p.status === "Pending").length;
+
   const mainContent = useMemo(() => {
-    if (activeView === "dashboard") return <Dashboard />;
+    if (activeView === "dashboard")
+      return <Dashboard pendingVerificationCount={pendingVerificationCount} />;
     if (activeView === "pending")
       return (
         <VerificationList
@@ -133,7 +180,7 @@ export default function App() {
           title="System configuration"
           description="Global settings and platform parameters will be managed here when connected to the backend."
         />
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="card p-8 text-center shadow-sm">
           <p className="text-slate-600">
             Placeholder — no settings actions in the frontend-only build.
           </p>
@@ -144,13 +191,22 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
-      <Sidebar activeView={activeView} onNavigate={handleNavigate} />
+      <Sidebar activeView={activeView} onNavigate={handleNavigate} pendingCount={pendingVerificationCount} />
 
       <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-        <div className="mx-auto w-full max-w-7xl">{mainContent}</div>
+        <div className="mx-auto w-full max-w-7xl">
+          {mainContent}
+        </div>
       </main>
 
-      <VerificationDetail proposal={selectedProposal} onClose={() => setSelectedProposal(null)} onApprove={handleApprove} onReject={handleReject} />
+      <VerificationDetail
+        proposal={selectedProposal}
+        onClose={() => setSelectedProposal(null)}
+        onApprove={handleApprove}
+        onReject={handleReject}
+        onSuspend={handleSuspend}
+        onReactivate={handleReactivate}
+      />
     </div>
   );
 }

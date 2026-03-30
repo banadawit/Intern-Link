@@ -23,7 +23,7 @@ export const MOCK_PROPOSALS: VerificationProposal[] = [
     id: '2',
     organizationName: 'TechCorp Inc.',
     organizationType: 'Company',
-    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(), // 30h ago — overdue vs 24h SLA
     status: 'Pending',
     documents: ['https://example.com/techcorp-license.pdf'],
     description: 'Global technology firm looking to hire interns for software engineering roles.',
@@ -49,6 +49,16 @@ export const MOCK_PROPOSALS: VerificationProposal[] = [
     rejectionReason: 'Incomplete documentation and unverified physical address.',
     reviewedAt: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
   },
+  {
+    id: '5',
+    organizationName: 'Legacy Retail Group',
+    organizationType: 'Company',
+    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(),
+    status: 'Suspended',
+    documents: ['https://example.com/legacy-retail.pdf'],
+    description: 'Previously approved; suspended pending compliance review.',
+    reviewedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+  },
 ];
 
 export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
@@ -70,6 +80,15 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
     notes: 'Failed verification check.',
   },
+  {
+    id: 'a3',
+    action: 'Suspend',
+    targetId: '5',
+    targetName: 'Legacy Retail Group',
+    adminId: 'Admin_1',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+    notes: 'Suspended after approval — compliance review.',
+  },
 ];
 
 export const MOCK_STATS: PlatformStats = {
@@ -89,6 +108,9 @@ export const MOCK_STUDENT: StudentProfile = {
   supervisorName: 'Jane Smith',
   supervisorEmail: 'jane.smith@techcorp.com',
 };
+
+/** Demo: current internship week (1-based). Weeks before this without any plan row are treated as missed deadlines. */
+export const MOCK_INTERNSHIP_CURRENT_WEEK = 4;
 
 export const MOCK_WEEKLY_PLANS: WeeklyPlan[] = [
   {

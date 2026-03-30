@@ -120,7 +120,7 @@ const LoginPage = () => {
   // Handle demo login for different roles (development only)
   const handleDemoLogin = (role: string) => {
     const demoCredentials = {
-      SuperAdmin: { email: 'admin@internlink.com', password: 'Admin123!' },
+      Admin: { email: 'admin@internlink.com', password: 'Admin123!' },
       Coordinator: { email: 'coordinator@haramaya.edu', password: 'Coord123!' },
       Supervisor: { email: 'supervisor@company.com', password: 'Super123!' },
       Student: { email: 'student@haramaya.edu', password: 'Student123!' },
@@ -308,7 +308,7 @@ const LoginPage = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDemoLogin('SuperAdmin')}
+                    onClick={() => handleDemoLogin('Admin')}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     ⚙️ Login as Admin

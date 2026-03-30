@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
@@ -20,6 +20,8 @@ import {
   STUDENT_PLAN_NOTICES_READ_KEY,
 } from "@/lib/student/planNotificationEvents";
 import { cn } from "@/lib/utils";
+import { notifyDesktop } from "@/lib/student/desktopNotifications";
+import StudentDesktopNotifyToggle from "./StudentDesktopNotifyToggle";
 
 type NoticeKind = "submitted" | "status" | "feedback" | "reviewed" | "presentation";
 
@@ -153,6 +155,22 @@ export default function StudentPlanNotifications() {
     return () => window.removeEventListener(STUDENT_WEEKLY_PLANS_EVENT, handler as EventListener);
   }, []);
 
+  const prevNoticeCount = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevNoticeCount.current === null) {
+      prevNoticeCount.current = notices.length;
+      return;
+    }
+    if (notices.length > prevNoticeCount.current) {
+      notifyDesktop(
+        "Internship — plan activity",
+        "Open the bell to see the latest weekly plan updates.",
+        "plan-activity-feed"
+      );
+    }
+    prevNoticeCount.current = notices.length;
+  }, [notices.length]);
+
   /** While the panel is open, treat all listed activity as seen (badge stays cleared for those). */
   useEffect(() => {
     if (!panelOpen) return;
@@ -175,11 +193,12 @@ export default function StudentPlanNotifications() {
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-end gap-4 border-b border-border-default bg-bg-main/95 px-4 py-3 backdrop-blur-sm md:px-8",
+        "flex shrink-0 items-center justify-end gap-3 border-b border-border-default bg-bg-main/95 px-4 py-3 backdrop-blur-sm md:gap-4 md:px-8",
         /* Sit above <main> so the dropdown/backdrop are not covered by page content */
         panelOpen && "relative z-[100]"
       )}
     >
+      <StudentDesktopNotifyToggle />
       <div className="relative">
         <button
           type="button"

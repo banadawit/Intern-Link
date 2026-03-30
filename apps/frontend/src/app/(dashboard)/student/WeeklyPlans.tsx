@@ -10,6 +10,8 @@ import {
   XCircle, 
   Clock, 
   ChevronRight,
+  AlertTriangle,
+  Info,
   History,
   Pencil,
   ExternalLink,
@@ -19,11 +21,25 @@ import {
   ClipboardList,
   Send,
 } from 'lucide-react';
-import { MOCK_STUDENT, MOCK_WEEKLY_PLANS } from '@/lib/superadmin/mockData';
+import {
+  MOCK_INTERNSHIP_CURRENT_WEEK,
+  MOCK_STUDENT,
+  MOCK_WEEKLY_PLANS,
+} from '@/lib/superadmin/mockData';
 import { WeeklyPlan } from '@/lib/superadmin/types';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { STUDENT_WEEKLY_PLANS_EVENT } from '@/lib/student/planNotificationEvents';
+import {
+  getMissedInternshipWeeks,
+  hasPlanForInternshipWeek,
+  WEEKLY_DEADLINE_POLICY,
+  WEEKLY_SUBMISSION_DEADLINE_LABEL,
+} from '@/lib/student/weeklyDeadline';
+import {
+  maybeNotifyCurrentWeekDue,
+  maybeNotifyMissedDeadlines,
+} from '@/lib/student/desktopNotifications';
 import StudentPageHero from './StudentPageHero';
 
 const WeeklyPlans = () => {
@@ -74,6 +90,16 @@ const WeeklyPlans = () => {
     });
     router.replace('/student/plans', { scroll: false });
   }, [searchParams, plans, router]);
+
+  const missedWeeks = getMissedInternshipWeeks(plans, MOCK_INTERNSHIP_CURRENT_WEEK);
+  const hasCurrentWeekPlan = hasPlanForInternshipWeek(plans, MOCK_INTERNSHIP_CURRENT_WEEK);
+
+  useEffect(() => {
+    const missed = getMissedInternshipWeeks(plans, MOCK_INTERNSHIP_CURRENT_WEEK);
+    const hasCurrent = hasPlanForInternshipWeek(plans, MOCK_INTERNSHIP_CURRENT_WEEK);
+    maybeNotifyMissedDeadlines(missed);
+    maybeNotifyCurrentWeekDue(MOCK_INTERNSHIP_CURRENT_WEEK, hasCurrent);
+  }, [plans]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,6 +189,64 @@ const WeeklyPlans = () => {
           </button>
         }
       />
+
+      {missedWeeks.length > 0 && (
+        <div
+          role="alert"
+          className="flex gap-3 rounded-2xl border border-red-200 bg-red-50/90 p-4 text-red-950 shadow-sm"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
+          <div className="min-w-0 space-y-1">
+            <p className="font-semibold text-red-900">Missed weekly deadline</p>
+            <p className="text-sm leading-relaxed text-red-900/90">
+              You have no submission on file for{' '}
+              {missedWeeks.length === 1
+                ? `week ${missedWeeks[0]}`
+                : `weeks ${missedWeeks.join(', ')}`}
+              . Submit your plan as soon as possible — your supervisor may be notified for overdue work.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!hasCurrentWeekPlan && (
+        <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-amber-950 shadow-sm">
+          <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" aria-hidden />
+          <div className="min-w-0 space-y-1">
+            <p className="font-semibold text-amber-900">Week {MOCK_INTERNSHIP_CURRENT_WEEK} plan due</p>
+            <p className="text-sm leading-relaxed text-amber-900/90">
+              Submit your weekly plan before <strong>{WEEKLY_SUBMISSION_DEADLINE_LABEL}</strong>. Enable
+              desktop alerts in the header to get reminders.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <details className="group rounded-2xl border border-border-default bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-text-heading hover:bg-bg-secondary/50 [&::-webkit-details-marker]:hidden">
+          <Info className="h-4 w-4 shrink-0 text-primary-600" aria-hidden />
+          What happens if you miss a weekly submission deadline?
+          <span className="ml-auto text-xs font-normal text-text-muted group-open:hidden">Show</span>
+          <span className="ml-auto hidden text-xs font-normal text-text-muted group-open:inline">Hide</span>
+        </summary>
+        <div className="space-y-3 border-t border-border-default px-5 py-4 text-sm leading-relaxed text-text-body">
+          <p>
+            Standard cutoff: <strong>{WEEKLY_DEADLINE_POLICY.deadlineLabel}</strong>. The platform
+            compares your submissions to the current internship week (
+            <strong>week {MOCK_INTERNSHIP_CURRENT_WEEK}</strong> in this demo).
+          </p>
+          <ul className="list-inside list-disc space-y-2 text-text-muted">
+            {WEEKLY_DEADLINE_POLICY.points.map((line, idx) => (
+              <li key={idx}>{line}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-text-muted">
+            Turn on <strong>Alerts</strong> in the top bar for browser notifications when deadlines are
+            missed or your current week is still unsubmitted (once you allow notifications in the
+            browser).
+          </p>
+        </div>
+      </details>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Plans List */}
