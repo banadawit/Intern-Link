@@ -11,6 +11,7 @@ import {
   Clock, 
   ChevronRight,
   History,
+  Pencil,
   ExternalLink,
   X,
   Sparkles,
@@ -18,7 +19,7 @@ import {
   ClipboardList,
   Send,
 } from 'lucide-react';
-import { MOCK_WEEKLY_PLANS } from '@/lib/superadmin/mockData';
+import { MOCK_STUDENT, MOCK_WEEKLY_PLANS } from '@/lib/superadmin/mockData';
 import { WeeklyPlan } from '@/lib/superadmin/types';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,8 @@ const WeeklyPlans = () => {
   const [selectedPlan, setSelectedPlan] = useState<WeeklyPlan | null>(null);
   /** When set, the modal is revising this rejected plan (new version on submit). */
   const [reviseFromPlan, setReviseFromPlan] = useState<WeeklyPlan | null>(null);
+  /** When set, the modal edits this pending plan in place (before supervisor approval). */
+  const [editPendingPlan, setEditPendingPlan] = useState<WeeklyPlan | null>(null);
 
   const [formData, setFormData] = useState({
     weekNumber: plans.length + 1,
@@ -44,6 +47,7 @@ const WeeklyPlans = () => {
   const closeSubmitModal = () => {
     setShowSubmitForm(false);
     setReviseFromPlan(null);
+    setEditPendingPlan(null);
   };
 
   useEffect(() => {
@@ -73,6 +77,36 @@ const WeeklyPlans = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const file = formData.presentation;
+    const presentationFields =
+      file != null
+        ? {
+            presentationUrl: URL.createObjectURL(file),
+            presentationFileName: file.name,
+          }
+        : {};
+
+    if (editPendingPlan) {
+      const updatedPlan: WeeklyPlan = {
+        ...editPendingPlan,
+        tasks: formData.tasks,
+        submittedAt: new Date().toISOString(),
+        ...(file != null ? presentationFields : {}),
+      };
+      setPlans((prev) => prev.map((p) => (p.id === editPendingPlan.id ? updatedPlan : p)));
+      setShowSubmitForm(false);
+      setEditPendingPlan(null);
+      setSelectedPlan((s) => (s?.id === editPendingPlan.id ? updatedPlan : s));
+      const nextWeek =
+        plans.length > 0 ? Math.max(...plans.map((p) => p.weekNumber)) + 1 : 1;
+      setFormData({
+        weekNumber: nextWeek,
+        tasks: '',
+        presentation: null,
+      });
+      return;
+    }
+
     if (reviseFromPlan) {
       const newPlan: WeeklyPlan = {
         id: `w${formData.weekNumber}-v${reviseFromPlan.version + 1}-${Date.now()}`,
@@ -81,6 +115,7 @@ const WeeklyPlans = () => {
         status: 'Pending',
         submittedAt: new Date().toISOString(),
         version: reviseFromPlan.version + 1,
+        ...presentationFields,
       };
       setPlans((prev) => [...prev, newPlan]);
       setShowSubmitForm(false);
@@ -100,6 +135,7 @@ const WeeklyPlans = () => {
       status: 'Pending',
       submittedAt: new Date().toISOString(),
       version: 1,
+      ...presentationFields,
     };
     setPlans([...plans, newPlan]);
     setShowSubmitForm(false);
@@ -117,6 +153,7 @@ const WeeklyPlans = () => {
             type="button"
             onClick={() => {
               setReviseFromPlan(null);
+              setEditPendingPlan(null);
               setShowSubmitForm(true);
             }}
             className="btn-primary flex w-full items-center justify-center gap-2 sm:w-auto"
@@ -152,16 +189,46 @@ const WeeklyPlans = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">Week {plan.weekNumber}</h3>
-                    <p className="text-xs text-text-muted">Version {plan.version} • Submitted {new Date(plan.submittedAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-text-muted">
+                      Version {plan.version} • Submitted {new Date(plan.submittedAt).toLocaleDateString()}
+                    </p>
+                    {MOCK_STUDENT.supervisorName && (
+                      <p className="mt-1 text-xs text-text-muted">
+                        Supervisor:{' '}
+                        <span className="font-medium text-text-body">{MOCK_STUDENT.supervisorName}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
-                <span className={cn(
-                  "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                  plan.status === 'Approved' ? "bg-green-100 text-green-700" : 
-                  plan.status === 'Rejected' ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
-                )}>
-                  {plan.status}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+                  {plan.status === 'Pending' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReviseFromPlan(null);
+                        setEditPendingPlan(plan);
+                        setFormData({
+                          weekNumber: plan.weekNumber,
+                          tasks: plan.tasks,
+                          presentation: null,
+                        });
+                        setShowSubmitForm(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-light/50 px-3 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-light"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </button>
+                  )}
+                  <span className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
+                    plan.status === 'Approved' ? "bg-green-100 text-green-700" : 
+                    plan.status === 'Rejected' ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+                  )}>
+                    {plan.status}
+                  </span>
+                </div>
               </div>
               <p className="text-sm text-text-body line-clamp-2">{plan.tasks}</p>
             </div>
@@ -185,6 +252,16 @@ const WeeklyPlans = () => {
                 </h3>
                 
                 <div className="space-y-6">
+                  {MOCK_STUDENT.supervisorName && (
+                    <div className="rounded-xl border border-border-default bg-bg-secondary/60 px-4 py-3">
+                      <p className="text-xs font-bold uppercase tracking-tight text-text-muted">Assigned supervisor</p>
+                      <p className="text-sm font-semibold text-text-heading">{MOCK_STUDENT.supervisorName}</p>
+                      {MOCK_STUDENT.supervisorEmail && (
+                        <p className="mt-0.5 text-xs text-text-muted">{MOCK_STUDENT.supervisorEmail}</p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <p className="text-xs text-text-muted uppercase font-bold tracking-tight mb-2">Tasks Planned</p>
                     <p className="text-sm leading-relaxed text-text-body bg-bg-secondary p-4 rounded-xl border border-border-default">
@@ -201,11 +278,13 @@ const WeeklyPlans = () => {
                         rel="noopener noreferrer"
                         className="flex items-center justify-between p-3 rounded-xl border border-border-default hover:bg-bg-tertiary transition-all group"
                       >
-                        <div className="flex items-center gap-3">
-                          <FileText className="w-5 h-5 text-text-muted group-hover:text-primary-base" />
-                          <span className="text-sm font-medium">Weekly_Presentation.pdf</span>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileText className="w-5 h-5 shrink-0 text-text-muted group-hover:text-primary-base" />
+                          <span className="text-sm font-medium truncate">
+                            {selectedPlan.presentationFileName ?? 'Weekly_Presentation.pdf'}
+                          </span>
                         </div>
-                        <ExternalLink className="w-4 h-4 text-text-muted group-hover:text-primary-base" />
+                        <ExternalLink className="w-4 h-4 shrink-0 text-text-muted group-hover:text-primary-base" />
                       </a>
                     </div>
                   )}
@@ -225,11 +304,33 @@ const WeeklyPlans = () => {
                     </div>
                   )}
 
+                  {selectedPlan.status === 'Pending' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReviseFromPlan(null);
+                        setEditPendingPlan(selectedPlan);
+                        setFormData({
+                          weekNumber: selectedPlan.weekNumber,
+                          tasks: selectedPlan.tasks,
+                          presentation: null,
+                        });
+                        setShowSubmitForm(true);
+                      }}
+                      className="w-full btn-primary flex items-center justify-center gap-2"
+                    >
+                      <Pencil className="w-5 h-5" />
+                      Edit submission
+                    </button>
+                  )}
+
                   {selectedPlan.status === 'Rejected' && (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        setEditPendingPlan(null);
                         setReviseFromPlan(selectedPlan);
                         setFormData({
                           weekNumber: selectedPlan.weekNumber,
@@ -299,18 +400,24 @@ const WeeklyPlans = () => {
                   <div className="space-y-3">
                     <p className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary-700 shadow-sm ring-1 ring-primary-100 sm:text-xs">
                       <Sparkles className="h-3.5 w-3.5 shrink-0" />
-                      {reviseFromPlan ? 'New version' : 'Weekly submission'}
+                      {reviseFromPlan ? 'New version' : editPendingPlan ? 'Pending review' : 'Weekly submission'}
                     </p>
                     <h2
                       id="weekly-plan-modal-title"
                       className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl"
                     >
-                      {reviseFromPlan ? 'Revise & resubmit plan' : 'Submit weekly plan'}
+                      {reviseFromPlan
+                        ? 'Revise & resubmit plan'
+                        : editPendingPlan
+                          ? 'Edit weekly plan'
+                          : 'Submit weekly plan'}
                     </h2>
                     <p className="max-w-md text-sm leading-relaxed text-slate-600">
                       {reviseFromPlan
                         ? `You’re submitting v${reviseFromPlan.version + 1} for Week ${reviseFromPlan.weekNumber}. Update your tasks, then send for review.`
-                        : 'Outline what you’ll focus on this week. Your supervisor will review and may leave feedback.'}
+                        : editPendingPlan
+                          ? 'Update your tasks or presentation while your plan is still awaiting supervisor approval.'
+                          : 'Outline what you’ll focus on this week. Your supervisor will review and may leave feedback.'}
                     </p>
                   </div>
                   <button
@@ -338,10 +445,10 @@ const WeeklyPlans = () => {
                       min={1}
                       className={cn(
                         'input-field w-full rounded-xl border-border-default py-3 pl-14 text-base font-semibold text-slate-900 transition-shadow focus:border-primary-300 focus:ring-2 focus:ring-primary-200',
-                        reviseFromPlan && 'cursor-not-allowed bg-slate-50 text-slate-600'
+                        (reviseFromPlan || editPendingPlan) && 'cursor-not-allowed bg-slate-50 text-slate-600'
                       )}
                       value={formData.weekNumber}
-                      readOnly={!!reviseFromPlan}
+                      readOnly={!!reviseFromPlan || !!editPendingPlan}
                       onChange={(e) =>
                         setFormData({ ...formData, weekNumber: parseInt(e.target.value, 10) })
                       }
@@ -394,6 +501,14 @@ const WeeklyPlans = () => {
                     </div>
                     <p className="text-sm font-semibold text-slate-800">Drop a file or click to browse</p>
                     <p className="mt-1 text-xs text-slate-500">PDF or PowerPoint — up to ~10MB</p>
+                    {editPendingPlan && editPendingPlan.presentationFileName && !formData.presentation && (
+                      <p className="mt-2 text-xs text-slate-500">
+                        Current file:{' '}
+                        <span className="font-medium text-slate-700">{editPendingPlan.presentationFileName}</span>
+                        {' — '}
+                        choose a new file to replace it.
+                      </p>
+                    )}
                     {formData.presentation && (
                       <p className="mt-3 inline-flex max-w-full items-center gap-2 truncate rounded-lg bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-800 ring-1 ring-primary-100">
                         <FileText className="h-3.5 w-3.5 shrink-0" />
@@ -416,7 +531,11 @@ const WeeklyPlans = () => {
                     className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm shadow-lg shadow-primary-900/15 transition-transform hover:shadow-xl active:scale-[0.99] sm:flex-initial sm:min-w-[200px]"
                   >
                     <Send className="h-4 w-4" />
-                    {reviseFromPlan ? 'Submit revised plan' : 'Submit plan'}
+                    {editPendingPlan
+                      ? 'Save changes'
+                      : reviseFromPlan
+                        ? 'Submit revised plan'
+                        : 'Submit plan'}
                   </button>
                 </div>
               </form>

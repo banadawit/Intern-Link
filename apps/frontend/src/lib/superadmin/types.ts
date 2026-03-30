@@ -39,6 +39,8 @@ export interface WeeklyPlan {
   weekNumber: number;
   tasks: string;
   presentationUrl?: string;
+  /** Original filename when uploaded in the student UI (for display with blob URLs). */
+  presentationFileName?: string;
   status: PlanStatus;
   feedback?: string;
   submittedAt: string;

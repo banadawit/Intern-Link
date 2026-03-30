@@ -3,6 +3,7 @@ import { Search, Filter, Eye, Calendar, Building2, GraduationCap } from "lucide-
 import { format } from "date-fns";
 import { VerificationProposal } from "@/lib/superadmin/types";
 import { cn } from "@/lib/utils";
+import AdminPageHero from "./AdminPageHero";
 
 interface Props {
   title: string;
@@ -22,12 +23,11 @@ const VerificationList = ({ title, proposals, onReview }: Props) => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-1">{title}</h1>
-          <p className="text-slate-500">Manage and review institutional verification requests.</p>
-        </div>
-      </header>
+      <AdminPageHero
+        badge="Verification"
+        title={title}
+        description="Manage and review institutional verification requests."
+      />
 
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4">

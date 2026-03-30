@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   MessageSquare, 
   Send, 
@@ -23,6 +23,15 @@ import StudentPageHero from './StudentPageHero';
 const CommonPage = () => {
   const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
   const [newPostContent, setNewPostContent] = useState('');
+
+  /** Newest first — stable chronological feed for all posts. */
+  const postsChronological = useMemo(
+    () =>
+      [...posts].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      ),
+    [posts]
+  );
 
   const handlePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +97,7 @@ const CommonPage = () => {
 
       {/* Posts Feed */}
       <div className="space-y-6">
-        {posts.map((post) => (
+        {postsChronological.map((post) => (
           <div key={post.id} className="card p-6 space-y-4 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">

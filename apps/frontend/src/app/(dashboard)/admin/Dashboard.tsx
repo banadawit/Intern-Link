@@ -2,6 +2,7 @@ import React from "react";
 import { Users, Building2, GraduationCap, Briefcase, TrendingUp, AlertCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { MOCK_STATS } from "@/lib/superadmin/mockData";
+import AdminPageHero from "./AdminPageHero";
 
 const StatCard = ({ icon: Icon, label, value, subValue, colorClass }: any) => (
   <div className="rounded-2xl border border-slate-200 bg-white p-6 flex items-start justify-between">
@@ -24,10 +25,11 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <header>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">System Overview</h1>
-        <p className="text-slate-500">Real-time statistics and platform health monitoring.</p>
-      </header>
+      <AdminPageHero
+        badge="Platform"
+        title="System overview"
+        description="Real-time statistics and platform health monitoring for universities, companies, and internships."
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard icon={GraduationCap} label="Universities" value={MOCK_STATS.totalUniversities.approved} subValue={`${MOCK_STATS.totalUniversities.pending} pending verification`} colorClass="bg-teal-50 text-teal-600" />

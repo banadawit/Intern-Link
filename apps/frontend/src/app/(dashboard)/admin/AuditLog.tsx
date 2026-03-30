@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { CheckCircle, XCircle, User, Clock } from "lucide-react";
 import { AuditLogEntry } from "@/lib/superadmin/types";
 import { cn } from "@/lib/utils";
+import AdminPageHero from "./AdminPageHero";
 
 interface Props {
   logs: AuditLogEntry[];
@@ -11,10 +12,11 @@ interface Props {
 const AuditLog = ({ logs }: Props) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <header>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Audit Log</h1>
-        <p className="text-slate-500">Complete history of verification decisions and system actions.</p>
-      </header>
+      <AdminPageHero
+        badge="Compliance"
+        title="Audit log"
+        description="Complete history of verification decisions and system actions."
+      />
 
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
         <div className="overflow-x-auto">

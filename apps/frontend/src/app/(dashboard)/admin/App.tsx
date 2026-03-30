@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Dashboard from "./Dashboard";
 import VerificationList from "./VerificationList";
 import VerificationDetail from "./VerificationDetail";
 import AuditLog from "./AuditLog";
+import AdminPageHero from "./AdminPageHero";
 import { MOCK_PROPOSALS, MOCK_AUDIT_LOG } from "@/lib/superadmin/mockData";
 import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
 
@@ -18,15 +19,34 @@ type ViewKey =
   | "audit-log"
   | "settings";
 
+const VALID_VIEWS: ViewKey[] = [
+  "dashboard",
+  "pending",
+  "approved",
+  "rejected",
+  "audit-log",
+  "settings",
+];
+
+function parseViewParam(v: string | null): ViewKey {
+  if (v && VALID_VIEWS.includes(v as ViewKey)) return v as ViewKey;
+  return "dashboard";
+}
+
 export default function App() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialView = (searchParams.get("view") as ViewKey) || "dashboard";
+  const initialView = parseViewParam(searchParams.get("view"));
 
   const [proposals, setProposals] = useState<VerificationProposal[]>(MOCK_PROPOSALS);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(MOCK_AUDIT_LOG);
   const [selectedProposal, setSelectedProposal] = useState<VerificationProposal | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>(initialView);
+
+  const viewFromUrl = parseViewParam(searchParams.get("view"));
+  useEffect(() => {
+    setActiveView(viewFromUrl);
+  }, [viewFromUrl]);
 
   const handleNavigate = (view: ViewKey) => {
     setActiveView(view);
@@ -107,19 +127,27 @@ export default function App() {
       );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">System Configuration</h1>
-        <p className="text-slate-500">Global settings and platform parameters management.</p>
+      <div className="space-y-6">
+        <AdminPageHero
+          badge="Settings"
+          title="System configuration"
+          description="Global settings and platform parameters will be managed here when connected to the backend."
+        />
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-slate-600">
+            Placeholder — no settings actions in the frontend-only build.
+          </p>
+        </div>
       </div>
     );
   }, [activeView, proposals, auditLogs]);
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-600">
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
       <Sidebar activeView={activeView} onNavigate={handleNavigate} />
 
-      <main className="flex-1 p-8">
-        <div className="max-w-7xl mx-auto">{mainContent}</div>
+      <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <div className="mx-auto w-full max-w-7xl">{mainContent}</div>
       </main>
 
       <VerificationDetail proposal={selectedProposal} onClose={() => setSelectedProposal(null)} onApprove={handleApprove} onReject={handleReject} />

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, FileText, ExternalLink, CheckCircle, XCircle, Info } from "lucide-react";
+import { X, FileText, ExternalLink, CheckCircle, XCircle, Info, Sparkles } from "lucide-react";
 import { VerificationProposal } from "@/lib/superadmin/types";
 import { cn } from "@/lib/utils";
 
@@ -17,21 +17,54 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject }: Props) =
   if (!proposal) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <header className="p-6 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={cn("p-2 rounded-lg", proposal.organizationType === "University" ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600")}>
-              <FileText className="w-6 h-6" />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+      <button
+        type="button"
+        aria-label="Close dialog"
+        className="absolute inset-0 bg-slate-900/55 backdrop-blur-md"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="verification-detail-title"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/60 bg-white shadow-[0_25px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="relative overflow-hidden border-b border-slate-200/80 bg-gradient-to-br from-teal-50/90 via-white to-slate-50 px-6 pb-5 pt-6 sm:px-8">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-teal-200/35 blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-40 rounded-full bg-sky-100/40 blur-2xl" aria-hidden />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-3">
+              <p className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-teal-800 shadow-sm ring-1 ring-teal-100 sm:text-xs">
+                <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                Verification review
+              </p>
+              <div className="flex items-start gap-3">
+                <div
+                  className={cn(
+                    "shrink-0 rounded-xl p-2.5",
+                    proposal.organizationType === "University" ? "bg-teal-100 text-teal-700" : "bg-blue-100 text-blue-700"
+                  )}
+                >
+                  <FileText className="h-6 w-6" />
+                </div>
+                <div className="min-w-0">
+                  <h2 id="verification-detail-title" className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                    {proposal.organizationName}
+                  </h2>
+                  <p className="text-sm text-slate-600">Proposal #{proposal.id}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">{proposal.organizationName}</h2>
-              <p className="text-sm text-slate-500">Verification Proposal #{proposal.id}</p>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-xl border border-slate-200 bg-white/80 p-2 text-slate-500 shadow-sm transition-all hover:bg-white hover:text-slate-800 hover:shadow-md active:scale-95"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-            <X className="w-6 h-6 text-slate-500" />
-          </button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
