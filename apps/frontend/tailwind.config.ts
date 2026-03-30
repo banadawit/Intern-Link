@@ -24,6 +24,9 @@ const config: Config = {
           700: "#0F766E", // Hover state
           800: "#115E59", // Active state
           900: "#0A4B47",
+          // Semantic aliases used by dashboard components (bg-primary-base, text-primary-base, etc.)
+          base: "#0D9488",
+          light: "#E6F7F5",
         },
         
         // Status Colors (Essential for internship workflows)
@@ -89,6 +92,29 @@ const config: Config = {
           800: "#1E293B",
           900: "#0F172A", // Headings, dark surfaces
         },
+
+        // Dashboard semantic tokens (Student / SuperAdmin UI)
+        // e.g. bg-bg-main, bg-bg-secondary, text-text-heading, border-border-default
+        bg: {
+          main: "#FFFFFF",
+          secondary: "#F8FAFC",
+          tertiary: "#F1F5F9",
+        },
+        border: {
+          default: "#E2E8F0",
+        },
+        text: {
+          heading: "#0F172A",
+          body: "#475569",
+          muted: "#64748B",
+        },
+        status: {
+          success: "#22C55E",
+          warning: "#EAB308",
+          error: "#EF4444",
+        },
+        /** focus ring token: ring-ring-focus */
+        "ring-focus": "#0D9488",
       },
       
       // Typography
