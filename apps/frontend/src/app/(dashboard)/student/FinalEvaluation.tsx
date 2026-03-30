@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Clock
 } from 'lucide-react';
+import StudentPageHero from './StudentPageHero';
 import { MOCK_FINAL_EVALUATION, MOCK_STUDENT } from '@/lib/superadmin/mockData';
 import { cn } from '@/lib/utils';
 import { 
@@ -85,16 +86,17 @@ const FinalEvaluation = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Final Evaluation</h1>
-          <p className="text-text-muted">Review your performance scores and download your final internship report.</p>
-        </div>
-        <button className="btn-primary flex items-center gap-2">
-          <Download className="w-5 h-5" />
-          Download Final Report
-        </button>
-      </header>
+      <StudentPageHero
+        badge="Final evaluation"
+        title="Final Evaluation"
+        description="Review your performance scores and download your final internship report."
+        action={
+          <button type="button" className="btn-primary flex w-full items-center justify-center gap-2 sm:w-auto">
+            <Download className="h-5 w-5" />
+            Download Final Report
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <ScoreCard 

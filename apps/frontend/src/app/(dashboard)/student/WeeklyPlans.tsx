@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Plus, 
@@ -10,15 +10,20 @@ import {
   XCircle, 
   Clock, 
   ChevronRight,
-  AlertCircle,
   History,
-  ExternalLink
+  ExternalLink,
+  X,
+  Sparkles,
+  Calendar,
+  ClipboardList,
+  Send,
 } from 'lucide-react';
 import { MOCK_WEEKLY_PLANS } from '@/lib/superadmin/mockData';
 import { WeeklyPlan } from '@/lib/superadmin/types';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { STUDENT_WEEKLY_PLANS_EVENT } from '@/lib/student/planNotificationEvents';
+import StudentPageHero from './StudentPageHero';
 
 const WeeklyPlans = () => {
   const router = useRouter();
@@ -34,6 +39,7 @@ const WeeklyPlans = () => {
     tasks: '',
     presentation: null as File | null,
   });
+  const presentationInputRef = useRef<HTMLInputElement>(null);
 
   const closeSubmitModal = () => {
     setShowSubmitForm(false);
@@ -102,22 +108,24 @@ const WeeklyPlans = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Weekly Plans</h1>
-          <p className="text-text-muted">Submit your weekly tasks and track supervisor feedback.</p>
-        </div>
-        <button 
-          onClick={() => {
-            setReviseFromPlan(null);
-            setShowSubmitForm(true);
-          }}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Submit New Plan
-        </button>
-      </header>
+      <StudentPageHero
+        badge="Weekly plans"
+        title="Weekly Plans"
+        description="Submit your weekly tasks and track supervisor feedback."
+        action={
+          <button
+            type="button"
+            onClick={() => {
+              setReviseFromPlan(null);
+              setShowSubmitForm(true);
+            }}
+            className="btn-primary flex w-full items-center justify-center gap-2 sm:w-auto"
+          >
+            <Plus className="h-5 w-5" />
+            Submit New Plan
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Plans List */}
@@ -253,75 +261,167 @@ const WeeklyPlans = () => {
       {/* Submit Form Modal */}
       <AnimatePresence>
         {showSubmitForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          <motion.div
+            role="presentation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          >
+            <button
+              type="button"
+              aria-label="Close dialog"
+              className="absolute inset-0 bg-slate-900/55 backdrop-blur-md transition-opacity"
+              onClick={closeSubmitModal}
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="weekly-plan-modal-title"
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-bg-main rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative z-10 w-full max-w-xl overflow-hidden rounded-3xl border border-white/60 bg-bg-main shadow-[0_25px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5"
             >
-              <header className="p-6 border-b border-border-default flex items-center justify-between">
-                <h2 className="text-xl font-bold">
-                  {reviseFromPlan ? 'Revise & resubmit plan' : 'Submit Weekly Plan'}
-                </h2>
-                <button onClick={closeSubmitModal} className="p-2 hover:bg-bg-tertiary rounded-full transition-colors">
-                  <XCircle className="w-6 h-6 text-text-muted" />
-                </button>
-              </header>
+              <div className="relative overflow-hidden bg-gradient-to-br from-primary-50/90 via-white to-slate-50 px-6 pb-5 pt-6 sm:px-8 sm:pb-6 sm:pt-7">
+                <div
+                  className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary-300/35 blur-3xl"
+                  aria-hidden
+                />
+                <div
+                  className="pointer-events-none absolute -bottom-8 left-1/3 h-24 w-40 rounded-full bg-teal-200/30 blur-2xl"
+                  aria-hidden
+                />
+                <div className="relative flex items-start justify-between gap-4">
+                  <div className="space-y-3">
+                    <p className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary-700 shadow-sm ring-1 ring-primary-100 sm:text-xs">
+                      <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                      {reviseFromPlan ? 'New version' : 'Weekly submission'}
+                    </p>
+                    <h2
+                      id="weekly-plan-modal-title"
+                      className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl"
+                    >
+                      {reviseFromPlan ? 'Revise & resubmit plan' : 'Submit weekly plan'}
+                    </h2>
+                    <p className="max-w-md text-sm leading-relaxed text-slate-600">
+                      {reviseFromPlan
+                        ? `You’re submitting v${reviseFromPlan.version + 1} for Week ${reviseFromPlan.weekNumber}. Update your tasks, then send for review.`
+                        : 'Outline what you’ll focus on this week. Your supervisor will review and may leave feedback.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeSubmitModal}
+                    className="shrink-0 rounded-xl border border-border-default bg-white/80 p-2 text-slate-500 shadow-sm transition-all hover:bg-white hover:text-slate-800 hover:shadow-md active:scale-95"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                {reviseFromPlan && (
-                  <p className="text-sm text-text-muted">
-                    Submitting a new version (v{reviseFromPlan.version + 1}) for Week {reviseFromPlan.weekNumber}. Update your tasks below, then submit.
-                  </p>
-                )}
-
+              <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6 sm:px-8 sm:pb-8">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-text-muted">Week Number</label>
-                  <input 
-                    type="number" 
-                    className="input-field w-full"
-                    value={formData.weekNumber}
-                    readOnly={!!reviseFromPlan}
-                    onChange={(e) => setFormData({ ...formData, weekNumber: parseInt(e.target.value, 10) })}
-                  />
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <Calendar className="h-4 w-4 text-primary-600" />
+                    Week number
+                  </label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500">
+                      W
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      className={cn(
+                        'input-field w-full rounded-xl border-border-default py-3 pl-14 text-base font-semibold text-slate-900 transition-shadow focus:border-primary-300 focus:ring-2 focus:ring-primary-200',
+                        reviseFromPlan && 'cursor-not-allowed bg-slate-50 text-slate-600'
+                      )}
+                      value={formData.weekNumber}
+                      readOnly={!!reviseFromPlan}
+                      onChange={(e) =>
+                        setFormData({ ...formData, weekNumber: parseInt(e.target.value, 10) })
+                      }
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-text-muted">Planned Tasks</label>
-                  <textarea 
-                    className="input-field w-full min-h-[150px] text-sm"
-                    placeholder="Describe your planned tasks for the upcoming week..."
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <ClipboardList className="h-4 w-4 text-primary-600" />
+                    Planned tasks
+                  </label>
+                  <textarea
+                    className="input-field min-h-[160px] w-full resize-y rounded-xl border-border-default bg-white text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-primary-300 focus:ring-2 focus:ring-primary-200"
+                    placeholder="e.g. Finish API integration, attend team sync, document test cases…"
                     value={formData.tasks}
                     onChange={(e) => setFormData({ ...formData, tasks: e.target.value })}
                     required
                   />
+                  <p className="text-xs text-slate-500">Be specific — it helps your supervisor give useful feedback.</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-text-muted">Presentation (Optional)</label>
-                  <div className="border-2 border-dashed border-border-default rounded-xl p-8 text-center hover:border-primary-base transition-all cursor-pointer bg-bg-secondary group">
-                    <Upload className="w-8 h-8 text-text-muted mx-auto mb-2 group-hover:text-primary-base transition-all" />
-                    <p className="text-sm font-medium text-text-body">Click to upload or drag and drop</p>
-                    <p className="text-xs text-text-muted mt-1">PDF, PPT, PPTX (Max 10MB)</p>
-                  </div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <Upload className="h-4 w-4 text-primary-600" />
+                    Presentation <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    ref={presentationInputRef}
+                    type="file"
+                    accept=".pdf,.ppt,.pptx,application/pdf"
+                    className="sr-only"
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        presentation: e.target.files?.[0] ?? null,
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => presentationInputRef.current?.click()}
+                    className={cn(
+                      'group relative w-full overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-slate-50/80 to-white p-6 text-center transition-all duration-200',
+                      'hover:border-primary-300 hover:shadow-md hover:shadow-primary-900/5 focus:outline-none focus:ring-2 focus:ring-primary-200'
+                    )}
+                  >
+                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-100 text-primary-600 transition-transform group-hover:scale-105 group-hover:bg-primary-200/80">
+                      <Upload className="h-6 w-6" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800">Drop a file or click to browse</p>
+                    <p className="mt-1 text-xs text-slate-500">PDF or PowerPoint — up to ~10MB</p>
+                    {formData.presentation && (
+                      <p className="mt-3 inline-flex max-w-full items-center gap-2 truncate rounded-lg bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-800 ring-1 ring-primary-100">
+                        <FileText className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{formData.presentation.name}</span>
+                      </p>
+                    )}
+                  </button>
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                  <button type="submit" className="flex-1 btn-primary">
-                    {reviseFromPlan ? 'Submit revised plan' : 'Submit Plan'}
-                  </button>
-                  <button 
-                    type="button" 
+                <div className="flex flex-col-reverse gap-3 border-t border-border-default pt-6 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
                     onClick={closeSubmitModal}
-                    className="px-6 py-2 border border-border-default rounded-lg hover:bg-bg-tertiary transition-colors"
+                    className="rounded-xl border border-border-default px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 active:scale-[0.99] sm:min-w-[120px]"
                   >
                     Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm shadow-lg shadow-primary-900/15 transition-transform hover:shadow-xl active:scale-[0.99] sm:flex-initial sm:min-w-[200px]"
+                  >
+                    <Send className="h-4 w-4" />
+                    {reviseFromPlan ? 'Submit revised plan' : 'Submit plan'}
                   </button>
                 </div>
               </form>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

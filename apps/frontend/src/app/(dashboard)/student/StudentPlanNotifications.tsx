@@ -15,7 +15,11 @@ import {
 } from "lucide-react";
 import { MOCK_WEEKLY_PLANS } from "@/lib/superadmin/mockData";
 import type { WeeklyPlan } from "@/lib/superadmin/types";
-import { STUDENT_WEEKLY_PLANS_EVENT } from "@/lib/student/planNotificationEvents";
+import {
+  STUDENT_WEEKLY_PLANS_EVENT,
+  STUDENT_PLAN_NOTICES_READ_KEY,
+} from "@/lib/student/planNotificationEvents";
+import { cn } from "@/lib/utils";
 
 type NoticeKind = "submitted" | "status" | "feedback" | "reviewed" | "presentation";
 
@@ -108,9 +112,35 @@ function plansToNotices(plans: WeeklyPlan[]): Notice[] {
   return out.sort((a, b) => b.sortTime - a.sortTime);
 }
 
+function loadReadIdsFromStorage(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(STUDENT_PLAN_NOTICES_READ_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((x): x is string => typeof x === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function persistReadIds(ids: Set<string>) {
+  try {
+    localStorage.setItem(STUDENT_PLAN_NOTICES_READ_KEY, JSON.stringify([...ids]));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 export default function StudentPlanNotifications() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [notices, setNotices] = useState<Notice[]>(() => plansToNotices(MOCK_WEEKLY_PLANS));
+  const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setReadIds(loadReadIdsFromStorage());
+  }, []);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -123,21 +153,48 @@ export default function StudentPlanNotifications() {
     return () => window.removeEventListener(STUDENT_WEEKLY_PLANS_EVENT, handler as EventListener);
   }, []);
 
-  const badgeCount = notices.length;
+  /** While the panel is open, treat all listed activity as seen (badge stays cleared for those). */
+  useEffect(() => {
+    if (!panelOpen) return;
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const n of notices) {
+        if (!next.has(n.id)) {
+          next.add(n.id);
+          changed = true;
+        }
+      }
+      if (changed) persistReadIds(next);
+      return changed ? next : prev;
+    });
+  }, [panelOpen, notices]);
+
+  const unreadCount = notices.filter((n) => !readIds.has(n.id)).length;
 
   return (
-    <div className="flex shrink-0 items-center justify-end gap-4 border-b border-border-default bg-bg-main px-4 py-3 md:px-8">
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-end gap-4 border-b border-border-default bg-bg-main/95 px-4 py-3 backdrop-blur-sm md:px-8",
+        /* Sit above <main> so the dropdown/backdrop are not covered by page content */
+        panelOpen && "relative z-[100]"
+      )}
+    >
       <div className="relative">
         <button
           type="button"
           onClick={() => setPanelOpen((o) => !o)}
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-bg-secondary text-text-heading transition-colors hover:bg-bg-tertiary"
-          aria-label="Open plan notifications"
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-bg-secondary text-text-heading shadow-sm transition-all hover:bg-bg-tertiary hover:shadow-md active:scale-95"
+          aria-label={
+            unreadCount > 0
+              ? `Plan notifications, ${unreadCount} unread`
+              : "Plan notifications, no unread items"
+          }
         >
           <Bell className="h-5 w-5" />
-          {badgeCount > 0 && (
+          {unreadCount > 0 && (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-              {badgeCount > 9 ? "9+" : badgeCount}
+              {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
         </button>
@@ -146,11 +203,11 @@ export default function StudentPlanNotifications() {
           <>
             <button
               type="button"
-              className="fixed inset-0 z-40 cursor-default bg-transparent"
+              className="fixed inset-0 z-[90] cursor-default bg-transparent"
               aria-hidden
               onClick={() => setPanelOpen(false)}
             />
-            <div className="absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-2xl border border-border-default bg-bg-main py-2 shadow-modal">
+            <div className="absolute right-0 top-full z-[110] mt-2 w-[min(100vw-2rem,22rem)] animate-in fade-in duration-200 rounded-2xl border border-border-default bg-bg-main py-2 shadow-modal">
               <p className="border-b border-border-default px-4 pb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
                 All activity
               </p>
@@ -163,7 +220,16 @@ export default function StudentPlanNotifications() {
                       <Link
                         href={`/student/plans?plan=${encodeURIComponent(n.planId)}`}
                         scroll
-                        onClick={() => setPanelOpen(false)}
+                        onClick={() => {
+                          setPanelOpen(false);
+                          setReadIds((prev) => {
+                            if (prev.has(n.id)) return prev;
+                            const next = new Set(prev);
+                            next.add(n.id);
+                            persistReadIds(next);
+                            return next;
+                          });
+                        }}
                         className="flex gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-secondary"
                       >
                         <span className="mt-0.5 shrink-0">

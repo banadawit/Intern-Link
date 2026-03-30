@@ -18,6 +18,7 @@ import { MOCK_POSTS } from '@/lib/superadmin/mockData';
 import { Post } from '@/lib/superadmin/types';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import StudentPageHero from './StudentPageHero';
 
 const CommonPage = () => {
   const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
@@ -40,11 +41,12 @@ const CommonPage = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <header>
-        <h1 className="text-3xl font-bold mb-2">Common Page</h1>
-        <p className="text-text-muted">Share experiences, announcements, and updates with the community.</p>
-      </header>
+    <div className="w-full space-y-8 animate-in fade-in duration-500">
+      <StudentPageHero
+        badge="Common page"
+        title="Common Page"
+        description="Share experiences, announcements, and updates with the community."
+      />
 
       {/* Create Post Card */}
       <div className="card p-6">

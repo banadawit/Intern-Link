@@ -14,6 +14,7 @@ import {
 import { MOCK_COMPANY_REQUESTS } from '@/lib/superadmin/mockData';
 import { CompanyRequest } from '@/lib/superadmin/types';
 import { cn } from '@/lib/utils';
+import StudentPageHero from './StudentPageHero';
 
 const RequestCompany = () => {
   const [requests, setRequests] = useState<CompanyRequest[]>(MOCK_COMPANY_REQUESTS);
@@ -41,10 +42,11 @@ const RequestCompany = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <header>
-        <h1 className="text-3xl font-bold mb-2">Request Company Registration</h1>
-        <p className="text-text-muted">Initiate onboarding for companies not yet on the platform.</p>
-      </header>
+      <StudentPageHero
+        badge="Request company"
+        title="Request Company"
+        description="Initiate onboarding for companies not yet on the platform."
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Request Form */}
