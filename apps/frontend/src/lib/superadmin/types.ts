@@ -1,5 +1,5 @@
 export type OrgType = 'University' | 'Company';
-export type VerificationStatus = 'Pending' | 'Approved' | 'Rejected';
+export type VerificationStatus = 'Pending' | 'Approved' | 'Rejected' | 'Suspended';
 
 export interface VerificationProposal {
   id: string;
@@ -15,7 +15,7 @@ export interface VerificationProposal {
 
 export interface AuditLogEntry {
   id: string;
-  action: 'Approve' | 'Reject';
+  action: 'Approve' | 'Reject' | 'Suspend' | 'Reactivate';
   targetId: string;
   targetName: string;
   adminId: string;
@@ -39,6 +39,8 @@ export interface WeeklyPlan {
   weekNumber: number;
   tasks: string;
   presentationUrl?: string;
+  /** Original filename when uploaded in the student UI (for display with blob URLs). */
+  presentationFileName?: string;
   status: PlanStatus;
   feedback?: string;
   submittedAt: string;

@@ -14,7 +14,7 @@ interface FormErrors {
 
 const LoginPage = () => {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, isLoading: authLoading, error: authError } = useAuth();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -70,13 +70,18 @@ const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Mark all fields as touched
     setTouched({ email: true, password: true });
     
+    // Validate all fields
     const emailError = validateEmail(formData.email);
     const passwordError = validatePassword(formData.password);
     
     if (emailError || passwordError) {
-      setErrors({ email: emailError, password: passwordError });
+      setErrors({
+        email: emailError,
+        password: passwordError,
+      });
       return;
     }
     
@@ -84,31 +89,29 @@ const LoginPage = () => {
     setErrors({});
     
     try {
-      await login(formData.email, formData.password, rememberMe);
-
+      // Mock API call - replace with actual login
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      
+      // Mock successful login
+      console.log('Logging in with:', { ...formData, rememberMe });
+      
+      // Show success message
       setSuccessMessage('Login successful! Redirecting...');
-
-      // Role-based redirect using the stored user
-      const role = useAuth.getState().user?.role;
-      const redirectMap: Record<string, string> = {
-        ADMIN: '/admin',
-        COORDINATOR: '/coordinator',
-        SUPERVISOR: '/supervisor',
-        STUDENT: '/student',
-      };
-
+      
+      // Simulate role-based redirect (will come from actual API)
       setTimeout(() => {
-        router.push(redirectMap[role ?? ''] || '/');
-      }, 800);
-
-    } catch (err: any) {
-      // Check if backend says email not verified
-      const data = err?.response?.data;
-      if (data?.requiresVerification) {
-        router.push(`/verify-email?email=${encodeURIComponent(data.email || formData.email)}`);
-        return;
-      }
-      setErrors({ general: data?.message || 'Invalid email or password. Please try again.' });
+        const email = formData.email.trim().toLowerCase();
+        if (email === "admin@internlink.com") {
+          router.push("/admin");
+          return;
+        }
+        router.push("/student");
+      }, 1000);
+      
+    } catch (err) {
+      setErrors({
+        general: 'Invalid email or password. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +120,7 @@ const LoginPage = () => {
   // Handle demo login for different roles (development only)
   const handleDemoLogin = (role: string) => {
     const demoCredentials = {
-      SuperAdmin: { email: 'admin@internlink.com', password: 'Admin123!' },
+      Admin: { email: 'admin@internlink.com', password: 'Admin123!' },
       Coordinator: { email: 'coordinator@haramaya.edu', password: 'Coord123!' },
       Supervisor: { email: 'supervisor@company.com', password: 'Super123!' },
       Student: { email: 'student@haramaya.edu', password: 'Student123!' },
@@ -305,7 +308,7 @@ const LoginPage = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDemoLogin('SuperAdmin')}
+                    onClick={() => handleDemoLogin('Admin')}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     ⚙️ Login as Admin

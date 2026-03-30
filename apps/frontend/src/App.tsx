@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
-import Layout from './components/layout/Layout';
-import AdminSidebar from './components/admin/AdminSidebar';
-import AdminDashboard from './components/admin/AdminDashboard';
-import VerificationList from './components/admin/VerificationList';
-import VerificationDetail from './components/admin/VerificationDetail';
-import AuditLog from './components/admin/AuditLog';
+import Layout from '@/components/layout/Layout';
+import AdminSidebar from '@/components/admin/AdminSidebar';
+import AdminDashboard from '@/components/admin/AdminDashboard';
+import VerificationList from '@/components/admin/VerificationList';
+import VerificationDetail from '@/components/admin/VerificationDetail';
+import AuditLog from '@/components/admin/AuditLog';
 
-import StudentSidebar from './components/student/StudentSidebar';
-import StudentDashboard from './components/student/StudentDashboard';
-import WeeklyPlans from './components/student/WeeklyPlans';
-import CommonPage from './components/student/CommonPage';
-import RequestCompany from './components/student/RequestCompany';
-import FinalEvaluation from './components/student/FinalEvaluation';
+import StudentSidebar from '@/components/student/StudentSidebar';
+import StudentDashboard from '@/components/student/StudentDashboard';
+import WeeklyPlans from '@/components/student/WeeklyPlans';
+import CommonPage from '@/components/student/CommonPage';
+import RequestCompany from '@/components/student/RequestCompany';
+import FinalEvaluation from '@/components/student/FinalEvaluation';
 
-import { MOCK_PROPOSALS, MOCK_AUDIT_LOG } from './mockData';
-import { VerificationProposal, AuditLogEntry } from './types';
+import { MOCK_PROPOSALS, MOCK_AUDIT_LOG } from '@/lib/superadmin/mockData';
+import { VerificationProposal, AuditLogEntry } from '@/lib/superadmin/types';
 import { ShieldCheck, GraduationCap } from 'lucide-react';
 
 export default function App() {
@@ -37,7 +37,7 @@ export default function App() {
       action: 'Approve',
       targetId: id,
       targetName: proposal.organizationName,
-      adminId: 'SuperAdmin_1',
+      adminId: 'Admin_1',
       timestamp: new Date().toISOString(),
       notes: 'Organization credentials verified and approved.',
     };
@@ -59,9 +59,51 @@ export default function App() {
       action: 'Reject',
       targetId: id,
       targetName: proposal.organizationName,
-      adminId: 'SuperAdmin_1',
+      adminId: 'Admin_1',
       timestamp: new Date().toISOString(),
       notes: `Rejected: ${reason}`,
+    };
+    setAuditLogs([newLog, ...auditLogs]);
+    setSelectedProposal(null);
+  };
+
+  const handleSuspend = (id: string) => {
+    const proposal = proposals.find((p) => p.id === id);
+    if (!proposal) return;
+    setProposals(
+      proposals.map((p) =>
+        p.id === id ? { ...p, status: 'Suspended' as const, reviewedAt: new Date().toISOString() } : p
+      )
+    );
+    const newLog: AuditLogEntry = {
+      id: `log_${Date.now()}`,
+      action: 'Suspend',
+      targetId: id,
+      targetName: proposal.organizationName,
+      adminId: 'Admin_1',
+      timestamp: new Date().toISOString(),
+      notes: 'Organization suspended after approval.',
+    };
+    setAuditLogs([newLog, ...auditLogs]);
+    setSelectedProposal(null);
+  };
+
+  const handleReactivate = (id: string) => {
+    const proposal = proposals.find((p) => p.id === id);
+    if (!proposal) return;
+    setProposals(
+      proposals.map((p) =>
+        p.id === id ? { ...p, status: 'Approved' as const, reviewedAt: new Date().toISOString() } : p
+      )
+    );
+    const newLog: AuditLogEntry = {
+      id: `log_${Date.now()}`,
+      action: 'Reactivate',
+      targetId: id,
+      targetName: proposal.organizationName,
+      adminId: 'Admin_1',
+      timestamp: new Date().toISOString(),
+      notes: 'Organization reactivated.',
     };
     setAuditLogs([newLog, ...auditLogs]);
     setSelectedProposal(null);
@@ -78,7 +120,7 @@ export default function App() {
                 <div className="bg-primary-light p-6 rounded-2xl mb-6 group-hover:scale-110 transition-transform">
                   <ShieldCheck className="w-12 h-12 text-primary-base" />
                 </div>
-                <h2 className="text-2xl font-bold mb-2">Super Admin</h2>
+                <h2 className="text-2xl font-bold mb-2">Admin</h2>
                 <p className="text-text-muted">Manage institutional verifications and platform security.</p>
               </Link>
               <Link to="/student" className="card p-12 flex flex-col items-center text-center hover:border-primary-base transition-all group">
@@ -147,11 +189,13 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <VerificationDetail 
+      <VerificationDetail
         proposal={selectedProposal}
         onClose={() => setSelectedProposal(null)}
         onApprove={handleApprove}
         onReject={handleReject}
+        onSuspend={handleSuspend}
+        onReactivate={handleReactivate}
       />
     </Router>
   );
