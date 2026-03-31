@@ -1,7 +1,8 @@
 /** Base URL for backend (no /api suffix) — used for static uploads */
 export function getApiOrigin(): string {
-  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-  return base.replace(/\/api\/?$/, "");
+  const raw = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000").trim().replace(/\/+$/, "");
+  const withApi = raw.endsWith("/api") ? raw : `${raw}/api`;
+  return withApi.replace(/\/api\/?$/, "");
 }
 
 /** Turn stored path from multer (e.g. uploads/presentations/x.pdf) into a browser URL */
