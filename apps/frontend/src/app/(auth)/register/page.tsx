@@ -124,13 +124,6 @@ const RegisterPage = () => {
     if (!email) return 'Email is required';
     if (!emailRegex.test(email)) return 'Please enter a valid email address';
     
-    // Role-specific email validation
-    if (role === 'coordinator' && !email.match(/\.edu\.et$/)) {
-      return 'University coordinators must use a .edu.et email address';
-    }
-    if (role === 'student' && !email.match(/\.edu\.et$/)) {
-      return 'Students should use their university email (.edu.et)';
-    }
     return '';
   };
 
@@ -158,6 +151,7 @@ const RegisterPage = () => {
       if (!formData.position) return 'Position is required';
     }
     if (role === 'student') {
+      if (!formData.universityName) return 'University name is required';
       if (!formData.department) return 'Department is required';
       if (!formData.studentId) return 'Student ID is required';
     }
@@ -165,15 +159,6 @@ const RegisterPage = () => {
   };
 
   const validateVerificationFile = (file?: File) => {
-    if (!file) {
-      if (role === 'coordinator' || role === 'supervisor') {
-        return 'Verification document is required';
-      }
-      if (role === 'student') {
-        return 'Student ID or verification is required';
-      }
-    }
-    
     if (file && file.size > 5 * 1024 * 1024) {
       return 'File size must be less than 5MB';
     }
@@ -302,26 +287,30 @@ const RegisterPage = () => {
     
     try {
       const registerData = {
+        fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
-        fullName: formData.fullName,
-        role: role,
-        organizationDetails: role === 'coordinator' 
-          ? { universityName: formData.universityName }
-          : role === 'supervisor'
-          ? { companyName: formData.companyName }
-          : { department: formData.department, studentId: formData.studentId },
-        verificationDocument: formData.verificationFile
+        role: role!,
+        universityName: formData.universityName,
+        ...(role === 'coordinator' && { position: formData.position }),
+        ...(role === 'supervisor' && {
+          companyName: formData.companyName,
+          position: formData.position,
+        }),
+        ...(role === 'student' && {
+          department: formData.department,
+          studentId: formData.studentId,
+        }),
+        verificationDocument: formData.verificationFile,
       };
       
-      await register(registerData as any);
+      await register(registerData);
       
-      // Redirect to verification page
-      router.push('/verify-email');
+      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
       
-    } catch (error) {
+    } catch (error: any) {
       setErrors({
-        general: error instanceof Error ? error.message : 'Registration failed. Please try again.'
+        general: error.message || 'Registration failed. Please try again.'
       });
     } finally {
       setIsLoading(false);
@@ -640,6 +629,14 @@ const RegisterPage = () => {
             </p>
           </div>
 
+          {/* Step 3 error display */}
+          {errors.general && (
+            <div className="flex items-center gap-3 rounded-xl bg-red-50 p-4 text-red-700 border border-red-200">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <p className="text-sm font-medium">{errors.general}</p>
+            </div>
+          )}
+
           {/* Role-Specific Fields */}
           <div className="space-y-4">
             {role === 'coordinator' && (
@@ -712,6 +709,22 @@ const RegisterPage = () => {
 
             {role === 'student' && (
               <>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    University Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                    <input
+                      type="text"
+                      name="universityName"
+                      value={formData.universityName}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Haramaya University"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
                     Department <span className="text-red-500">*</span>

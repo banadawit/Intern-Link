@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { 
   Mail, 
   ArrowLeft, 
@@ -10,31 +9,19 @@ import {
   CheckCircle2, 
   AlertCircle,
   Shield,
-  Clock,
   MessageCircle
 } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/useAuth';
 
-// Types
-type FormStatus = 'idle' | 'submitting' | 'success' | 'error' | 'rate_limited';
+type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 const ForgotPasswordPage = () => {
-  const router = useRouter();
+  const { forgotPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<FormStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [rateLimitRemaining, setRateLimitRemaining] = useState(0);
-  const [countdown, setCountdown] = useState(0);
   const [touched, setTouched] = useState(false);
 
-  // Handle countdown for rate limiting
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
-
-  // Validate email format
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
     if (!email) return 'Email is required';
@@ -47,62 +34,24 @@ const ForgotPasswordPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate email
+    setTouched(true);
+
     const validationError = validateEmail(email);
     if (validationError) {
       setErrorMessage(validationError);
       setStatus('error');
       return;
     }
-    
+
     setStatus('submitting');
     setErrorMessage('');
-    
+
     try {
-      // Mock API call - replace with real endpoint
-      // For security, always return success even if email doesn't exist (prevents user enumeration)
-      const response = await new Promise<{ success: boolean; message?: string; rateLimitRemaining?: number }>((resolve) => {
-        setTimeout(() => {
-          // Simulate rate limiting check
-          const storedRequests = localStorage.getItem('password_reset_requests');
-          const requests = storedRequests ? JSON.parse(storedRequests) : [];
-          const now = Date.now();
-          const recentRequests = requests.filter((time: number) => now - time < 3600000); // Last hour
-          
-          if (recentRequests.length >= 3) {
-            resolve({ 
-              success: false, 
-              message: 'Too many requests. Please try again later.',
-              rateLimitRemaining: 0
-            });
-          } else {
-            // Store this request
-            requests.push(now);
-            localStorage.setItem('password_reset_requests', JSON.stringify(requests));
-            
-            // Simulate successful email sending
-            // In real implementation, you would send email even if user doesn't exist
-            resolve({ 
-              success: true,
-              rateLimitRemaining: 3 - (recentRequests.length + 1)
-            });
-          }
-        }, 1500);
-      });
-      
-      if (response.success) {
-        setStatus('success');
-        setRateLimitRemaining(response.rateLimitRemaining || 2);
-      } else {
-        setStatus('rate_limited');
-        setErrorMessage(response.message || 'Unable to process request');
-        setCountdown(3600); // 1 hour cooldown
-      }
-      
-    } catch (error) {
+      await forgotPassword(email);
+      setStatus('success');
+    } catch (err: any) {
       setStatus('error');
-      setErrorMessage('Network error. Please check your connection and try again.');
+      setErrorMessage(err?.message || 'Network error. Please check your connection and try again.');
     }
   };
 
@@ -111,62 +60,6 @@ const ForgotPasswordPage = () => {
     setErrorMessage('');
     setTouched(false);
   };
-
-  const handleResend = () => {
-    setStatus('idle');
-    setErrorMessage('');
-    setTouched(false);
-  };
-
-  // Rate Limited State
-  if (status === 'rate_limited') {
-    const hours = Math.floor(countdown / 3600);
-    const minutes = Math.floor((countdown % 3600) / 60);
-    
-    return (
-      <div className="space-y-8 animate-fade-in">
-        <div className="text-center lg:text-left">
-          <div className="h-16 w-16 rounded-2xl bg-red-50 flex items-center justify-center mb-6 mx-auto lg:mx-0">
-            <Clock className="h-8 w-8 text-red-600" />
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900">Too many attempts</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            For security reasons, please wait before requesting another password reset.
-          </p>
-        </div>
-
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-6 space-y-3">
-          <div className="flex items-center gap-3 text-red-700">
-            <Shield className="h-5 w-5 flex-shrink-0" />
-            <p className="text-sm font-medium">Rate limit exceeded</p>
-          </div>
-          <div className="flex items-center gap-3 text-red-600">
-            <Clock className="h-5 w-5 flex-shrink-0" />
-            <p className="text-sm">
-              Please try again in{' '}
-              {hours > 0 && `${hours} hour${hours > 1 ? 's' : ''} `}
-              {minutes > 0 && `${minutes} minute${minutes > 1 ? 's' : ''}`}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <Link
-            href="/login"
-            className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
-          >
-            Return to Login
-          </Link>
-          <button
-            onClick={handleTryAgain}
-            className="w-full text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors"
-          >
-            Try again later
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   // Success State
   if (status === 'success') {
@@ -193,43 +86,22 @@ const ForgotPasswordPage = () => {
               </p>
             </div>
           </div>
-          
-          {rateLimitRemaining > 0 && (
-            <div className="flex items-center gap-3 text-emerald-600 border-t border-emerald-200 pt-4">
-              <Shield className="h-5 w-5 flex-shrink-0" />
-              <p className="text-xs">
-                You have {rateLimitRemaining} more reset request{rateLimitRemaining !== 1 ? 's' : ''} available.
-              </p>
-            </div>
-          )}
-          
-          <div className="pt-2">
+          <div className="pt-2 border-t border-emerald-200">
             <p className="text-xs text-emerald-600">
-              <strong>Didn&apos;t receive the email?</strong> Check your spam folder or{' '}
-              <button
-                onClick={handleResend}
-                className="font-medium underline hover:no-underline"
-              >
+              Didn&apos;t receive the email? Check your spam folder or{' '}
+              <button onClick={handleTryAgain} className="font-medium underline hover:no-underline">
                 request another link
               </button>
             </p>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <Link
-            href="/login"
-            className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
-          >
-            Return to Login
-          </Link>
-          <Link
-            href="/register"
-            className="flex items-center justify-center gap-2 text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors"
-          >
-            Don&apos;t have an account? Sign up
-          </Link>
-        </div>
+        <Link
+          href="/login"
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
+        >
+          Return to Login
+        </Link>
       </div>
     );
   }

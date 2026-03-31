@@ -18,6 +18,8 @@ import {
   Shield
 } from 'lucide-react';
 
+import { useAuth } from '@/lib/hooks/useAuth';
+
 // Types
 type PasswordStatus = 'idle' | 'validating' | 'valid' | 'invalid' | 'expired';
 type StrengthLevel = 0 | 1 | 2 | 3 | 4;
@@ -33,6 +35,7 @@ interface PasswordRequirements {
 const ResetPasswordPage = () => {
   const params = useParams();
   const router = useRouter();
+  const { resetPassword } = useAuth();
   const token = params?.token as string;
   
   const [tokenStatus, setTokenStatus] = useState<PasswordStatus>('validating');
@@ -48,37 +51,16 @@ const ResetPasswordPage = () => {
     confirmPassword: '',
   });
 
-  // Validate token on mount
+  // Validate token on mount — just check it exists and has valid length
+  // Real validation happens when submitting (backend will reject invalid/expired tokens)
   useEffect(() => {
-    const validateToken = async () => {
-      if (!token) {
-        setTokenStatus('invalid');
-        setTokenError('No reset token provided');
-        return;
-      }
-
-      try {
-        // Mock API call to validate token
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        
-        // Simulate token validation
-        // In real implementation, call your API to validate token
-        const isValid = token.length > 10; // Mock validation
-        
-        if (isValid) {
-          setTokenStatus('valid');
-        } else {
-          setTokenStatus('invalid');
-          setTokenError('Invalid or malformed reset token');
-        }
-        
-      } catch (error) {
-        setTokenStatus('invalid');
-        setTokenError('Failed to validate reset token');
-      }
-    };
-    
-    validateToken();
+    if (!token) {
+      setTokenStatus('invalid');
+      setTokenError('No reset token provided');
+      return;
+    }
+    // Token exists, allow the form to show
+    setTokenStatus('valid');
   }, [token]);
 
   // Password strength calculation
@@ -120,28 +102,22 @@ const ResetPasswordPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!isFormValid) return;
-    
+
     setIsLoading(true);
-    
+
     try {
-      // Mock API call to reset password with token
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // In real implementation:
-      // await resetPassword(token, formData.password);
-      
+      await resetPassword(token, formData.password);
       setIsSuccess(true);
-      
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        router.push('/login?reset=success');
-      }, 3000);
-      
-    } catch (error) {
-      setTokenStatus('invalid');
-      setTokenError('Failed to reset password. Please request a new link.');
+      setTimeout(() => router.push('/login?reset=success'), 3000);
+    } catch (err: any) {
+      const message = err?.message || '';
+      if (message.toLowerCase().includes('expired')) {
+        setTokenStatus('expired');
+      } else {
+        setTokenStatus('invalid');
+      }
+      setTokenError(message || 'Failed to reset password. Please request a new link.');
     } finally {
       setIsLoading(false);
     }
