@@ -14,9 +14,17 @@ import {
   XCircle,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { MOCK_STATS } from "@/lib/superadmin/mockData";
 import { cn } from "@/lib/utils";
 import AdminPageHero from "./AdminPageHero";
+
+export type AdminDashboardStats = {
+  pendingUniversities: number;
+  pendingCompanies: number;
+  approvedUniversities: number;
+  approvedCompanies: number;
+  totalStudents: number;
+  activeInternships: number;
+};
 
 const StatCard = ({
   icon: Icon,
@@ -45,13 +53,17 @@ const StatCard = ({
 
 type DashboardProps = {
   pendingVerificationCount: number;
+  stats: AdminDashboardStats | null;
+  statsLoading?: boolean;
 };
 
-const Dashboard = ({ pendingVerificationCount }: DashboardProps) => {
-  const chartData = [
-    { name: "Universities", approved: MOCK_STATS.totalUniversities.approved, pending: MOCK_STATS.totalUniversities.pending },
-    { name: "Companies", approved: MOCK_STATS.totalCompanies.approved, pending: MOCK_STATS.totalCompanies.pending },
-  ];
+const Dashboard = ({ pendingVerificationCount, stats, statsLoading }: DashboardProps) => {
+  const chartData = stats
+    ? [
+        { name: "Universities", approved: stats.approvedUniversities, pending: stats.pendingUniversities },
+        { name: "Companies", approved: stats.approvedCompanies, pending: stats.pendingCompanies },
+      ]
+    : [];
 
   const quickLinks = [
     { href: "/admin?view=pending", label: "Review pending", icon: Clock, accent: "bg-amber-50 text-amber-700 ring-amber-100" },
@@ -94,19 +106,29 @@ const Dashboard = ({ pendingVerificationCount }: DashboardProps) => {
         <StatCard
           icon={GraduationCap}
           label="Universities"
-          value={MOCK_STATS.totalUniversities.approved}
-          subValue={`${MOCK_STATS.totalUniversities.pending} pending verification`}
+          value={statsLoading ? "…" : stats?.approvedUniversities ?? "—"}
+          subValue={stats ? `${stats.pendingUniversities} pending verification` : undefined}
           colorClass="bg-teal-50 text-teal-600"
         />
         <StatCard
           icon={Building2}
           label="Companies"
-          value={MOCK_STATS.totalCompanies.approved}
-          subValue={`${MOCK_STATS.totalCompanies.pending} pending verification`}
+          value={statsLoading ? "…" : stats?.approvedCompanies ?? "—"}
+          subValue={stats ? `${stats.pendingCompanies} pending verification` : undefined}
           colorClass="bg-blue-50 text-blue-600"
         />
-        <StatCard icon={Users} label="Total Students" value={MOCK_STATS.totalStudents.toLocaleString()} colorClass="bg-purple-50 text-purple-600" />
-        <StatCard icon={Briefcase} label="Active Internships" value={MOCK_STATS.activeInternships} colorClass="bg-orange-50 text-orange-600" />
+        <StatCard
+          icon={Users}
+          label="Total Students"
+          value={statsLoading ? "…" : stats?.totalStudents.toLocaleString() ?? "—"}
+          colorClass="bg-purple-50 text-purple-600"
+        />
+        <StatCard
+          icon={Briefcase}
+          label="Active Internships"
+          value={statsLoading ? "…" : stats?.activeInternships ?? "—"}
+          colorClass="bg-orange-50 text-orange-600"
+        />
       </div>
 
       <section>
@@ -121,7 +143,7 @@ const Dashboard = ({ pendingVerificationCount }: DashboardProps) => {
                 "ring-1 ring-transparent hover:ring-teal-100"
               )}
             >
-              <span className="flex items-center gap-3 min-w-0">
+              <span className="flex min-w-0 items-center gap-3">
                 <span className={cn("rounded-xl p-2.5 ring-1", q.accent)}>
                   <q.icon className="h-5 w-5" />
                 </span>
@@ -137,16 +159,20 @@ const Dashboard = ({ pendingVerificationCount }: DashboardProps) => {
         <div className="card p-6 lg:col-span-2">
           <h3 className="mb-6 text-lg font-bold text-slate-900">Verification distribution</h3>
           <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
-                <Bar dataKey="approved" fill="#0D9488" radius={[4, 4, 0, 0]} name="Approved" />
-                <Bar dataKey="pending" fill="#EAB308" radius={[4, 4, 0, 0]} name="Pending" />
-              </BarChart>
-            </ResponsiveContainer>
+            {stats && chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                  <YAxis axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
+                  <Bar dataKey="approved" fill="#0D9488" radius={[4, 4, 0, 0]} name="Approved" />
+                  <Bar dataKey="pending" fill="#EAB308" radius={[4, 4, 0, 0]} name="Pending" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-slate-500">{statsLoading ? "Loading chart…" : "No statistics yet."}</p>
+            )}
           </div>
         </div>
 

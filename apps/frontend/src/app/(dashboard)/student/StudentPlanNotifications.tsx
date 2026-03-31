@@ -13,7 +13,8 @@ import {
   Send,
   XCircle,
 } from "lucide-react";
-import { MOCK_WEEKLY_PLANS } from "@/lib/superadmin/mockData";
+import api from "@/lib/api/client";
+import { mapWeeklyPlanRow } from "@/lib/api/mappers";
 import type { WeeklyPlan } from "@/lib/superadmin/types";
 import {
   STUDENT_WEEKLY_PLANS_EVENT,
@@ -21,7 +22,6 @@ import {
 } from "@/lib/student/planNotificationEvents";
 import { cn } from "@/lib/utils";
 import { notifyDesktop } from "@/lib/student/desktopNotifications";
-import StudentDesktopNotifyToggle from "./StudentDesktopNotifyToggle";
 
 type NoticeKind = "submitted" | "status" | "feedback" | "reviewed" | "presentation";
 
@@ -137,11 +137,33 @@ function persistReadIds(ids: Set<string>) {
 
 export default function StudentPlanNotifications() {
   const [panelOpen, setPanelOpen] = useState(false);
-  const [notices, setNotices] = useState<Notice[]>(() => plansToNotices(MOCK_WEEKLY_PLANS));
+  const [notices, setNotices] = useState<Notice[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     setReadIds(loadReadIdsFromStorage());
+  }, []);
+
+  useEffect(() => {
+    const applyPlans = (plans: WeeklyPlan[]) => {
+      setNotices(plansToNotices(plans));
+    };
+    const load = async () => {
+      try {
+        const { data } = await api.get("/progress/my-plans");
+        const rows = (data as Record<string, unknown>[]) ?? [];
+        applyPlans(rows.map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0])));
+      } catch {
+        applyPlans([]);
+      }
+    };
+    load();
+    const onPlans = (e: Event) => {
+      const ce = e as CustomEvent<{ plans: WeeklyPlan[] }>;
+      if (ce.detail?.plans) applyPlans(ce.detail.plans);
+    };
+    window.addEventListener(STUDENT_WEEKLY_PLANS_EVENT, onPlans);
+    return () => window.removeEventListener(STUDENT_WEEKLY_PLANS_EVENT, onPlans);
   }, []);
 
   useEffect(() => {
@@ -198,7 +220,6 @@ export default function StudentPlanNotifications() {
         panelOpen && "relative z-[100]"
       )}
     >
-      <StudentDesktopNotifyToggle />
       <div className="relative">
         <button
           type="button"

@@ -1,14 +1,20 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "./Sidebar";
-import Dashboard from "./Dashboard";
+import Dashboard, { type AdminDashboardStats } from "./Dashboard";
 import VerificationList from "./VerificationList";
 import VerificationDetail from "./VerificationDetail";
 import AuditLog from "./AuditLog";
 import AdminPageHero from "./AdminPageHero";
-import { MOCK_PROPOSALS, MOCK_AUDIT_LOG } from "@/lib/superadmin/mockData";
+import api from "@/lib/api/client";
+import {
+  mapUniversityToProposal,
+  mapCompanyToProposal,
+  mapAuditApiToEntry,
+  parseProposalId,
+} from "@/lib/api/mappers";
 import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
 
 type ViewKey =
@@ -40,8 +46,11 @@ export default function App() {
   const searchParams = useSearchParams();
   const initialView = parseViewParam(searchParams.get("view"));
 
-  const [proposals, setProposals] = useState<VerificationProposal[]>(MOCK_PROPOSALS);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(MOCK_AUDIT_LOG);
+  const [proposals, setProposals] = useState<VerificationProposal[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [stats, setStats] = useState<AdminDashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [listsLoading, setListsLoading] = useState(true);
   const [selectedProposal, setSelectedProposal] = useState<VerificationProposal | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>(initialView);
 
@@ -50,110 +59,120 @@ export default function App() {
     setActiveView(viewFromUrl);
   }, [viewFromUrl]);
 
+  const loadProposals = useCallback(async () => {
+    setListsLoading(true);
+    try {
+      const [uniRes, compRes] = await Promise.all([api.get("/admin/universities"), api.get("/admin/companies")]);
+      const uniRows = uniRes.data as Record<string, unknown>[];
+      const compRows = compRes.data as Record<string, unknown>[];
+      const u = uniRows.map((row) => mapUniversityToProposal(row as never));
+      const c = compRows.map((row) => mapCompanyToProposal(row as never));
+      setProposals([...u, ...c]);
+    } finally {
+      setListsLoading(false);
+    }
+  }, []);
+
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const { data } = await api.get<AdminDashboardStats>("/admin/stats");
+      setStats(data);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  const loadAuditLogs = useCallback(async () => {
+    try {
+      const { data } = await api.get("/admin/audit-logs");
+      const logRows = data as Record<string, unknown>[];
+      setAuditLogs(logRows.map((row) => mapAuditApiToEntry(row as never)));
+    } catch {
+      setAuditLogs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProposals();
+    loadStats();
+    loadAuditLogs();
+  }, [loadProposals, loadStats, loadAuditLogs]);
+
   const handleNavigate = (view: ViewKey) => {
     setActiveView(view);
     router.replace(`/admin?view=${view}`);
   };
 
-  const handleApprove = (id: string) => {
-    const proposal = proposals.find((p) => p.id === id);
-    if (!proposal) return;
-
-    const updatedProposals = proposals.map((p) =>
-      p.id === id ? { ...p, status: "Approved" as const, reviewedAt: new Date().toISOString() } : p
-    );
-    setProposals(updatedProposals);
-
-    const newLog: AuditLogEntry = {
-      id: `log_${Date.now()}`,
-      action: "Approve",
-      targetId: id,
-      targetName: proposal.organizationName,
-      adminId: "Admin_1",
-      timestamp: new Date().toISOString(),
-      notes: "Organization credentials verified and approved.",
-    };
-    setAuditLogs([newLog, ...auditLogs]);
-    setSelectedProposal(null);
+  const patchOrgStatus = async (id: string, status: "APPROVED" | "REJECTED" | "SUSPENDED", reason?: string) => {
+    const parsed = parseProposalId(id);
+    if (!parsed) return;
+    const body =
+      status === "REJECTED" ? { status, reason: reason ?? "" } : { status, ...(reason ? { reason } : {}) };
+    if (parsed.kind === "university") {
+      await api.patch(`/admin/university-status/${parsed.numericId}`, body);
+    } else {
+      await api.patch(`/admin/company-status/${parsed.numericId}`, body);
+    }
+    await loadProposals();
+    await loadStats();
+    await loadAuditLogs();
   };
 
-  const handleReject = (id: string, reason: string) => {
-    const proposal = proposals.find((p) => p.id === id);
-    if (!proposal) return;
-
-    const updatedProposals = proposals.map((p) =>
-      p.id === id
-        ? { ...p, status: "Rejected" as const, rejectionReason: reason, reviewedAt: new Date().toISOString() }
-        : p
-    );
-    setProposals(updatedProposals);
-
-    const newLog: AuditLogEntry = {
-      id: `log_${Date.now()}`,
-      action: "Reject",
-      targetId: id,
-      targetName: proposal.organizationName,
-      adminId: "Admin_1",
-      timestamp: new Date().toISOString(),
-      notes: `Rejected: ${reason}`,
-    };
-    setAuditLogs([newLog, ...auditLogs]);
-    setSelectedProposal(null);
+  const handleApprove = async (id: string) => {
+    try {
+      await patchOrgStatus(id, "APPROVED");
+      setSelectedProposal(null);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleSuspend = (id: string) => {
-    const proposal = proposals.find((p) => p.id === id);
-    if (!proposal) return;
-    setProposals(
-      proposals.map((p) =>
-        p.id === id ? { ...p, status: "Suspended" as const, reviewedAt: new Date().toISOString() } : p
-      )
-    );
-    const newLog: AuditLogEntry = {
-      id: `log_${Date.now()}`,
-      action: "Suspend",
-      targetId: id,
-      targetName: proposal.organizationName,
-      adminId: "Admin_1",
-      timestamp: new Date().toISOString(),
-      notes: "Organization suspended after approval — access blocked for org users.",
-    };
-    setAuditLogs([newLog, ...auditLogs]);
-    setSelectedProposal(null);
+  const handleReject = async (id: string, reason: string) => {
+    try {
+      await patchOrgStatus(id, "REJECTED", reason);
+      setSelectedProposal(null);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleReactivate = (id: string) => {
-    const proposal = proposals.find((p) => p.id === id);
-    if (!proposal) return;
-    setProposals(
-      proposals.map((p) =>
-        p.id === id ? { ...p, status: "Approved" as const, reviewedAt: new Date().toISOString() } : p
-      )
-    );
-    const newLog: AuditLogEntry = {
-      id: `log_${Date.now()}`,
-      action: "Reactivate",
-      targetId: id,
-      targetName: proposal.organizationName,
-      adminId: "Admin_1",
-      timestamp: new Date().toISOString(),
-      notes: "Organization reactivated — Approved status restored.",
-    };
-    setAuditLogs([newLog, ...auditLogs]);
-    setSelectedProposal(null);
+  const handleSuspend = async (id: string) => {
+    try {
+      await patchOrgStatus(id, "SUSPENDED");
+      setSelectedProposal(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleReactivate = async (id: string) => {
+    try {
+      await patchOrgStatus(id, "APPROVED");
+      setSelectedProposal(null);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const pendingVerificationCount = proposals.filter((p) => p.status === "Pending").length;
 
   const mainContent = useMemo(() => {
     if (activeView === "dashboard")
-      return <Dashboard pendingVerificationCount={pendingVerificationCount} />;
+      return (
+        <Dashboard
+          pendingVerificationCount={pendingVerificationCount}
+          stats={stats}
+          statsLoading={statsLoading}
+        />
+      );
     if (activeView === "pending")
       return (
         <VerificationList
           title="Pending Approvals"
           proposals={proposals.filter((p) => p.status === "Pending")}
           onReview={setSelectedProposal}
+          loading={listsLoading}
         />
       );
     if (activeView === "approved")
@@ -162,6 +181,7 @@ export default function App() {
           title="Approved History"
           proposals={proposals.filter((p) => p.status === "Approved")}
           onReview={setSelectedProposal}
+          loading={listsLoading}
         />
       );
     if (activeView === "rejected")
@@ -170,6 +190,16 @@ export default function App() {
           title="Rejected History"
           proposals={proposals.filter((p) => p.status === "Rejected")}
           onReview={setSelectedProposal}
+          loading={listsLoading}
+        />
+      );
+    if (activeView === "suspended")
+      return (
+        <VerificationList
+          title="Suspended organizations"
+          proposals={proposals.filter((p) => p.status === "Suspended")}
+          onReview={setSelectedProposal}
+          loading={listsLoading}
         />
       );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
@@ -178,25 +208,21 @@ export default function App() {
         <AdminPageHero
           badge="Settings"
           title="System configuration"
-          description="Global settings and platform parameters will be managed here when connected to the backend."
+          description="Global settings and platform parameters are managed here."
         />
         <div className="card p-8 text-center shadow-sm">
-          <p className="text-slate-600">
-            Placeholder — no settings actions in the frontend-only build.
-          </p>
+          <p className="text-slate-600">Additional settings can be connected to the backend as needed.</p>
         </div>
       </div>
     );
-  }, [activeView, proposals, auditLogs]);
+  }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading]);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
       <Sidebar activeView={activeView} onNavigate={handleNavigate} pendingCount={pendingVerificationCount} />
 
       <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-        <div className="mx-auto w-full max-w-7xl">
-          {mainContent}
-        </div>
+        <div className="mx-auto w-full max-w-7xl">{mainContent}</div>
       </main>
 
       <VerificationDetail
