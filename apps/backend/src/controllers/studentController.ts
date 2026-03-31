@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import bcrypt from 'bcryptjs';
+import { getCurrentInternshipWeekFromStart } from '../utils/internshipWeek';
 
 // 1. COORDINATOR Task: Register a Student (SRS FR-4.2)
 export const registerStudent = async (req: AuthRequest, res: Response) => {
@@ -30,6 +31,7 @@ export const registerStudent = async (req: AuthRequest, res: Response) => {
                 password_hash: hashedTempPassword,
                 role: 'STUDENT',
                 verification_status: 'APPROVED', // Students are auto-approved by Coordinator
+                institution_access_approval: 'APPROVED',
                 studentProfile: {
                     create: {
                         universityId: coordinator.universityId,
@@ -51,18 +53,53 @@ export const registerStudent = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// 2. STUDENT Task: Get My Profile (Security Test)
+// 2. STUDENT: enriched profile for dashboard / settings
 export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.userId;
         const profile = await prisma.student.findUnique({
             where: { userId },
-            include: { university: true }
+            include: {
+                user: { select: { full_name: true, email: true } },
+                university: true,
+                assignments: {
+                    where: { status: 'ACTIVE' },
+                    take: 1,
+                    include: {
+                        company: {
+                            include: {
+                                supervisors: {
+                                    take: 1,
+                                    include: { user: { select: { full_name: true, email: true } } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         });
         if (!profile) {
-            return res.status(404).json({ message: "Student profile not found." });
+            return res.status(404).json({ message: 'Student profile not found.' });
         }
-        res.json(profile);
+
+        const assignment = profile.assignments[0];
+        const supervisor = assignment?.company?.supervisors?.[0];
+
+        const currentInternshipWeek = assignment?.start_date
+            ? getCurrentInternshipWeekFromStart(assignment.start_date)
+            : 1;
+
+        res.json({
+            ...profile,
+            activeAssignment: assignment ?? null,
+            supervisor: supervisor
+                ? {
+                      full_name: supervisor.user.full_name,
+                      email: supervisor.user.email,
+                  }
+                : null,
+            currentInternshipWeek,
+        });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

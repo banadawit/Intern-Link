@@ -3,7 +3,7 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
-import path from 'path';
+import { sendNotification } from '../utils/notificationHelper';
 
 // 1. SUPERVISOR: Submit Final Evaluation (FR-16)
 // src/controllers/reportController.ts -> update the submitEvaluation function
@@ -12,32 +12,82 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
     try {
         const { studentId, technical_score, soft_skill_score, comments } = req.body;
 
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId: req.user!.userId },
+        });
+        if (!supervisor) {
+            return res.status(403).json({ message: 'Only supervisors can submit evaluations.' });
+        }
+
+        const sid = parseInt(String(studentId), 10);
+        const assignment = await prisma.internshipAssignment.findFirst({
+            where: { studentId: sid, companyId: supervisor.companyId, status: 'ACTIVE' },
+        });
+        if (!assignment) {
+            return res.status(403).json({
+                message: 'This student is not actively placed at your company.',
+            });
+        }
+
         // 1. CHECK REQUIREMENT BR-007: Are there any pending weekly plans?
         const pendingPlans = await prisma.weeklyPlan.count({
             where: {
-                studentId: parseInt(studentId),
-                status: 'PENDING'
-            }
+                studentId: sid,
+                status: 'PENDING',
+            },
         });
 
         if (pendingPlans > 0) {
             return res.status(400).json({
-                message: "Cannot submit final evaluation. There are still pending weekly plans that need approval."
+                message:
+                    'Cannot submit final evaluation. There are still pending weekly plans that need approval.',
             });
         }
 
-        // 2. Proceed with saving evaluation...
         const evaluation = await prisma.finalEvaluation.create({
             data: {
-                studentId: parseInt(studentId),
-                supervisorId: (await prisma.supervisor.findUnique({ where: { userId: req.user!.userId } }))!.id,
+                studentId: sid,
+                supervisorId: supervisor.id,
                 technical_score: parseFloat(technical_score),
                 soft_skill_score: parseFloat(soft_skill_score),
-                comments
-            }
+                comments,
+            },
         });
 
         res.status(201).json(evaluation);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** STUDENT: read own final evaluation if any */
+export const getMyEvaluation = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await prisma.student.findUnique({
+            where: { userId: req.user!.userId },
+            include: {
+                finalEvaluation: {
+                    include: {
+                        supervisor: { include: { user: true, company: true } },
+                    },
+                },
+            },
+        });
+        if (!student) return res.status(404).json({ message: 'Student not found.' });
+        if (!student.finalEvaluation) {
+            return res.json({ evaluation: null });
+        }
+        const ev = student.finalEvaluation;
+        res.json({
+            evaluation: {
+                technicalScore: Number(ev.technical_score),
+                softSkillScore: Number(ev.soft_skill_score),
+                comments: ev.comments ?? '',
+                evaluatedAt: ev.evaluated_at,
+                supervisorName: ev.supervisor.user.full_name,
+                companyName: ev.supervisor.company.name,
+            },
+        });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -67,7 +117,30 @@ export const generateStudentReport = async (req: AuthRequest, res: Response) => 
             return res.status(400).json({ message: "Final evaluation not found. Submit scores first." });
         }
 
-        const company = data.assignments[0]?.company;
+        const existingReport = await prisma.report.findUnique({
+            where: { studentId: parseInt(String(studentId), 10) },
+        });
+        if (existingReport?.locked) {
+            return res.status(400).json({
+                message: 'This report has been sent to the university and is locked.',
+            });
+        }
+
+        if (req.user?.role === 'SUPERVISOR') {
+            const supervisor = await prisma.supervisor.findUnique({
+                where: { userId: req.user.userId },
+            });
+            const placedHere = data.assignments.some(
+                (a) => a.companyId === supervisor?.companyId && a.status === 'ACTIVE',
+            );
+            if (!supervisor || !placedHere) {
+                return res.status(403).json({
+                    message: 'You can only generate reports for students placed at your company.',
+                });
+            }
+        }
+
+        const company = data.assignments.find((a) => a.status === 'ACTIVE')?.company ?? data.assignments[0]?.company;
         const reportPath = `uploads/reports/report-${studentId}.pdf`;
 
         // Ensure directory exists
@@ -115,6 +188,73 @@ export const generateStudentReport = async (req: AuthRequest, res: Response) => 
         });
 
         res.json({ message: "PDF Generated Successfully", reportUrl: reportPath });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** UC10–UC11: Lock report and notify coordinators after company sends to university */
+export const sendReportToUniversity = async (req: AuthRequest, res: Response) => {
+    try {
+        const studentId = parseInt(String(req.body?.studentId), 10);
+        if (Number.isNaN(studentId)) {
+            return res.status(400).json({ message: 'studentId is required.' });
+        }
+
+        if (req.user?.role === 'SUPERVISOR') {
+            const supervisor = await prisma.supervisor.findUnique({
+                where: { userId: req.user!.userId },
+            });
+            if (!supervisor) {
+                return res.status(403).json({ message: 'Supervisor profile not found.' });
+            }
+
+            const assignment = await prisma.internshipAssignment.findFirst({
+                where: { studentId, companyId: supervisor.companyId, status: 'ACTIVE' },
+            });
+            if (!assignment) {
+                return res.status(403).json({ message: 'Student is not placed at your company.' });
+            }
+        } else if (req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ message: 'Forbidden.' });
+        }
+
+        const report = await prisma.report.findUnique({ where: { studentId } });
+        if (!report) {
+            return res.status(400).json({ message: 'Generate the PDF before sending to the university.' });
+        }
+        if (report.locked) {
+            return res.status(400).json({ message: 'Report has already been sent to the university.' });
+        }
+
+        const student = await prisma.student.findUnique({
+            where: { id: studentId },
+            include: { user: true },
+        });
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        await prisma.report.update({
+            where: { studentId },
+            data: {
+                locked: true,
+                sent_at: new Date(),
+                sentToUniversityId: student.universityId,
+            },
+        });
+
+        const coordinators = await prisma.coordinator.findMany({
+            where: { universityId: student.universityId },
+            select: { userId: true },
+        });
+
+        const msg = `Final internship report for ${student.user.full_name} has been submitted by the company and is available.`;
+        for (const c of coordinators) {
+            await sendNotification(c.userId, msg);
+        }
+
+        res.json({ message: 'Report sent to the university. Coordinators have been notified.' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

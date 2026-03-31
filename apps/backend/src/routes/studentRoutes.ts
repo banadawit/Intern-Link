@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import * as studentCtrl from '../controllers/studentController';
-import { authorize } from '../middlewares/authMiddleware';
+import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
 
 const router = Router();
+router.use(authenticate);
 
 // Only Coordinators can register students
 router.post('/register', authorize([Role.COORDINATOR]), studentCtrl.registerStudent);

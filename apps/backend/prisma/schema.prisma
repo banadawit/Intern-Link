@@ -22,6 +22,7 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+  SUSPENDED
 }
 
 enum InternshipStatus {
@@ -34,6 +35,12 @@ enum AssignmentStatus {
   ACTIVE
   COMPLETED
   TERMINATED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
 }
 
 // --- MODELS (Tables 2 - 17) ---
@@ -52,6 +59,9 @@ model User {
   verification_token       String?        @unique
   verification_token_expiry DateTime?
   verification_document    String?
+
+  /// COORDINATOR/SUPERVISOR: Admin must approve each user individually after org verification. STUDENT/ADMIN use APPROVED by default.
+  institution_access_approval ApprovalStatus @default(APPROVED)
 
   created_at        DateTime       @default(now())
   updated_at        DateTime       @updatedAt
@@ -81,6 +91,7 @@ model University {
   coordinators      Coordinator[]
   students          Student[]
   proposalsSent     InternshipProposal[]
+  reportsReceived   Report[] @relation("ReportToUniversity")
 }
 
 model Company {
@@ -97,6 +108,8 @@ model Company {
   supervisors       Supervisor[]
   assignments       InternshipAssignment[]
   proposalsReceived InternshipProposal[]
+  teams             Team[]
+  projects          Project[]
 }
 
 model Coordinator {
@@ -139,6 +152,9 @@ model Student {
   proposals         InternshipProposal[]
   finalEvaluation   FinalEvaluation?
   finalReport       Report?
+  weeklyReports     WeeklyReport[]
+  studentTeams      StudentTeam[]
+  studentProjects   StudentProject[]
 }
 
 model InternshipProposal {
@@ -175,8 +191,12 @@ model WeeklyPlan {
   plan_description String         @db.Text
   status           ApprovalStatus @default(PENDING)
   submitted_at     DateTime       @default(now())
-  
+  feedback         String?        @db.Text
+  reviewed_at      DateTime?
+  version          Int            @default(1)
+
   presentation     WeeklyPresentation?
+  weeklyReports    WeeklyReport[]
 }
 
 model WeeklyPresentation {
@@ -188,13 +208,17 @@ model WeeklyPresentation {
 }
 
 model WeeklyReport {
-  id            Int        @id @default(autoincrement())
-  studentId     Int
-  supervisor    Supervisor @relation(fields: [supervisorId], references: [id])
-  supervisorId  Int
-  attendance    Boolean    @default(false)
-  remarks       String?    @db.Text
-  submitted_at  DateTime   @default(now())
+  id               Int              @id @default(autoincrement())
+  studentId        Int
+  student          Student          @relation(fields: [studentId], references: [id])
+  weeklyPlanId     Int?             @unique
+  weeklyPlan       WeeklyPlan?      @relation(fields: [weeklyPlanId], references: [id])
+  supervisor       Supervisor       @relation(fields: [supervisorId], references: [id])
+  supervisorId     Int
+  attendanceStatus AttendanceStatus @default(PRESENT)
+  execution_status String?          @db.Text
+  remarks          String?          @db.Text
+  submitted_at     DateTime         @default(now())
 }
 
 model FinalEvaluation {
@@ -210,12 +234,52 @@ model FinalEvaluation {
 }
 
 model Report {
-  id              Int      @id @default(autoincrement())
-  student         Student  @relation(fields: [studentId], references: [id])
-  studentId       Int      @unique
-  pdf_url         String
-  stamped         Boolean  @default(false)
-  generated_at    DateTime @default(now())
+  id                   Int         @id @default(autoincrement())
+  student              Student     @relation(fields: [studentId], references: [id])
+  studentId            Int         @unique
+  pdf_url              String
+  stamped              Boolean     @default(false)
+  generated_at         DateTime    @default(now())
+  sent_at              DateTime?
+  locked               Boolean     @default(false)
+  sentToUniversityId   Int?
+  sentToUniversity     University? @relation("ReportToUniversity", fields: [sentToUniversityId], references: [id])
+}
+
+model Team {
+  id         Int           @id @default(autoincrement())
+  name       String
+  companyId  Int
+  company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  members    StudentTeam[]
+  created_at DateTime      @default(now())
+}
+
+model StudentTeam {
+  studentId Int
+  teamId    Int
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  team      Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, teamId])
+}
+
+model Project {
+  id         Int               @id @default(autoincrement())
+  name       String
+  companyId  Int
+  company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  students   StudentProject[]
+  created_at DateTime          @default(now())
+}
+
+model StudentProject {
+  studentId Int
+  projectId Int
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, projectId])
 }
 
 model Announcement {

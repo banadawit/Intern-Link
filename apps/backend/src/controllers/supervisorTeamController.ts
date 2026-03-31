@@ -1,0 +1,236 @@
+import { Response } from 'express';
+import { AuthRequest } from '../middlewares/authMiddleware';
+import prisma from '../config/db';
+
+async function getSupervisor(req: AuthRequest) {
+    return prisma.supervisor.findUnique({ where: { userId: req.user!.userId } });
+}
+
+async function assertActiveStudentAtCompany(companyId: number, studentId: number) {
+    const a = await prisma.internshipAssignment.findFirst({
+        where: { companyId, studentId, status: 'ACTIVE' },
+    });
+    if (!a) {
+        const err = new Error('Student is not actively placed at your company.');
+        (err as Error & { status: number }).status = 403;
+        throw err;
+    }
+}
+
+export const listTeams = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+
+        const teams = await prisma.team.findMany({
+            where: { companyId: sup.companyId },
+            include: {
+                members: {
+                    include: {
+                        student: { include: { user: { select: { full_name: true, email: true } } } },
+                    },
+                },
+            },
+            orderBy: { name: 'asc' },
+        });
+        res.json(teams);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const createTeam = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+        if (!name) return res.status(400).json({ message: 'Team name is required.' });
+
+        const team = await prisma.team.create({
+            data: { name, companyId: sup.companyId },
+        });
+        res.status(201).json(team);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const deleteTeam = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const id = parseInt(String(req.params.id), 10);
+        const team = await prisma.team.findFirst({
+            where: { id, companyId: sup.companyId },
+        });
+        if (!team) return res.status(404).json({ message: 'Team not found.' });
+        await prisma.team.delete({ where: { id } });
+        res.json({ message: 'Team deleted.' });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const addTeamMember = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const teamId = parseInt(String(req.params.id), 10);
+        const studentId = parseInt(String(req.body?.studentId), 10);
+        if (Number.isNaN(studentId)) return res.status(400).json({ message: 'studentId required.' });
+
+        const team = await prisma.team.findFirst({
+            where: { id: teamId, companyId: sup.companyId },
+        });
+        if (!team) return res.status(404).json({ message: 'Team not found.' });
+
+        await assertActiveStudentAtCompany(sup.companyId, studentId);
+
+        await prisma.studentTeam.create({
+            data: { teamId, studentId },
+        });
+        res.status(201).json({ message: 'Member added.' });
+    } catch (error: unknown) {
+        const e = error as Error & { status?: number };
+        if (e.status === 403) return res.status(403).json({ message: e.message });
+        const message = error instanceof Error ? error.message : 'Server error';
+        if (message.includes('Unique constraint')) {
+            return res.status(400).json({ message: 'Student already in team.' });
+        }
+        res.status(500).json({ error: message });
+    }
+};
+
+export const removeTeamMember = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const teamId = parseInt(String(req.params.teamId), 10);
+        const studentId = parseInt(String(req.params.studentId), 10);
+
+        const team = await prisma.team.findFirst({
+            where: { id: teamId, companyId: sup.companyId },
+        });
+        if (!team) return res.status(404).json({ message: 'Team not found.' });
+
+        await prisma.studentTeam.delete({
+            where: { studentId_teamId: { studentId, teamId } },
+        });
+        res.json({ message: 'Member removed.' });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const listProjects = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+
+        const projects = await prisma.project.findMany({
+            where: { companyId: sup.companyId },
+            include: {
+                students: {
+                    include: {
+                        student: { include: { user: { select: { full_name: true, email: true } } } },
+                    },
+                },
+            },
+            orderBy: { name: 'asc' },
+        });
+        res.json(projects);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const createProject = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+        if (!name) return res.status(400).json({ message: 'Project name is required.' });
+
+        const project = await prisma.project.create({
+            data: { name, companyId: sup.companyId },
+        });
+        res.status(201).json(project);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const deleteProject = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const id = parseInt(String(req.params.id), 10);
+        const project = await prisma.project.findFirst({
+            where: { id, companyId: sup.companyId },
+        });
+        if (!project) return res.status(404).json({ message: 'Project not found.' });
+        await prisma.project.delete({ where: { id } });
+        res.json({ message: 'Project deleted.' });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const addProjectMember = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const projectId = parseInt(String(req.params.id), 10);
+        const studentId = parseInt(String(req.body?.studentId), 10);
+        if (Number.isNaN(studentId)) return res.status(400).json({ message: 'studentId required.' });
+
+        const project = await prisma.project.findFirst({
+            where: { id: projectId, companyId: sup.companyId },
+        });
+        if (!project) return res.status(404).json({ message: 'Project not found.' });
+
+        await assertActiveStudentAtCompany(sup.companyId, studentId);
+
+        await prisma.studentProject.create({
+            data: { projectId, studentId },
+        });
+        res.status(201).json({ message: 'Student linked to project.' });
+    } catch (error: unknown) {
+        const e = error as Error & { status?: number };
+        if (e.status === 403) return res.status(403).json({ message: e.message });
+        const message = error instanceof Error ? error.message : 'Server error';
+        if (message.includes('Unique constraint')) {
+            return res.status(400).json({ message: 'Student already on project.' });
+        }
+        res.status(500).json({ error: message });
+    }
+};
+
+export const removeProjectMember = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const projectId = parseInt(String(req.params.projectId), 10);
+        const studentId = parseInt(String(req.params.studentId), 10);
+
+        const project = await prisma.project.findFirst({
+            where: { id: projectId, companyId: sup.companyId },
+        });
+        if (!project) return res.status(404).json({ message: 'Project not found.' });
+
+        await prisma.studentProject.delete({
+            where: { studentId_projectId: { studentId, projectId } },
+        });
+        res.json({ message: 'Student removed from project.' });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
