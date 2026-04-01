@@ -14,13 +14,12 @@ import CommonPage from '@/components/student/CommonPage';
 import RequestCompany from '@/components/student/RequestCompany';
 import FinalEvaluation from '@/components/student/FinalEvaluation';
 
-import { MOCK_PROPOSALS, MOCK_AUDIT_LOG } from '@/lib/superadmin/mockData';
 import { VerificationProposal, AuditLogEntry } from '@/lib/superadmin/types';
 import { ShieldCheck, GraduationCap } from 'lucide-react';
 
 export default function App() {
-  const [proposals, setProposals] = useState<VerificationProposal[]>(MOCK_PROPOSALS);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(MOCK_AUDIT_LOG);
+  const [proposals, setProposals] = useState<VerificationProposal[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [selectedProposal, setSelectedProposal] = useState<VerificationProposal | null>(null);
 
   const handleApprove = (id: string) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Plus, 
@@ -21,12 +22,9 @@ import {
   ClipboardList,
   Send,
 } from 'lucide-react';
-import {
-  MOCK_INTERNSHIP_CURRENT_WEEK,
-  MOCK_STUDENT,
-  MOCK_WEEKLY_PLANS,
-} from '@/lib/superadmin/mockData';
-import { WeeklyPlan } from '@/lib/superadmin/types';
+import api from '@/lib/api/client';
+import { mapStudentProfileFromMe, mapWeeklyPlanRow, type StudentMeResponse } from '@/lib/api/mappers';
+import type { StudentProfile, WeeklyPlan } from '@/lib/superadmin/types';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { STUDENT_WEEKLY_PLANS_EVENT } from '@/lib/student/planNotificationEvents';
@@ -45,7 +43,12 @@ import StudentPageHero from './StudentPageHero';
 const WeeklyPlans = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [plans, setPlans] = useState<WeeklyPlan[]>(MOCK_WEEKLY_PLANS);
+  const [plans, setPlans] = useState<WeeklyPlan[]>([]);
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<WeeklyPlan | null>(null);
   /** When set, the modal is revising this rejected plan (new version on submit). */
@@ -54,11 +57,44 @@ const WeeklyPlans = () => {
   const [editPendingPlan, setEditPendingPlan] = useState<WeeklyPlan | null>(null);
 
   const [formData, setFormData] = useState({
-    weekNumber: plans.length + 1,
+    weekNumber: 1,
     tasks: '',
     presentation: null as File | null,
   });
   const presentationInputRef = useRef<HTMLInputElement>(null);
+
+  const currentWeek = profile?.currentInternshipWeek ?? 1;
+
+  const loadPlansAndProfile = async () => {
+    try {
+      setLoadError(null);
+      const [meRes, plansRes] = await Promise.all([
+        api.get<StudentMeResponse>('/students/me'),
+        api.get('/progress/my-plans'),
+      ]);
+      const mappedProfile = mapStudentProfileFromMe(meRes.data);
+      setProfile(mappedProfile);
+      const rows = (plansRes.data as Record<string, unknown>[]) ?? [];
+      const mapped = rows.map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0]));
+      setPlans(mapped);
+      const maxW = mapped.length ? Math.max(...mapped.map((p) => p.weekNumber)) : 0;
+      setFormData((prev) => ({
+        ...prev,
+        weekNumber: maxW + 1,
+      }));
+    } catch (e: unknown) {
+      const msg = e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response
+        ? JSON.stringify((e.response as { data?: unknown }).data)
+        : 'Failed to load weekly plans.';
+      setLoadError(typeof msg === 'string' ? msg : 'Failed to load.');
+    } finally {
+      setInitialLoad(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPlansAndProfile();
+  }, []);
 
   const closeSubmitModal = () => {
     setShowSubmitForm(false);
@@ -91,85 +127,67 @@ const WeeklyPlans = () => {
     router.replace('/student/plans', { scroll: false });
   }, [searchParams, plans, router]);
 
-  const missedWeeks = getMissedInternshipWeeks(plans, MOCK_INTERNSHIP_CURRENT_WEEK);
-  const hasCurrentWeekPlan = hasPlanForInternshipWeek(plans, MOCK_INTERNSHIP_CURRENT_WEEK);
+  const missedWeeks = getMissedInternshipWeeks(plans, currentWeek);
+  const hasCurrentWeekPlan = hasPlanForInternshipWeek(plans, currentWeek);
 
   useEffect(() => {
-    const missed = getMissedInternshipWeeks(plans, MOCK_INTERNSHIP_CURRENT_WEEK);
-    const hasCurrent = hasPlanForInternshipWeek(plans, MOCK_INTERNSHIP_CURRENT_WEEK);
+    const missed = getMissedInternshipWeeks(plans, currentWeek);
+    const hasCurrent = hasPlanForInternshipWeek(plans, currentWeek);
     maybeNotifyMissedDeadlines(missed);
-    maybeNotifyCurrentWeekDue(MOCK_INTERNSHIP_CURRENT_WEEK, hasCurrent);
-  }, [plans]);
+    maybeNotifyCurrentWeekDue(currentWeek, hasCurrent);
+  }, [plans, currentWeek]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const file = formData.presentation;
-    const presentationFields =
-      file != null
-        ? {
-            presentationUrl: URL.createObjectURL(file),
-            presentationFileName: file.name,
-          }
-        : {};
+    setSubmitting(true);
+    try {
+      if (editPendingPlan) {
+        await api.patch(`/progress/plan/${editPendingPlan.id}`, {
+          plan_description: formData.tasks,
+        });
+        await loadPlansAndProfile();
+        closeSubmitModal();
+        return;
+      }
 
-    if (editPendingPlan) {
-      const updatedPlan: WeeklyPlan = {
-        ...editPendingPlan,
-        tasks: formData.tasks,
-        submittedAt: new Date().toISOString(),
-        ...(file != null ? presentationFields : {}),
-      };
-      setPlans((prev) => prev.map((p) => (p.id === editPendingPlan.id ? updatedPlan : p)));
-      setShowSubmitForm(false);
-      setEditPendingPlan(null);
-      setSelectedPlan((s) => (s?.id === editPendingPlan.id ? updatedPlan : s));
-      const nextWeek =
-        plans.length > 0 ? Math.max(...plans.map((p) => p.weekNumber)) + 1 : 1;
+      const fd = new FormData();
+      fd.append('week_number', String(formData.weekNumber));
+      fd.append('plan_description', formData.tasks);
+      if (formData.presentation) {
+        fd.append('presentation', formData.presentation);
+      }
+      await api.post('/progress/submit', fd);
+      await loadPlansAndProfile();
+      setReviseFromPlan(null);
+      const maxW = plans.length
+        ? Math.max(...plans.map((p) => p.weekNumber), formData.weekNumber)
+        : formData.weekNumber;
       setFormData({
-        weekNumber: nextWeek,
+        weekNumber: maxW + 1,
         tasks: '',
         presentation: null,
       });
-      return;
+      closeSubmitModal();
+    } catch (err: unknown) {
+      const data = err && typeof err === 'object' && 'response' in err ? (err as { response?: { data?: { message?: string } } }).response?.data : undefined;
+      setLoadError(data?.message ?? 'Could not submit plan. Are you placed with a company?');
+    } finally {
+      setSubmitting(false);
     }
-
-    if (reviseFromPlan) {
-      const newPlan: WeeklyPlan = {
-        id: `w${formData.weekNumber}-v${reviseFromPlan.version + 1}-${Date.now()}`,
-        weekNumber: formData.weekNumber,
-        tasks: formData.tasks,
-        status: 'Pending',
-        submittedAt: new Date().toISOString(),
-        version: reviseFromPlan.version + 1,
-        ...presentationFields,
-      };
-      setPlans((prev) => [...prev, newPlan]);
-      setShowSubmitForm(false);
-      setReviseFromPlan(null);
-      setSelectedPlan(newPlan);
-      setFormData((prev) => ({
-        weekNumber: prev.weekNumber,
-        tasks: '',
-        presentation: null,
-      }));
-      return;
-    }
-    const newPlan: WeeklyPlan = {
-      id: `w${formData.weekNumber}-${Date.now()}`,
-      weekNumber: formData.weekNumber,
-      tasks: formData.tasks,
-      status: 'Pending',
-      submittedAt: new Date().toISOString(),
-      version: 1,
-      ...presentationFields,
-    };
-    setPlans([...plans, newPlan]);
-    setShowSubmitForm(false);
-    setFormData({ weekNumber: plans.length + 2, tasks: '', presentation: null });
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+          {loadError}
+        </div>
+      )}
+      {initialLoad && (
+        <p className="text-sm text-text-muted" role="status">
+          Loading weekly plans…
+        </p>
+      )}
       <StudentPageHero
         badge="Weekly plans"
         title="Weekly Plans"
@@ -213,7 +231,7 @@ const WeeklyPlans = () => {
         <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-amber-950 shadow-sm">
           <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" aria-hidden />
           <div className="min-w-0 space-y-1">
-            <p className="font-semibold text-amber-900">Week {MOCK_INTERNSHIP_CURRENT_WEEK} plan due</p>
+            <p className="font-semibold text-amber-900">Week {currentWeek} plan due</p>
             <p className="text-sm leading-relaxed text-amber-900/90">
               Submit your weekly plan before <strong>{WEEKLY_SUBMISSION_DEADLINE_LABEL}</strong>. Enable
               desktop alerts in the header to get reminders.
@@ -233,7 +251,7 @@ const WeeklyPlans = () => {
           <p>
             Standard cutoff: <strong>{WEEKLY_DEADLINE_POLICY.deadlineLabel}</strong>. The platform
             compares your submissions to the current internship week (
-            <strong>week {MOCK_INTERNSHIP_CURRENT_WEEK}</strong> in this demo).
+            <strong>week {currentWeek}</strong> based on your placement start date).
           </p>
           <ul className="list-inside list-disc space-y-2 text-text-muted">
             {WEEKLY_DEADLINE_POLICY.points.map((line, idx) => (
@@ -241,9 +259,12 @@ const WeeklyPlans = () => {
             ))}
           </ul>
           <p className="text-xs text-text-muted">
-            Turn on <strong>Alerts</strong> in the top bar for browser notifications when deadlines are
-            missed or your current week is still unsubmitted (once you allow notifications in the
-            browser).
+            Turn on <strong>Alerts</strong> under{' '}
+            <Link href="/student/settings/alerts" className="font-semibold text-primary-600 underline-offset-2 hover:underline">
+              Settings → Alerts
+            </Link>{' '}
+            for browser notifications when deadlines are missed or your current week is still unsubmitted
+            (once you allow notifications in the browser).
           </p>
         </div>
       </details>
@@ -276,10 +297,10 @@ const WeeklyPlans = () => {
                     <p className="text-xs text-text-muted">
                       Version {plan.version} • Submitted {new Date(plan.submittedAt).toLocaleDateString()}
                     </p>
-                    {MOCK_STUDENT.supervisorName && (
+                    {profile?.supervisorName && (
                       <p className="mt-1 text-xs text-text-muted">
                         Supervisor:{' '}
-                        <span className="font-medium text-text-body">{MOCK_STUDENT.supervisorName}</span>
+                        <span className="font-medium text-text-body">{profile.supervisorName}</span>
                       </p>
                     )}
                   </div>
@@ -336,12 +357,12 @@ const WeeklyPlans = () => {
                 </h3>
                 
                 <div className="space-y-6">
-                  {MOCK_STUDENT.supervisorName && (
+                  {profile?.supervisorName && (
                     <div className="rounded-xl border border-border-default bg-bg-secondary/60 px-4 py-3">
                       <p className="text-xs font-bold uppercase tracking-tight text-text-muted">Assigned supervisor</p>
-                      <p className="text-sm font-semibold text-text-heading">{MOCK_STUDENT.supervisorName}</p>
-                      {MOCK_STUDENT.supervisorEmail && (
-                        <p className="mt-0.5 text-xs text-text-muted">{MOCK_STUDENT.supervisorEmail}</p>
+                      <p className="text-sm font-semibold text-text-heading">{profile.supervisorName}</p>
+                      {profile.supervisorEmail && (
+                        <p className="mt-0.5 text-xs text-text-muted">{profile.supervisorEmail}</p>
                       )}
                     </div>
                   )}
@@ -612,7 +633,8 @@ const WeeklyPlans = () => {
                   </button>
                   <button
                     type="submit"
-                    className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm shadow-lg shadow-primary-900/15 transition-transform hover:shadow-xl active:scale-[0.99] sm:flex-initial sm:min-w-[200px]"
+                    disabled={submitting}
+                    className="btn-primary flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm shadow-lg shadow-primary-900/15 transition-transform hover:shadow-xl active:scale-[0.99] disabled:opacity-60 sm:flex-initial sm:min-w-[200px]"
                   >
                     <Send className="h-4 w-4" />
                     {editPendingPlan

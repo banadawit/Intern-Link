@@ -80,4 +80,6 @@ export interface StudentProfile {
   assignedCompany?: string;
   supervisorName?: string;
   supervisorEmail?: string;
+  /** From API: computed week index for deadline UX */
+  currentInternshipWeek?: number;
 }

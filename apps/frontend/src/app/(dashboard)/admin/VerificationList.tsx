@@ -13,9 +13,10 @@ interface Props {
   title: string;
   proposals: VerificationProposal[];
   onReview: (proposal: VerificationProposal) => void;
+  loading?: boolean;
 }
 
-const VerificationList = ({ title, proposals, onReview }: Props) => {
+const VerificationList = ({ title, proposals, onReview, loading }: Props) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"All" | "University" | "Company">("All");
 
@@ -32,6 +33,12 @@ const VerificationList = ({ title, proposals, onReview }: Props) => {
         title={title}
         description="Manage and review institutional verification requests."
       />
+
+      {loading && (
+        <p className="text-sm text-slate-500" role="status">
+          Loading organizations…
+        </p>
+      )}
 
       <div className="card overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4">

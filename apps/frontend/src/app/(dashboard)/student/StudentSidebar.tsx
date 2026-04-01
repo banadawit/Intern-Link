@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -9,19 +9,41 @@ import {
   FileCheck,
   LogOut,
   GraduationCap,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/hooks/useAuth";
+import LogoutModal from "@/components/common/LogoutModal";
 
 const StudentSidebar = () => {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [showLogout, setShowLogout] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    setShowLogout(false);
+    router.push("/login");
+  };
+
+  const displayName = user?.fullName ?? "John Doe";
+  const initials =
+    user?.fullName
+      ?.split(/\s+/)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) ?? "JD";
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/student" },
     { icon: ClipboardList, label: "Weekly Plans", path: "/student/plans" },
     { icon: MessageSquare, label: "Common Page", path: "/student/common" },
     { icon: Building, label: "Request Company", path: "/student/request-company" },
     { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation" },
+    { icon: Settings, label: "Settings", path: "/student/settings" },
   ];
 
   const linkClass = (active: boolean) =>
@@ -34,6 +56,9 @@ const StudentSidebar = () => {
 
   return (
     <aside className="sticky top-0 z-40 w-full shrink-0 border-b border-border-default bg-bg-main shadow-sm lg:flex lg:h-screen lg:w-64 lg:flex-col lg:border-r lg:border-b-0 lg:shadow-none">
+      {showLogout && (
+        <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />
+      )}
       <div className="flex items-center gap-3 border-b border-border-default px-4 py-4 lg:px-6">
         <div className="rounded-xl bg-primary-base p-2.5 shadow-sm shadow-primary-900/10">
           <GraduationCap className="h-6 w-6 text-white" />
@@ -52,7 +77,9 @@ const StudentSidebar = () => {
           const active =
             item.path === "/student"
               ? pathname === item.path
-              : pathname?.startsWith(item.path) ?? false;
+              : item.path === "/student/settings"
+                ? pathname === "/student/settings" || pathname?.startsWith("/student/settings/")
+                : pathname?.startsWith(item.path) ?? false;
           return (
             <Link key={item.path} href={item.path} className={linkClass(!!active)}>
               <item.icon className="h-5 w-5 shrink-0" />
@@ -65,15 +92,16 @@ const StudentSidebar = () => {
       <div className="mt-auto hidden border-t border-border-default lg:block">
         <div className="flex items-center gap-3 p-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary-base ring-2 ring-white shadow-sm">
-            JD
+            {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-text-heading">John Doe</p>
+            <p className="truncate text-sm font-bold text-text-heading">{displayName}</p>
             <p className="truncate text-xs text-text-muted">Student</p>
           </div>
         </div>
         <button
           type="button"
+          onClick={() => setShowLogout(true)}
           className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
         >
           <LogOut className="h-5 w-5 shrink-0" />
@@ -84,12 +112,13 @@ const StudentSidebar = () => {
       <div className="flex items-center justify-between gap-2 border-t border-border-default px-3 py-3 lg:hidden">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-bold text-primary-base">
-            JD
+            {initials}
           </div>
-          <span className="truncate text-sm font-semibold text-text-heading">John Doe</span>
+          <span className="truncate text-sm font-semibold text-text-heading">{displayName}</span>
         </div>
         <button
           type="button"
+          onClick={() => setShowLogout(true)}
           className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
           aria-label="Logout"
         >

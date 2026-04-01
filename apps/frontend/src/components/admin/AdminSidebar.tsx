@@ -3,7 +3,6 @@
 import React, { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Sidebar from "@/app/(dashboard)/admin/Sidebar";
-import { MOCK_PROPOSALS } from "@/lib/superadmin/mockData";
 
 type ViewKey = "dashboard" | "pending" | "approved" | "rejected" | "suspended" | "audit-log" | "settings";
 
@@ -34,7 +33,7 @@ export default function AdminSidebar() {
     else navigate(`/admin/${view}`);
   };
 
-  const pendingCount = MOCK_PROPOSALS.filter((p) => p.status === "Pending").length;
+  const pendingCount = 0;
 
   return (
     <Sidebar activeView={activeView} onNavigate={onNavigate} pendingCount={pendingCount} />
