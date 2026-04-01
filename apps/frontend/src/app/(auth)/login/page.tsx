@@ -106,11 +106,35 @@ const LoginPage = () => {
 
       router.push(dest);
     } catch (err) {
-      const ax = err as AxiosError<{ message?: string; error?: string }>;
+      const ax = err as AxiosError<{
+        message?: string;
+        error?: string;
+        requiresVerification?: boolean;
+        email?: string;
+        code?: string;
+      }>;
       const data = ax.response?.data;
       const serverMsg =
         data?.message ||
         (typeof data?.error === 'string' ? data.error : undefined);
+
+      if (data?.requiresVerification) {
+        const pendingEmail = encodeURIComponent(data.email || formData.email.trim());
+        router.push(`/verify-email?email=${pendingEmail}`);
+        return;
+      }
+
+      if (
+        data?.code === 'INSTITUTION_NOT_APPROVED' ||
+        data?.code === 'INSTITUTION_MEMBER_NOT_APPROVED'
+      ) {
+        const pendingMessage = encodeURIComponent(
+          serverMsg || 'Your account is waiting for institutional approval.'
+        );
+        router.push(`/verification-pending?message=${pendingMessage}`);
+        return;
+      }
+
       setErrors({
         general:
           serverMsg ||
