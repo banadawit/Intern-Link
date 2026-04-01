@@ -364,6 +364,248 @@ export const sendPasswordResetEmail = async (email: string, token: string): Prom
   }
 };
 
+const escapeHtml = (s: string): string =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+/**
+ * Notify organization contact when admin approves university or company verification.
+ * Logs errors only — does not throw (approval is already saved).
+ */
+export const sendOrganizationApprovalEmail = async (
+  to: string,
+  organizationName: string,
+  institutionType: 'University' | 'Company'
+): Promise<void> => {
+  try {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const loginUrl = `${frontendUrl}/login`;
+    const safeName = escapeHtml(organizationName);
+    const transporter = await getTransporter();
+
+    const mailOptions = {
+      from: `"InternLink" <${process.env.SMTP_USER || 'noreply@internlink.com'}>`,
+      to,
+      subject: `Your ${institutionType} account has been approved — InternLink`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Account approved</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #0d9488 0%, #115e59 100%); padding: 32px 24px; text-align: center; }
+            .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+            .content { padding: 32px 24px; }
+            .button { display: inline-block; background: #0d9488; color: white !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
+            .footer { background: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+            .text-muted { color: #64748b; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="card">
+              <div class="header">
+                <h1 class="logo">InternLink</h1>
+                <p style="color: rgba(255,255,255,0.95); margin-top: 8px;">Verification approved</p>
+              </div>
+              <div class="content">
+                <h2 style="margin-top: 0;">Your organization is approved</h2>
+                <p>Good news — <strong>${safeName}</strong> has been <strong>approved</strong> as a registered <strong>${institutionType}</strong> on InternLink.</p>
+                <p>Your organization account is now active. Coordinators and supervisors associated with your institution can sign in and use the platform according to their roles.</p>
+                <div style="text-align: center;">
+                  <a href="${loginUrl}" class="button">Sign in to InternLink</a>
+                </div>
+                <p class="text-muted">If the button does not work, open: <a href="${loginUrl}">${loginUrl}</a></p>
+              </div>
+              <div class="footer">
+                <p>&copy; ${new Date().getFullYear()} InternLink. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    const preview = nodemailer.getTestMessageUrl(info);
+    if (preview) console.info(`ℹ️ Preview approval email at: ${preview}`);
+    console.log(`✅ Organization approval email sent to ${to}: ${info.messageId}`);
+  } catch (error: any) {
+    console.error('❌ Failed to send organization approval email:', error?.message || error);
+  }
+};
+
+/**
+ * Notify organization contact when admin rejects verification; includes reason.
+ * Logs errors only — does not throw (rejection is already saved).
+ */
+export const sendOrganizationRejectionEmail = async (
+  to: string,
+  organizationName: string,
+  institutionType: 'University' | 'Company',
+  rejectionReason: string
+): Promise<void> => {
+  try {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const loginUrl = `${frontendUrl}/login`;
+    const safeName = escapeHtml(organizationName);
+    const safeReason = escapeHtml(rejectionReason.trim() || 'No additional details were provided.');
+    const transporter = await getTransporter();
+
+    const mailOptions = {
+      from: `"InternLink" <${process.env.SMTP_USER || 'noreply@internlink.com'}>`,
+      to,
+      subject: `Verification update for ${organizationName} — InternLink`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Verification not approved</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%); padding: 32px 24px; text-align: center; }
+            .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+            .content { padding: 32px 24px; }
+            .reason { background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 14px; color: #450a0a; white-space: pre-wrap; }
+            .footer { background: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+            .text-muted { color: #64748b; font-size: 14px; }
+            a.link { color: #0d9488; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="card">
+              <div class="header">
+                <h1 class="logo">InternLink</h1>
+                <p style="color: rgba(255,255,255,0.95); margin-top: 8px;">Verification request closed</p>
+              </div>
+              <div class="content">
+                <h2 style="margin-top: 0;">Your verification request was not approved</h2>
+                <p>The verification request for <strong>${safeName}</strong> (${institutionType}) has been <strong>removed from the pending queue</strong>. Uploaded verification materials are no longer retained for this submission.</p>
+                <p class="text-muted" style="margin-bottom: 8px;">Reason provided by the reviewer:</p>
+                <div class="reason">${safeReason}</div>
+                <p>You may register again with corrected information if your organization is eligible. If you have questions, contact platform support.</p>
+                <p class="text-muted"><a class="link" href="${loginUrl}">Open InternLink</a></p>
+              </div>
+              <div class="footer">
+                <p>&copy; ${new Date().getFullYear()} InternLink. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    const preview = nodemailer.getTestMessageUrl(info);
+    if (preview) console.info(`ℹ️ Preview rejection email at: ${preview}`);
+    console.log(`✅ Organization rejection email sent to ${to}: ${info.messageId}`);
+  } catch (error: any) {
+    console.error('❌ Failed to send organization rejection email:', error?.message || error);
+  }
+};
+
+/**
+ * Notify platform admins when a new verification proposal is submitted (pending org).
+ * Logs errors only — does not throw.
+ */
+export const sendAdminNewVerificationProposalEmail = async (
+    toEmails: string[],
+    params: {
+        organizationName: string;
+        institutionType: 'University' | 'Company';
+        organizationId: number;
+        submitterEmail?: string;
+    }
+): Promise<void> => {
+    if (!toEmails.length) return;
+    try {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const queueUrl = `${frontendUrl}/admin?view=pending`;
+        const safeName = escapeHtml(params.organizationName);
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
+        const submitterLine = params.submitterEmail
+            ? `<p class="text-muted">Submitter contact: <strong>${escapeHtml(params.submitterEmail)}</strong></p>`
+            : '';
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>New verification proposal</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #0d9488 0%, #115e59 100%); padding: 32px 24px; text-align: center; }
+            .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+            .content { padding: 32px 24px; }
+            .button { display: inline-block; background: #0d9488; color: white !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
+            .footer { background: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+            .text-muted { color: #64748b; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="card">
+              <div class="header">
+                <h1 class="logo">InternLink</h1>
+                <p style="color: rgba(255,255,255,0.95); margin-top: 8px;">New verification proposal</p>
+              </div>
+              <div class="content">
+                <h2 style="margin-top: 0;">Action required</h2>
+                <p>A new <strong>${params.institutionType}</strong> verification proposal has been submitted and is <strong>pending review</strong>.</p>
+                <p><strong>Organization:</strong> ${safeName}</p>
+                <p class="text-muted"><strong>Reference ID:</strong> ${params.organizationId}</p>
+                ${submitterLine}
+                <div style="text-align: center;">
+                  <a href="${queueUrl}" class="button">Open pending queue</a>
+                </div>
+                <p class="text-muted">Review and approve or reject within your platform response-time policy.</p>
+              </div>
+              <div class="footer">
+                <p>&copy; ${new Date().getFullYear()} InternLink — Admin notification</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+        `;
+
+        for (const to of toEmails) {
+            const mailOptions = {
+                from: `"InternLink" <${fromAddr}>`,
+                to,
+                subject: `[InternLink] New ${params.institutionType} proposal: ${params.organizationName}`,
+                html,
+            };
+            const info = await transporter.sendMail(mailOptions);
+            const preview = nodemailer.getTestMessageUrl(info);
+            if (preview) console.info(`ℹ️ Preview admin new-proposal email at: ${preview}`);
+            console.log(`✅ Admin new-proposal email sent to ${to}: ${info.messageId}`);
+        }
+    } catch (error: any) {
+        console.error('❌ Failed to send admin new-proposal email:', error?.message || error);
+    }
+};
+
 /**
  * Test email configuration
  */

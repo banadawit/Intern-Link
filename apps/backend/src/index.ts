@@ -1,5 +1,6 @@
 // src/index.ts
 import express, { Application, Request, Response } from 'express';
+import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes';
@@ -12,6 +13,7 @@ import placementRoutes from './routes/placementRoutes';
 import progressRoutes from './routes/progressRoutes';
 import reportRoutes from './routes/reportRoutes';
 import feedRoutes from './routes/feedRoutes';
+import supervisorRoutes from './routes/supervisorRoutes';
 
 // 1. Load Environment Variables
 dotenv.config();
@@ -21,6 +23,7 @@ const app: Application = express();
 // 2. Middlewares
 app.use(cors()); // Allows frontend to talk to backend
 app.use(express.json()); // Allows server to read JSON data in requests
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // 3. Routes Integration
 app.use('/api/auth', authRoutes);
@@ -32,6 +35,7 @@ app.use('/api/placements', placementRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/feed', feedRoutes);
+app.use('/api/supervisor', supervisorRoutes);
 // 4. Basic Health Check Route
 app.get('/', (req: Request, res: Response) => {
     res.send('InternLink Backend API is Running...');

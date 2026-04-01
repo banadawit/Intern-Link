@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { generateVerificationToken, getVerificationTokenExpiry } from '../utils/token.utils';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service';
+import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
 
 // ============================================
 // REGISTER - with email verification
@@ -33,26 +34,32 @@ export const register = async (req: Request, res: Response) => {
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
         // Create user with verification token
+        const roleUpper = role.toUpperCase();
+        const needsIndividualAdminApproval =
+            roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR';
+
         const newUser = await prisma.user.create({
             data: {
                 full_name,
                 email,
                 password_hash: hashedPassword,
-                role: role.toUpperCase(), // Ensure uppercase for enum
+                role: roleUpper, // Ensure uppercase for enum
                 verification_status: 'PENDING',
                 verification_token: verificationToken,
                 verification_token_expiry: verificationTokenExpiry,
                 verification_document: file ? file.path : null, // Store file path if uploaded
+                institution_access_approval: needsIndividualAdminApproval ? 'PENDING' : 'APPROVED',
             }
         });
 
         // ✅ Create role-specific profile
-        if (role.toUpperCase() === 'COORDINATOR') {
+        if (roleUpper === 'COORDINATOR') {
             // First, find or create university
             let university = await prisma.university.findFirst({
                 where: { name: university_name }
             });
-            
+            let createdNewUniversity = false;
+
             if (!university && university_name) {
                 university = await prisma.university.create({
                     data: {
@@ -60,6 +67,16 @@ export const register = async (req: Request, res: Response) => {
                         official_email: email,
                         approval_status: 'PENDING'
                     }
+                });
+                createdNewUniversity = true;
+            }
+
+            if (university && createdNewUniversity) {
+                await notifyAdminsNewVerificationProposal({
+                    organizationName: university.name,
+                    institutionType: 'University',
+                    organizationId: university.id,
+                    submitterEmail: email,
                 });
             }
             
@@ -73,12 +90,13 @@ export const register = async (req: Request, res: Response) => {
                 });
             }
         } 
-        else if (role.toUpperCase() === 'SUPERVISOR') {
+        else if (roleUpper === 'SUPERVISOR') {
             // First, find or create company
             let company = await prisma.company.findFirst({
                 where: { name: company_name }
             });
-            
+            let createdNewCompany = false;
+
             if (!company && company_name) {
                 company = await prisma.company.create({
                     data: {
@@ -86,6 +104,16 @@ export const register = async (req: Request, res: Response) => {
                         official_email: email,
                         approval_status: 'PENDING'
                     }
+                });
+                createdNewCompany = true;
+            }
+
+            if (company && createdNewCompany) {
+                await notifyAdminsNewVerificationProposal({
+                    organizationName: company.name,
+                    institutionType: 'Company',
+                    organizationId: company.id,
+                    submitterEmail: email,
                 });
             }
             
@@ -99,12 +127,13 @@ export const register = async (req: Request, res: Response) => {
                 });
             }
         } 
-        else if (role.toUpperCase() === 'STUDENT') {
+        else if (roleUpper === 'STUDENT') {
             // Find university
             let university = await prisma.university.findFirst({
                 where: { name: university_name }
             });
-            
+            let createdNewUniversityForStudent = false;
+
             if (!university && university_name) {
                 university = await prisma.university.create({
                     data: {
@@ -112,6 +141,16 @@ export const register = async (req: Request, res: Response) => {
                         official_email: email,
                         approval_status: 'PENDING'
                     }
+                });
+                createdNewUniversityForStudent = true;
+            }
+
+            if (university && createdNewUniversityForStudent) {
+                await notifyAdminsNewVerificationProposal({
+                    organizationName: university.name,
+                    institutionType: 'University',
+                    organizationId: university.id,
+                    submitterEmail: email,
                 });
             }
             
@@ -184,13 +223,31 @@ export const register = async (req: Request, res: Response) => {
 // ============================================
 export const login = async (req: Request, res: Response) => {
     try {
-        const { email, password } = req.body;
+        const { email: rawEmail, password } = req.body;
+        const email =
+            typeof rawEmail === 'string' ? rawEmail.trim() : '';
 
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) {
-            return res.status(401).json({ 
+        if (!email || typeof password !== 'string') {
+            return res.status(400).json({
                 success: false,
-                message: "Invalid credentials" 
+                message: 'Email and password are required',
+            });
+        }
+
+        const user = await prisma.user.findFirst({
+            where: {
+                email: { equals: email, mode: 'insensitive' },
+            },
+            include: {
+                coordinatorProfile: { include: { university: true } },
+                supervisorProfile: { include: { company: true } },
+                studentProfile: { include: { university: true } },
+            },
+        });
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password. Please try again.',
             });
         }
 
@@ -206,10 +263,101 @@ export const login = async (req: Request, res: Response) => {
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 success: false,
-                message: "Invalid credentials" 
+                message: 'Invalid email or password. Please try again.',
             });
+        }
+
+        // Institution verification (SRS): org must be admin-approved; coordinators/supervisors also need individual admin approval
+        if (user.role === 'COORDINATOR') {
+            const uni = user.coordinatorProfile?.university;
+            if (!uni) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No university profile is linked to this account. Contact support.',
+                    code: 'NO_INSTITUTION_PROFILE',
+                });
+            }
+            if (uni.approval_status === 'SUSPENDED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'This university organization has been suspended by an administrator. Contact support for assistance.',
+                    code: 'INSTITUTION_SUSPENDED',
+                });
+            }
+            if (uni.approval_status !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your university’s verification proposal must be submitted and approved by an administrator before you can access the system.',
+                    code: 'INSTITUTION_NOT_APPROVED',
+                });
+            }
+            if (user.institution_access_approval !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your coordinator account must be individually approved by an administrator after your organization is verified.',
+                    code: 'INSTITUTION_MEMBER_NOT_APPROVED',
+                });
+            }
+        }
+
+        if (user.role === 'SUPERVISOR') {
+            const company = user.supervisorProfile?.company;
+            if (!company) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No company profile is linked to this account. Contact support.',
+                    code: 'NO_INSTITUTION_PROFILE',
+                });
+            }
+            if (company.approval_status === 'SUSPENDED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'This company organization has been suspended by an administrator. Contact support for assistance.',
+                    code: 'INSTITUTION_SUSPENDED',
+                });
+            }
+            if (company.approval_status !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your company’s verification proposal must be submitted and approved by an administrator before you can access the system.',
+                    code: 'INSTITUTION_NOT_APPROVED',
+                });
+            }
+            if (user.institution_access_approval !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your supervisor account must be individually approved by an administrator after your organization is verified.',
+                    code: 'INSTITUTION_MEMBER_NOT_APPROVED',
+                });
+            }
+        }
+
+        if (user.role === 'STUDENT') {
+            const uni = user.studentProfile?.university;
+            if (uni && uni.approval_status === 'SUSPENDED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your university organization has been suspended by an administrator. Contact support for assistance.',
+                    code: 'INSTITUTION_SUSPENDED',
+                });
+            }
+            if (uni && uni.approval_status !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your university account is not active yet. Verification must be submitted and approved by an administrator before you can sign in.',
+                    code: 'INSTITUTION_NOT_APPROVED',
+                });
+            }
         }
 
         // Generate JWT
@@ -229,7 +377,8 @@ export const login = async (req: Request, res: Response) => {
                     email: user.email,
                     fullName: user.full_name,
                     role: user.role,
-                    isVerified: user.verification_status === 'APPROVED'
+                    isVerified: user.verification_status === 'APPROVED',
+                    institutionAccessApproval: user.institution_access_approval,
                 }
             }
         });
@@ -521,6 +670,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
                 fullName: user.full_name,
                 role: user.role,
                 isVerified: user.verification_status === 'APPROVED',
+                institutionAccessApproval: user.institution_access_approval,
                 profile: user.studentProfile || user.coordinatorProfile || user.supervisorProfile
             }
         });

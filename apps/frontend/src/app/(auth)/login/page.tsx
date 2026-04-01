@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
+import type { AxiosError } from 'axios';
 
 interface FormErrors {
   email?: string;
@@ -14,7 +15,7 @@ interface FormErrors {
 
 const LoginPage = () => {
   const router = useRouter();
-  const { login, isLoading: authLoading, error: authError } = useAuth();
+  const { login } = useAuth();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,30 +88,34 @@ const LoginPage = () => {
     
     setIsLoading(true);
     setErrors({});
-    
+    setSuccessMessage('');
+
     try {
-      // Mock API call - replace with actual login
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // Mock successful login
-      console.log('Logging in with:', { ...formData, rememberMe });
-      
-      // Show success message
+      await login(formData.email.trim(), formData.password, rememberMe);
       setSuccessMessage('Login successful! Redirecting...');
-      
-      // Simulate role-based redirect (will come from actual API)
-      setTimeout(() => {
-        const email = formData.email.trim().toLowerCase();
-        if (email === "admin@internlink.com") {
-          router.push("/admin");
-          return;
-        }
-        router.push("/student");
-      }, 1000);
-      
+
+      const role = useAuth.getState().user?.role;
+      const dest =
+        role === 'ADMIN'
+          ? '/admin'
+          : role === 'SUPERVISOR'
+            ? '/supervisor'
+            : role === 'COORDINATOR'
+              ? '/coordinator'
+              : '/student';
+
+      router.push(dest);
     } catch (err) {
+      const ax = err as AxiosError<{ message?: string; error?: string }>;
+      const data = ax.response?.data;
+      const serverMsg =
+        data?.message ||
+        (typeof data?.error === 'string' ? data.error : undefined);
       setErrors({
-        general: 'Invalid email or password. Please try again.',
+        general:
+          serverMsg ||
+          useAuth.getState().error ||
+          'Invalid email or password. Please try again.',
       });
     } finally {
       setIsLoading(false);
@@ -120,7 +125,8 @@ const LoginPage = () => {
   // Handle demo login for different roles (development only)
   const handleDemoLogin = (role: string) => {
     const demoCredentials = {
-      Admin: { email: 'admin@internlink.com', password: 'Admin123!' },
+      // Must match `apps/backend/prisma/seed.ts` — run `npx prisma db seed` from `apps/backend` if any account is missing
+      Admin: { email: 'admin@internlink.com', password: 'Admin@1234' },
       Coordinator: { email: 'coordinator@haramaya.edu', password: 'Coord123!' },
       Supervisor: { email: 'supervisor@company.com', password: 'Super123!' },
       Student: { email: 'student@haramaya.edu', password: 'Student123!' },

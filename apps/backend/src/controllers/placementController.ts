@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
-import { ApprovalStatus } from '@prisma/client';
+import { attachProposalSla } from '../utils/verificationSla';
 
 // 1. COORDINATOR: Send Placement Proposal to a Company
 export const sendPlacementProposal = async (req: AuthRequest, res: Response) => {
@@ -39,6 +39,28 @@ export const sendPlacementProposal = async (req: AuthRequest, res: Response) => 
     }
 };
 
+/** STUDENT: list internship proposals for this student */
+export const getMyProposals = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await prisma.student.findUnique({
+            where: { userId: req.user?.userId },
+        });
+        if (!student) return res.status(403).json({ message: "Student profile not found." });
+
+        const proposals = await prisma.internshipProposal.findMany({
+            where: { studentId: student.id },
+            orderBy: { submitted_at: "desc" },
+            include: {
+                company: { select: { id: true, name: true, official_email: true } },
+                university: { select: { id: true, name: true } },
+            },
+        });
+        res.json(proposals);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // 2. SUPERVISOR: Get Proposals sent to their Company
 export const getIncomingProposals = async (req: AuthRequest, res: Response) => {
     try {
@@ -52,11 +74,12 @@ export const getIncomingProposals = async (req: AuthRequest, res: Response) => {
             where: { companyId: supervisor.companyId, status: 'PENDING' },
             include: {
                 student: { include: { user: { select: { full_name: true, email: true } } } },
-                university: true
-            }
+                university: true,
+            },
         });
 
-        res.json(proposals);
+        const withSla = proposals.map((p) => attachProposalSla(p));
+        res.json(withSla);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -71,12 +94,26 @@ export const respondToProposal = async (req: AuthRequest, res: Response) => {
         // Ensure id is a string (handle string | string[])
         const proposalId = Array.isArray(id) ? id[0] : id;
 
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId: req.user?.userId },
+        });
+        if (!supervisor) {
+            return res.status(403).json({ message: 'Supervisor profile not found.' });
+        }
+
+        const existingProposal = await prisma.internshipProposal.findUnique({
+            where: { id: parseInt(String(proposalId), 10) },
+        });
+        if (!existingProposal || existingProposal.companyId !== supervisor.companyId) {
+            return res.status(403).json({ message: 'This proposal does not belong to your company.' });
+        }
+
         // Start a Transaction (FR-4.6 Automation)
         const result = await prisma.$transaction(async (tx) => {
             // Update Proposal Status
             const proposal = await tx.internshipProposal.update({
-                where: { id: parseInt(proposalId) },
-                data: { status }
+                where: { id: parseInt(String(proposalId), 10) },
+                data: { status },
             });
 
             if (status === 'APPROVED') {

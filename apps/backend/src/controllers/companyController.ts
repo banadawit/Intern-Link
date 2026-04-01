@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
+import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
 
 export const setupCompany = async (req: AuthRequest, res: Response) => {
     try {
@@ -31,6 +32,17 @@ export const setupCompany = async (req: AuthRequest, res: Response) => {
                     }
                 }
             }
+        });
+
+        const supervisorUser = await prisma.user.findUnique({
+            where: { id: userId! },
+            select: { email: true },
+        });
+        await notifyAdminsNewVerificationProposal({
+            organizationName: company.name,
+            institutionType: 'Company',
+            organizationId: company.id,
+            submitterEmail: supervisorUser?.email,
         });
 
         res.status(201).json({ message: "Company created. Awaiting admin approval.", company });

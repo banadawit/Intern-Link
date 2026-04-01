@@ -121,8 +121,9 @@ export const useAuth = create<AuthState>()(
           
         } catch (err) {
           const error = err as ApiError;
-          // Pass through the full error so login page can check requiresVerification
-          const errorMessage = error.response?.data?.message || 'Login failed';
+          const d = error.response?.data as { message?: string; error?: string } | undefined;
+          const errorMessage =
+            d?.message || d?.error || 'Invalid email or password. Please try again.';
           set({ error: errorMessage, isLoading: false });
           throw err;
         }
