@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import LogoutModal from '@/components/common/LogoutModal';
-
 export default function CoordinatorDashboardPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function CoordinatorDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center relative">
       {showLogout && (
         <LogoutModal
           onConfirm={handleLogout}
@@ -29,6 +29,12 @@ export default function CoordinatorDashboardPage() {
         </div>
         <h1 className="text-2xl font-bold text-slate-900">Coordinator Dashboard</h1>
         <p className="text-slate-500 text-sm">Welcome, {user?.fullName}. This dashboard is under construction.</p>
+        <Link
+          href="/coordinator/ai"
+          className="block w-full rounded-xl bg-primary-600 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+        >
+          Open AI assistant
+        </Link>
         <button
           onClick={() => setShowLogout(true)}
           className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition-colors"

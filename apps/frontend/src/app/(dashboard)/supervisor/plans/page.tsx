@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import api from "@/lib/api/client";
 import { AlertCircle, X } from "lucide-react";
 
@@ -205,6 +206,19 @@ export default function SupervisorPlansPage() {
             </div>
             {selected.status === "PENDING" && (
               <>
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
+                  <p className="font-medium text-slate-800">AI feedback</p>
+                  <p className="mt-1">
+                    Draft feedback in the full chat — paste the plan or ask for review ideas, then copy text back into remarks
+                    below. Nothing is approved automatically.
+                  </p>
+                  <Link
+                    href="/supervisor/ai"
+                    className="mt-2 inline-block font-semibold text-primary-600 hover:underline"
+                  >
+                    Open AI assistant
+                  </Link>
+                </div>
                 <label className="mt-4 block text-sm font-medium text-slate-700">
                   Feedback / remarks
                   <textarea

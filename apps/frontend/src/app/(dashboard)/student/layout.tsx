@@ -1,6 +1,7 @@
 import React from "react";
 import StudentSidebar from "./StudentSidebar";
 import StudentPlanNotifications from "./StudentPlanNotifications";
+import AiChatFloating from "@/components/ai/AiChatFloating";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,7 +13,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>
+      <AiChatFloating role="student" />
     </div>
   );
 }
-

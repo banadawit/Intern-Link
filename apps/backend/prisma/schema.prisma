@@ -76,6 +76,20 @@ model User {
   // Announcements & Notifications
   announcements     Announcement[]
   notifications     Notification[]
+
+  aiChatMessages    AiChatMessage[]
+}
+
+/// Persisted AI assistant chat (one thread per user; chronological messages)
+model AiChatMessage {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  speaker   String   // "user" | "assistant"
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model University {

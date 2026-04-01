@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   LayoutDashboard,
   CheckCircle,
@@ -9,6 +10,7 @@ import {
   LogOut,
   ShieldCheck,
   Ban,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -97,6 +99,13 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0 }: Props) => {
             )}
           </button>
         ))}
+        <Link
+          href="/admin/ai"
+          className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 lg:w-full lg:gap-3 lg:px-4 lg:py-3"
+        >
+          <Sparkles className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1 whitespace-nowrap text-left">AI assistant</span>
+        </Link>
       </nav>
 
       <div className="mt-auto hidden border-t border-slate-200 lg:block">
