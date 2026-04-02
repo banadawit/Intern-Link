@@ -18,12 +18,8 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
             <div className="mx-auto w-full max-w-7xl">{children}</div>
           </main>
         </div>
+        <AiChatFloating role="student" />
       </div>
-
-      <AiChatFloating role="student" />
-    </div>
-
     </StudentRouteGuard>
-
   );
 }

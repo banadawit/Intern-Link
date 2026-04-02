@@ -4,8 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  User, 
-  Building2, 
   GraduationCap, 
   ArrowRight, 
   ArrowLeft, 
@@ -308,9 +306,10 @@ const RegisterPage = () => {
       
       router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       setErrors({
-        general: error.message || 'Registration failed. Please try again.'
+        general: err?.message || 'Registration failed. Please try again.'
       });
     } finally {
       setIsLoading(false);
@@ -807,6 +806,7 @@ const RegisterPage = () => {
                 </div>
                 {formData.verificationFilePreview && formData.verificationFile.type.startsWith('image/') && (
                   <div className="mt-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
                       src={formData.verificationFilePreview} 
                       alt="Preview" 
