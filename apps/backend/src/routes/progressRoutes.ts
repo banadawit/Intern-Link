@@ -11,6 +11,10 @@ router.get('/my-plans', authorize([Role.STUDENT]), progressCtrl.getMyWeeklyPlans
 
 router.patch('/plan/:id', authorize([Role.STUDENT]), progressCtrl.updateMyWeeklyPlan);
 
+router.get('/plan/:id/days', authorize([Role.STUDENT]), progressCtrl.getPlanDaySubmissions);
+router.post('/plan/:id/days', authorize([Role.STUDENT]), progressCtrl.submitPlanDay);
+router.delete('/plan/:id/days/:workDate', authorize([Role.STUDENT]), progressCtrl.deletePlanDay);
+
 // Student submits (Handles File + Form Data)
 router.post(
     '/submit',

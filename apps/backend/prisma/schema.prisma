@@ -78,6 +78,20 @@ model User {
   notifications     Notification[]
 
   aiChatMessages    AiChatMessage[]
+  activityLogs      ActivityLog[]
+}
+
+/// Daily activity counts for contribution heatmap (login, submissions, etc.).
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  count     Int      @default(0)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("activity_logs")
 }
 
 /// Persisted AI assistant chat (one thread per user; chronological messages)
@@ -211,6 +225,20 @@ model WeeklyPlan {
 
   presentation     WeeklyPresentation?
   weeklyReports    WeeklyReport[]
+  daySubmissions   WeeklyPlanDaySubmission[]
+}
+
+/// One row per calendar day the student marked as submitted for that approved weekly plan (daily check-in).
+model WeeklyPlanDaySubmission {
+  id             Int        @id @default(autoincrement())
+  weeklyPlan     WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+  weeklyPlanId   Int
+  workDate       DateTime   @db.Date
+  notes          String?    @db.Text
+  submittedAt    DateTime   @default(now())
+
+  @@unique([weeklyPlanId, workDate])
+  @@index([weeklyPlanId])
 }
 
 model WeeklyPresentation {

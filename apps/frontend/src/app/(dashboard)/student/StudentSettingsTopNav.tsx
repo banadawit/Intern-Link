@@ -3,11 +3,12 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BellRing, User } from "lucide-react";
+import { Activity, BellRing, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/student/settings", label: "Profile", icon: User, exact: true },
+  { href: "/student/settings/activity", label: "Activity", icon: Activity, exact: false },
   { href: "/student/settings/alerts", label: "Alerts", icon: BellRing, exact: false },
 ];
 

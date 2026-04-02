@@ -46,6 +46,8 @@ export interface WeeklyPlan {
   submittedAt: string;
   reviewedAt?: string;
   version: number;
+  /** Daily check-ins (after supervisor approves the plan). */
+  daySubmissions?: { workDate: string }[];
 }
 
 export interface Post {
@@ -82,4 +84,6 @@ export interface StudentProfile {
   supervisorEmail?: string;
   /** From API: computed week index for deadline UX */
   currentInternshipWeek?: number;
+  /** Active placement start (ISO); used to map internship weeks to calendar days. */
+  placementStartDate?: string;
 }
