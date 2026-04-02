@@ -1,23 +1,12 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/hooks/useAuth";
+import React from "react";
+import RoleRouteGuard from "@/components/auth/RoleRouteGuard";
 
 /**
  * Frontend-only guard: signed-in users who are not ADMIN cannot stay on /admin.
  * Unauthenticated users can still load the page for local/demo builds without a backend.
  */
 export default function AdminRouteGuard({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!user) return;
-    if (user.role !== "ADMIN") {
-      router.replace("/student");
-    }
-  }, [user, router]);
-
-  return <>{children}</>;
+  return <RoleRouteGuard allowedRole="ADMIN">{children}</RoleRouteGuard>;
 }
