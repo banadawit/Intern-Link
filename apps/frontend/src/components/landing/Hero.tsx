@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { motion, useAnimation, useInView } from 'framer-motion';
 import { useRef } from 'react';
 
@@ -46,7 +47,7 @@ const Hero = () => {
   return (
     <section 
       ref={ref}
-      className="relative overflow-hidden bg-white pt-24 pb-16 lg:pt-32 lg:pb-24"
+      className="relative overflow-hidden bg-white pb-14 pt-20 sm:pb-16 sm:pt-24 lg:pb-24 lg:pt-32"
     >
       {/* Animated Background Elements */}
       <div className="absolute inset-0 -z-10">
@@ -66,7 +67,7 @@ const Hero = () => {
           variants={containerVariants}
           initial="hidden"
           animate={controls}
-          className="flex flex-col items-center lg:flex-row lg:gap-12 xl:gap-16"
+          className="flex flex-col items-center gap-10 lg:flex-row lg:gap-12 xl:gap-16"
         >
           {/* Left Side: Content */}
           <div className="flex-1 text-center lg:text-left">
@@ -82,7 +83,7 @@ const Hero = () => {
 
             <motion.h1 
               variants={itemVariants}
-              className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl"
+              className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl"
             >
               Digitizing the Future of{' '}
               <span className="relative inline-block">
@@ -109,7 +110,7 @@ const Hero = () => {
 
             <motion.p 
               variants={itemVariants}
-              className="mt-6 text-lg leading-relaxed text-slate-600 max-w-2xl mx-auto lg:mx-0"
+              className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg lg:mx-0"
             >
               A smart, centralized ecosystem connecting{' '}
               <span className="font-semibold text-slate-900">Students</span>,{' '}
@@ -122,7 +123,8 @@ const Hero = () => {
               variants={itemVariants}
               className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start"
             >
-              <button 
+              <a
+                href="#get-started"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 className="group relative w-full sm:w-auto overflow-hidden rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-8 py-4 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:from-primary-700 hover:to-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
@@ -146,9 +148,12 @@ const Hero = () => {
                   </svg>
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-primary-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </button>
+              </a>
 
-              <button className="group w-full sm:w-auto rounded-lg border border-slate-200 bg-white px-8 py-4 text-sm font-semibold text-slate-700 shadow-soft transition-all duration-300 hover:border-primary-200 hover:bg-slate-50 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+              <a
+                href="#features"
+                className="group w-full sm:w-auto rounded-lg border border-slate-200 bg-white px-8 py-4 text-sm font-semibold text-slate-700 shadow-soft transition-all duration-300 hover:border-primary-200 hover:bg-slate-50 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              >
                 <span className="flex items-center justify-center gap-2">
                   Explore Companies
                   <svg
@@ -165,7 +170,7 @@ const Hero = () => {
                     />
                   </svg>
                 </span>
-              </button>
+              </a>
             </motion.div>
 
             {/* Enhanced Stats Section */}
@@ -189,7 +194,7 @@ const Hero = () => {
             {/* Trust Badges */}
             <motion.div 
               variants={itemVariants}
-              className="mt-8 flex items-center justify-center gap-4 lg:justify-start"
+              className="mt-8 hidden items-center justify-center gap-4 lg:flex lg:justify-start"
             >
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
@@ -208,7 +213,7 @@ const Hero = () => {
           {/* Right Side: Enhanced Visual Mockup */}
           <motion.div 
             variants={itemVariants}
-            className="mt-16 flex-1 lg:mt-0 relative"
+            className="relative mt-8 w-full max-w-xl flex-1 lg:mt-0 lg:max-w-none"
           >
             <div className="relative rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-xl transition-all duration-300 hover:shadow-2xl">
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">

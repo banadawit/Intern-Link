@@ -83,11 +83,47 @@ const stats = [
   { icon: FileText, value: "98%", label: "Satisfaction", color: "info" }
 ];
 
+const colorStyles = {
+  primary: {
+    badge: "bg-primary-50 text-primary-700 ring-primary-600/20",
+    iconGlow: "bg-primary-100",
+    check: "text-primary-500",
+    action: "text-primary-600",
+    statIconBox: "bg-primary-50",
+    statIcon: "text-primary-600",
+  },
+  success: {
+    badge: "bg-success-50 text-success-700 ring-success-600/20",
+    iconGlow: "bg-success-100",
+    check: "text-success-500",
+    action: "text-success-600",
+    statIconBox: "bg-success-50",
+    statIcon: "text-success-600",
+  },
+  warning: {
+    badge: "bg-warning-50 text-warning-700 ring-warning-600/20",
+    iconGlow: "bg-warning-100",
+    check: "text-warning-500",
+    action: "text-warning-600",
+    statIconBox: "bg-warning-50",
+    statIcon: "text-warning-600",
+  },
+  info: {
+    badge: "bg-info-50 text-info-700 ring-info-600/20",
+    iconGlow: "bg-info-100",
+    check: "text-info-500",
+    action: "text-info-600",
+    statIconBox: "bg-info-50",
+    statIcon: "text-info-600",
+  },
+} as const;
+
 const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: number }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.3 });
   
   const Icon = feature.icon;
+  const styles = colorStyles[feature.color as keyof typeof colorStyles] || colorStyles.primary;
   
   return (
     <motion.div
@@ -96,7 +132,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, delay: index * 0.1 }}
       whileHover={{ y: -8 }}
-      className="group relative bg-white rounded-2xl shadow-card hover:shadow-card-hover transition-all duration-300"
+      className="group relative rounded-2xl bg-white shadow-card transition-all duration-300 hover:shadow-card-hover"
     >
       {/* Decorative gradient border */}
       <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl -z-10`} />
@@ -104,7 +140,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
       <div className="p-8">
         {/* Icon with animated background */}
         <div className={`relative mb-6`}>
-          <div className={`absolute inset-0 bg-${feature.color}-100 rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity`} />
+          <div className={`absolute inset-0 rounded-xl blur-lg opacity-50 transition-opacity group-hover:opacity-75 ${styles.iconGlow}`} />
           <div className={`relative w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
             <Icon className="w-7 h-7 text-white" />
           </div>
@@ -112,7 +148,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
         
         {/* Role Badge */}
         <div className="mb-4">
-          <span className={`inline-flex items-center rounded-full bg-${feature.color}-50 px-3 py-1 text-xs font-medium text-${feature.color}-700 ring-1 ring-inset ring-${feature.color}-600/20`}>
+          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${styles.badge}`}>
             {feature.role}
           </span>
         </div>
@@ -131,7 +167,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
         <div className="space-y-2">
           {feature.benefits.map((benefit, idx) => (
             <div key={idx} className="flex items-center gap-2 text-sm text-slate-600">
-              <CheckCircle2 className={`w-4 h-4 text-${feature.color}-500 flex-shrink-0`} />
+              <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${styles.check}`} />
               <span>{benefit}</span>
             </div>
           ))}
@@ -139,7 +175,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
         
         {/* Hover Action */}
         <div className="mt-6 pt-4 border-t border-slate-100">
-          <button className={`text-${feature.color}-600 text-sm font-semibold inline-flex items-center gap-1 group-hover:gap-2 transition-all`}>
+          <button className={`inline-flex items-center gap-1 text-sm font-semibold transition-all group-hover:gap-2 ${styles.action}`}>
             Learn more
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -156,7 +192,7 @@ const Features = () => {
   const isHeaderInView = useInView(headerRef, { once: true });
 
   return (
-    <section id="features" className="relative bg-gradient-to-b from-slate-50 to-white py-24 sm:py-32 overflow-hidden">
+    <section id="features" className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-white py-20 sm:py-24 lg:py-28">
       {/* Background decoration */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-100/30 rounded-full blur-3xl" />
@@ -170,7 +206,7 @@ const Features = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={isHeaderInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="mx-auto mb-12 max-w-3xl text-center sm:mb-16"
         >
           {/* Eyebrow */}
           <div className="inline-flex items-center rounded-full bg-primary-50 px-4 py-1.5 text-sm font-medium text-primary-700 ring-1 ring-inset ring-primary-600/20 mb-6">
@@ -198,14 +234,15 @@ const Features = () => {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="mb-20"
         >
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-soft p-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft sm:p-6">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
               {stats.map((stat, idx) => {
                 const Icon = stat.icon;
+                const statStyles = colorStyles[stat.color as keyof typeof colorStyles] || colorStyles.primary;
                 return (
                   <div key={idx} className="text-center">
-                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-${stat.color}-50 mb-3`}>
-                      <Icon className={`w-6 h-6 text-${stat.color}-600`} />
+                    <div className={`mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl ${statStyles.statIconBox}`}>
+                      <Icon className={`h-6 w-6 ${statStyles.statIcon}`} />
                     </div>
                     <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
                     <p className="text-sm text-slate-500">{stat.label}</p>
@@ -217,7 +254,7 @@ const Features = () => {
         </motion.div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-4">
           {features.map((feature, index) => (
             <FeatureCard key={feature.role} feature={feature} index={index} />
           ))}
