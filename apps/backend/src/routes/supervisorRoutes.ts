@@ -14,6 +14,7 @@ router.get('/weekly-plans', supervisorCtrl.getCompanyWeeklyPlans);
 
 router.get('/weekly-reports', supervisorCtrl.listWeeklyAttendanceReports);
 router.patch('/weekly-reports/:id', supervisorCtrl.patchWeeklyAttendanceReport);
+router.get('/attendance-heatmap', supervisorCtrl.getAttendanceHeatmap);
 
 router.get('/teams', supervisorTeamCtrl.listTeams);
 router.post('/teams', supervisorTeamCtrl.createTeam);

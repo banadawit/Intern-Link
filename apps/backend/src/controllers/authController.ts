@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/db';
+import { Role } from '@prisma/client';
+import { incrementActivityForUser } from '../services/activityLog.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -367,6 +369,10 @@ export const login = async (req: Request, res: Response) => {
             // { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
             { expiresIn: '7d' } as jwt.SignOptions
         );
+
+        if (user.role === Role.STUDENT) {
+            void incrementActivityForUser(user.id);
+        }
 
         res.json({ 
             success: true,

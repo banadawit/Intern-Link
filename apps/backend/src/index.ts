@@ -16,6 +16,7 @@ import reportRoutes from './routes/reportRoutes';
 import feedRoutes from './routes/feedRoutes';
 import supervisorRoutes from './routes/supervisorRoutes';
 import aiRoutes from './routes/aiRoutes';
+import activityRoutes from './routes/activityRoutes';
 
 const app: Application = express();
 
@@ -36,6 +37,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/supervisor', supervisorRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/activity', activityRoutes);
 // 3. Basic Health Check Route
 app.get('/', (req: Request, res: Response) => {
     res.send('InternLink Backend API is Running...');

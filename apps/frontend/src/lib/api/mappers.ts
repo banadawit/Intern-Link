@@ -51,10 +51,13 @@ export function mapWeeklyPlanRow(p: {
   reviewed_at?: string | null;
   version?: number;
   presentation?: { file_url: string } | null;
+  day_submissions?: { workDate: string | Date }[];
+  daySubmissions?: { workDate: string | Date }[];
 }): WeeklyPlan {
   const url = p.presentation?.file_url ? apiFileUrl(p.presentation.file_url) : undefined;
   const path = p.presentation?.file_url ?? "";
   const fileName = path.split(/[/\\]/).pop() || "presentation";
+  const rawDays = p.day_submissions ?? p.daySubmissions ?? [];
   return {
     id: String(p.id),
     weekNumber: p.week_number,
@@ -66,6 +69,12 @@ export function mapWeeklyPlanRow(p: {
     submittedAt: p.submitted_at,
     reviewedAt: p.reviewed_at ?? undefined,
     version: p.version ?? 1,
+    daySubmissions: rawDays.map((d) => ({
+      workDate:
+        typeof d.workDate === "string"
+          ? d.workDate.slice(0, 10)
+          : new Date(d.workDate).toISOString().slice(0, 10),
+    })),
   };
 }
 
@@ -93,6 +102,7 @@ export function mapStudentProfileFromMe(data: StudentMeResponse): StudentProfile
     supervisorName: data.supervisor?.full_name,
     supervisorEmail: data.supervisor?.email,
     currentInternshipWeek: data.currentInternshipWeek ?? 1,
+    placementStartDate: assignment?.start_date,
   };
 }
 
