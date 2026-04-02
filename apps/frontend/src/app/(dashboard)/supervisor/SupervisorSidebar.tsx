@@ -12,6 +12,7 @@ import {
   CalendarClock,
   UsersRound,
   FolderKanban,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -47,6 +48,7 @@ const SupervisorSidebar = () => {
     { icon: FolderKanban, label: "Projects", path: "/supervisor/projects" },
     { icon: Inbox, label: "Proposals", path: "/supervisor/proposals" },
     { icon: ClipboardList, label: "Weekly plans", path: "/supervisor/plans" },
+    { icon: Sparkles, label: "AI assistant", path: "/supervisor/ai" },
     { icon: FileCheck, label: "Reports", path: "/supervisor/reports" },
     { icon: CalendarClock, label: "Attendance", path: "/supervisor/attendance" },
   ];

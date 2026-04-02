@@ -1,7 +1,11 @@
 import React from "react";
 import StudentSidebar from "./StudentSidebar";
 import StudentPlanNotifications from "./StudentPlanNotifications";
+
+import AiChatFloating from "@/components/ai/AiChatFloating";
+
 import StudentRouteGuard from "./StudentRouteGuard";
+
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,7 +19,11 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
           </main>
         </div>
       </div>
+
+      <AiChatFloating role="student" />
+    </div>
+
     </StudentRouteGuard>
+
   );
 }
-

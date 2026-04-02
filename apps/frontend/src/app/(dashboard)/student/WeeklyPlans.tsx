@@ -259,9 +259,9 @@ const WeeklyPlans = () => {
             ))}
           </ul>
           <p className="text-xs text-text-muted">
-            Turn on <strong>Alerts</strong> under{' '}
+            Turn on <strong>Alerts</strong> from the{' '}
             <Link href="/student/settings/alerts" className="font-semibold text-primary-600 underline-offset-2 hover:underline">
-              Settings → Alerts
+              top bar
             </Link>{' '}
             for browser notifications when deadlines are missed or your current week is still unsubmitted
             (once you allow notifications in the browser).

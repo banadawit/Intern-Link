@@ -1,5 +1,13 @@
 {
+  "name": "intern-link",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev --prefix apps/backend\" \"npm run dev --prefix apps/frontend\""
+  },
   "dependencies": {
     "@prisma/client": "^7.5.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
