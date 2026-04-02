@@ -56,41 +56,22 @@ export const register = async (req: Request, res: Response) => {
 
         // ✅ Create role-specific profile
         if (roleUpper === 'COORDINATOR') {
-            // First, find or create university
-            let university = await prisma.university.findFirst({
-                where: { name: university_name }
+            // Late-creation workflow: do NOT create University yet.
+            // Store the university name in the profile; admin will create it upon approval.
+            await prisma.coordinator.create({
+                data: {
+                    userId: newUser.id,
+                    pending_university_name: university_name || null,
+                }
             });
-            let createdNewUniversity = false;
 
-            if (!university && university_name) {
-                university = await prisma.university.create({
-                    data: {
-                        name: university_name,
-                        official_email: email,
-                        approval_status: 'PENDING'
-                    }
-                });
-                createdNewUniversity = true;
-            }
-
-            if (university && createdNewUniversity) {
-                await notifyAdminsNewVerificationProposal({
-                    organizationName: university.name,
-                    institutionType: 'University',
-                    organizationId: university.id,
-                    submitterEmail: email,
-                });
-            }
-            
-            if (university) {
-                await prisma.coordinator.create({
-                    data: {
-                        userId: newUser.id,
-                        universityId: university.id,
-                        phone_number: position || null,
-                    }
-                });
-            }
+            // Notify admins to review this coordinator's credentials
+            await notifyAdminsNewVerificationProposal({
+                organizationName: university_name || 'Unknown University',
+                institutionType: 'University',
+                organizationId: newUser.id,
+                submitterEmail: email,
+            });
         } 
         else if (roleUpper === 'SUPERVISOR') {
             // First, find or create company
@@ -172,7 +153,7 @@ export const register = async (req: Request, res: Response) => {
         // ✅ Send verification email
         let emailSendError = null;
         try {
-            await sendVerificationEmail(email, verificationToken);
+            await sendVerificationEmail(email, verificationToken, roleUpper);
         } catch (err: any) {
             console.error('Email send error after registration:', err);
             emailSendError = err?.message || 'Unable to send verification email.';
@@ -181,7 +162,7 @@ export const register = async (req: Request, res: Response) => {
         // In development, log the token so you can verify manually
         if (process.env.NODE_ENV === 'development') {
             console.log(`\n🔑 VERIFY EMAIL TOKEN for ${email}:`);
-            console.log(`   http://localhost:3000/verify-email?token=${verificationToken}\n`);
+            console.log(`   http://localhost:3000/verify-email?token=${verificationToken}${roleUpper === 'COORDINATOR' ? '&role=coordinator' : ''}\n`);
         }
 
         const baseResponse = {
@@ -204,10 +185,13 @@ export const register = async (req: Request, res: Response) => {
 
         res.status(201).json({ 
             success: true,
-            message: "Registration successful. Please check your email to verify your account.",
+            message: roleUpper === 'COORDINATOR'
+                ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
+                : "Registration successful. Please check your email to verify your account.",
             data: {
                 ...baseResponse,
-                emailSent: true
+                emailSent: true,
+                pendingAdminReview: roleUpper === 'COORDINATOR',
             }
         });
         
@@ -273,7 +257,16 @@ export const login = async (req: Request, res: Response) => {
 
         // Institution verification (SRS): org must be admin-approved; coordinators/supervisors also need individual admin approval
         if (user.role === 'COORDINATOR') {
-            const uni = user.coordinatorProfile?.university;
+            const profile = user.coordinatorProfile;
+            // Coordinator hasn't been approved yet (no university linked)
+            if (!profile?.universityId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Your coordinator account is pending administrator approval. You will receive an email once approved.',
+                    code: 'PENDING_ADMIN_REVIEW',
+                });
+            }
+            const uni = profile?.university;
             if (!uni) {
                 return res.status(403).json({
                     success: false,

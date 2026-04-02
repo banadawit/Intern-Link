@@ -27,6 +27,7 @@ function VerifyEmailContent() {
   
   const token = searchParams.get('token');
   const emailParam = searchParams.get('email');
+  const roleParam = searchParams.get('role'); // 'coordinator' triggers pending-review redirect
   
   const [status, setStatus] = useState<VerificationStatus>(token ? 'verifying' : 'idle');
   const [isResending, setIsResending] = useState(false);
@@ -60,9 +61,13 @@ function VerifyEmailContent() {
       await verifyEmail(token);
       setStatus('success');
       
-      // Auto redirect after 3 seconds
+      // Coordinators go to pending-review; everyone else goes to login
       setTimeout(() => {
-        router.push('/login?verified=true');
+        if (roleParam === 'coordinator') {
+          router.push('/register/pending-review');
+        } else {
+          router.push('/login?verified=true');
+        }
       }, 3000);
       
     } catch (error: unknown) {
@@ -126,7 +131,6 @@ function VerifyEmailContent() {
     );
   }
 
-  // Success state
   if (status === 'success') {
     return (
       <div className="space-y-8 animate-fade-in text-center lg:text-left">
@@ -136,33 +140,39 @@ function VerifyEmailContent() {
           </div>
           <h1 className="text-3xl font-bold text-slate-900">Email verified! 🎉</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Your email has been successfully verified. Redirecting to login...
+            {roleParam === 'coordinator'
+              ? 'Your email is confirmed. Redirecting to your submission status...'
+              : 'Your email has been successfully verified. Redirecting to login...'}
           </p>
         </div>
 
         <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 space-y-3">
           <div className="flex items-center gap-3 text-emerald-700">
             <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm font-medium">Account activated successfully</span>
+            <span className="text-sm font-medium">Email confirmed successfully</span>
           </div>
-          <div className="flex items-center gap-3 text-emerald-600">
-            <ShieldCheck className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm">You can now access all features of InternLink</span>
-          </div>
+          {roleParam === 'coordinator' ? (
+            <div className="flex items-center gap-3 text-emerald-600">
+              <ShieldCheck className="h-5 w-5 flex-shrink-0" />
+              <span className="text-sm">Your registration is now pending administrator review</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-emerald-600">
+              <ShieldCheck className="h-5 w-5 flex-shrink-0" />
+              <span className="text-sm">You can now access all features of InternLink</span>
+            </div>
+          )}
         </div>
 
         <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-emerald-500 rounded-full animate-progress-fast" 
-            style={{ width: '100%' }}
-          />
+          <div className="h-full bg-emerald-500 rounded-full animate-progress-fast" style={{ width: '100%' }} />
         </div>
 
         <Link
-          href="/login"
+          href={roleParam === 'coordinator' ? '/register/pending-review' : '/login'}
           className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
         >
-          Continue to Login
+          {roleParam === 'coordinator' ? 'View submission status' : 'Continue to Login'}
           <ArrowLeft className="h-4 w-4 rotate-180" />
         </Link>
       </div>
@@ -325,7 +335,10 @@ function VerifyEmailContent() {
           <span className="font-medium text-primary-600">
             {resendEmail || 'your email address'}
           </span>
-          . Please click the link to activate your account.
+          .{' '}
+          {roleParam === 'coordinator'
+            ? 'Please verify your email first, then your registration will be submitted for admin review.'
+            : 'Please click the link to activate your account.'}
         </p>
       </div>
 

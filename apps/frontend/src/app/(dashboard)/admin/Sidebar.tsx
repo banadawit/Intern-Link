@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Ban,
   Sparkles,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -23,6 +24,7 @@ type ViewKey =
   | "approved"
   | "rejected"
   | "suspended"
+  | "coordinator-approvals"
   | "audit-log"
   | "settings";
 
@@ -31,9 +33,11 @@ interface Props {
   onNavigate: (view: ViewKey) => void;
   /** Pending organization verification requests (badge on nav). */
   pendingCount?: number;
+  /** Pending coordinator approvals (badge on nav). */
+  pendingCoordinatorCount?: number;
 }
 
-const Sidebar = ({ activeView, onNavigate, pendingCount = 0 }: Props) => {
+const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorCount = 0 }: Props) => {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
@@ -52,6 +56,7 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0 }: Props) => {
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
     { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" },
     { icon: Clock, label: "Pending Approvals", view: "pending" },
+    { icon: UserCheck, label: "Coordinator Approvals", view: "coordinator-approvals" },
     { icon: CheckCircle, label: "Approved History", view: "approved" },
     { icon: Ban, label: "Suspended", view: "suspended" },
     { icon: XCircle, label: "Rejected History", view: "rejected" },
@@ -95,6 +100,11 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0 }: Props) => {
             {item.view === "pending" && pendingCount > 0 && (
               <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-800 ring-1 ring-amber-200/80">
                 {pendingCount > 99 ? "99+" : pendingCount}
+              </span>
+            )}
+            {item.view === "coordinator-approvals" && pendingCoordinatorCount > 0 && (
+              <span className="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-primary-800 ring-1 ring-primary-200/80">
+                {pendingCoordinatorCount > 99 ? "99+" : pendingCoordinatorCount}
               </span>
             )}
           </button>

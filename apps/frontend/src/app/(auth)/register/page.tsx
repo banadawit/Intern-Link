@@ -142,7 +142,6 @@ const RegisterPage = () => {
   const validateRoleSpecific = () => {
     if (role === 'coordinator') {
       if (!formData.universityName) return 'University name is required';
-      if (!formData.position) return 'Position is required';
     }
     if (role === 'supervisor') {
       if (!formData.companyName) return 'Company name is required';
@@ -304,7 +303,11 @@ const RegisterPage = () => {
       
       await register(registerData);
       
-      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
+      // All roles go through email verification first.
+      // After verifying, coordinators are redirected to pending-review instead of login.
+      router.push(
+        `/verify-email?email=${encodeURIComponent(formData.email)}${role === 'coordinator' ? '&role=coordinator' : ''}`
+      );
       
     } catch (error: unknown) {
       const err = error as { message?: string };
@@ -655,19 +658,6 @@ const RegisterPage = () => {
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">
-                    Position/Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="position"
-                    value={formData.position}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Internship Coordinator"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                  />
                 </div>
               </>
             )}
