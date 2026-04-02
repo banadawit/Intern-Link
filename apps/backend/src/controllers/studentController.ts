@@ -19,6 +19,10 @@ export const registerStudent = async (req: AuthRequest, res: Response) => {
             return res.status(403).json({ message: "Coordinator profile not found." });
         }
 
+        if (!coordinator.universityId) {
+            return res.status(403).json({ message: "Your coordinator account has not been approved yet. You cannot register students until an administrator approves your university credentials." });
+        }
+
         // Generate a temporary password (Requirement BR-006)
         const tempPassword = "Internlink123!";
         const hashedTempPassword = await bcrypt.hash(tempPassword, 10);
@@ -34,7 +38,7 @@ export const registerStudent = async (req: AuthRequest, res: Response) => {
                 institution_access_approval: 'APPROVED',
                 studentProfile: {
                     create: {
-                        universityId: coordinator.universityId,
+                        universityId: coordinator.universityId as number,
                         registration_type: registration_type || "Official"
                     }
                 }

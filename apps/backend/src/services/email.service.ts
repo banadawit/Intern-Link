@@ -79,10 +79,11 @@ const getTransporter = async (): Promise<Transporter> => {
 /**
  * Send verification email
  */
-export const sendVerificationEmail = async (email: string, token: string): Promise<void> => {
+export const sendVerificationEmail = async (email: string, token: string, role?: string): Promise<void> => {
   try {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const verificationUrl = `${frontendUrl}/verify-email?token=${token}`;
+    const roleParam = role ? `&role=${role.toLowerCase()}` : '';
+    const verificationUrl = `${frontendUrl}/verify-email?token=${token}${roleParam}`;
     
     const transporter = await getTransporter();
     
