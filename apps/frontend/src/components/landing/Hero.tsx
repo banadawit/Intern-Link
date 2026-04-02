@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion, useAnimation, useInView } from 'framer-motion';
+import Link from 'next/link';
+import { AnimatePresence, motion, useAnimation, useInView } from 'framer-motion';
 import { useRef } from 'react';
 
 const Hero = () => {
   const [isHovered, setIsHovered] = useState(false);
+  const [activeRole, setActiveRole] = useState(0);
+  const [mockupTilt, setMockupTilt] = useState({ x: 0, y: 0 });
+  const [spotlight, setSpotlight] = useState({ x: 50, y: 50 });
   const controls = useAnimation();
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.3 });
@@ -15,6 +19,13 @@ const Hero = () => {
       controls.start('visible');
     }
   }, [controls, isInView]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveRole((prev) => (prev + 1) % 4);
+    }, 2400);
+    return () => clearInterval(interval);
+  }, []);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -43,10 +54,49 @@ const Hero = () => {
     { value: '24/7', label: 'Support', color: 'info' },
   ];
 
+  const roleHighlights = [
+    {
+      title: 'Students',
+      subtitle: 'Submit weekly plans and track progress in real-time',
+      tone: 'bg-primary-50 text-primary-700 ring-primary-600/20',
+    },
+    {
+      title: 'Coordinators',
+      subtitle: 'Monitor placements and university-company collaboration',
+      tone: 'bg-success-50 text-success-700 ring-success-600/20',
+    },
+    {
+      title: 'Supervisors',
+      subtitle: 'Review tasks, attendance, and final evaluations quickly',
+      tone: 'bg-warning-50 text-warning-700 ring-warning-600/20',
+    },
+    {
+      title: 'Admins',
+      subtitle: 'Verify institutions and keep the system secure',
+      tone: 'bg-info-50 text-info-700 ring-info-600/20',
+    },
+  ];
+
+  const handleMockupMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    setSpotlight({ x, y });
+
+    const rotateY = ((x - 50) / 50) * 4;
+    const rotateX = -((y - 50) / 50) * 4;
+    setMockupTilt({ x: rotateX, y: rotateY });
+  };
+
+  const handleMockupMouseLeave = () => {
+    setMockupTilt({ x: 0, y: 0 });
+    setSpotlight({ x: 50, y: 50 });
+  };
+
   return (
     <section 
       ref={ref}
-      className="relative overflow-hidden bg-white pt-24 pb-16 lg:pt-32 lg:pb-24"
+      className="relative overflow-hidden bg-white pb-14 pt-20 sm:pb-16 sm:pt-24 lg:pb-24 lg:pt-32"
     >
       {/* Animated Background Elements */}
       <div className="absolute inset-0 -z-10">
@@ -66,7 +116,7 @@ const Hero = () => {
           variants={containerVariants}
           initial="hidden"
           animate={controls}
-          className="flex flex-col items-center lg:flex-row lg:gap-12 xl:gap-16"
+          className="flex flex-col items-center gap-10 lg:flex-row lg:gap-12 xl:gap-16"
         >
           {/* Left Side: Content */}
           <div className="flex-1 text-center lg:text-left">
@@ -82,7 +132,7 @@ const Hero = () => {
 
             <motion.h1 
               variants={itemVariants}
-              className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl"
+              className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl"
             >
               Digitizing the Future of{' '}
               <span className="relative inline-block">
@@ -109,7 +159,7 @@ const Hero = () => {
 
             <motion.p 
               variants={itemVariants}
-              className="mt-6 text-lg leading-relaxed text-slate-600 max-w-2xl mx-auto lg:mx-0"
+              className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg lg:mx-0"
             >
               A smart, centralized ecosystem connecting{' '}
               <span className="font-semibold text-slate-900">Students</span>,{' '}
@@ -118,11 +168,36 @@ const Hero = () => {
               for seamless placement, supervision, and evaluation.
             </motion.p>
 
+            <motion.div variants={itemVariants} className="mt-5">
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+                <span className="h-2 w-2 rounded-full bg-success-500 animate-pulse" />
+                Live workflow for all major roles
+              </div>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={roleHighlights[activeRole].title}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.25 }}
+                  className="mt-3"
+                >
+                  <div
+                    className={`inline-flex flex-col rounded-xl px-4 py-3 text-left ring-1 ring-inset ${roleHighlights[activeRole].tone}`}
+                  >
+                    <span className="text-sm font-bold">{roleHighlights[activeRole].title}</span>
+                    <span className="text-xs opacity-90">{roleHighlights[activeRole].subtitle}</span>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
+
             <motion.div 
               variants={itemVariants}
               className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start"
             >
-              <button 
+              <a
+                href="#get-started"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 className="group relative w-full sm:w-auto overflow-hidden rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-8 py-4 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:from-primary-700 hover:to-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
@@ -146,9 +221,12 @@ const Hero = () => {
                   </svg>
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-primary-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </button>
+              </a>
 
-              <button className="group w-full sm:w-auto rounded-lg border border-slate-200 bg-white px-8 py-4 text-sm font-semibold text-slate-700 shadow-soft transition-all duration-300 hover:border-primary-200 hover:bg-slate-50 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+              <a
+                href="#features"
+                className="group w-full sm:w-auto rounded-lg border border-slate-200 bg-white px-8 py-4 text-sm font-semibold text-slate-700 shadow-soft transition-all duration-300 hover:border-primary-200 hover:bg-slate-50 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              >
                 <span className="flex items-center justify-center gap-2">
                   Explore Companies
                   <svg
@@ -165,7 +243,7 @@ const Hero = () => {
                     />
                   </svg>
                 </span>
-              </button>
+              </a>
             </motion.div>
 
             {/* Enhanced Stats Section */}
@@ -186,10 +264,24 @@ const Hero = () => {
               ))}
             </motion.div>
 
+            <motion.div
+              variants={itemVariants}
+              className="mt-6 flex flex-wrap items-center justify-center gap-2 lg:justify-start"
+            >
+              {['Smart Matching', 'Live Approvals', 'Report Automation'].map((pill) => (
+                <span
+                  key={pill}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-soft transition-colors hover:border-primary-300 hover:text-primary-700"
+                >
+                  {pill}
+                </span>
+              ))}
+            </motion.div>
+
             {/* Trust Badges */}
             <motion.div 
               variants={itemVariants}
-              className="mt-8 flex items-center justify-center gap-4 lg:justify-start"
+              className="mt-8 hidden items-center justify-center gap-4 lg:flex lg:justify-start"
             >
               <div className="flex -space-x-2">
                 {[1, 2, 3, 4].map((i) => (
@@ -208,9 +300,22 @@ const Hero = () => {
           {/* Right Side: Enhanced Visual Mockup */}
           <motion.div 
             variants={itemVariants}
-            className="mt-16 flex-1 lg:mt-0 relative"
+            className="relative mt-8 w-full max-w-xl flex-1 lg:mt-0 lg:max-w-none"
+            onMouseMove={handleMockupMouseMove}
+            onMouseLeave={handleMockupMouseLeave}
           >
-            <div className="relative rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-xl transition-all duration-300 hover:shadow-2xl">
+            <div
+              className="relative rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-xl transition-all duration-300 hover:shadow-2xl"
+              style={{
+                transform: `perspective(1200px) rotateX(${mockupTilt.x}deg) rotateY(${mockupTilt.y}deg)`,
+              }}
+            >
+              <div
+                className="pointer-events-none absolute inset-0 rounded-2xl opacity-70 transition-opacity duration-200"
+                style={{
+                  background: `radial-gradient(320px circle at ${spotlight.x}% ${spotlight.y}%, rgba(59,130,246,0.14), transparent 55%)`,
+                }}
+              />
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                 {/* Mockup Header with Dynamic Elements */}
                 <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">

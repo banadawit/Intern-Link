@@ -37,11 +37,10 @@ const Navbar = () => {
   }, [isMobileMenuOpen]);
 
   const navLinks = [
-    { href: "#features", label: "How it Works" },
-    { href: "#institutions", label: "Institutions" },
-    { href: "#companies", label: "For Companies" },
-    { href: "#pricing", label: "Pricing" },
-    { href: "#resources", label: "Resources" },
+    { href: "#features", label: "Features" },
+    { href: "#how-it-works", label: "How it Works" },
+    { href: "#stats", label: "Impact" },
+    { href: "#testimonials", label: "Testimonials" },
   ];
 
   const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -90,7 +89,7 @@ const Navbar = () => {
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
+            <div className="hidden md:flex items-center gap-6 lg:gap-8">
               {navLinks.map((link) => (
                 <a
                   key={link.href}
@@ -105,7 +104,7 @@ const Navbar = () => {
             </div>
 
             {/* Auth Actions */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link 
                 href="/login" 
                 className="hidden sm:block text-sm font-semibold text-slate-700 hover:text-primary-600 transition-all duration-300 relative group"
@@ -115,7 +114,7 @@ const Navbar = () => {
               </Link>
               <Link 
                 href="/register" 
-                className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-5 py-2.5 text-sm font-semibold text-white shadow-soft transition-all duration-300 hover:shadow-lg hover:from-primary-700 hover:to-primary-800 active:scale-95"
+                className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-2 text-xs font-semibold text-white shadow-soft transition-all duration-300 hover:shadow-lg hover:from-primary-700 hover:to-primary-800 active:scale-95 sm:px-5 sm:py-2.5 sm:text-sm"
               >
                 <span className="relative z-10">Get Started</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-primary-600 translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
@@ -208,7 +207,7 @@ const Navbar = () => {
                         <a
                           href={link.href}
                           onClick={(e) => handleSmoothScroll(e, link.href)}
-                          className="block py-3 text-base font-medium text-slate-700 hover:text-primary-600 hover:bg-slate-50 rounded-lg transition-colors"
+                          className="block rounded-lg py-3 text-base font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-primary-600"
                         >
                           {link.label}
                         </a>
