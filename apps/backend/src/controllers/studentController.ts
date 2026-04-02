@@ -39,7 +39,8 @@ export const registerStudent = async (req: AuthRequest, res: Response) => {
                 studentProfile: {
                     create: {
                         universityId: coordinator.universityId as number,
-                        registration_type: registration_type || "Official"
+                        registration_type: registration_type || "Official",
+                        hod_approval_status: 'APPROVED',
                     }
                 }
             },

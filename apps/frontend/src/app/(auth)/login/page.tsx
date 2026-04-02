@@ -102,6 +102,8 @@ const LoginPage = () => {
             ? '/supervisor'
             : role === 'COORDINATOR'
               ? '/coordinator'
+              : role === 'HOD'
+                ? '/hod'
               : '/student';
 
       router.push(dest);
@@ -152,6 +154,7 @@ const LoginPage = () => {
       // Must match `apps/backend/prisma/seed.ts` — run `npx prisma db seed` from `apps/backend` if any account is missing
       Admin: { email: 'admin@internlink.com', password: 'Admin@1234' },
       Coordinator: { email: 'coordinator@haramaya.edu', password: 'Coord123!' },
+      HOD: { email: 'hod@haramaya.edu', password: 'Hod12345' },
       Supervisor: { email: 'supervisor@company.com', password: 'Super123!' },
       Student: { email: 'student@haramaya.edu', password: 'Student123!' },
     };
@@ -328,6 +331,13 @@ const LoginPage = () => {
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     🏛️ Login as Coordinator
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin('HOD')}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    📚 Login as HOD
                   </button>
                   <button
                     type="button"

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -103,6 +103,39 @@ async function main() {
     console.log(`Coordinator already exists: ${coordEmail}`);
   }
 
+  const hodEmail = 'hod@haramaya.edu';
+  /** Min 8 chars — matches login page validation */
+  const hodPassword = 'Hod12345';
+  const hodExists = await prisma.user.findUnique({ where: { email: hodEmail } });
+  const hodHash = await bcrypt.hash(hodPassword, 10);
+  if (!hodExists) {
+    await prisma.user.create({
+      data: {
+        full_name: 'Demo Head of Department',
+        email: hodEmail,
+        password_hash: hodHash,
+        role: Role.HOD,
+        verification_status: 'APPROVED',
+        institution_access_approval: 'APPROVED',
+        hodProfile: {
+          create: {
+            universityId: demoUniversity.id,
+            department: 'Computer Science',
+          },
+        },
+      },
+    });
+    console.log('✅ Demo HOD created');
+    console.log(`   Email:    ${hodEmail}`);
+    console.log(`   Password: ${hodPassword}`);
+  } else {
+    await prisma.user.update({
+      where: { email: hodEmail },
+      data: { password_hash: hodHash },
+    });
+    console.log(`HOD already exists: ${hodEmail} (demo password refreshed to ${hodPassword})`);
+  }
+
   const studentEmail = 'student@haramaya.edu';
   const studentExists = await prisma.user.findUnique({ where: { email: studentEmail } });
   if (!studentExists) {
@@ -135,6 +168,7 @@ async function main() {
   console.log('   Admin:        admin@internlink.com / Admin@1234');
   console.log('   Supervisor:   supervisor@company.com / Super123!');
   console.log('   Coordinator:  coordinator@haramaya.edu / Coord123!');
+  console.log('   HOD:          hod@haramaya.edu / Hod12345');
   console.log('   Student:      student@haramaya.edu / Student123!');
 }
 

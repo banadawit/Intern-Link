@@ -6,7 +6,7 @@ import { attachProposalSla } from '../utils/verificationSla';
 // 1. COORDINATOR: Send Placement Proposal to a Company
 export const sendPlacementProposal = async (req: AuthRequest, res: Response) => {
     try {
-        const { studentId, companyId, proposal_type } = req.body;
+        const { studentId, companyId, proposal_type, expected_duration_weeks, expected_outcomes } = req.body;
         const coordinatorUserId = req.user?.userId;
 
         // Verify Coordinator exists and get their University ID
@@ -21,6 +21,16 @@ export const sendPlacementProposal = async (req: AuthRequest, res: Response) => 
         if (!student || student.universityId !== coordinator.universityId) {
             return res.status(400).json({ message: "Student does not belong to your university." });
         }
+        if (student.hod_approval_status !== 'APPROVED') {
+            return res.status(400).json({ message: "Student must be approved by the Head of Department before placement." });
+        }
+
+        const pendingDup = await prisma.internshipProposal.findFirst({
+            where: { studentId, companyId, status: 'PENDING' },
+        });
+        if (pendingDup) {
+            return res.status(400).json({ message: "A pending proposal already exists for this student and company." });
+        }
 
         // Create the proposal
         const proposal = await prisma.internshipProposal.create({
@@ -29,7 +39,10 @@ export const sendPlacementProposal = async (req: AuthRequest, res: Response) => 
                 companyId,
                 universityId: coordinator.universityId,
                 proposal_type: proposal_type || "University_Initiated",
-                status: 'PENDING'
+                status: 'PENDING',
+                expected_duration_weeks:
+                    expected_duration_weeks != null ? parseInt(String(expected_duration_weeks), 10) : null,
+                expected_outcomes: typeof expected_outcomes === 'string' ? expected_outcomes : null,
             }
         });
 
@@ -110,24 +123,34 @@ export const respondToProposal = async (req: AuthRequest, res: Response) => {
 
         // Start a Transaction (FR-4.6 Automation)
         const result = await prisma.$transaction(async (tx) => {
-            // Update Proposal Status
+            const now = new Date();
             const proposal = await tx.internshipProposal.update({
                 where: { id: parseInt(String(proposalId), 10) },
-                data: { status },
+                data: {
+                    status,
+                    responded_at: now,
+                },
             });
 
             if (status === 'APPROVED') {
-                // 1. Create Internship Assignment
+                const start = now;
+                let endDate: Date | null = null;
+                const weeks = proposal.expected_duration_weeks;
+                if (weeks != null && weeks > 0) {
+                    const end = new Date(start);
+                    end.setDate(end.getDate() + weeks * 7);
+                    endDate = end;
+                }
                 await tx.internshipAssignment.create({
                     data: {
                         studentId: proposal.studentId,
                         companyId: proposal.companyId,
-                        start_date: new Date(),
+                        start_date: start,
+                        end_date: endDate,
                         status: 'ACTIVE'
                     }
                 });
 
-                // 2. Update Student Status to PLACED
                 await tx.student.update({
                     where: { id: proposal.studentId },
                     data: { internship_status: 'PLACED' }

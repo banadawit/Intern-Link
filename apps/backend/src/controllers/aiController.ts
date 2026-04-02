@@ -11,10 +11,12 @@ const ROLE_BODY_MAP: Record<string, Role> = {
     student: Role.STUDENT,
     supervisor: Role.SUPERVISOR,
     coordinator: Role.COORDINATOR,
+    hod: Role.HOD,
     admin: Role.ADMIN,
     STUDENT: Role.STUDENT,
     SUPERVISOR: Role.SUPERVISOR,
     COORDINATOR: Role.COORDINATOR,
+    HOD: Role.HOD,
     ADMIN: Role.ADMIN,
 };
 
