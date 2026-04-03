@@ -607,6 +607,95 @@ export const sendAdminNewVerificationProposalEmail = async (
     }
 };
 
+/**
+ * Notify HOD when coordinator approves or rejects institution (HOD) access.
+ * Logs errors only — does not throw (decision is already saved).
+ */
+export const sendHodAccessDecisionEmail = async (params: {
+    to: string;
+    hodName: string;
+    universityName: string;
+    department: string;
+    decision: 'approved' | 'rejected';
+}): Promise<void> => {
+    try {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const loginUrl = `${frontendUrl}/login`;
+        const safeName = escapeHtml(params.hodName);
+        const safeUni = escapeHtml(params.universityName);
+        const safeDept = escapeHtml(params.department);
+        const transporter = await getTransporter();
+        const approved = params.decision === 'approved';
+        const subject = approved
+            ? `Your HOD access is approved — InternLink`
+            : `Update on your HOD access request — InternLink`;
+
+        const mailOptions = {
+            from: `"InternLink" <${process.env.SMTP_USER || 'noreply@internlink.com'}>`,
+            to: params.to,
+            subject,
+            html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${approved ? 'Access approved' : 'Access not approved'}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #0d9488 0%, #115e59 100%); padding: 32px 24px; text-align: center; }
+            .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+            .content { padding: 32px 24px; }
+            .button { display: inline-block; background: #0d9488; color: white !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
+            .footer { background: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+            .text-muted { color: #64748b; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="card">
+              <div class="header">
+                <h1 class="logo">InternLink</h1>
+                <p style="color: rgba(255,255,255,0.95); margin-top: 8px;">Head of Department account</p>
+              </div>
+              <div class="content">
+                <h2 style="margin-top: 0;">Hello ${safeName},</h2>
+                ${
+                    approved
+                        ? `<p>Your request for <strong>Head of Department</strong> access has been <strong>approved</strong> by your university coordinator.</p>
+                <p><strong>University:</strong> ${safeUni}<br/><strong>Department:</strong> ${safeDept}</p>
+                <p>You can sign in to manage student approvals, placements, and reports for your department.</p>
+                <div style="text-align: center;">
+                  <a href="${loginUrl}" class="button">Sign in to InternLink</a>
+                </div>`
+                        : `<p>Your request for <strong>Head of Department</strong> access for <strong>${safeUni}</strong> (${safeDept}) was <strong>not approved</strong> at this time.</p>
+                <p>If you believe this is a mistake, contact your university internship coordinator.</p>
+                <p class="text-muted">You can still sign in with this email if you have another active role on the platform.</p>`
+                }
+                <p class="text-muted">If the button does not work: <a href="${loginUrl}">${loginUrl}</a></p>
+              </div>
+              <div class="footer">
+                <p>&copy; ${new Date().getFullYear()} InternLink. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        const preview = nodemailer.getTestMessageUrl(info);
+        if (preview) console.info(`ℹ️ Preview HOD decision email at: ${preview}`);
+        console.log(`✅ HOD access decision email sent to ${params.to}: ${info.messageId}`);
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        console.error('❌ Failed to send HOD access decision email:', err?.message || error);
+    }
+};
+
 export const sendCompanyInviteEmail = async (params: {
     to: string;
     companyName: string;
