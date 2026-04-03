@@ -136,7 +136,7 @@ export const register = async (req: Request, res: Response) => {
                     userId: newUser.id,
                     universityId,
                     department,
-                    employeeId: employee_id || null,
+                    phone_number: typeof employee_id === 'string' && employee_id.trim() ? employee_id.trim() : null,
                 },
             });
 

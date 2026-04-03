@@ -153,16 +153,24 @@ model Coordinator {
   phone_number  String?
 }
 
+/// Maps to the `Hod` table (see migration add_hod_module). Prisma model name kept as HodProfile for stable client API.
 model HodProfile {
-  id           Int        @id @default(autoincrement())
-  user         User       @relation(fields: [userId], references: [id])
-  userId       Int        @unique
+  id           Int         @id @default(autoincrement())
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       Int         @unique
   university   University @relation(fields: [universityId], references: [id])
   universityId Int
   department   String
+
+  phone_number String?
+
+  @@index([universityId, department])
+  @@map("Hod")
+
   employeeId   String?
 
   students     Student[]
+
 }
 
 model Supervisor {
