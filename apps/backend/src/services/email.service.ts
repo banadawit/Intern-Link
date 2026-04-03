@@ -717,6 +717,75 @@ export const sendCompanyInviteEmail = async (params: {
 };
 
 /**
+ * Notify a student when HoD approves or rejects their registration.
+ */
+export const sendStudentHodDecisionEmail = async (params: {
+    to: string;
+    studentName: string;
+    universityName: string;
+    department: string;
+    decision: 'approved' | 'rejected';
+    reason?: string;
+}): Promise<void> => {
+    try {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const loginUrl = `${frontendUrl}/login`;
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
+        const approved = params.decision === 'approved';
+        const safeReason = escapeHtml(params.reason?.trim() || 'No additional details were provided.');
+
+        const html = `
+        <!DOCTYPE html><html><head><meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+          .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background: linear-gradient(135deg, ${approved ? '#0d9488 0%, #115e59' : '#b91c1c 0%, #7f1d1d'} 100%); padding: 32px 24px; text-align: center; }
+          .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+          .content { padding: 32px 24px; }
+          .reason { background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 14px; color: #450a0a; }
+          .button { display: inline-block; background: #0d9488; color: white !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
+          .footer { background: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+          .text-muted { color: #64748b; font-size: 14px; }
+        </style></head>
+        <body><div class="container"><div class="card">
+          <div class="header">
+            <h1 class="logo">InternLink</h1>
+            <p style="color:rgba(255,255,255,0.9);margin-top:8px;">${approved ? 'Registration Approved' : 'Registration Not Approved'}</p>
+          </div>
+          <div class="content">
+            <h2 style="margin-top:0;">Hello ${escapeHtml(params.studentName)},</h2>
+            ${approved
+                ? `<p>Your student registration for <strong>${escapeHtml(params.department)}</strong> at <strong>${escapeHtml(params.universityName)}</strong> has been <strong>approved</strong> by your Head of Department.</p>
+                   <p>You can now sign in and access InternLink's internship placement features.</p>
+                   <div style="text-align:center;"><a href="${loginUrl}" class="button">Sign in to InternLink</a></div>`
+                : `<p>Your student registration for <strong>${escapeHtml(params.department)}</strong> at <strong>${escapeHtml(params.universityName)}</strong> was <strong>not approved</strong> by your Head of Department.</p>
+                   <p class="text-muted" style="margin-bottom:8px;">Reason provided:</p>
+                   <div class="reason">${safeReason}</div>
+                   <p>Please contact your department for assistance or re-register with corrected information.</p>`
+            }
+          </div>
+          <div class="footer"><p>&copy; ${new Date().getFullYear()} InternLink. All rights reserved.</p></div>
+        </div></div></body></html>`;
+
+        const info = await transporter.sendMail({
+            from: `"InternLink" <${fromAddr}>`,
+            to: params.to,
+            subject: approved
+                ? `Your InternLink registration is approved — ${params.universityName}`
+                : `Update on your InternLink registration — ${params.universityName}`,
+            html,
+        });
+        const preview = nodemailer.getTestMessageUrl(info);
+        if (preview) console.info(`ℹ️ Preview student decision email at: ${preview}`);
+        console.log(`✅ Student HoD decision email sent to ${params.to}: ${info.messageId}`);
+    } catch (error: any) {
+        console.error('❌ Failed to send student HoD decision email:', error?.message || error);
+    }
+};
+
+/**
  * Test email configuration
  */
 export const testEmailConfig = async (): Promise<boolean> => {

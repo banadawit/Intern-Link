@@ -20,6 +20,26 @@ router.get('/approved', async (_req, res) => {
     }
 });
 
+// Public: list departments with an approved HoD for a given university
+router.get('/:universityId/departments', async (req, res) => {
+    try {
+        const universityId = parseInt(req.params.universityId, 10);
+        if (isNaN(universityId)) return res.status(400).json({ error: 'Invalid university id' });
+
+        const hods = await prisma.hodProfile.findMany({
+            where: {
+                universityId,
+                user: { institution_access_approval: 'APPROVED', verification_status: 'APPROVED' },
+            },
+            select: { id: true, department: true },
+            orderBy: { department: 'asc' },
+        });
+        res.json(hods); // [{ id, department }]
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Endpoint for Coordinators to setup their University
 router.post('/setup', authenticate, authorize([Role.COORDINATOR]), setupUniversity);
 
