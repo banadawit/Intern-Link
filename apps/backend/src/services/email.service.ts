@@ -607,6 +607,40 @@ export const sendAdminNewVerificationProposalEmail = async (
     }
 };
 
+export const sendCompanyInviteEmail = async (params: {
+    to: string;
+    companyName: string;
+    universityName: string;
+    hodName: string;
+}): Promise<void> => {
+    try {
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@internlink.local';
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const html = `
+        <!DOCTYPE html>
+        <html><head><meta charset="utf-8"/></head>
+        <body style="font-family:sans-serif;line-height:1.5;color:#334155;">
+          <p>Hello,</p>
+          <p><strong>${params.hodName}</strong> from <strong>${params.universityName}</strong> has invited
+          <strong>${params.companyName}</strong> to join InternLink for internship collaboration.</p>
+          <p>Please register your company supervisor account at:<br/>
+          <a href="${frontendUrl}/register">${frontendUrl}/register</a></p>
+          <p>— InternLink</p>
+        </body></html>`;
+        await transporter.sendMail({
+            from: `"InternLink" <${fromAddr}>`,
+            to: params.to,
+            subject: `[InternLink] Invitation to register — ${params.companyName}`,
+            html,
+        });
+        console.log(`✅ Company invite email sent to ${params.to}`);
+    } catch (e: unknown) {
+        console.error('❌ sendCompanyInviteEmail failed:', e);
+        throw e;
+    }
+};
+
 /**
  * Test email configuration
  */

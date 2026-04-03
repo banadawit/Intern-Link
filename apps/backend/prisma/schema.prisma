@@ -11,11 +11,11 @@ datasource db {
 
 
 enum Role {
-  ADMIN        
+  ADMIN
   COORDINATOR
+  HOD
   SUPERVISOR
   STUDENT
-
 }
 
 enum ApprovalStatus {
@@ -60,7 +60,7 @@ model User {
   verification_token_expiry DateTime?
   verification_document    String?
 
-  /// COORDINATOR/SUPERVISOR: Admin must approve each user individually after org verification. STUDENT/ADMIN use APPROVED by default.
+  /// COORDINATOR/SUPERVISOR/HOD: Pending until admin (coord./sup.) or coordinator (HOD) approves. STUDENT/ADMIN default APPROVED.
   institution_access_approval ApprovalStatus @default(APPROVED)
 
   created_at        DateTime       @default(now())
@@ -71,6 +71,7 @@ model User {
   // Specific Role Relations
   studentProfile    Student?
   coordinatorProfile Coordinator?
+  hodProfile        Hod?
   supervisorProfile Supervisor?
   
   // Announcements & Notifications
@@ -117,6 +118,7 @@ model University {
 
   rejection_reason String?
   coordinators      Coordinator[]
+  hods              Hod[]
   students          Student[]
   proposalsSent     InternshipProposal[]
   reportsReceived   Report[] @relation("ReportToUniversity")
@@ -151,6 +153,19 @@ model Coordinator {
   phone_number  String?
 }
 
+/// Head of Department — scoped to one university and department; coordinator approves account access.
+model Hod {
+  id           Int         @id @default(autoincrement())
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       Int         @unique
+  university   University  @relation(fields: [universityId], references: [id])
+  universityId Int
+  department   String
+  phone_number String?
+
+  @@index([universityId, department])
+}
+
 model Supervisor {
   id            Int       @id @default(autoincrement())
   user          User      @relation(fields: [userId], references: [id])
@@ -175,6 +190,8 @@ model Student {
 
   studentId         String?          
   department        String?
+  /// HOD must approve self-registered students before full access (coordinator-registered students are APPROVED).
+  hod_approval_status ApprovalStatus @default(APPROVED)
 
   assignments       InternshipAssignment[]
   weeklyPlans       WeeklyPlan[]
@@ -197,7 +214,11 @@ model InternshipProposal {
   status        ApprovalStatus @default(PENDING)
   proposal_type String         // "University_Initiated" or "Open_Letter"
   submitted_at  DateTime       @default(now())
-  
+  expected_duration_weeks Int?
+  expected_outcomes       String?    @db.Text
+  responded_at            DateTime?
+
+  @@index([studentId, companyId, status])
 }
 
 model InternshipAssignment {

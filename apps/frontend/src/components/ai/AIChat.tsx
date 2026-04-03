@@ -7,7 +7,7 @@ import type { AiChatResponse } from "@/lib/ai/types";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 
-export type AiChatRole = "student" | "supervisor" | "coordinator" | "admin";
+export type AiChatRole = "student" | "supervisor" | "coordinator" | "hod" | "admin";
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
@@ -26,6 +26,7 @@ function mapAuthRoleToChatRole(
   if (x === "STUDENT") return "student";
   if (x === "SUPERVISOR") return "supervisor";
   if (x === "COORDINATOR") return "coordinator";
+  if (x === "HOD") return "hod";
   if (x === "ADMIN") return "admin";
   return null;
 }
