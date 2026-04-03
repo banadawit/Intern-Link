@@ -12,6 +12,7 @@ import {
   Mail,
   FileCheck,
   FileText,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -42,6 +43,7 @@ const HodSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/hod" },
+    { icon: MessageSquare, label: "Common Feed", path: "/common-feed" },
     { icon: Users, label: "Students", path: "/hod/students" },
     { icon: Building2, label: "Companies", path: "/hod/companies" },
     { icon: Send, label: "Placements", path: "/hod/placements" },
