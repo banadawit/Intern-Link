@@ -169,6 +169,11 @@ const ROLE_CHAT_FOCUS: Record<Role, { article: string; focus: string }> = {
         focus:
             'coordinator work only: placements, cohorts, student support, and university-side reporting.',
     },
+    [Role.HOD]: {
+        article: 'a Head of Department',
+        focus:
+            'HOD work only: department-level student approvals, placements, company outreach, and internship progress for their department.',
+    },
     [Role.ADMIN]: {
         article: 'an administrator',
         focus: 'admin work only: platform oversight, verification, analytics, and operational guidance.',

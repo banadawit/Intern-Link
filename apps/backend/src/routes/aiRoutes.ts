@@ -10,17 +10,17 @@ router.post('/generate-plan', authorize([Role.STUDENT]), aiCtrl.postGeneratePlan
 router.post('/generate-feedback', authorize([Role.SUPERVISOR]), aiCtrl.postGenerateFeedback);
 router.get(
     '/chat/history',
-    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.ADMIN]),
+    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.HOD, Role.ADMIN]),
     aiCtrl.getChatHistory
 );
 router.delete(
     '/chat/history',
-    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.ADMIN]),
+    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.HOD, Role.ADMIN]),
     aiCtrl.deleteChatHistory
 );
 router.post(
     '/chat',
-    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.ADMIN]),
+    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.HOD, Role.ADMIN]),
     aiCtrl.postChat
 );
 

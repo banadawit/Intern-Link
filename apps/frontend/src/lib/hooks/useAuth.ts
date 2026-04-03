@@ -165,6 +165,10 @@ export const useAuth = create<AuthState>()(
           } else if (data.role === 'supervisor') {
             if (data.companyName) formData.append('company_name', data.companyName);
             if (data.position) formData.append('position', data.position);
+          } else if (data.role === 'hod') {
+            if (data.universityName) formData.append('university_name', data.universityName);
+            if (data.department) formData.append('department', data.department);
+            if (data.position) formData.append('position', data.position);
           } else if (data.role === 'student') {
             if (data.universityName) formData.append('university_name', data.universityName);
             if (data.department) formData.append('department', data.department);

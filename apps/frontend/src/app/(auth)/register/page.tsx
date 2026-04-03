@@ -412,6 +412,14 @@ const RegisterPage = () => {
                 bgHover: 'hover:border-violet-200'
               },
               { 
+                id: 'hod' as const, 
+                title: 'Head of Department', 
+                icon: Users, 
+                desc: 'Approve students and manage placements for your department',
+                color: 'bg-violet-50 text-violet-600',
+                bgHover: 'hover:border-violet-200'
+              },
+              { 
                 id: 'supervisor' as const, 
                 title: 'Company Supervisor', 
                 icon: Briefcase, 

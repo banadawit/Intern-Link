@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/db';
+import { Role } from '@prisma/client';
+import { incrementActivityForUser } from '../services/activityLog.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -107,53 +109,11 @@ export const register = async (req: Request, res: Response) => {
                     }
                 });
             }
-        } 
-        else if (roleUpper === 'STUDENT') {
-            // Find university
-            let university = await prisma.university.findFirst({
-                where: { name: university_name }
-            });
-            let createdNewUniversityForStudent = false;
-
-            if (!university && university_name) {
-                university = await prisma.university.create({
-                    data: {
-                        name: university_name,
-                        official_email: email,
-                        approval_status: 'PENDING'
-                    }
-                });
-                createdNewUniversityForStudent = true;
-            }
-
-            if (university && createdNewUniversityForStudent) {
-                await notifyAdminsNewVerificationProposal({
-                    organizationName: university.name,
-                    institutionType: 'University',
-                    organizationId: university.id,
-                    submitterEmail: email,
-                });
-            }
-            
-            if (university) {
-                await prisma.student.create({
-                    data: {
-                        userId: newUser.id,
-                        universityId: university.id,
-                        registration_type: email.includes('.edu.et') ? 'Official' : 'Personal',
-                        studentId: student_id || null,
-                        department: department || null,
-                    }
-                });
-            }
-        }
-
-        else if (roleUpper === 'HOD') {
-            const { university_id, department, employee_id } = req.body;
+        } else if (roleUpper === 'HOD') {
+            const { university_id, employee_id } = req.body;
             const universityId = parseInt(university_id, 10);
 
             if (!universityId || !department) {
-                // Clean up the created user if profile data is missing
                 await prisma.user.delete({ where: { id: newUser.id } });
                 return res.status(400).json({
                     success: false,
@@ -195,6 +155,45 @@ export const register = async (req: Request, res: Response) => {
                 });
             } else {
                 console.log(`ℹ️ No coordinators found for university ${universityId} to notify about new HoD.`);
+            }
+        } else if (roleUpper === 'STUDENT') {
+            // Find university
+            let university = await prisma.university.findFirst({
+                where: { name: university_name }
+            });
+            let createdNewUniversityForStudent = false;
+
+            if (!university && university_name) {
+                university = await prisma.university.create({
+                    data: {
+                        name: university_name,
+                        official_email: email,
+                        approval_status: 'PENDING'
+                    }
+                });
+                createdNewUniversityForStudent = true;
+            }
+
+            if (university && createdNewUniversityForStudent) {
+                await notifyAdminsNewVerificationProposal({
+                    organizationName: university.name,
+                    institutionType: 'University',
+                    organizationId: university.id,
+                    submitterEmail: email,
+                });
+            }
+            
+            if (university) {
+                await prisma.student.create({
+                    data: {
+                        userId: newUser.id,
+                        universityId: university.id,
+                        registration_type: email.includes('.edu.et') ? 'Official' : 'Personal',
+                        studentId: student_id || null,
+                        department: department || null,
+                        hod_approval_status: 'PENDING',
+                    }
+                });
             }
         }
         let emailSendError = null;
@@ -275,6 +274,7 @@ export const login = async (req: Request, res: Response) => {
             },
             include: {
                 coordinatorProfile: { include: { university: true } },
+                hodProfile: { include: { university: true } },
                 supervisorProfile: { include: { company: true } },
                 studentProfile: { include: { university: true } },
             },
@@ -384,6 +384,42 @@ export const login = async (req: Request, res: Response) => {
             }
         }
 
+        if (user.role === 'HOD') {
+            const profile = user.hodProfile;
+            const uni = profile?.university;
+            if (!profile || !uni) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No HOD profile is linked to this account. Contact support.',
+                    code: 'NO_INSTITUTION_PROFILE',
+                });
+            }
+            if (uni.approval_status === 'SUSPENDED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'This university organization has been suspended by an administrator. Contact support for assistance.',
+                    code: 'INSTITUTION_SUSPENDED',
+                });
+            }
+            if (uni.approval_status !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your university must be verified by an administrator before you can access the system.',
+                    code: 'INSTITUTION_NOT_APPROVED',
+                });
+            }
+            if (user.institution_access_approval !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your HOD account is pending approval from your university coordinator.',
+                    code: 'INSTITUTION_MEMBER_NOT_APPROVED',
+                });
+            }
+        }
+
         if (user.role === 'STUDENT') {
             const uni = user.studentProfile?.university;
             if (uni && uni.approval_status === 'SUSPENDED') {
@@ -402,14 +438,15 @@ export const login = async (req: Request, res: Response) => {
                     code: 'INSTITUTION_NOT_APPROVED',
                 });
             }
-        }
-
-        if (user.role === 'HOD') {
-            if (user.institution_access_approval !== 'APPROVED') {
+            const sp = user.studentProfile;
+            if (sp && sp.hod_approval_status !== 'APPROVED') {
                 return res.status(403).json({
                     success: false,
-                    message: 'Your HoD account is pending coordinator approval. You will receive an email once approved.',
-                    code: 'PENDING_COORDINATOR_REVIEW',
+                    message:
+                        sp.hod_approval_status === 'REJECTED'
+                            ? 'Your registration was not approved by your Head of Department. Contact your department for assistance.'
+                            : 'Your registration is pending approval from your Head of Department.',
+                    code: 'HOD_APPROVAL_PENDING',
                 });
             }
         }
@@ -421,6 +458,10 @@ export const login = async (req: Request, res: Response) => {
             // { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
             { expiresIn: '7d' } as jwt.SignOptions
         );
+
+        if (user.role === Role.STUDENT) {
+            void incrementActivityForUser(user.id);
+        }
 
         res.json({ 
             success: true,

@@ -2,6 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Contribution heatmap: stretch to card width so cells scale with the dashboard */
+.github-contribution-wrap svg.react-calendar-heatmap {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-height: 9.5rem;
+}
+
+/* Slightly larger month/weekday labels when the SVG scales up */
+.github-contribution-wrap .react-calendar-heatmap text {
+  font-size: 11px;
+}
+
+/* GitHub-like greens (classForValue → gh-cell-0 … gh-cell-4) */
+.react-calendar-heatmap .gh-cell-0 {
+  fill: #ebedf0;
+}
+.react-calendar-heatmap .gh-cell-1 {
+  fill: #9be9a8;
+}
+.react-calendar-heatmap .gh-cell-2 {
+  fill: #40c463;
+}
+.react-calendar-heatmap .gh-cell-3 {
+  fill: #30a14e;
+}
+.react-calendar-heatmap .gh-cell-4 {
+  fill: #216e39;
+}
+
+.react-calendar-heatmap rect.gh-cell-0:hover,
+.react-calendar-heatmap rect.gh-cell-1:hover,
+.react-calendar-heatmap rect.gh-cell-2:hover,
+.react-calendar-heatmap rect.gh-cell-3:hover,
+.react-calendar-heatmap rect.gh-cell-4:hover {
+  stroke: rgba(27, 31, 35, 0.35);
+  stroke-width: 1px;
+}
+
+.gh-legend-0 {
+  background-color: #ebedf0;
+}
+.gh-legend-1 {
+  background-color: #9be9a8;
+}
+.gh-legend-2 {
+  background-color: #40c463;
+}
+.gh-legend-3 {
+  background-color: #30a14e;
+}
+.gh-legend-4 {
+  background-color: #216e39;
+}
+
 body {
   @apply bg-slate-50 text-slate-800;
 }
