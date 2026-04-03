@@ -61,9 +61,9 @@ function VerifyEmailContent() {
       await verifyEmail(token);
       setStatus('success');
       
-      // Coordinators go to pending-review; everyone else goes to login
+      // Coordinators and HoDs go to pending-review; everyone else goes to login
       setTimeout(() => {
-        if (roleParam === 'coordinator') {
+        if (roleParam === 'coordinator' || roleParam === 'hod') {
           router.push('/register/pending-review');
         } else {
           router.push('/login?verified=true');
@@ -140,7 +140,7 @@ function VerifyEmailContent() {
           </div>
           <h1 className="text-3xl font-bold text-slate-900">Email verified! 🎉</h1>
           <p className="mt-2 text-sm text-slate-500">
-            {roleParam === 'coordinator'
+            {roleParam === 'coordinator' || roleParam === 'hod'
               ? 'Your email is confirmed. Redirecting to your submission status...'
               : 'Your email has been successfully verified. Redirecting to login...'}
           </p>
@@ -151,10 +151,10 @@ function VerifyEmailContent() {
             <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
             <span className="text-sm font-medium">Email confirmed successfully</span>
           </div>
-          {roleParam === 'coordinator' ? (
+          {roleParam === 'coordinator' || roleParam === 'hod' ? (
             <div className="flex items-center gap-3 text-emerald-600">
               <ShieldCheck className="h-5 w-5 flex-shrink-0" />
-              <span className="text-sm">Your registration is now pending administrator review</span>
+              <span className="text-sm">Your registration is now pending review</span>
             </div>
           ) : (
             <div className="flex items-center gap-3 text-emerald-600">
@@ -169,7 +169,7 @@ function VerifyEmailContent() {
         </div>
 
         <Link
-          href={roleParam === 'coordinator' ? '/register/pending-review' : '/login'}
+          href={roleParam === 'coordinator' || roleParam === 'hod' ? '/register/pending-review' : '/login'}
           className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
         >
           {roleParam === 'coordinator' ? 'View submission status' : 'Continue to Login'}
@@ -338,6 +338,8 @@ function VerifyEmailContent() {
           .{' '}
           {roleParam === 'coordinator'
             ? 'Please verify your email first, then your registration will be submitted for admin review.'
+            : roleParam === 'hod'
+            ? 'Please verify your email first, then your registration will be submitted for coordinator review.'
             : 'Please click the link to activate your account.'}
         </p>
       </div>
