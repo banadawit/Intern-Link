@@ -37,3 +37,16 @@ export const uploadPresentation = multer({
     }),
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit per SDD 2.6.2
 });
+
+
+// Generic upload middleware for common feed
+export const upload = multer({
+    storage: multer.memoryStorage(), // Store in memory for Supabase upload
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif|webp|pdf|doc|docx|ppt|pptx/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        if (extname) return cb(null, true);
+        cb(new Error("Invalid file type"));
+    }
+});
