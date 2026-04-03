@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Send, Loader2, Sparkles, Trash2, Copy, Pencil } from "lucide-react";
 import api from "@/lib/api/client";
 import type { AiChatResponse } from "@/lib/ai/types";
+import { formatAiReplyForDisplay } from "@/lib/ai/formatAiReply";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 
@@ -41,22 +42,50 @@ export default function AIChat({ variant, role, className, title = "InternLink A
   const [hydrating, setHydrating] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  /** In-memory typing effect for the latest assistant reply only (does not change stored content). */
+  const [liveTyping, setLiveTyping] = useState<{ index: number; full: string; pos: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  useEffect(() => {
+    if (!liveTyping) return;
+    if (liveTyping.pos >= liveTyping.full.length) {
+      setLiveTyping(null);
+      return;
+    }
+    const step = Math.max(1, Math.ceil(liveTyping.full.length / 400));
+    const t = window.setTimeout(() => {
+      setLiveTyping((s) => {
+        if (!s) return null;
+        const next = Math.min(s.pos + step, s.full.length);
+        return next >= s.full.length ? null : { ...s, pos: next };
+      });
+    }, 12);
+    return () => clearTimeout(t);
+  }, [liveTyping]);
+
+  useEffect(() => {
+    if (liveTyping) scrollToBottom();
+  }, [liveTyping?.pos, liveTyping?.index]);
+
   const loadHistory = useCallback(async () => {
     setHydrating(true);
     setError(null);
+    setLiveTyping(null);
     try {
       const { data } = await api.get<{ success: boolean; data?: { messages: ChatMsg[] }; message?: string }>(
         "/ai/chat/history",
         { params: { limit: 100 } }
       );
       if (data.success && data.data?.messages?.length) {
-        setMessages(data.data.messages);
+        setMessages(
+          data.data.messages.map((m) =>
+            m.role === "assistant" ? { ...m, content: formatAiReplyForDisplay(m.content) } : m
+          )
+        );
       } else {
         setMessages([]);
       }
@@ -74,6 +103,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
   const clearHistory = async () => {
     if (!confirm("Clear all saved chat messages on the server?")) return;
     setError(null);
+    setLiveTyping(null);
     try {
       await api.delete("/ai/chat/history");
       setMessages([]);
@@ -91,6 +121,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
     if (!text || loading) return;
     setError(null);
     setInput("");
+    setLiveTyping(null);
     const userMsg: ChatMsg = { role: "user", content: text };
     const prior = messages;
     setMessages((prev) => [...prev, userMsg]);
@@ -108,7 +139,10 @@ export default function AIChat({ variant, role, className, title = "InternLink A
         setMessages(prior);
         return;
       }
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const assistantIndex = prior.length + 1;
+      const cleaned = formatAiReplyForDisplay(reply);
+      setMessages((prev) => [...prev, { role: "assistant", content: cleaned }]);
+      setLiveTyping({ index: assistantIndex, full: cleaned, pos: 0 });
       setTimeout(scrollToBottom, 100);
     } catch (e: unknown) {
       const msg =
@@ -228,7 +262,14 @@ export default function AIChat({ variant, role, className, title = "InternLink A
                     aria-label="Edit assistant message"
                   />
                 ) : (
-                  <span className="whitespace-pre-wrap">{m.content}</span>
+                  <span className="whitespace-pre-wrap">
+                    {m.role === "assistant" && liveTyping && liveTyping.index === i
+                      ? liveTyping.full.slice(0, liveTyping.pos)
+                      : m.content}
+                    {m.role === "assistant" && liveTyping && liveTyping.index === i && liveTyping.pos < liveTyping.full.length ? (
+                      <span className="ml-px inline-block h-3.5 w-0.5 animate-pulse rounded-sm bg-primary-600 align-middle" aria-hidden />
+                    ) : null}
+                  </span>
                 )}
               </div>
             ))}
