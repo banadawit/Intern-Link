@@ -178,11 +178,6 @@ const ROLE_CHAT_FOCUS: Record<Role, { article: string; focus: string }> = {
         article: 'an administrator',
         focus: 'admin work only: platform oversight, verification, analytics, and operational guidance.',
     },
-    [Role.HOD]: {
-        article: 'a Head of Department',
-        focus:
-            'HoD work only: departmental oversight, reviewing student internship activities, coordinating with university coordinators, and approving department-level requests.',
-    },
 };
 
 function buildChatSessionInstruction(displayName: string, appRole: Role): string {

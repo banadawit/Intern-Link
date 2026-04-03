@@ -6,7 +6,7 @@ import { departmentsMatch } from '../utils/hodScope';
 import { sendCompanyInviteEmail } from '../services/email.service';
 
 async function getHodOr403(userId: number) {
-    const hod = await prisma.hod.findUnique({
+    const hod = await prisma.hodProfile.findUnique({
         where: { userId },
         include: { university: true },
     });

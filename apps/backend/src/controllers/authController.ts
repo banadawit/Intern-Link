@@ -288,6 +288,24 @@ export const login = async (req: Request, res: Response) => {
 
         // ✅ Check if email is verified
         if (user.verification_status !== 'APPROVED') {
+            // Coordinator-specific message — waiting for admin approval
+            if (user.role === 'COORDINATOR') {
+                return res.status(401).json({
+                    success: false,
+                    message: "Your registration is pending administrator approval. You will receive an email once your university credentials are reviewed.",
+                    code: 'PENDING_ADMIN_REVIEW',
+                    email: user.email
+                });
+            }
+            // HOD-specific message — waiting for coordinator approval
+            if (user.role === 'HOD') {
+                return res.status(401).json({
+                    success: false,
+                    message: "Your registration is pending coordinator approval. You will receive an email once your department credentials are reviewed.",
+                    code: 'PENDING_COORDINATOR_REVIEW',
+                    email: user.email
+                });
+            }
             return res.status(401).json({ 
                 success: false,
                 message: "Please verify your email before logging in",
