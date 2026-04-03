@@ -94,7 +94,26 @@ const LoginPage = () => {
       await login(formData.email.trim(), formData.password, rememberMe);
       setSuccessMessage('Login successful! Redirecting...');
 
-      const role = useAuth.getState().user?.role;
+      const { user: loggedInUser } = useAuth.getState();
+      const role = loggedInUser?.role;
+      const institutionApproval = loggedInUser?.institutionAccessApproval;
+
+      // Pending coordinator/HOD/supervisor — send to verification-pending instead of dashboard
+      if (
+        (role === 'COORDINATOR' || role === 'HOD' || role === 'SUPERVISOR') &&
+        institutionApproval !== 'APPROVED'
+      ) {
+        const msg = encodeURIComponent(
+          role === 'COORDINATOR'
+            ? 'Your coordinator account is pending administrator approval. You will receive an email once approved.'
+            : role === 'HOD'
+            ? 'Your Head of Department account is pending coordinator approval. You will receive an email once approved.'
+            : 'Your account is pending institutional approval.'
+        );
+        router.push(`/verification-pending?message=${msg}`);
+        return;
+      }
+
       const dest =
         role === 'ADMIN'
           ? '/admin'
@@ -121,12 +140,15 @@ const LoginPage = () => {
         (typeof data?.error === 'string' ? data.error : undefined);
 
       if (data?.requiresVerification) {
-        const pendingEmail = encodeURIComponent(data.email || formData.email.trim());
-        router.push(`/verify-email?email=${pendingEmail}`);
+        setErrors({
+          general: serverMsg || 'Please verify your email before logging in. Check your inbox for the verification link.',
+        });
         return;
       }
 
       if (
+        data?.code === 'PENDING_ADMIN_REVIEW' ||
+        data?.code === 'PENDING_COORDINATOR_REVIEW' ||
         data?.code === 'INSTITUTION_NOT_APPROVED' ||
         data?.code === 'INSTITUTION_MEMBER_NOT_APPROVED'
       ) {

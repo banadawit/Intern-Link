@@ -12,6 +12,7 @@ interface User {
   fullName: string;
   role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
   isVerified: boolean;
+  institutionAccessApproval?: string;
   profile?: {
     universityId?: number;
     universityName?: string;
@@ -67,6 +68,7 @@ interface LoginResponse {
       fullName: string;
       role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
       isVerified: boolean;
+      institutionAccessApproval?: string;
     };
   };
 }
@@ -108,6 +110,7 @@ export const useAuth = create<AuthState>()(
               fullName: user.fullName,
               role: user.role,
               isVerified: user.isVerified,
+              institutionAccessApproval: user.institutionAccessApproval,
             },
             token,
             isLoading: false,

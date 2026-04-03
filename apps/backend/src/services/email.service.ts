@@ -679,6 +679,44 @@ export const sendCoordinatorHodReviewEmail = async (
 };
 
 /**
+ * Invite a company to register on InternLink (sent by HoD).
+ * Logs errors only — does not throw.
+ */
+export const sendCompanyInviteEmail = async (params: {
+    to: string;
+    companyName: string;
+    universityName: string;
+    hodName: string;
+}): Promise<void> => {
+    try {
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
+        const html = `
+        <!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+        <body style="font-family:sans-serif;line-height:1.5;color:#334155;">
+          <p>Hello,</p>
+          <p><strong>${escapeHtml(params.hodName)}</strong> from <strong>${escapeHtml(params.universityName)}</strong>
+          has invited <strong>${escapeHtml(params.companyName)}</strong> to join InternLink for internship collaboration.</p>
+          <p>Please register your company supervisor account at:<br/>
+          <a href="${frontendUrl}/register">${frontendUrl}/register</a></p>
+          <p>— InternLink</p>
+        </body></html>`;
+        const info = await transporter.sendMail({
+            from: `"InternLink" <${fromAddr}>`,
+            to: params.to,
+            subject: `[InternLink] Invitation to register — ${params.companyName}`,
+            html,
+        });
+        const preview = nodemailer.getTestMessageUrl(info);
+        if (preview) console.info(`ℹ️ Preview company invite email at: ${preview}`);
+        console.log(`✅ Company invite email sent to ${params.to}: ${info.messageId}`);
+    } catch (error: any) {
+        console.error('❌ Failed to send company invite email:', error?.message || error);
+    }
+};
+
+/**
  * Test email configuration
  */
 export const testEmailConfig = async (): Promise<boolean> => {
