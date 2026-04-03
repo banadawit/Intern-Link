@@ -7,10 +7,10 @@ import api from '../api/client';
 import { AxiosError } from 'axios';
 
 interface User {
-    id: number;
-    email: string;
-    fullName: string;
-    role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
+  id: number;
+  email: string;
+  fullName: string;
+  role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
   isVerified: boolean;
   profile?: {
     universityId?: number;
@@ -47,9 +47,11 @@ interface RegisterData {
   role: RegistrationRole;
   // Role-specific fields
   universityName?: string;
+  universityId?: number;
   companyName?: string;
   department?: string;
   studentId?: string;
+  employeeId?: string;
   position?: string;
   verificationDocument?: File;
 }
@@ -156,6 +158,10 @@ export const useAuth = create<AuthState>()(
           if (data.role === 'coordinator') {
             if (data.universityName) formData.append('university_name', data.universityName);
             if (data.position) formData.append('position', data.position);
+          } else if (data.role === 'hod') {
+            if (data.universityId) formData.append('university_id', String(data.universityId));
+            if (data.department) formData.append('department', data.department);
+            if (data.employeeId) formData.append('employee_id', data.employeeId);
           } else if (data.role === 'supervisor') {
             if (data.companyName) formData.append('company_name', data.companyName);
             if (data.position) formData.append('position', data.position);
