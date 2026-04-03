@@ -21,12 +21,14 @@ import {
   Check,
   Building,
   Briefcase,
-  School
+  School,
+  ChevronDown,
+  Search
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 // Types
-type Role = 'student' | 'coordinator' | 'supervisor' | null;
+type Role = 'student' | 'coordinator' | 'hod' | 'supervisor' | null;
 
 interface FormData {
   fullName: string;
@@ -35,9 +37,12 @@ interface FormData {
   confirmPassword: string;
   // Role-specific fields
   universityName?: string;
+  universityId?: number;       // HoD: selected approved university
+  universitySearch?: string;   // HoD: search input text
   companyName?: string;
   department?: string;
   studentId?: string;
+  employeeId?: string;
   position?: string;
   verificationFile?: File;
   verificationFilePreview?: string;
@@ -49,9 +54,11 @@ interface FormErrors {
   password?: string;
   confirmPassword?: string;
   universityName?: string;
+  universityId?: string;
   companyName?: string;
   department?: string;
   studentId?: string;
+  employeeId?: string;
   position?: string;
   verificationFile?: string;
   general?: string;
@@ -74,15 +81,21 @@ const RegisterPage = () => {
     password: '',
     confirmPassword: '',
     universityName: '',
+    universitySearch: '',
     companyName: '',
     department: '',
     studentId: '',
+    employeeId: '',
     position: '',
   });
   
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, label: '', color: '' });
+
+  // Approved universities for HoD dropdown
+  const [approvedUniversities, setApprovedUniversities] = useState<{ id: number; name: string }[]>([]);
+  const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
 
   // Password strength checker
   const checkPasswordStrength = useCallback((password: string) => {
@@ -109,6 +122,16 @@ const RegisterPage = () => {
       setPasswordStrength(checkPasswordStrength(formData.password));
     }
   }, [formData.password, checkPasswordStrength]);
+
+  // Fetch approved universities when HoD role is selected and we reach step 3
+  useEffect(() => {
+    if (role === 'hod' && step === 3 && approvedUniversities.length === 0) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/universities/approved`)
+        .then((r) => r.json())
+        .then((data) => setApprovedUniversities(Array.isArray(data) ? data : []))
+        .catch(() => setApprovedUniversities([]));
+    }
+  }, [role, step, approvedUniversities.length]);
 
   // Validation functions
   const validateFullName = (name: string) => {
@@ -142,6 +165,10 @@ const RegisterPage = () => {
   const validateRoleSpecific = () => {
     if (role === 'coordinator') {
       if (!formData.universityName) return 'University name is required';
+    }
+    if (role === 'hod') {
+      if (!formData.universityId) return 'Please select a university';
+      if (!formData.department) return 'Department is required';
     }
     if (role === 'supervisor') {
       if (!formData.companyName) return 'Company name is required';
@@ -290,6 +317,11 @@ const RegisterPage = () => {
         role: role!,
         universityName: formData.universityName,
         ...(role === 'coordinator' && { position: formData.position }),
+        ...(role === 'hod' && {
+          universityId: formData.universityId,
+          department: formData.department,
+          employeeId: formData.employeeId,
+        }),
         ...(role === 'supervisor' && {
           companyName: formData.companyName,
           position: formData.position,
@@ -303,11 +335,9 @@ const RegisterPage = () => {
       
       await register(registerData);
       
-      // All roles go through email verification first.
-      // After verifying, coordinators are redirected to pending-review instead of login.
-      router.push(
-        `/verify-email?email=${encodeURIComponent(formData.email)}${role === 'coordinator' ? '&role=coordinator' : ''}`
-      );
+      // Coordinators and HoDs go to verify-email with role param for proper redirect
+      const roleParam = role === 'coordinator' ? '&role=coordinator' : role === 'hod' ? '&role=hod' : '';
+      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}${roleParam}`);
       
     } catch (error: unknown) {
       const err = error as { message?: string };
@@ -372,6 +402,14 @@ const RegisterPage = () => {
                 desc: 'Manage student placements and university partnerships',
                 color: 'bg-primary-50 text-primary-600',
                 bgHover: 'hover:border-primary-200'
+              },
+              {
+                id: 'hod' as const,
+                title: 'Head of Department',
+                icon: Building,
+                desc: 'Oversee departmental internship activities and approvals',
+                color: 'bg-violet-50 text-violet-600',
+                bgHover: 'hover:border-violet-200'
               },
               { 
                 id: 'supervisor' as const, 
@@ -619,7 +657,8 @@ const RegisterPage = () => {
           <div className="text-center lg:text-left">
             <h1 className="text-3xl font-bold text-slate-900">
               {role === 'student' ? 'Student Information' : 
-               role === 'coordinator' ? 'University Information' : 
+               role === 'coordinator' ? 'University Information' :
+               role === 'hod' ? 'Department Information' :
                'Company Information'}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
@@ -627,6 +666,8 @@ const RegisterPage = () => {
                 ? 'Enter your academic details and upload student ID'
                 : role === 'coordinator'
                 ? 'Enter your university details and upload official verification letter'
+                : role === 'hod'
+                ? 'Select your university, enter your department, and upload your staff ID'
                 : 'Enter your company details and upload official verification document'}
             </p>
           </div>
@@ -658,6 +699,116 @@ const RegisterPage = () => {
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                     />
                   </div>
+                </div>
+              </>
+            )}
+
+            {role === 'hod' && (
+              <>
+                {/* Searchable University Dropdown */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    University <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setUniDropdownOpen((o) => !o)}
+                      className={`w-full flex items-center justify-between pl-10 pr-4 py-3 rounded-xl border bg-white text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 ${errors.universityId ? 'border-red-300' : 'border-slate-200 hover:border-slate-300'}`}
+                    >
+                      <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                      <span className={formData.universityId ? 'text-slate-900' : 'text-slate-400'}>
+                        {formData.universityId
+                          ? approvedUniversities.find((u) => u.id === formData.universityId)?.name
+                          : 'Select your university'}
+                      </span>
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${uniDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {uniDropdownOpen && (
+                      <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                        <div className="p-2 border-b border-slate-100">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <input
+                              type="text"
+                              name="universitySearch"
+                              value={formData.universitySearch}
+                              onChange={handleInputChange}
+                              placeholder="Search universities..."
+                              className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <ul className="max-h-48 overflow-y-auto">
+                          {approvedUniversities
+                            .filter((u) =>
+                              u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
+                            )
+                            .map((u) => (
+                              <li key={u.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData((prev) => ({ ...prev, universityId: u.id, universitySearch: '' }));
+                                    setUniDropdownOpen(false);
+                                    setErrors((prev) => ({ ...prev, universityId: '' }));
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 hover:text-primary-700 transition-colors ${formData.universityId === u.id ? 'bg-primary-50 text-primary-700 font-medium' : 'text-slate-700'}`}
+                                >
+                                  {u.name}
+                                </button>
+                              </li>
+                            ))}
+                          {approvedUniversities.filter((u) =>
+                            u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
+                          ).length === 0 && (
+                            <li className="px-4 py-3 text-sm text-slate-400 text-center">No universities found</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  {errors.universityId && (
+                    <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.universityId}
+                    </p>
+                  )}
+                </div>
+
+                {/* Department */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Department <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                    <input
+                      type="text"
+                      name="department"
+                      value={formData.department}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Software Engineering"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Employee ID (optional) */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Employee ID <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="employeeId"
+                    value={formData.employeeId}
+                    onChange={handleInputChange}
+                    placeholder="e.g., EMP-2024-001"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  />
                 </div>
               </>
             )}
@@ -751,7 +902,8 @@ const RegisterPage = () => {
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">
               {role === 'student' ? 'Student ID / Verification' : 
-               role === 'coordinator' ? 'Official University Letter with Stamp' : 
+               role === 'coordinator' ? 'Official University Letter with Stamp' :
+               role === 'hod' ? 'Staff ID / Verification Document' :
                'Official Company Letter with Stamp'} <span className="text-red-500">*</span>
             </label>
             

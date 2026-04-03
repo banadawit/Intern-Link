@@ -13,6 +13,7 @@ datasource db {
 enum Role {
   ADMIN        
   COORDINATOR
+  HOD
   SUPERVISOR
   STUDENT
 
@@ -71,6 +72,7 @@ model User {
   // Specific Role Relations
   studentProfile    Student?
   coordinatorProfile Coordinator?
+  hodProfile        HodProfile?
   supervisorProfile Supervisor?
   
   // Announcements & Notifications
@@ -103,6 +105,7 @@ model University {
 
   rejection_reason String?
   coordinators      Coordinator[]
+  hods              HodProfile[]
   students          Student[]
   proposalsSent     InternshipProposal[]
   reportsReceived   Report[] @relation("ReportToUniversity")
@@ -135,6 +138,16 @@ model Coordinator {
   /// Stored during registration; used to create the University record upon admin approval
   pending_university_name String?
   phone_number  String?
+}
+
+model HodProfile {
+  id           Int        @id @default(autoincrement())
+  user         User       @relation(fields: [userId], references: [id])
+  userId       Int        @unique
+  university   University @relation(fields: [universityId], references: [id])
+  universityId Int
+  department   String
+  employeeId   String?
 }
 
 model Supervisor {

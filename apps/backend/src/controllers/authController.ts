@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { generateVerificationToken, getVerificationTokenExpiry } from '../utils/token.utils';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service';
+import { sendVerificationEmail, sendPasswordResetEmail, sendCoordinatorHodReviewEmail } from '../services/email.service';
 import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
 
 // ============================================
@@ -36,7 +36,7 @@ export const register = async (req: Request, res: Response) => {
         // Create user with verification token
         const roleUpper = role.toUpperCase();
         const needsIndividualAdminApproval =
-            roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR';
+            roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR' || roleUpper === 'HOD';
 
         const newUser = await prisma.user.create({
             data: {
@@ -148,7 +148,55 @@ export const register = async (req: Request, res: Response) => {
             }
         }
 
-        // ✅ Send verification email
+        else if (roleUpper === 'HOD') {
+            const { university_id, department, employee_id } = req.body;
+            const universityId = parseInt(university_id, 10);
+
+            if (!universityId || !department) {
+                // Clean up the created user if profile data is missing
+                await prisma.user.delete({ where: { id: newUser.id } });
+                return res.status(400).json({
+                    success: false,
+                    message: 'University and department are required for HoD registration.',
+                });
+            }
+
+            const university = await prisma.university.findUnique({ where: { id: universityId } });
+            if (!university || university.approval_status !== 'APPROVED') {
+                await prisma.user.delete({ where: { id: newUser.id } });
+                return res.status(400).json({
+                    success: false,
+                    message: 'Selected university is not approved or does not exist.',
+                });
+            }
+
+            await prisma.hodProfile.create({
+                data: {
+                    userId: newUser.id,
+                    universityId,
+                    department,
+                    employeeId: employee_id || null,
+                },
+            });
+
+            // Notify all coordinators of this university
+            const coordinators = await prisma.coordinator.findMany({
+                where: { universityId },
+                include: { user: { select: { email: true } } },
+            });
+            const coordinatorEmails = coordinators.map((c) => c.user.email);
+
+            if (coordinatorEmails.length > 0) {
+                await sendCoordinatorHodReviewEmail(coordinatorEmails, {
+                    hodName: full_name,
+                    hodEmail: email,
+                    department,
+                    universityName: university.name,
+                });
+            } else {
+                console.log(`ℹ️ No coordinators found for university ${universityId} to notify about new HoD.`);
+            }
+        }
         let emailSendError = null;
         try {
             await sendVerificationEmail(email, verificationToken, roleUpper);
@@ -185,11 +233,14 @@ export const register = async (req: Request, res: Response) => {
             success: true,
             message: roleUpper === 'COORDINATOR'
                 ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
+                : roleUpper === 'HOD'
+                ? "Registration submitted. Your University Coordinator will review your department credentials. You will be notified via email upon approval."
                 : "Registration successful. Please check your email to verify your account.",
             data: {
                 ...baseResponse,
                 emailSent: true,
                 pendingAdminReview: roleUpper === 'COORDINATOR',
+                pendingCoordinatorReview: roleUpper === 'HOD',
             }
         });
         
@@ -349,6 +400,16 @@ export const login = async (req: Request, res: Response) => {
                     message:
                         'Your university account is not active yet. Verification must be submitted and approved by an administrator before you can sign in.',
                     code: 'INSTITUTION_NOT_APPROVED',
+                });
+            }
+        }
+
+        if (user.role === 'HOD') {
+            if (user.institution_access_approval !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Your HoD account is pending coordinator approval. You will receive an email once approved.',
+                    code: 'PENDING_COORDINATOR_REVIEW',
                 });
             }
         }
@@ -642,6 +703,9 @@ export const getCurrentUser = async (req: Request, res: Response) => {
                 coordinatorProfile: {
                     include: { university: true }
                 },
+                hodProfile: {
+                    include: { university: true }
+                },
                 supervisorProfile: {
                     include: { company: true }
                 }
@@ -664,7 +728,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
                 role: user.role,
                 isVerified: user.verification_status === 'APPROVED',
                 institutionAccessApproval: user.institution_access_approval,
-                profile: user.studentProfile || user.coordinatorProfile || user.supervisorProfile
+                profile: user.studentProfile || user.coordinatorProfile || user.hodProfile || user.supervisorProfile
             }
         });
 

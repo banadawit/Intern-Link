@@ -608,6 +608,77 @@ export const sendAdminNewVerificationProposalEmail = async (
 };
 
 /**
+ * Notify coordinator(s) when a new HoD registers and needs approval.
+ * Logs errors only — does not throw.
+ */
+export const sendCoordinatorHodReviewEmail = async (
+    toEmails: string[],
+    params: {
+        hodName: string;
+        hodEmail: string;
+        department: string;
+        universityName: string;
+    }
+): Promise<void> => {
+    if (!toEmails.length) return;
+    try {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const reviewUrl = `${frontendUrl}/coordinator/hod-approvals`;
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
+
+        const html = `
+        <!DOCTYPE html><html><head><meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+          .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background: linear-gradient(135deg, #0d9488 0%, #115e59 100%); padding: 32px 24px; text-align: center; }
+          .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+          .content { padding: 32px 24px; }
+          .button { display: inline-block; background: #0d9488; color: white !important; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
+          .footer { background: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+          .text-muted { color: #64748b; font-size: 14px; }
+          .info-row { padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        </style></head>
+        <body>
+          <div class="container"><div class="card">
+            <div class="header">
+              <h1 class="logo">InternLink</h1>
+              <p style="color:rgba(255,255,255,0.9);margin-top:8px;">New HoD Verification Request</p>
+            </div>
+            <div class="content">
+              <h2 style="margin-top:0;">Action Required: HoD Approval</h2>
+              <p>A new Head of Department has registered and is awaiting your approval for <strong>${escapeHtml(params.universityName)}</strong>.</p>
+              <div class="info-row"><strong>Name:</strong> ${escapeHtml(params.hodName)}</div>
+              <div class="info-row"><strong>Email:</strong> ${escapeHtml(params.hodEmail)}</div>
+              <div class="info-row" style="border:none"><strong>Department:</strong> ${escapeHtml(params.department)}</div>
+              <div style="text-align:center;margin-top:24px;">
+                <a href="${reviewUrl}" class="button">Review HoD Applications</a>
+              </div>
+              <p class="text-muted">Please review their credentials and approve or reject their access.</p>
+            </div>
+            <div class="footer"><p>&copy; ${new Date().getFullYear()} InternLink. All rights reserved.</p></div>
+          </div></div>
+        </body></html>`;
+
+        for (const to of toEmails) {
+            const info = await transporter.sendMail({
+                from: `"InternLink" <${fromAddr}>`,
+                to,
+                subject: `[InternLink] New HoD registration pending review — ${params.universityName}`,
+                html,
+            });
+            const preview = nodemailer.getTestMessageUrl(info);
+            if (preview) console.info(`ℹ️ Preview HoD notification email at: ${preview}`);
+            console.log(`✅ HoD coordinator notification sent to ${to}: ${info.messageId}`);
+        }
+    } catch (error: any) {
+        console.error('❌ Failed to send HoD coordinator notification:', error?.message || error);
+    }
+};
+
+/**
  * Test email configuration
  */
 export const testEmailConfig = async (): Promise<boolean> => {

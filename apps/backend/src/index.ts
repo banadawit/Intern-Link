@@ -15,6 +15,7 @@ import progressRoutes from './routes/progressRoutes';
 import reportRoutes from './routes/reportRoutes';
 import feedRoutes from './routes/feedRoutes';
 import supervisorRoutes from './routes/supervisorRoutes';
+import coordinatorRoutes from './routes/coordinatorRoutes';
 import aiRoutes from './routes/aiRoutes';
 
 const app: Application = express();
@@ -35,6 +36,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/supervisor', supervisorRoutes);
+app.use('/api/coordinator', coordinatorRoutes);
 app.use('/api/ai', aiRoutes);
 // 3. Basic Health Check Route
 app.get('/', (req: Request, res: Response) => {
