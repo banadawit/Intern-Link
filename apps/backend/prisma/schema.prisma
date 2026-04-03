@@ -167,8 +167,6 @@ model HodProfile {
   @@index([universityId, department])
   @@map("Hod")
 
-  employeeId   String?
-
   students     Student[]
 
 }

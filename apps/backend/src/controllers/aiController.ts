@@ -39,6 +39,15 @@ function parseHistoryPayload(raw: unknown): { role: 'user' | 'assistant'; conten
 }
 
 function aiErrorStatus(err: unknown): number {
+    const msg = err instanceof Error ? err.message : String(err ?? '');
+    if (
+        /(^|\s)429(\s|$)/.test(msg) ||
+        /too many requests/i.test(msg) ||
+        /quota exceeded/i.test(msg) ||
+        /rate[-\s]?limit/i.test(msg)
+    ) {
+        return 429;
+    }
     if (
         (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === 'AI_UNAVAILABLE') ||
         (err instanceof Error && err.message === 'AI_UNAVAILABLE')
@@ -49,6 +58,19 @@ function aiErrorStatus(err: unknown): number {
 }
 
 function safeMessage(err: unknown): string {
+    const msg = err instanceof Error ? err.message : String(err ?? '');
+    if (
+        /(^|\s)429(\s|$)/.test(msg) ||
+        /too many requests/i.test(msg) ||
+        /quota exceeded/i.test(msg) ||
+        /rate[-\s]?limit/i.test(msg)
+    ) {
+        const retry = msg.match(/retry in\s+([\d.]+)\s*s/i)?.[1];
+        if (retry) {
+            return `AI request limit reached for now. Please try again in about ${Math.ceil(Number(retry))} seconds, or check API quota/billing.`;
+        }
+        return 'AI request limit reached for now. Please try again shortly, or check API quota/billing.';
+    }
     if (err instanceof Error) {
         if (err.message === 'AI_UNAVAILABLE') {
             return 'AI is not configured. Set OPENAI_API_KEY on the server.';

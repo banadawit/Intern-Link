@@ -222,55 +222,120 @@ export default function AIChat({ variant, role, className, title = "InternLink A
               <div
                 key={`${i}-${m.role}-${m.content.slice(0, 12)}`}
                 className={cn(
-                  "mb-3 rounded-xl px-3 py-2 text-sm",
-                  m.role === "user" ? "ml-4 bg-primary-50 text-slate-900" : "mr-4 bg-slate-100 text-slate-800"
+                  "mb-4 flex",
+                  m.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="block text-[10px] font-semibold uppercase text-slate-500">
-                    {m.role === "user" ? "You" : "Assistant"}
-                  </span>
-                  {m.role === "assistant" && (
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
-                        aria-label="Edit reply"
-                        onClick={() => setEditingIndex((x) => (x === i ? null : i))}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
-                        aria-label="Copy reply"
-                        onClick={() => void copyText(m.content)}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
+                <div
+                  className={cn(
+                    "max-w-[88%] rounded-2xl px-4 py-3 text-sm shadow-sm",
+                    m.role === "user"
+                      ? "bg-primary-50 text-slate-900"
+                      : "border border-slate-200 bg-slate-50 text-slate-800"
+                  )}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      {m.role === "user" ? "You" : "Assistant"}
+                    </span>
+                    {m.role === "assistant" && (
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
+                          aria-label="Edit reply"
+                          onClick={() => setEditingIndex((x) => (x === i ? null : i))}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
+                          aria-label="Copy reply"
+                          onClick={() => void copyText(m.content)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {m.role === "assistant" && editingIndex === i ? (
+                    <textarea
+                      value={m.content}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setMessages((prev) => prev.map((x, j) => (j === i ? { ...x, content: v } : x)));
+                      }}
+                      className="mt-1 w-full min-h-[110px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-900"
+                      aria-label="Edit assistant message"
+                    />
+                  ) : (
+                    <div className="text-[14px] leading-relaxed">
+                      {(() => {
+                        const visible =
+                          m.role === "assistant" && liveTyping && liveTyping.index === i
+                            ? liveTyping.full.slice(0, liveTyping.pos)
+                            : m.content;
+                        const lines = visible.split("\n");
+                        const headingPattern =
+                          /^(?:[•*-]\s*)?(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday):\s*(.+)?$/i;
+                        const sectionHeadingPattern =
+                          /^(Key Deliverables|Suggested Daily\/Focus Areas|Important Notes):?\s*$/i;
+                        const bulletPattern = /^•\s+/;
+
+                        return (
+                          <div className="space-y-1 whitespace-pre-wrap">
+                            {lines.map((line, idx) => {
+                              const headingMatch = line.trim().match(headingPattern);
+                              if (headingMatch) {
+                                const day = headingMatch[1];
+                                const rest = headingMatch[2]?.trim();
+                                return (
+                                  <p key={`${idx}-${line}`} className="pt-1 text-[15px] font-extrabold text-slate-950">
+                                    {rest ? `${day}: ${rest}` : `${day}:`}
+                                  </p>
+                                );
+                              }
+                              if (sectionHeadingPattern.test(line.trim())) {
+                                const normalized = line.trim().replace(/:?\s*$/, ":");
+                                return (
+                                  <p key={`${idx}-${line}`} className="pt-1 text-[15px] font-extrabold text-slate-950">
+                                    {normalized}
+                                  </p>
+                                );
+                              }
+
+                              if (!line.trim()) {
+                                return <p key={`${idx}-empty`} className="h-1" />;
+                              }
+
+                              return (
+                                <p
+                                  key={`${idx}-${line}`}
+                                  className={cn(
+                                    "text-slate-800",
+                                    bulletPattern.test(line.trim()) ? "ml-5" : "ml-4"
+                                  )}
+                                >
+                                  {line}
+                                </p>
+                              );
+                            })}
+                            {m.role === "assistant" &&
+                            liveTyping &&
+                            liveTyping.index === i &&
+                            liveTyping.pos < liveTyping.full.length ? (
+                              <span
+                                className="ml-px inline-block h-3.5 w-0.5 animate-pulse rounded-sm bg-primary-600 align-middle"
+                                aria-hidden
+                              />
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
-                {m.role === "assistant" && editingIndex === i ? (
-                  <textarea
-                    value={m.content}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setMessages((prev) => prev.map((x, j) => (j === i ? { ...x, content: v } : x)));
-                    }}
-                    className="mt-1 w-full min-h-[100px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900"
-                    aria-label="Edit assistant message"
-                  />
-                ) : (
-                  <span className="whitespace-pre-wrap">
-                    {m.role === "assistant" && liveTyping && liveTyping.index === i
-                      ? liveTyping.full.slice(0, liveTyping.pos)
-                      : m.content}
-                    {m.role === "assistant" && liveTyping && liveTyping.index === i && liveTyping.pos < liveTyping.full.length ? (
-                      <span className="ml-px inline-block h-3.5 w-0.5 animate-pulse rounded-sm bg-primary-600 align-middle" aria-hidden />
-                    ) : null}
-                  </span>
-                )}
               </div>
             ))}
           {loading && (
