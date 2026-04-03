@@ -149,6 +149,7 @@ const LoginPage = () => {
       if (
         data?.code === 'PENDING_ADMIN_REVIEW' ||
         data?.code === 'PENDING_COORDINATOR_REVIEW' ||
+        data?.code === 'PENDING_HOD_REVIEW' ||
         data?.code === 'INSTITUTION_NOT_APPROVED' ||
         data?.code === 'INSTITUTION_MEMBER_NOT_APPROVED'
       ) {

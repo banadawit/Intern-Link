@@ -10,6 +10,7 @@ router.get('/dashboard-stats', hodCtrl.getDashboardStats);
 router.get('/students', hodCtrl.getStudents);
 router.patch('/students/:studentId/approve', hodCtrl.approveStudent);
 router.patch('/students/:studentId/reject', hodCtrl.rejectStudent);
+router.patch('/verify-student', hodCtrl.verifyStudent);
 router.get('/companies', hodCtrl.getCompanies);
 router.get('/proposals/open-letters', hodCtrl.getOpenLetterProposals);
 router.patch('/proposals/open-letters/:id', hodCtrl.updateOpenLetterProposal);

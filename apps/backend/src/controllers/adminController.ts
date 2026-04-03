@@ -22,6 +22,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             totalStudents,
             activeInternships,
             pendingCoordinators,
+            pendingSupervisors,
         ] = await Promise.all([
             prisma.university.count({ where: { approval_status: 'PENDING' } }),
             prisma.company.count({ where: { approval_status: 'PENDING' } }),
@@ -31,6 +32,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             prisma.student.count(),
             prisma.internshipAssignment.count({ where: { status: 'ACTIVE' } }),
             prisma.coordinator.count({ where: { universityId: { equals: null } } }),
+            prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'PENDING' } }),
         ]);
 
         res.json({
@@ -42,6 +44,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             totalStudents,
             activeInternships,
             pendingCoordinators,
+            pendingSupervisors,
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -412,6 +415,113 @@ export const verifyInstitution = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// --- SUPERVISOR APPROVAL WORKFLOW ---
+
+/** List all supervisors pending admin approval */
+export const getPendingSupervisors = async (req: AuthRequest, res: Response) => {
+    try {
+        const supervisors = await prisma.supervisor.findMany({
+            where: {
+                user: {
+                    institution_access_approval: 'PENDING',
+                    verification_status: 'PENDING',
+                },
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                        verification_document: true,
+                        institution_access_approval: true,
+                        created_at: true,
+                    },
+                },
+                company: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(supervisors);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Approve a pending supervisor */
+export const approveSupervisor = async (req: AuthRequest, res: Response) => {
+    try {
+        const rawId = req.params.userId;
+        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId },
+            include: { user: true, company: true },
+        });
+        if (!supervisor) return res.status(404).json({ error: 'Supervisor not found' });
+
+        // Approve the user and the company
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'APPROVED', verification_status: 'APPROVED' },
+        });
+
+        await prisma.company.update({
+            where: { id: supervisor.companyId },
+            data: { approval_status: 'APPROVED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'APPROVED_SUPERVISOR',
+                targetId: userId,
+                details: `Approved supervisor ${supervisor.user.full_name} — company "${supervisor.company.name}"`,
+            },
+        });
+
+        await sendOrganizationApprovalEmail(supervisor.user.email, supervisor.company.name, 'Company');
+        res.json({ message: 'Supervisor approved', userId });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Reject a pending supervisor */
+export const rejectSupervisor = async (req: AuthRequest, res: Response) => {
+    try {
+        const rawId = req.params.userId;
+        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+        const { reason } = req.body as { reason?: string };
+        const rejectionReason = reason?.trim() || 'Your credentials could not be verified.';
+
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId },
+            include: { user: true, company: true },
+        });
+        if (!supervisor) return res.status(404).json({ error: 'Supervisor not found' });
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'REJECTED', verification_status: 'REJECTED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'REJECTED_SUPERVISOR',
+                targetId: userId,
+                details: `Rejected supervisor ${supervisor.user.full_name} — reason: ${rejectionReason}`,
+            },
+        });
+
+        await sendOrganizationRejectionEmail(supervisor.user.email, supervisor.company.name, 'Company', rejectionReason);
+        res.json({ message: 'Supervisor rejected', userId });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // --- COORDINATOR APPROVAL WORKFLOW ---
 
 /** List all coordinators pending admin approval (no university linked yet) */
@@ -551,7 +661,7 @@ export const rejectCoordinator = async (req: AuthRequest, res: Response) => {
 
         await prisma.user.update({
             where: { id: userId },
-            data: { institution_access_approval: 'REJECTED' },
+            data: { institution_access_approval: 'REJECTED', verification_status: 'REJECTED' },
         });
 
         await prisma.auditLog.create({

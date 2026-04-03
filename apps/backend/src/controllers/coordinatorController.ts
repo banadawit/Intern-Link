@@ -91,7 +91,9 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
             where: { id: userId },
             data: {
                 institution_access_approval: status as 'APPROVED' | 'REJECTED',
-                ...(status === 'APPROVED' ? { verification_status: 'APPROVED' } : {}),
+                ...(status === 'APPROVED'
+                    ? { verification_status: 'APPROVED' }
+                    : { verification_status: 'REJECTED' }),
             },
         });
 
