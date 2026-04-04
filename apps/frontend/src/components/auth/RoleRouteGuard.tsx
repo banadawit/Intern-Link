@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
 
-type AppRole = "ADMIN" | "COORDINATOR" | "SUPERVISOR" | "STUDENT";
+type AppRole = "ADMIN" | "COORDINATOR" | "HOD" | "SUPERVISOR" | "STUDENT";
 
 interface RoleRouteGuardProps {
   allowedRole: AppRole;
@@ -15,6 +15,7 @@ interface RoleRouteGuardProps {
 const roleHome: Record<AppRole, string> = {
   ADMIN: "/admin",
   COORDINATOR: "/coordinator",
+  HOD: "/hod",
   SUPERVISOR: "/supervisor",
   STUDENT: "/student",
 };

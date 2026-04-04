@@ -7,10 +7,10 @@ import api from '../api/client';
 import { AxiosError } from 'axios';
 
 interface User {
-  id: number;
-  email: string;
-  fullName: string;
-  role: 'ADMIN' | 'COORDINATOR' | 'SUPERVISOR' | 'STUDENT';
+    id: number;
+    email: string;
+    fullName: string;
+    role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
   isVerified: boolean;
   profile?: {
     universityId?: number;
@@ -38,7 +38,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-type RegistrationRole = 'student' | 'coordinator' | 'supervisor';
+type RegistrationRole = 'student' | 'coordinator' | 'hod' | 'supervisor';
 
 interface RegisterData {
   email: string;
@@ -63,7 +63,7 @@ interface LoginResponse {
       id: number;
       email: string;
       fullName: string;
-      role: 'ADMIN' | 'COORDINATOR' | 'SUPERVISOR' | 'STUDENT';
+      role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
       isVerified: boolean;
     };
   };
@@ -158,6 +158,10 @@ export const useAuth = create<AuthState>()(
             if (data.position) formData.append('position', data.position);
           } else if (data.role === 'supervisor') {
             if (data.companyName) formData.append('company_name', data.companyName);
+            if (data.position) formData.append('position', data.position);
+          } else if (data.role === 'hod') {
+            if (data.universityName) formData.append('university_name', data.universityName);
+            if (data.department) formData.append('department', data.department);
             if (data.position) formData.append('position', data.position);
           } else if (data.role === 'student') {
             if (data.universityName) formData.append('university_name', data.universityName);

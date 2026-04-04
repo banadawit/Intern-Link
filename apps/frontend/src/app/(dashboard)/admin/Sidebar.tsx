@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   LayoutDashboard,
   CheckCircle,
@@ -9,6 +10,8 @@ import {
   LogOut,
   ShieldCheck,
   Ban,
+  Sparkles,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -21,6 +24,7 @@ type ViewKey =
   | "approved"
   | "rejected"
   | "suspended"
+  | "coordinator-approvals"
   | "audit-log"
   | "settings";
 
@@ -29,9 +33,11 @@ interface Props {
   onNavigate: (view: ViewKey) => void;
   /** Pending organization verification requests (badge on nav). */
   pendingCount?: number;
+  /** Pending coordinator approvals (badge on nav). */
+  pendingCoordinatorCount?: number;
 }
 
-const Sidebar = ({ activeView, onNavigate, pendingCount = 0 }: Props) => {
+const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorCount = 0 }: Props) => {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
@@ -50,6 +56,7 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0 }: Props) => {
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
     { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" },
     { icon: Clock, label: "Pending Approvals", view: "pending" },
+    { icon: UserCheck, label: "Coordinator Approvals", view: "coordinator-approvals" },
     { icon: CheckCircle, label: "Approved History", view: "approved" },
     { icon: Ban, label: "Suspended", view: "suspended" },
     { icon: XCircle, label: "Rejected History", view: "rejected" },
@@ -95,8 +102,20 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0 }: Props) => {
                 {pendingCount > 99 ? "99+" : pendingCount}
               </span>
             )}
+            {item.view === "coordinator-approvals" && pendingCoordinatorCount > 0 && (
+              <span className="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-primary-800 ring-1 ring-primary-200/80">
+                {pendingCoordinatorCount > 99 ? "99+" : pendingCoordinatorCount}
+              </span>
+            )}
           </button>
         ))}
+        <Link
+          href="/admin/ai"
+          className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 lg:w-full lg:gap-3 lg:px-4 lg:py-3"
+        >
+          <Sparkles className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1 whitespace-nowrap text-left">AI assistant</span>
+        </Link>
       </nav>
 
       <div className="mt-auto hidden border-t border-slate-200 lg:block">

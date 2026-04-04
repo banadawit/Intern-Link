@@ -39,6 +39,7 @@ import {
   maybeNotifyMissedDeadlines,
 } from '@/lib/student/desktopNotifications';
 import StudentPageHero from './StudentPageHero';
+import { getInternshipWeekDateStrings } from '@/lib/student/internshipWeekDates';
 
 const WeeklyPlans = () => {
   const router = useRouter();
@@ -65,7 +66,7 @@ const WeeklyPlans = () => {
 
   const currentWeek = profile?.currentInternshipWeek ?? 1;
 
-  const loadPlansAndProfile = async () => {
+  const loadPlansAndProfile = async (): Promise<WeeklyPlan[] | null> => {
     try {
       setLoadError(null);
       const [meRes, plansRes] = await Promise.all([
@@ -82,11 +83,13 @@ const WeeklyPlans = () => {
         ...prev,
         weekNumber: maxW + 1,
       }));
+      return mapped;
     } catch (e: unknown) {
       const msg = e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'data' in e.response
         ? JSON.stringify((e.response as { data?: unknown }).data)
         : 'Failed to load weekly plans.';
       setLoadError(typeof msg === 'string' ? msg : 'Failed to load.');
+      return null;
     } finally {
       setInitialLoad(false);
     }
@@ -126,6 +129,33 @@ const WeeklyPlans = () => {
     });
     router.replace('/student/plans', { scroll: false });
   }, [searchParams, plans, router]);
+
+  const [dayToggleBusy, setDayToggleBusy] = useState<string | null>(null);
+
+  const togglePlanDay = async (planId: string, ymd: string, currentlyOn: boolean) => {
+    setDayToggleBusy(`${planId}-${ymd}`);
+    setLoadError(null);
+    try {
+      if (currentlyOn) {
+        await api.delete(`/progress/plan/${planId}/days/${ymd}`);
+      } else {
+        await api.post(`/progress/plan/${planId}/days`, { workDate: ymd });
+      }
+      const mapped = await loadPlansAndProfile();
+      if (mapped && selectedPlan) {
+        const u = mapped.find((p) => p.id === selectedPlan.id);
+        if (u) setSelectedPlan(u);
+      }
+    } catch (err: unknown) {
+      const data =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data
+          : undefined;
+      setLoadError(data?.message ?? 'Could not update daily check-in.');
+    } finally {
+      setDayToggleBusy(null);
+    }
+  };
 
   const missedWeeks = getMissedInternshipWeeks(plans, currentWeek);
   const hasCurrentWeekPlan = hasPlanForInternshipWeek(plans, currentWeek);
@@ -259,9 +289,9 @@ const WeeklyPlans = () => {
             ))}
           </ul>
           <p className="text-xs text-text-muted">
-            Turn on <strong>Alerts</strong> under{' '}
+            Turn on <strong>Alerts</strong> from the{' '}
             <Link href="/student/settings/alerts" className="font-semibold text-primary-600 underline-offset-2 hover:underline">
-              Settings → Alerts
+              top bar
             </Link>{' '}
             for browser notifications when deadlines are missed or your current week is still unsubmitted
             (once you allow notifications in the browser).
@@ -373,6 +403,50 @@ const WeeklyPlans = () => {
                       {selectedPlan.tasks}
                     </p>
                   </div>
+
+                  {selectedPlan.status === 'Approved' && profile?.placementStartDate && (
+                    <div className="rounded-xl border border-border-default bg-bg-secondary/40 px-4 py-3">
+                      <p className="mb-1 text-xs font-bold uppercase tracking-tight text-text-muted">Daily check-ins</p>
+                      <p className="mb-3 text-xs text-text-muted">
+                        Tap a day when you complete work for this internship week. Your supervisor sees activity on
+                        Attendance.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                        {getInternshipWeekDateStrings(profile.placementStartDate, selectedPlan.weekNumber).map(
+                          (ymd) => {
+                            const done =
+                              selectedPlan.daySubmissions?.some((d) => d.workDate === ymd) ?? false;
+                            const busy = dayToggleBusy === `${selectedPlan.id}-${ymd}`;
+                            return (
+                              <button
+                                key={ymd}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void togglePlanDay(selectedPlan.id, ymd, done);
+                                }}
+                                disabled={!!dayToggleBusy}
+                                className={cn(
+                                  'rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors',
+                                  done
+                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                                    : 'border-border-default bg-white text-text-body hover:border-primary-300',
+                                  busy && 'opacity-60',
+                                )}
+                              >
+                                <span className="mb-0.5 block text-[10px] uppercase text-text-muted">
+                                  {new Date(`${ymd}T12:00:00.000Z`).toLocaleDateString(undefined, {
+                                    weekday: 'short',
+                                  })}
+                                </span>
+                                <span className="font-semibold">{ymd.slice(5)}</span>
+                              </button>
+                            );
+                          },
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {selectedPlan.presentationUrl && (
                     <div>

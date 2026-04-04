@@ -115,7 +115,7 @@ const Hero = () => {
           variants={containerVariants}
           initial="hidden"
           animate={controls}
-          className="flex flex-col items-center gap-10 lg:flex-row lg:gap-12 xl:gap-16"
+          className="flex flex-col items-center gap-10 lg:flex-row lg:items-start lg:gap-12 xl:gap-16"
         >
           {/* Left Side: Content */}
           <div className="flex-1 text-center lg:text-left">
@@ -299,7 +299,7 @@ const Hero = () => {
           {/* Right Side: Enhanced Visual Mockup */}
           <motion.div 
             variants={itemVariants}
-            className="relative mt-8 w-full max-w-xl flex-1 lg:mt-0 lg:max-w-none"
+            className="relative mt-6 w-full max-w-xl flex-1 self-center lg:mt-0 lg:self-start lg:max-w-none"
             onMouseMove={handleMockupMouseMove}
             onMouseLeave={handleMockupMouseLeave}
           >

@@ -4,8 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  User, 
-  Building2, 
   GraduationCap, 
   ArrowRight, 
   ArrowLeft, 
@@ -23,12 +21,13 @@ import {
   Check,
   Building,
   Briefcase,
-  School
+  School,
+  Users
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 // Types
-type Role = 'student' | 'coordinator' | 'supervisor' | null;
+type Role = 'student' | 'coordinator' | 'hod' | 'supervisor' | null;
 
 interface FormData {
   fullName: string;
@@ -144,7 +143,6 @@ const RegisterPage = () => {
   const validateRoleSpecific = () => {
     if (role === 'coordinator') {
       if (!formData.universityName) return 'University name is required';
-      if (!formData.position) return 'Position is required';
     }
     if (role === 'supervisor') {
       if (!formData.companyName) return 'Company name is required';
@@ -293,6 +291,10 @@ const RegisterPage = () => {
         role: role!,
         universityName: formData.universityName,
         ...(role === 'coordinator' && { position: formData.position }),
+        ...(role === 'hod' && {
+          department: formData.department,
+          position: formData.position,
+        }),
         ...(role === 'supervisor' && {
           companyName: formData.companyName,
           position: formData.position,
@@ -306,11 +308,16 @@ const RegisterPage = () => {
       
       await register(registerData);
       
-      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
+      // All roles go through email verification first.
+      // After verifying, coordinators are redirected to pending-review instead of login.
+      router.push(
+        `/verify-email?email=${encodeURIComponent(formData.email)}${role === 'coordinator' ? '&role=coordinator' : ''}`
+      );
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       setErrors({
-        general: error.message || 'Registration failed. Please try again.'
+        general: err?.message || 'Registration failed. Please try again.'
       });
     } finally {
       setIsLoading(false);
@@ -370,6 +377,14 @@ const RegisterPage = () => {
                 desc: 'Manage student placements and university partnerships',
                 color: 'bg-primary-50 text-primary-600',
                 bgHover: 'hover:border-primary-200'
+              },
+              { 
+                id: 'hod' as const, 
+                title: 'Head of Department', 
+                icon: Users, 
+                desc: 'Approve students and manage placements for your department',
+                color: 'bg-violet-50 text-violet-600',
+                bgHover: 'hover:border-violet-200'
               },
               { 
                 id: 'supervisor' as const, 
@@ -618,13 +633,16 @@ const RegisterPage = () => {
             <h1 className="text-3xl font-bold text-slate-900">
               {role === 'student' ? 'Student Information' : 
                role === 'coordinator' ? 'University Information' : 
-               'Company Information'}
+               role === 'hod' ? 'Department & university'
+               : 'Company Information'}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
               {role === 'student' 
                 ? 'Enter your academic details and upload student ID'
                 : role === 'coordinator'
                 ? 'Enter your university details and upload official verification letter'
+                : role === 'hod'
+                ? 'Enter your university and department. Your coordinator will approve access.'
                 : 'Enter your company details and upload official verification document'}
             </p>
           </div>
@@ -657,16 +675,48 @@ const RegisterPage = () => {
                     />
                   </div>
                 </div>
+              </>
+            )}
+
+            {role === 'hod' && (
+              <>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Position/Title <span className="text-red-500">*</span>
+                    University Name <span className="text-red-500">*</span>
                   </label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                    <input
+                      type="text"
+                      name="universityName"
+                      value={formData.universityName}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Haramaya University"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Department <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Software Engineering"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Phone (optional)</label>
                   <input
                     type="text"
                     name="position"
                     value={formData.position}
                     onChange={handleInputChange}
-                    placeholder="e.g., Internship Coordinator"
+                    placeholder="Contact number"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                   />
                 </div>
@@ -762,7 +812,7 @@ const RegisterPage = () => {
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">
               {role === 'student' ? 'Student ID / Verification' : 
-               role === 'coordinator' ? 'Official University Letter with Stamp' : 
+               role === 'coordinator' || role === 'hod' ? 'Official University Letter with Stamp' : 
                'Official Company Letter with Stamp'} <span className="text-red-500">*</span>
             </label>
             
@@ -807,6 +857,7 @@ const RegisterPage = () => {
                 </div>
                 {formData.verificationFilePreview && formData.verificationFile.type.startsWith('image/') && (
                   <div className="mt-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
                       src={formData.verificationFilePreview} 
                       alt="Preview" 

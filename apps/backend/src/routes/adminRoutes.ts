@@ -26,6 +26,11 @@ router.patch('/company-status/:id', adminCtrl.updateCompanyStatus);
 router.get('/users', adminCtrl.getAllUsers);
 router.patch('/users/:id/institution-access', adminCtrl.updateUserInstitutionAccess);
 
+// Coordinator Approval Workflow
+router.get('/pending-coordinators', adminCtrl.getPendingCoordinators);
+router.post('/coordinators/:userId/approve', adminCtrl.approveCoordinator);
+router.post('/coordinators/:userId/reject', adminCtrl.rejectCoordinator);
+
 // Common Page Feed
 router.post('/announcements', adminCtrl.postAnnouncement);
 

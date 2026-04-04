@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
+import { ymdFromUtcMs } from '../utils/internshipWeekDates';
 
 export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
     try {
@@ -159,8 +160,24 @@ export const listWeeklyAttendanceReports = async (req: AuthRequest, res: Respons
                 },
             },
             include: {
-                student: { include: { user: { select: { full_name: true, email: true } } } },
-                weeklyPlan: { select: { id: true, week_number: true, status: true } },
+                student: {
+                    include: {
+                        user: { select: { full_name: true, email: true } },
+                        assignments: {
+                            where: { companyId: supervisor.companyId, status: 'ACTIVE' },
+                            take: 1,
+                            select: { start_date: true },
+                        },
+                    },
+                },
+                weeklyPlan: {
+                    select: {
+                        id: true,
+                        week_number: true,
+                        status: true,
+                        daySubmissions: { select: { workDate: true } },
+                    },
+                },
             },
             orderBy: { submitted_at: 'desc' },
         });
@@ -232,6 +249,97 @@ export const patchWeeklyAttendanceReport = async (req: AuthRequest, res: Respons
         });
 
         res.json(updated);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+/** GitHub-style contribution data: daily check-ins per student (approved plans only). */
+export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
+    try {
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId: req.user!.userId },
+        });
+        if (!supervisor) {
+            return res.status(403).json({ message: 'Supervisor profile not found.' });
+        }
+
+        const today = new Date();
+        const endUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+        const startUtc = endUtc - 371 * 86400000;
+
+        const placedStudents = await prisma.student.findMany({
+            where: {
+                assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } },
+            },
+            select: {
+                id: true,
+                user: { select: { full_name: true, email: true } },
+            },
+        });
+
+        const rows = await prisma.weeklyPlanDaySubmission.findMany({
+            where: {
+                weeklyPlan: {
+                    status: 'APPROVED',
+                    student: {
+                        assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } },
+                    },
+                },
+                workDate: { gte: new Date(startUtc), lte: new Date(endUtc) },
+            },
+            select: {
+                workDate: true,
+                weeklyPlan: {
+                    select: {
+                        studentId: true,
+                        student: {
+                            select: {
+                                user: { select: { full_name: true, email: true } },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        const byStudent = new Map<
+            number,
+            { fullName: string; email: string; dates: Set<string> }
+        >();
+
+        for (const r of rows) {
+            const sid = r.weeklyPlan.studentId;
+            const u = r.weeklyPlan.student.user;
+            let entry = byStudent.get(sid);
+            if (!entry) {
+                entry = { fullName: u.full_name, email: u.email, dates: new Set<string>() };
+                byStudent.set(sid, entry);
+            }
+            const wd = r.workDate;
+            const ms = new Date(wd).getTime();
+            entry.dates.add(ymdFromUtcMs(ms));
+        }
+
+        const rangeEnd = ymdFromUtcMs(endUtc);
+        const rangeStart = ymdFromUtcMs(startUtc);
+
+        const merged = placedStudents.map((s) => {
+            const sub = byStudent.get(s.id);
+            return {
+                studentId: s.id,
+                fullName: s.user.full_name,
+                email: s.user.email,
+                submittedDates: sub ? [...sub.dates].sort() : [],
+            };
+        });
+
+        res.json({
+            rangeStart,
+            rangeEnd,
+            students: merged,
+        });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         res.status(500).json({ error: message });

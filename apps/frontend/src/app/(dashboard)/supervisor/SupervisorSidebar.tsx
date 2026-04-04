@@ -9,9 +9,11 @@ import {
   FileCheck,
   LogOut,
   Building2,
-  CalendarClock,
+  CalendarDays,
+  ListChecks,
   UsersRound,
   FolderKanban,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -47,8 +49,13 @@ const SupervisorSidebar = () => {
     { icon: FolderKanban, label: "Projects", path: "/supervisor/projects" },
     { icon: Inbox, label: "Proposals", path: "/supervisor/proposals" },
     { icon: ClipboardList, label: "Weekly plans", path: "/supervisor/plans" },
+    { icon: Sparkles, label: "AI assistant", path: "/supervisor/ai" },
     { icon: FileCheck, label: "Reports", path: "/supervisor/reports" },
-    { icon: CalendarClock, label: "Attendance", path: "/supervisor/attendance" },
+  ];
+
+  const attendanceNavItems = [
+    { icon: CalendarDays, label: "Student check-ins", path: "/supervisor/attendance/students" },
+    { icon: ListChecks, label: "Weekly reports", path: "/supervisor/attendance/reports" },
   ];
 
   const linkClass = (active: boolean) =>
@@ -92,6 +99,23 @@ const SupervisorSidebar = () => {
             </Link>
           );
         })}
+
+        <div className="mt-0.5 flex w-full min-w-0 flex-col gap-0.5 border-t border-border-default/60 pt-2 lg:mt-1 lg:border-t-0 lg:pt-0">
+          <p className="hidden px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted lg:block">
+            Attendance
+          </p>
+          <div className="flex gap-1 lg:flex-col lg:gap-1.5">
+            {attendanceNavItems.map((item) => {
+              const active = pathname === item.path || (pathname?.startsWith(`${item.path}/`) ?? false);
+              return (
+                <Link key={item.path} href={item.path} className={linkClass(!!active)}>
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  <span className="whitespace-nowrap">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </nav>
 
       <div className="mt-auto hidden border-t border-border-default lg:block">

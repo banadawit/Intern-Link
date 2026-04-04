@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/db';
+import { Role } from '@prisma/client';
+import { incrementActivityForUser } from '../services/activityLog.service';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -35,8 +37,14 @@ export const register = async (req: Request, res: Response) => {
 
         // Create user with verification token
         const roleUpper = role.toUpperCase();
-        const needsIndividualAdminApproval =
-            roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR';
+        if (roleUpper === 'HOD' && !(university_name && String(university_name).trim())) {
+            return res.status(400).json({
+                success: false,
+                message: 'University name is required for Head of Department registration.',
+            });
+        }
+        const needsIndividualAccessApproval =
+            roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR' || roleUpper === 'HOD';
 
         const newUser = await prisma.user.create({
             data: {
@@ -48,47 +56,28 @@ export const register = async (req: Request, res: Response) => {
                 verification_token: verificationToken,
                 verification_token_expiry: verificationTokenExpiry,
                 verification_document: file ? file.path : null, // Store file path if uploaded
-                institution_access_approval: needsIndividualAdminApproval ? 'PENDING' : 'APPROVED',
+                institution_access_approval: needsIndividualAccessApproval ? 'PENDING' : 'APPROVED',
             }
         });
 
         // ✅ Create role-specific profile
         if (roleUpper === 'COORDINATOR') {
-            // First, find or create university
-            let university = await prisma.university.findFirst({
-                where: { name: university_name }
+            // Late-creation workflow: do NOT create University yet.
+            // Store the university name in the profile; admin will create it upon approval.
+            await prisma.coordinator.create({
+                data: {
+                    userId: newUser.id,
+                    pending_university_name: university_name || null,
+                }
             });
-            let createdNewUniversity = false;
 
-            if (!university && university_name) {
-                university = await prisma.university.create({
-                    data: {
-                        name: university_name,
-                        official_email: email,
-                        approval_status: 'PENDING'
-                    }
-                });
-                createdNewUniversity = true;
-            }
-
-            if (university && createdNewUniversity) {
-                await notifyAdminsNewVerificationProposal({
-                    organizationName: university.name,
-                    institutionType: 'University',
-                    organizationId: university.id,
-                    submitterEmail: email,
-                });
-            }
-            
-            if (university) {
-                await prisma.coordinator.create({
-                    data: {
-                        userId: newUser.id,
-                        universityId: university.id,
-                        phone_number: position || null,
-                    }
-                });
-            }
+            // Notify admins to review this coordinator's credentials
+            await notifyAdminsNewVerificationProposal({
+                organizationName: university_name || 'Unknown University',
+                institutionType: 'University',
+                organizationId: newUser.id,
+                submitterEmail: email,
+            });
         } 
         else if (roleUpper === 'SUPERVISOR') {
             // First, find or create company
@@ -126,8 +115,43 @@ export const register = async (req: Request, res: Response) => {
                     }
                 });
             }
-        } 
-        else if (roleUpper === 'STUDENT') {
+        } else if (roleUpper === 'HOD') {
+            let university = university_name
+                ? await prisma.university.findFirst({
+                      where: { name: university_name },
+                  })
+                : null;
+            let createdNewUniversity = false;
+            if (!university && university_name) {
+                university = await prisma.university.create({
+                    data: {
+                        name: university_name,
+                        official_email: email,
+                        approval_status: 'PENDING',
+                    },
+                });
+                createdNewUniversity = true;
+            }
+            if (university && createdNewUniversity) {
+                await notifyAdminsNewVerificationProposal({
+                    organizationName: university.name,
+                    institutionType: 'University',
+                    organizationId: university.id,
+                    submitterEmail: email,
+                });
+            }
+            if (university) {
+                const dept = typeof department === 'string' && department.trim() ? department.trim() : 'General';
+                await prisma.hod.create({
+                    data: {
+                        userId: newUser.id,
+                        universityId: university.id,
+                        department: dept,
+                        phone_number: position || null,
+                    },
+                });
+            }
+        } else if (roleUpper === 'STUDENT') {
             // Find university
             let university = await prisma.university.findFirst({
                 where: { name: university_name }
@@ -162,6 +186,7 @@ export const register = async (req: Request, res: Response) => {
                         registration_type: email.includes('.edu.et') ? 'Official' : 'Personal',
                         studentId: student_id || null,
                         department: department || null,
+                        hod_approval_status: 'PENDING',
                     }
                 });
             }
@@ -170,7 +195,7 @@ export const register = async (req: Request, res: Response) => {
         // ✅ Send verification email
         let emailSendError = null;
         try {
-            await sendVerificationEmail(email, verificationToken);
+            await sendVerificationEmail(email, verificationToken, roleUpper);
         } catch (err: any) {
             console.error('Email send error after registration:', err);
             emailSendError = err?.message || 'Unable to send verification email.';
@@ -179,7 +204,7 @@ export const register = async (req: Request, res: Response) => {
         // In development, log the token so you can verify manually
         if (process.env.NODE_ENV === 'development') {
             console.log(`\n🔑 VERIFY EMAIL TOKEN for ${email}:`);
-            console.log(`   http://localhost:3000/verify-email?token=${verificationToken}\n`);
+            console.log(`   http://localhost:3000/verify-email?token=${verificationToken}${roleUpper === 'COORDINATOR' ? '&role=coordinator' : ''}\n`);
         }
 
         const baseResponse = {
@@ -202,10 +227,13 @@ export const register = async (req: Request, res: Response) => {
 
         res.status(201).json({ 
             success: true,
-            message: "Registration successful. Please check your email to verify your account.",
+            message: roleUpper === 'COORDINATOR'
+                ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
+                : "Registration successful. Please check your email to verify your account.",
             data: {
                 ...baseResponse,
-                emailSent: true
+                emailSent: true,
+                pendingAdminReview: roleUpper === 'COORDINATOR',
             }
         });
         
@@ -240,6 +268,7 @@ export const login = async (req: Request, res: Response) => {
             },
             include: {
                 coordinatorProfile: { include: { university: true } },
+                hodProfile: { include: { university: true } },
                 supervisorProfile: { include: { company: true } },
                 studentProfile: { include: { university: true } },
             },
@@ -271,7 +300,16 @@ export const login = async (req: Request, res: Response) => {
 
         // Institution verification (SRS): org must be admin-approved; coordinators/supervisors also need individual admin approval
         if (user.role === 'COORDINATOR') {
-            const uni = user.coordinatorProfile?.university;
+            const profile = user.coordinatorProfile;
+            // Coordinator hasn't been approved yet (no university linked)
+            if (!profile?.universityId) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Your coordinator account is pending administrator approval. You will receive an email once approved.',
+                    code: 'PENDING_ADMIN_REVIEW',
+                });
+            }
+            const uni = profile?.university;
             if (!uni) {
                 return res.status(403).json({
                     success: false,
@@ -340,6 +378,42 @@ export const login = async (req: Request, res: Response) => {
             }
         }
 
+        if (user.role === 'HOD') {
+            const profile = user.hodProfile;
+            const uni = profile?.university;
+            if (!profile || !uni) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No HOD profile is linked to this account. Contact support.',
+                    code: 'NO_INSTITUTION_PROFILE',
+                });
+            }
+            if (uni.approval_status === 'SUSPENDED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'This university organization has been suspended by an administrator. Contact support for assistance.',
+                    code: 'INSTITUTION_SUSPENDED',
+                });
+            }
+            if (uni.approval_status !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your university must be verified by an administrator before you can access the system.',
+                    code: 'INSTITUTION_NOT_APPROVED',
+                });
+            }
+            if (user.institution_access_approval !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        'Your HOD account is pending approval from your university coordinator.',
+                    code: 'INSTITUTION_MEMBER_NOT_APPROVED',
+                });
+            }
+        }
+
         if (user.role === 'STUDENT') {
             const uni = user.studentProfile?.university;
             if (uni && uni.approval_status === 'SUSPENDED') {
@@ -358,6 +432,17 @@ export const login = async (req: Request, res: Response) => {
                     code: 'INSTITUTION_NOT_APPROVED',
                 });
             }
+            const sp = user.studentProfile;
+            if (sp && sp.hod_approval_status !== 'APPROVED') {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        sp.hod_approval_status === 'REJECTED'
+                            ? 'Your registration was not approved by your Head of Department. Contact your department for assistance.'
+                            : 'Your registration is pending approval from your Head of Department.',
+                    code: 'HOD_APPROVAL_PENDING',
+                });
+            }
         }
 
         // Generate JWT
@@ -367,6 +452,10 @@ export const login = async (req: Request, res: Response) => {
             // { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
             { expiresIn: '7d' } as jwt.SignOptions
         );
+
+        if (user.role === Role.STUDENT) {
+            void incrementActivityForUser(user.id);
+        }
 
         res.json({ 
             success: true,
@@ -649,6 +738,9 @@ export const getCurrentUser = async (req: Request, res: Response) => {
                 coordinatorProfile: {
                     include: { university: true }
                 },
+                hodProfile: {
+                    include: { university: true }
+                },
                 supervisorProfile: {
                     include: { company: true }
                 }
@@ -671,7 +763,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
                 role: user.role,
                 isVerified: user.verification_status === 'APPROVED',
                 institutionAccessApproval: user.institution_access_approval,
-                profile: user.studentProfile || user.coordinatorProfile || user.supervisorProfile
+                profile: user.studentProfile || user.coordinatorProfile || user.hodProfile || user.supervisorProfile
             }
         });
 

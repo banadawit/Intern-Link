@@ -62,6 +62,16 @@ const Navbar = () => {
     setIsMobileMenuOpen(false);
   };
 
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // If already on landing page, smoothly scroll to top hero.
+    if (pathname === '/') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.history.replaceState(null, '', '/');
+    }
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <>
       <nav 
@@ -75,7 +85,7 @@ const Navbar = () => {
           <div className="flex items-center justify-between">
             
             {/* Logo Section */}
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link href="/#home" onClick={handleLogoClick} className="flex items-center gap-2 group">
               <motion.div 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -175,7 +185,7 @@ const Navbar = () => {
               <div className="flex flex-col h-full">
                 {/* Mobile Menu Header */}
                 <div className="flex items-center justify-between p-6 border-b border-slate-100">
-                  <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
+                  <Link href="/#home" className="flex items-center gap-2" onClick={handleLogoClick}>
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-white">
                       <span className="text-xl font-bold">I</span>
                     </div>

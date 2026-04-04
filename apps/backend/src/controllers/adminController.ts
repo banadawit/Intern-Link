@@ -21,6 +21,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             approvedCompanies,
             totalStudents,
             activeInternships,
+            pendingCoordinators,
         ] = await Promise.all([
             prisma.university.count({ where: { approval_status: 'PENDING' } }),
             prisma.company.count({ where: { approval_status: 'PENDING' } }),
@@ -29,6 +30,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             prisma.company.count({ where: { approval_status: 'APPROVED' } }),
             prisma.student.count(),
             prisma.internshipAssignment.count({ where: { status: 'ACTIVE' } }),
+            prisma.coordinator.count({ where: { universityId: { equals: null } } }),
         ]);
 
         res.json({
@@ -39,6 +41,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             approvedCompanies,
             totalStudents,
             activeInternships,
+            pendingCoordinators,
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -404,6 +407,170 @@ export const verifyInstitution = async (req: AuthRequest, res: Response) => {
         }
 
         res.json({ message: `Verification processed as ${status}`, updatedRecord });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// --- COORDINATOR APPROVAL WORKFLOW ---
+
+/** List all coordinators pending admin approval (no university linked yet) */
+export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
+    try {
+        const coordinators = await prisma.coordinator.findMany({
+            where: { universityId: { equals: null } },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                        verification_status: true,
+                        institution_access_approval: true,
+                        verification_document: true,
+                        created_at: true,
+                    },
+                },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(coordinators);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Approve a pending coordinator:
+ * 1. Create (or reuse) the University record from pending_university_name
+ * 2. Link the CoordinatorProfile to the new University
+ * 3. Set user.institution_access_approval = APPROVED
+ * 4. Send approval email
+ */
+export const approveCoordinator = async (req: AuthRequest, res: Response) => {
+    try {
+        const rawId = req.params.userId;
+        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+
+        const coordinator = await prisma.coordinator.findUnique({
+            where: { userId },
+            include: { user: true },
+        });
+
+        if (!coordinator) {
+            return res.status(404).json({ error: 'Coordinator not found' });
+        }
+        if (coordinator.universityId) {
+            return res.status(400).json({ error: 'Coordinator is already linked to a university' });
+        }
+
+        const universityName = coordinator.pending_university_name;
+        if (!universityName) {
+            return res.status(400).json({ error: 'No pending university name on this coordinator profile' });
+        }
+
+        // Find or create the University — use upsert to handle unique email conflicts
+        let university = await prisma.university.findFirst({ where: { name: universityName } });
+        if (!university) {
+            // Check if email is already taken by another university
+            const emailTaken = await prisma.university.findUnique({
+                where: { official_email: coordinator.user.email }
+            });
+            university = await prisma.university.create({
+                data: {
+                    name: universityName,
+                    official_email: emailTaken
+                        ? `coord-${coordinator.user.id}@${coordinator.user.email.split('@')[1]}`
+                        : coordinator.user.email,
+                    approval_status: 'APPROVED',
+                },
+            });
+        } else if (university.approval_status !== 'APPROVED') {
+            await prisma.university.update({
+                where: { id: university.id },
+                data: { approval_status: 'APPROVED' },
+            });
+        }
+
+        // Link coordinator to university and clear pending name
+        await prisma.coordinator.update({
+            where: { userId },
+            data: {
+                universityId: university.id,
+                pending_university_name: null,
+            },
+        });
+
+        // Approve the user — both institution access and email verification status
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                institution_access_approval: 'APPROVED',
+                verification_status: 'APPROVED',
+            },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'APPROVED_COORDINATOR',
+                targetId: userId,
+                details: `Approved coordinator ${coordinator.user.full_name} — linked to university "${university.name}"`,
+            },
+        });
+
+        // Notify coordinator by email
+        await sendOrganizationApprovalEmail(coordinator.user.email, university.name, 'University');
+
+        res.json({ message: 'Coordinator approved', universityId: university.id });
+    } catch (error: any) {
+        console.error('approveCoordinator error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Reject a pending coordinator:
+ * Sets institution_access_approval = REJECTED and sends rejection email.
+ */
+export const rejectCoordinator = async (req: AuthRequest, res: Response) => {
+    try {
+        const rawId = req.params.userId;
+        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+        const { reason } = req.body as { reason?: string };
+        const rejectionReason = reason?.trim() || 'Your credentials could not be verified.';
+
+        const coordinator = await prisma.coordinator.findUnique({
+            where: { userId },
+            include: { user: true },
+        });
+
+        if (!coordinator) {
+            return res.status(404).json({ error: 'Coordinator not found' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'REJECTED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'REJECTED_COORDINATOR',
+                targetId: userId,
+                details: `Rejected coordinator ${coordinator.user.full_name} — reason: ${rejectionReason}`,
+            },
+        });
+
+        await sendOrganizationRejectionEmail(
+            coordinator.user.email,
+            coordinator.pending_university_name || 'University',
+            'University',
+            rejectionReason
+        );
+
+        res.json({ message: 'Coordinator rejected' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
