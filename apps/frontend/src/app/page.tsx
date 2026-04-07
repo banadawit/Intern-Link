@@ -9,6 +9,7 @@ import Stats from '../components/landing/Stats';
 import CTASection from '../components/landing/CTASection';
 import Testimonials from '../components/landing/Testimonials';
 import Footer from '../components/shared/Footer';
+import AiChatFloating from '../components/ai/AiChatFloating';
 
 export default function Home() {
   // Smooth scroll handling for anchor links
@@ -79,6 +80,9 @@ export default function Home() {
 
       {/* Footer */}
       <Footer />
+
+      {/* Floating AI Chatbot */}
+      <AiChatFloating role="visitor" />
     </div>
   );
 }
