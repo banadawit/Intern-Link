@@ -1,26 +1,25 @@
 import { Router } from 'express';
 import * as aiCtrl from '../controllers/aiController';
-import { authenticate, authorize } from '../middlewares/authMiddleware';
+import { authenticate, authorize, optionalAuth } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
 
 const router = Router();
-router.use(authenticate);
 
-router.post('/generate-plan', authorize([Role.STUDENT]), aiCtrl.postGeneratePlan);
-router.post('/generate-feedback', authorize([Role.SUPERVISOR]), aiCtrl.postGenerateFeedback);
+router.post('/generate-plan', authenticate, authorize([Role.STUDENT]), aiCtrl.postGeneratePlan);
+router.post('/generate-feedback', authenticate, authorize([Role.SUPERVISOR]), aiCtrl.postGenerateFeedback);
 router.get(
     '/chat/history',
-    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.HOD, Role.ADMIN]),
+    optionalAuth,
     aiCtrl.getChatHistory
 );
 router.delete(
     '/chat/history',
-    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.HOD, Role.ADMIN]),
+    optionalAuth,
     aiCtrl.deleteChatHistory
 );
 router.post(
     '/chat',
-    authorize([Role.STUDENT, Role.SUPERVISOR, Role.COORDINATOR, Role.HOD, Role.ADMIN]),
+    optionalAuth,
     aiCtrl.postChat
 );
 

@@ -63,8 +63,8 @@ export type FeedbackResult = {
 export type ChatInput = {
     message: string;
     history?: { role: 'user' | 'assistant'; content: string }[];
-    /** App role from JWT — drives system prompt */
-    appRole: Role;
+    /** App role from JWT or visitor */
+    appRole: Role | 'VISITOR';
     userId: number;
     /** Display name from User.full_name — personalize greetings and role scope */
     userDisplayName: string;
@@ -180,9 +180,17 @@ const ROLE_CHAT_FOCUS: Record<Role, { article: string; focus: string }> = {
     },
 };
 
-function buildChatSessionInstruction(displayName: string, appRole: Role): string {
+function buildChatSessionInstruction(displayName: string, appRole: Role | 'VISITOR'): string {
     const name = sanitizeChatDisplayName(displayName);
     const first = name.split(/\s+/)[0] || name;
+
+    if (appRole === 'VISITOR') {
+        return `Session context:
+The user is a visitor on the Intern-Link landing page.
+Greet them naturally (e.g. "Hi there!" or "Welcome to Intern-Link!").
+Help only with general information about the Intern-Link project, what it offers for students, universities, and companies, and how to get started. Do not pretend to know their specific status since they are not logged in.`;
+    }
+
     const r = ROLE_CHAT_FOCUS[appRole];
     return `Session context (user is already logged in—do not ask them to choose a role):
 The user's name is "${name}". They are signed in to Intern-Link as ${r.article}.

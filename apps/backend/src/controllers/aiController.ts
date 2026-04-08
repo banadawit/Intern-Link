@@ -150,9 +150,6 @@ export const postChat = async (req: AuthRequest, res: Response) => {
         }
         const uid = req.user?.userId;
         const appRole = req.user?.role;
-        if (uid == null || !appRole) {
-            return res.status(401).json({ success: false, message: 'Unauthorized' });
-        }
 
         const body = req.body ?? {};
         const { message, history, conversationHistory, role: bodyRole } = body as {
@@ -166,10 +163,19 @@ export const postChat = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ success: false, message: 'message is required' });
         }
 
+        let effectiveAppRole: Role | 'VISITOR' = appRole ?? 'VISITOR';
+        let skipHistory = false;
+
         if (bodyRole !== undefined && bodyRole !== null && typeof bodyRole === 'string') {
-            const mapped = ROLE_BODY_MAP[bodyRole.trim()];
-            if (!mapped || mapped !== appRole) {
-                return res.status(403).json({ success: false, message: 'role in body must match your account role' });
+            const trimmed = bodyRole.trim().toLowerCase();
+            if (trimmed === 'visitor') {
+                effectiveAppRole = 'VISITOR';
+                skipHistory = true;
+            } else if (appRole) {
+                const mapped = ROLE_BODY_MAP[trimmed];
+                if (!mapped || mapped !== appRole) {
+                    return res.status(403).json({ success: false, message: 'role in body must match your account role' });
+                }
             }
         }
 
@@ -178,24 +184,29 @@ export const postChat = async (req: AuthRequest, res: Response) => {
         const hist =
             histFromConv && histFromConv.length > 0 ? histFromConv : histFromHistory;
 
-        const userRow = await prisma.user.findUnique({
-            where: { id: uid },
-            select: { full_name: true },
-        });
-        const userDisplayName = (userRow?.full_name ?? '').trim() || 'there';
+        let userDisplayName = 'Visitor';
+        if (uid && !skipHistory) {
+            const userRow = await prisma.user.findUnique({
+                where: { id: uid },
+                select: { full_name: true },
+            });
+            userDisplayName = (userRow?.full_name ?? '').trim() || 'there';
+        }
 
         const result = await ai.chatAssistant({
             message,
             history: hist,
-            appRole,
-            userId: uid,
+            appRole: effectiveAppRole,
+            userId: uid ?? 0,
             userDisplayName,
         });
 
-        try {
-            await aiHistory.appendChatTurn(uid, message.trim(), result.reply);
-        } catch (persistErr) {
-            console.error('ai chat persist:', persistErr);
+        if (uid && !skipHistory) {
+            try {
+                await aiHistory.appendChatTurn(uid, message.trim(), result.reply);
+            } catch (persistErr) {
+                console.error('ai chat persist:', persistErr);
+            }
         }
 
         res.json({
@@ -212,7 +223,7 @@ export const getChatHistory = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
         if (uid == null) {
-            return res.status(401).json({ success: false, message: 'Unauthorized' });
+            return res.json({ success: true, data: { messages: [] } });
         }
         const raw = req.query.limit;
         let limit = 100;
@@ -232,7 +243,7 @@ export const deleteChatHistory = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
         if (uid == null) {
-            return res.status(401).json({ success: false, message: 'Unauthorized' });
+            return res.json({ success: true, message: 'Chat history cleared' });
         }
         await aiHistory.clearChatHistory(uid);
         res.json({ success: true, message: 'Chat history cleared' });

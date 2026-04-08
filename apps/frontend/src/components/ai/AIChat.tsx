@@ -8,7 +8,7 @@ import { formatAiReplyForDisplay } from "@/lib/ai/formatAiReply";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 
-export type AiChatRole = "student" | "supervisor" | "coordinator" | "hod" | "admin";
+export type AiChatRole = "student" | "supervisor" | "coordinator" | "hod" | "admin" | "visitor";
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
@@ -34,7 +34,7 @@ function mapAuthRoleToChatRole(
 
 export default function AIChat({ variant, role, className, title = "InternLink AI" }: Props) {
   const { user } = useAuth();
-  const effectiveRole = mapAuthRoleToChatRole(user?.role) ?? role;
+  const effectiveRole = role === "visitor" ? "visitor" : (mapAuthRoleToChatRole(user?.role) ?? role);
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -131,7 +131,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
       const { data } = await api.post<AiChatResponse>("/ai/chat", {
         message: text,
         conversationHistory,
-        role: user?.role,
+        role: effectiveRole,
       });
       const reply = data.data?.reply ?? (data as { reply?: string }).reply;
       if (!data.success || !reply) {
