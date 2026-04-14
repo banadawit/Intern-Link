@@ -329,57 +329,55 @@ const LoginPage = () => {
             </span>
           </label>
           
-          {/* Demo Login - Remove in production */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="relative group">
-              <button
-                type="button"
-                className="text-xs text-slate-400 hover:text-primary-600 transition-colors"
-                aria-label="Demo login options"
-              >
-                Demo Login
-              </button>
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                <div className="py-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('Student')}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                  >
-                    🎓 Login as Student
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('Coordinator')}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                  >
-                    🏛️ Login as Coordinator
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('HOD')}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                  >
-                    📚 Login as HOD
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('Supervisor')}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                  >
-                    💼 Login as Supervisor
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('Admin')}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                  >
-                    ⚙️ Login as Admin
-                  </button>
-                </div>
+          {/* Demo Login */}
+          <div className="relative group">
+            <button
+              type="button"
+              className="text-xs text-slate-400 hover:text-primary-600 transition-colors"
+              aria-label="Demo login options"
+            >
+              Demo Login
+            </button>
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <div className="py-2">
+                <button
+                  type="button"
+                  onClick={() => handleDemoLogin('Student')}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  🎓 Login as Student
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDemoLogin('Coordinator')}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  🏛️ Login as Coordinator
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDemoLogin('HOD')}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  📚 Login as HOD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDemoLogin('Supervisor')}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  💼 Login as Supervisor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDemoLogin('Admin')}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  ⚙️ Login as Admin
+                </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Submit Button */}

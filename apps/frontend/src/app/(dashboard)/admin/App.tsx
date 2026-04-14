@@ -11,6 +11,7 @@ import AdminPageHero from "./AdminPageHero";
 import CoordinatorApprovals from "./CoordinatorApprovals";
 import SupervisorApprovals from "./SupervisorApprovals";
 import ApprovalsView from "./ApprovalsView";
+import ApprovedHistoryView from "./ApprovedHistoryView";
 import api from "@/lib/api/client";
 import {
   mapUniversityToProposal,
@@ -183,11 +184,10 @@ export default function App() {
       );
     if (activeView === "approved")
       return (
-        <VerificationList
-          title="Approved History"
-          proposals={proposals.filter((p) => p.status === "Approved")}
+        <ApprovedHistoryView
+          proposals={proposals}
+          listsLoading={listsLoading}
           onReview={setSelectedProposal}
-          loading={listsLoading}
         />
       );
     if (activeView === "rejected")

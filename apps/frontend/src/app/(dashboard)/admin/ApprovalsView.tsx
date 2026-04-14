@@ -110,8 +110,8 @@ export default function ApprovalsView({
                   className={cn(
                     "rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
                     isActive
-                      ? "bg-teal-100 text-teal-800"
-                      : "bg-slate-200 text-slate-600"
+                      ? "bg-teal-100 text-teal-800 ring-1 ring-teal-200/80"
+                      : "bg-rose-100 text-rose-700 ring-1 ring-rose-200/80"
                   )}
                 >
                   {count > 99 ? "99+" : count}

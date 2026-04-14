@@ -95,7 +95,7 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
             <item.icon className="h-5 w-5 shrink-0" />
             <span className="min-w-0 flex-1 whitespace-nowrap text-left">{item.label}</span>
             {item.view === "approvals" && (pendingCount + pendingCoordinatorCount + pendingSupervisorCount) > 0 && (
-              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-800 ring-1 ring-amber-200/80">
+              <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-rose-700 ring-1 ring-rose-200/80">
                 {(pendingCount + pendingCoordinatorCount + pendingSupervisorCount) > 99
                   ? "99+"
                   : pendingCount + pendingCoordinatorCount + pendingSupervisorCount}
