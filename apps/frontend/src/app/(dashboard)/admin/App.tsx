@@ -12,6 +12,8 @@ import CoordinatorApprovals from "./CoordinatorApprovals";
 import SupervisorApprovals from "./SupervisorApprovals";
 import ApprovalsView from "./ApprovalsView";
 import ApprovedHistoryView from "./ApprovedHistoryView";
+import RejectedHistoryView from "./RejectedHistoryView";
+import SuspendedView from "./SuspendedView";
 import api from "@/lib/api/client";
 import {
   mapUniversityToProposal,
@@ -192,20 +194,22 @@ export default function App() {
       );
     if (activeView === "rejected")
       return (
-        <VerificationList
-          title="Rejected History"
-          proposals={proposals.filter((p) => p.status === "Rejected")}
+        <RejectedHistoryView
+          proposals={proposals}
+          listsLoading={listsLoading}
           onReview={setSelectedProposal}
-          loading={listsLoading}
+          rejectedCoordinatorCount={stats?.rejectedCoordinators ?? 0}
+          rejectedSupervisorCount={stats?.rejectedSupervisors ?? 0}
         />
       );
     if (activeView === "suspended")
       return (
-        <VerificationList
-          title="Suspended organizations"
-          proposals={proposals.filter((p) => p.status === "Suspended")}
+        <SuspendedView
+          proposals={proposals}
+          listsLoading={listsLoading}
           onReview={setSelectedProposal}
-          loading={listsLoading}
+          suspendedCoordinatorCount={stats?.suspendedCoordinators ?? 0}
+          suspendedSupervisorCount={stats?.suspendedSupervisors ?? 0}
         />
       );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;

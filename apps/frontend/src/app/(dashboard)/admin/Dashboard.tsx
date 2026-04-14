@@ -26,6 +26,10 @@ export type AdminDashboardStats = {
   activeInternships: number;
   pendingCoordinators?: number;
   pendingSupervisors?: number;
+  rejectedCoordinators?: number;
+  rejectedSupervisors?: number;
+  suspendedCoordinators?: number;
+  suspendedSupervisors?: number;
 };
 
 const StatCard = ({
