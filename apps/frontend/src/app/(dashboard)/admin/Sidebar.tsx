@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Ban,
   Sparkles,
-  UserCheck,
   MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,12 +20,10 @@ import LogoutModal from "@/components/common/LogoutModal";
 
 type ViewKey =
   | "dashboard"
-  | "pending"
+  | "approvals"
   | "approved"
   | "rejected"
   | "suspended"
-  | "coordinator-approvals"
-  | "supervisor-approvals"
   | "audit-log"
   | "settings";
 
@@ -56,9 +53,7 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
     .slice(0, 2) ?? 'AD';
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
     { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" },
-    { icon: Clock, label: "Pending Approvals", view: "pending" },
-    { icon: UserCheck, label: "Coordinator Approvals", view: "coordinator-approvals" },
-    { icon: UserCheck, label: "Supervisor Approvals", view: "supervisor-approvals" },
+    { icon: Clock, label: "Approvals", view: "approvals" },
     { icon: CheckCircle, label: "Approved History", view: "approved" },
     { icon: Ban, label: "Suspended", view: "suspended" },
     { icon: XCircle, label: "Rejected History", view: "rejected" },
@@ -99,19 +94,11 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
           >
             <item.icon className="h-5 w-5 shrink-0" />
             <span className="min-w-0 flex-1 whitespace-nowrap text-left">{item.label}</span>
-            {item.view === "pending" && pendingCount > 0 && (
+            {item.view === "approvals" && (pendingCount + pendingCoordinatorCount + pendingSupervisorCount) > 0 && (
               <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-800 ring-1 ring-amber-200/80">
-                {pendingCount > 99 ? "99+" : pendingCount}
-              </span>
-            )}
-            {item.view === "coordinator-approvals" && pendingCoordinatorCount > 0 && (
-              <span className="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-primary-800 ring-1 ring-primary-200/80">
-                {pendingCoordinatorCount > 99 ? "99+" : pendingCoordinatorCount}
-              </span>
-            )}
-            {item.view === "supervisor-approvals" && pendingSupervisorCount > 0 && (
-              <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold tabular-nums text-slate-800 ring-1 ring-slate-300/80">
-                {pendingSupervisorCount > 99 ? "99+" : pendingSupervisorCount}
+                {(pendingCount + pendingCoordinatorCount + pendingSupervisorCount) > 99
+                  ? "99+"
+                  : pendingCount + pendingCoordinatorCount + pendingSupervisorCount}
               </span>
             )}
           </button>

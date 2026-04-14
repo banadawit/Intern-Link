@@ -10,6 +10,7 @@ import AuditLog from "./AuditLog";
 import AdminPageHero from "./AdminPageHero";
 import CoordinatorApprovals from "./CoordinatorApprovals";
 import SupervisorApprovals from "./SupervisorApprovals";
+import ApprovalsView from "./ApprovalsView";
 import api from "@/lib/api/client";
 import {
   mapUniversityToProposal,
@@ -21,23 +22,19 @@ import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
 
 type ViewKey =
   | "dashboard"
-  | "pending"
+  | "approvals"
   | "approved"
   | "rejected"
   | "suspended"
-  | "coordinator-approvals"
-  | "supervisor-approvals"
   | "audit-log"
   | "settings";
 
 const VALID_VIEWS: ViewKey[] = [
   "dashboard",
-  "pending",
+  "approvals",
   "approved",
   "rejected",
   "suspended",
-  "coordinator-approvals",
-  "supervisor-approvals",
   "audit-log",
   "settings",
 ];
@@ -172,13 +169,16 @@ export default function App() {
           statsLoading={statsLoading}
         />
       );
-    if (activeView === "pending")
+    if (activeView === "approvals")
       return (
-        <VerificationList
-          title="Pending Approvals"
-          proposals={proposals.filter((p) => p.status === "Pending")}
+        <ApprovalsView
+          proposals={proposals}
+          listsLoading={listsLoading}
+          pendingCount={pendingVerificationCount}
+          pendingCoordinatorCount={stats?.pendingCoordinators ?? 0}
+          pendingSupervisorCount={stats?.pendingSupervisors ?? 0}
           onReview={setSelectedProposal}
-          loading={listsLoading}
+          onActionComplete={() => { loadStats(); loadAuditLogs(); loadProposals(); }}
         />
       );
     if (activeView === "approved")
@@ -209,18 +209,6 @@ export default function App() {
         />
       );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
-    if (activeView === "coordinator-approvals")
-      return (
-        <CoordinatorApprovals
-          onActionComplete={() => { loadStats(); loadAuditLogs(); }}
-        />
-      );
-    if (activeView === "supervisor-approvals")
-      return (
-        <SupervisorApprovals
-          onActionComplete={() => { loadStats(); loadAuditLogs(); }}
-        />
-      );
     return (
       <div className="space-y-6">
         <AdminPageHero

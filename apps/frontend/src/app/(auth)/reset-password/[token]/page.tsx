@@ -71,7 +71,7 @@ const ResetPasswordPage = () => {
     if (password.match(/[a-z]/)) score++;
     if (password.match(/[0-9]/)) score++;
     if (password.match(/[^A-Za-z0-9]/)) score++;
-    return score as StrengthLevel;
+    return Math.min(score, 4) as StrengthLevel;
   }, []);
 
   // Check password requirements

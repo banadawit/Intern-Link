@@ -18,7 +18,6 @@ import supervisorRoutes from './routes/supervisorRoutes';
 import coordinatorRoutes from './routes/coordinatorRoutes';
 import aiRoutes from './routes/aiRoutes';
 import activityRoutes from './routes/activityRoutes';
-import coordinatorPortalRoutes from './routes/coordinatorRoutes';
 import hodRoutes from './routes/hodRoutes';
 import commonFeedRoutes from './routes/commonFeedRoutes';
 
@@ -43,7 +42,6 @@ app.use('/api/supervisor', supervisorRoutes);
 app.use('/api/coordinator', coordinatorRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/activity', activityRoutes);
-app.use('/api/coordinator-portal', coordinatorPortalRoutes);
 app.use('/api/hod', hodRoutes);
 app.use('/api/common-feed', commonFeedRoutes);
 // 3. Basic Health Check Route
