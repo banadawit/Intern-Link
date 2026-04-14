@@ -424,7 +424,6 @@ export const getPendingSupervisors = async (req: AuthRequest, res: Response) => 
             where: {
                 user: {
                     institution_access_approval: 'PENDING',
-                    verification_status: 'PENDING',
                 },
             },
             include: {
