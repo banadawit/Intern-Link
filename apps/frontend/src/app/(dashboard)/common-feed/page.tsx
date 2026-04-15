@@ -1,22 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import {
-  Eye,
-  FileText,
-  Image as ImageIcon,
-  MessageSquare,
-  MoreHorizontal,
-  Send,
-  Sparkles,
+import { 
+  Image as ImageIcon, 
+  FileText, 
+  Video, 
+  Calendar,
   ThumbsUp,
-  TrendingUp,
-  X,
+  MessageCircle,
+  Share2,
+  Send,
+  MoreHorizontal,
+  Globe,
+  Users,
+  Building,
+  X
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { useAuth } from '@/lib/hooks/useAuth';
 
 interface Post {
   id: number;
@@ -51,12 +52,10 @@ interface Comment {
 
 export default function CommonFeedPage() {
   const router = useRouter();
-  const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostType, setNewPostType] = useState<'ANNOUNCEMENT' | 'OPPORTUNITY' | 'EXPERIENCE' | 'GENERAL_UPDATE'>('GENERAL_UPDATE');
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -64,12 +63,23 @@ export default function CommonFeedPage() {
   const [filter, setFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
   const getToken = () => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('token');
+    }
+    return null;
+  };
+
+  const getCurrentUser = () => {
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        return JSON.parse(userStr);
+      }
     }
     return null;
   };
@@ -108,7 +118,6 @@ export default function CommonFeedPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setSelectedPost(response.data.data);
       setComments(response.data.data.comments || []);
     } catch (error) {
       console.error('Error fetching post details:', error);
@@ -116,13 +125,21 @@ export default function CommonFeedPage() {
   };
 
   const createPost = async () => {
+    if (!newPostContent.trim()) return;
+
     try {
       const token = getToken();
+      
+      // Extract title from first line or first 50 chars
+      const lines = newPostContent.split('\n');
+      const title = lines[0].substring(0, 100) || 'Post';
+      const content = newPostContent;
+
       await axios.post(
         `${API_BASE}/common-feed`,
         {
-          title: newPostTitle,
-          content: `<p>${newPostContent}</p>`,
+          title,
+          content: `<p>${content.replace(/\n/g, '<br>')}</p>`,
           postType: newPostType,
           visibility: 'PUBLIC'
         },
@@ -131,7 +148,6 @@ export default function CommonFeedPage() {
         }
       );
 
-      setNewPostTitle('');
       setNewPostContent('');
       setShowCreatePost(false);
       fetchPosts(currentPage, filter !== 'ALL' ? filter : undefined);
@@ -152,7 +168,17 @@ export default function CommonFeedPage() {
         }
       );
 
-      fetchPosts(currentPage, filter !== 'ALL' ? filter : undefined);
+      // Update local state
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            isLikedByUser: !post.isLikedByUser,
+            likeCount: post.isLikedByUser ? post.likeCount - 1 : post.likeCount + 1
+          };
+        }
+        return post;
+      }));
     } catch (error) {
       console.error('Error toggling like:', error);
     }
@@ -173,503 +199,423 @@ export default function CommonFeedPage() {
 
       setNewComment('');
       fetchPostDetails(postId);
-      fetchPosts(currentPage, filter !== 'ALL' ? filter : undefined);
+      
+      // Update comment count
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return { ...post, commentCount: post.commentCount + 1 };
+        }
+        return post;
+      }));
     } catch (error) {
       console.error('Error adding comment:', error);
     }
   };
 
+  const toggleComments = (postId: number) => {
+    if (selectedPost?.id === postId) {
+      setSelectedPost(null);
+      setComments([]);
+    } else {
+      const post = posts.find(p => p.id === postId);
+      if (post) {
+        setSelectedPost(post);
+        fetchPostDetails(postId);
+      }
+    }
+  };
+
   useEffect(() => {
+    const user = getCurrentUser();
+    setCurrentUser(user);
     fetchPosts(1);
   }, []);
 
-  const getPostTypePill = (type: string) => {
-    switch (type) {
-      case 'ANNOUNCEMENT':
-        return 'bg-info-50 text-info-700 border border-info-200';
-      case 'OPPORTUNITY':
-        return 'bg-success-50 text-success-700 border border-success-200';
-      case 'EXPERIENCE':
-        return 'bg-warning-50 text-warning-700 border border-warning-200';
-      default:
-        return 'bg-slate-50 text-slate-700 border border-slate-200';
-    }
-  };
-
-  const getRolePill = (role: string) => {
-    switch (role) {
-      case 'ADMIN':
-        return 'bg-error-50 text-error-700 border border-error-200';
-      case 'COORDINATOR':
-        return 'bg-info-50 text-info-700 border border-info-200';
-      case 'SUPERVISOR':
-        return 'bg-success-50 text-success-700 border border-success-200';
-      case 'STUDENT':
-        return 'bg-slate-50 text-slate-700 border border-slate-200';
-      case 'HOD':
-        return 'bg-warning-50 text-warning-700 border border-warning-200';
-      default:
-        return 'bg-slate-50 text-slate-700 border border-slate-200';
-    }
-  };
-
-  const authorName = user?.fullName ?? 'You';
-  const authorRole = user?.role ?? 'MEMBER';
-  const authorInitials = useMemo(() => {
-    const raw = (user?.fullName ?? 'You')
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((p) => p[0])
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
       .join('')
-      .slice(0, 2)
-      .toUpperCase();
-    return raw || 'U';
-  }, [user?.fullName]);
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
-  const displayedPosts = posts;
+  const getPostTypeLabel = (type: string) => {
+    switch (type) {
+      case 'ANNOUNCEMENT': return '📢 Announcement';
+      case 'OPPORTUNITY': return '💼 Opportunity';
+      case 'EXPERIENCE': return '✨ Experience';
+      default: return '📝 Update';
+    }
+  };
+
+  const getRoleBadge = (role: string) => {
+    const badges: any = {
+      'ADMIN': { label: 'Admin', color: 'text-red-600' },
+      'COORDINATOR': { label: 'Coordinator', color: 'text-teal-600' },
+      'SUPERVISOR': { label: 'Supervisor', color: 'text-emerald-600' },
+      'STUDENT': { label: 'Student', color: 'text-purple-600' },
+      'HOD': { label: 'HOD', color: 'text-amber-600' },
+    };
+    return badges[role] || { label: role, color: 'text-slate-600' };
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return date.toLocaleDateString();
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-primary-600" />
-          <p className="mt-4 text-sm text-text-muted">Loading Common Feed…</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+          <p className="mt-4 text-slate-600">Loading feed...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full animate-in fade-in duration-500">
-      <div className="mx-auto w-full max-w-7xl">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Left rail */}
-          <aside className="hidden lg:col-span-3 lg:block">
-            <div className="sticky top-6 space-y-4">
-              <div className="card overflow-hidden">
-                <div className="h-16 bg-gradient-to-br from-primary-600 to-primary-800" />
-                <div className="p-5">
-                  <div className="-mt-10 mb-3 flex items-end justify-between">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-primary-light text-lg font-bold text-primary-base shadow-card">
-                      {authorInitials}
-                    </div>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700 border border-primary-200">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Community
-                    </span>
-                  </div>
-                  <p className="truncate text-sm font-bold text-text-heading">{authorName}</p>
-                  <p className="mt-0.5 text-xs text-text-muted">{authorRole}</p>
-                </div>
-              </div>
-
-              <div className="card p-5">
-                <p className="text-sm font-bold text-text-heading">Quick links</p>
-                <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-text-muted">
-                    <TrendingUp className="h-4 w-4 text-primary-600" />
-                    <span>See what’s trending in InternLink</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-text-muted">
-                    <FileText className="h-4 w-4 text-primary-600" />
-                    <span>Share an opportunity</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          {/* Center feed */}
-          <section className="lg:col-span-6">
-            {/* Sticky navigation header (LinkedIn-style, solid) */}
-            <div className="sticky top-6 z-50 -mx-4 mb-5 bg-bg-main shadow-sm border border-border-default sm:-mx-6 lg:mx-0">
-              <div className="px-4 py-3 sm:px-6 lg:px-4">
-                <div className="flex flex-wrap gap-2">
-                  {['ALL', 'ANNOUNCEMENT', 'OPPORTUNITY', 'EXPERIENCE', 'GENERAL_UPDATE'].map((type) => {
-                    const active = filter === type;
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => {
-                          setFilter(type);
-                          fetchPosts(1, type !== 'ALL' ? type : undefined);
-                        }}
-                        className={[
-                          'rounded-xl px-3 py-2 text-sm font-semibold transition-colors',
-                          active
-                            ? 'bg-primary-600 text-white shadow-sm'
-                            : 'text-text-muted hover:bg-bg-tertiary hover:text-text-body',
-                        ].join(' ')}
-                        type="button"
-                      >
-                        {type === 'GENERAL_UPDATE' ? 'GENERAL UPDATE' : type}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Spacer so header shadow doesn't "touch" composer */}
-            <div className="h-3" />
-
-            {/* Composer */}
-            <div className="card p-5 sm:p-6">
+    <div className="min-h-screen">
+      <div className="max-w-[1128px] mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Main Feed */}
+          <div className="lg:col-span-9">
+            {/* Create Post Card */}
+            <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4 sticky top-0 z-10">
               <div className="flex gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary-base">
-                  {authorInitials}
+                <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                  {currentUser ? getInitials(currentUser.fullName || 'User') : 'U'}
                 </div>
                 <button
-                  type="button"
                   onClick={() => setShowCreatePost(true)}
-                  className="flex-1 rounded-2xl border border-border-default bg-bg-secondary px-4 py-3 text-left text-sm text-text-muted transition-colors hover:bg-bg-tertiary focus:outline-none focus:ring-2 focus:ring-ring-focus/20"
+                  className="flex-1 text-left px-4 py-3 rounded-full border border-slate-300 hover:bg-slate-50 text-slate-600 font-medium transition-colors"
                 >
-                  Start a post…
+                  Start a post
                 </button>
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2 pl-14">
-                <button
-                  type="button"
-                  onClick={() => setShowCreatePost(true)}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-text-muted hover:bg-bg-tertiary hover:text-primary-700 transition-colors"
-                >
-                  <ImageIcon className="h-4 w-4 text-primary-600" />
-                  Photo
+              <div className="flex justify-between mt-3 pt-3 border-t border-slate-200">
+                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors">
+                  <ImageIcon className="w-5 h-5 text-teal-500" />
+                  <span className="hidden sm:inline">Photo</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreatePost(true)}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-text-muted hover:bg-bg-tertiary hover:text-primary-700 transition-colors"
-                >
-                  <FileText className="h-4 w-4 text-primary-600" />
-                  Document
+                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors">
+                  <Video className="w-5 h-5 text-emerald-500" />
+                  <span className="hidden sm:inline">Video</span>
+                </button>
+                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors">
+                  <Calendar className="w-5 h-5 text-orange-500" />
+                  <span className="hidden sm:inline">Event</span>
+                </button>
+                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors">
+                  <FileText className="w-5 h-5 text-rose-500" />
+                  <span className="hidden sm:inline">Article</span>
                 </button>
               </div>
             </div>
 
-            {/* Create post panel */}
-            {showCreatePost && (
-              <div className="mt-4 card p-5 sm:p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-bold text-text-heading">Create a post</p>
-                    <p className="mt-1 text-xs text-text-muted">Your post will be visible to everyone in InternLink.</p>
-                  </div>
+            {/* Filter Tabs */}
+            <div className="bg-white rounded-lg border border-slate-200 mb-4">
+              <div className="flex border-b border-slate-200 overflow-x-auto">
+                {['ALL', 'ANNOUNCEMENT', 'OPPORTUNITY', 'EXPERIENCE', 'GENERAL_UPDATE'].map((type) => (
                   <button
-                    type="button"
-                    onClick={() => setShowCreatePost(false)}
-                    className="rounded-lg p-2 text-text-muted hover:bg-bg-tertiary hover:text-text-body"
-                    aria-label="Close"
+                    key={type}
+                    onClick={() => {
+                      setFilter(type);
+                      fetchPosts(1, type !== 'ALL' ? type : undefined);
+                    }}
+                    className={`px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+                      filter === type
+                        ? 'text-teal-600 border-b-2 border-teal-600'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
                   >
-                    <X className="h-5 w-5" />
+                    {type === 'ALL' ? 'All Posts' : type.replace('_', ' ')}
                   </button>
-                </div>
+                ))}
+              </div>
+            </div>
 
-                <div className="mt-5 grid gap-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="sm:col-span-1">
-                      <label className="block text-xs font-semibold text-text-muted mb-2">Post type</label>
-                      <select
-                        value={newPostType}
-                        onChange={(e) => setNewPostType(e.target.value as any)}
-                        className="input-field"
-                      >
-                        <option value="GENERAL_UPDATE">General update</option>
-                        <option value="ANNOUNCEMENT">Announcement</option>
-                        <option value="OPPORTUNITY">Opportunity</option>
-                        <option value="EXPERIENCE">Experience</option>
-                      </select>
+            {/* Posts */}
+            <div className="space-y-4">
+              {posts.map((post) => (
+                <div key={post.id} className="bg-white rounded-lg border border-slate-200">
+                  {/* Post Header */}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex gap-3">
+                        <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                          {getInitials(post.author.full_name)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                              {post.author.full_name}
+                            </h3>
+                            <span className="text-xs text-slate-500">• 1st</span>
+                          </div>
+                          <p className="text-sm text-slate-600">
+                            {getRoleBadge(post.author.role).label} • {getPostTypeLabel(post.postType)}
+                          </p>
+                          <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+                            <span>{formatTimeAgo(post.createdAt)}</span>
+                            <span>•</span>
+                            <Globe className="w-3 h-3" />
+                          </div>
+                        </div>
+                      </div>
+                      <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                        <MoreHorizontal className="w-5 h-5 text-slate-600" />
+                      </button>
                     </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-text-muted mb-2">Title</label>
-                      <input
-                        type="text"
-                        value={newPostTitle}
-                        onChange={(e) => setNewPostTitle(e.target.value)}
-                        placeholder="Give it a clear title…"
-                        className="input-field"
+
+                    {/* Post Content */}
+                    <div className="mt-3">
+                      <h4 className="font-semibold text-slate-900 mb-2">{post.title}</h4>
+                      <div 
+                        className="text-slate-700 text-sm leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: post.content }}
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-text-muted mb-2">Content</label>
-                    <textarea
-                      value={newPostContent}
-                      onChange={(e) => setNewPostContent(e.target.value)}
-                      placeholder="What do you want to talk about?"
-                      rows={5}
-                      className="input-field min-h-[140px] resize-none"
-                    />
+                  {/* Post Stats */}
+                  <div className="px-4 py-2 flex items-center justify-between text-xs text-slate-600 border-t border-slate-200">
+                    <div className="flex items-center gap-1">
+                      {post.likeCount > 0 && (
+                        <>
+                          <div className="flex -space-x-1">
+                            <div className="w-4 h-4 rounded-full bg-teal-500 flex items-center justify-center">
+                              <ThumbsUp className="w-2.5 h-2.5 text-white fill-white" />
+                            </div>
+                          </div>
+                          <span className="ml-1">{post.likeCount}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {post.commentCount > 0 && (
+                        <span>{post.commentCount} comment{post.commentCount !== 1 ? 's' : ''}</span>
+                      )}
+                      {post.viewCount > 0 && (
+                        <span>{post.viewCount} view{post.viewCount !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2 text-xs text-text-muted">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 font-semibold ${getPostTypePill(newPostType)}`}>
-                        {newPostType.replace('_', ' ')}
-                      </span>
-                    </div>
+                  {/* Post Actions */}
+                  <div className="px-2 py-1 flex items-center justify-around border-t border-slate-200">
                     <button
-                      type="button"
-                      onClick={createPost}
-                      disabled={!newPostTitle.trim() || !newPostContent.trim()}
-                      className="btn-primary inline-flex items-center gap-2 rounded-xl px-6 py-2.5 disabled:opacity-60"
+                      onClick={() => toggleLike(post.id)}
+                      className={`flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg font-medium transition-colors flex-1 justify-center ${
+                        post.isLikedByUser ? 'text-teal-600' : 'text-slate-600'
+                      }`}
                     >
-                      <Send className="h-4 w-4" />
-                      Publish
+                      <ThumbsUp className={`w-5 h-5 ${post.isLikedByUser ? 'fill-teal-600' : ''}`} />
+                      <span>Like</span>
+                    </button>
+                    <button
+                      onClick={() => toggleComments(post.id)}
+                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      <span>Comment</span>
+                    </button>
+                    <button className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center">
+                      <Share2 className="w-5 h-5" />
+                      <span>Share</span>
+                    </button>
+                    <button className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center">
+                      <Send className="w-5 h-5" />
+                      <span>Send</span>
                     </button>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* Feed */}
-            <div className="mt-4 space-y-4">
-              {displayedPosts.map((post) => {
-                const isOpen = selectedPost?.id === post.id;
-                const createdLabel = (() => {
-                  try {
-                    return formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
-                  } catch {
-                    return new Date(post.createdAt).toLocaleDateString();
-                  }
-                })();
-
-                const authorInitialsPost =
-                  post.author?.full_name
-                    ?.split(/\s+/)
-                    .filter(Boolean)
-                    .map((p) => p[0])
-                    .join('')
-                    .slice(0, 2)
-                    .toUpperCase() ?? 'MB';
-
-                return (
-                  <article key={post.id} className="card p-5 sm:p-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-600">
-                          {authorInitialsPost}
+                  {/* Comments Section */}
+                  {selectedPost?.id === post.id && (
+                    <div className="border-t border-slate-200 p-4 bg-slate-50">
+                      {/* Add Comment */}
+                      <div className="flex gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                          {currentUser ? getInitials(currentUser.fullName || 'User') : 'U'}
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-sm font-extrabold text-text-heading">
-                              {post.author?.full_name ?? 'Unknown'}
-                            </p>
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${getRolePill(post.author?.role ?? '')}`}>
-                              {post.author?.role ?? 'MEMBER'}
-                            </span>
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${getPostTypePill(post.postType)}`}>
-                              {post.postType.replace('_', ' ')}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 text-xs text-text-muted">{createdLabel}</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded-lg p-2 text-text-muted hover:bg-bg-tertiary hover:text-text-body"
-                        aria-label="More"
-                      >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </button>
-                    </div>
-
-                    <h3 className="mt-4 text-base font-bold text-text-heading">{post.title}</h3>
-                    <div
-                      className="prose prose-slate mt-2 max-w-none text-sm text-text-body"
-                      dangerouslySetInnerHTML={{ __html: post.content }}
-                    />
-
-                    {/* Stats row */}
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border-default pt-3 text-xs text-text-muted">
-                      <div className="flex items-center gap-4">
-                        <span className="inline-flex items-center gap-1">
-                          <ThumbsUp className="h-3.5 w-3.5" />
-                          {post.likeCount}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          {post.commentCount}
-                        </span>
-                      </div>
-                      <span className="inline-flex items-center gap-1">
-                        <Eye className="h-3.5 w-3.5" />
-                        {post.viewCount} views
-                      </span>
-                    </div>
-
-                    {/* Actions row */}
-                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      <button
-                        type="button"
-                        onClick={() => toggleLike(post.id)}
-                        className={[
-                          'inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors',
-                          post.isLikedByUser
-                            ? 'bg-primary-50 text-primary-700 border border-primary-200'
-                            : 'text-text-muted hover:bg-bg-tertiary hover:text-text-body',
-                        ].join(' ')}
-                      >
-                        <ThumbsUp className="h-4 w-4" />
-                        Like
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => fetchPostDetails(post.id)}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-body"
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                        Comment
-                      </button>
-                      <button
-                        type="button"
-                        className="hidden sm:inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-text-muted transition-colors hover:bg-bg-tertiary hover:text-text-body"
-                      >
-                        <Send className="h-4 w-4" />
-                        Share
-                      </button>
-                    </div>
-
-                    {/* Comments */}
-                    {isOpen && (
-                      <div className="mt-5 rounded-2xl border border-border-default bg-bg-secondary p-4">
-                        <p className="text-sm font-bold text-text-heading">
-                          Comments <span className="text-text-muted font-semibold">({comments.length})</span>
-                        </p>
-
-                        <div className="mt-3">
-                          <textarea
+                        <div className="flex-1 flex gap-2">
+                          <input
+                            type="text"
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="Write a comment…"
-                            rows={2}
-                            className="input-field min-h-[76px] resize-none"
+                            onKeyPress={(e) => e.key === 'Enter' && addComment(post.id)}
+                            placeholder="Add a comment..."
+                            className="flex-1 px-4 py-2 rounded-full border border-slate-300 focus:outline-none focus:border-slate-400 text-sm"
                           />
-                          <div className="mt-2 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => addComment(post.id)}
-                              disabled={!newComment.trim()}
-                              className="btn-primary rounded-xl px-5 py-2 disabled:opacity-60"
-                            >
-                              Post
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          {comments.map((comment) => {
-                            const commentWhen = (() => {
-                              try {
-                                return formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true });
-                              } catch {
-                                return new Date(comment.createdAt).toLocaleDateString();
-                              }
-                            })();
-
-                            const commentInitials =
-                              comment.author?.full_name
-                                ?.split(/\s+/)
-                                .filter(Boolean)
-                                .map((p) => p[0])
-                                .join('')
-                                .slice(0, 2)
-                                .toUpperCase() ?? 'MB';
-
-                            return (
-                              <div key={comment.id} className="rounded-2xl bg-white p-4 border border-border-default">
-                                <div className="flex items-start gap-3">
-                                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-                                    {commentInitials}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="text-sm font-bold text-text-heading">
-                                        {comment.author?.full_name ?? 'Unknown'}
-                                      </span>
-                                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${getRolePill(comment.author?.role ?? '')}`}>
-                                        {comment.author?.role ?? 'MEMBER'}
-                                      </span>
-                                      <span className="text-xs text-text-muted">{commentWhen}</span>
-                                    </div>
-                                    <p className="mt-1 text-sm text-text-body whitespace-pre-wrap">{comment.content}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          <button
+                            onClick={() => addComment(post.id)}
+                            disabled={!newComment.trim()}
+                            className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed text-sm font-medium"
+                          >
+                            Post
+                          </button>
                         </div>
                       </div>
-                    )}
-                  </article>
-                );
-              })}
 
-              {displayedPosts.length === 0 && (
-                <div className="card p-10 text-center">
-                  <p className="text-sm font-bold text-text-heading">No posts found</p>
-                  <p className="mt-1 text-sm text-text-muted">
-                    Be the first to share an update.
-                  </p>
+                      {/* Comments List */}
+                      <div className="space-y-4">
+                        {comments.map((comment) => (
+                          <div key={comment.id} className="flex gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                              {getInitials(comment.author.full_name)}
+                            </div>
+                            <div className="flex-1">
+                              <div className="bg-white rounded-lg px-4 py-2 border border-slate-200">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-sm text-slate-900">{comment.author.full_name}</span>
+                                  <span className="text-xs text-slate-500">• {getRoleBadge(comment.author.role).label}</span>
+                                </div>
+                                <p className="text-sm text-slate-700 mt-1">{comment.content}</p>
+                              </div>
+                              <div className="flex items-center gap-4 mt-1 px-2 text-xs text-slate-600 font-medium">
+                                <button className="hover:text-teal-600">Like</button>
+                                <button className="hover:text-teal-600">Reply</button>
+                                <span>{formatTimeAgo(comment.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <div className="mt-6 flex justify-center gap-2">
                 <button
-                  type="button"
                   onClick={() => fetchPosts(currentPage - 1, filter !== 'ALL' ? filter : undefined)}
                   disabled={currentPage === 1}
-                  className="rounded-xl border border-border-default bg-white px-4 py-2 text-sm font-semibold text-text-body hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
                 >
                   Previous
                 </button>
-                <span className="rounded-xl border border-border-default bg-white px-4 py-2 text-sm text-text-muted">
-                  Page <span className="font-semibold text-text-heading">{currentPage}</span> of{' '}
-                  <span className="font-semibold text-text-heading">{totalPages}</span>
+                <span className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm">
+                  Page {currentPage} of {totalPages}
                 </span>
                 <button
-                  type="button"
                   onClick={() => fetchPosts(currentPage + 1, filter !== 'ALL' ? filter : undefined)}
                   disabled={currentPage === totalPages}
-                  className="rounded-xl border border-border-default bg-white px-4 py-2 text-sm font-semibold text-text-body hover:bg-bg-tertiary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
                 >
                   Next
                 </button>
               </div>
             )}
-          </section>
+          </div>
 
-          {/* Right rail */}
-          <aside className="hidden lg:col-span-3 lg:block">
-            <div className="sticky top-6 space-y-4">
-              <div className="card p-5">
-                <p className="text-sm font-bold text-text-heading">Add to your feed</p>
-                <div className="mt-3 space-y-3">
-                  {[
-                    { name: 'Internship Opportunities', subtitle: 'Company updates' },
-                    { name: 'University Announcements', subtitle: 'Academic updates' },
-                    { name: 'Supervisor Tips', subtitle: 'Mentorship' },
-                  ].map((i) => (
-                    <div key={i.name} className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-text-heading">{i.name}</p>
-                        <p className="truncate text-xs text-text-muted">{i.subtitle}</p>
-                      </div>
-                      <button type="button" className="rounded-full border border-border-default px-3 py-1.5 text-xs font-semibold text-text-body hover:bg-bg-tertiary">
-                        Follow
-                      </button>
-                    </div>
-                  ))}
+          {/* Right Sidebar - News/Suggestions */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-lg border border-slate-200 p-4 sticky top-6">
+              <h3 className="font-semibold text-slate-900 mb-4">InternLink News</h3>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                    New internship opportunities
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1">2 hours ago • 45 readers</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                    Student success stories
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1">5 hours ago • 128 readers</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                    Company partnerships
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1">1 day ago • 89 readers</p>
                 </div>
               </div>
             </div>
-          </aside>
+          </div>
         </div>
       </div>
+
+      {/* Create Post Modal */}
+      {showCreatePost && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h2 className="text-xl font-semibold text-slate-900">Create a post</h2>
+              <button
+                onClick={() => setShowCreatePost(false)}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                  {currentUser ? getInitials(currentUser.fullName || 'User') : 'U'}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-slate-900">{currentUser?.fullName || 'User'}</h3>
+                  <select
+                    value={newPostType}
+                    onChange={(e) => setNewPostType(e.target.value as any)}
+                    className="text-sm border border-slate-300 rounded px-2 py-1 mt-1"
+                  >
+                    <option value="GENERAL_UPDATE">📝 General Update</option>
+                    <option value="ANNOUNCEMENT">📢 Announcement</option>
+                    <option value="OPPORTUNITY">💼 Opportunity</option>
+                    <option value="EXPERIENCE">✨ Experience</option>
+                  </select>
+                </div>
+              </div>
+
+              <textarea
+                value={newPostContent}
+                onChange={(e) => setNewPostContent(e.target.value)}
+                placeholder="What do you want to talk about?"
+                rows={8}
+                className="w-full px-4 py-3 border-0 focus:outline-none text-slate-900 resize-none"
+              />
+
+              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-200">
+                <button className="p-2 hover:bg-slate-100 rounded transition-colors">
+                  <ImageIcon className="w-5 h-5 text-slate-600" />
+                </button>
+                <button className="p-2 hover:bg-slate-100 rounded transition-colors">
+                  <Video className="w-5 h-5 text-slate-600" />
+                </button>
+                <button className="p-2 hover:bg-slate-100 rounded transition-colors">
+                  <FileText className="w-5 h-5 text-slate-600" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-200">
+              <button
+                onClick={createPost}
+                disabled={!newPostContent.trim()}
+                className="w-full py-3 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed font-semibold"
+              >
+                Post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

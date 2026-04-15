@@ -104,7 +104,7 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
           </button>
         ))}
         <Link
-          href="/common-feed"
+          href="/admin/common-feed"
           className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 lg:w-full lg:gap-3 lg:px-4 lg:py-3"
         >
           <MessageSquare className="h-5 w-5 shrink-0" />
