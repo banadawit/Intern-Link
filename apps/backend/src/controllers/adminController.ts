@@ -714,6 +714,16 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
             });
         }
 
+        // Enforce one coordinator per university
+        const existingCoordinator = await prisma.coordinator.findUnique({
+            where: { universityId: university.id },
+        });
+        if (existingCoordinator && existingCoordinator.userId !== userId) {
+            return res.status(409).json({
+                error: `University "${university.name}" already has an approved coordinator. Each university can only have one coordinator.`,
+            });
+        }
+
         // Link coordinator to university and clear pending name
         await prisma.coordinator.update({
             where: { userId },

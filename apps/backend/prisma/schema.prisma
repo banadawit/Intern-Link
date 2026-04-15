@@ -154,7 +154,7 @@ model Coordinator {
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        Int         @unique
   university    University? @relation(fields: [universityId], references: [id])
-  universityId  Int?
+  universityId  Int?        @unique
   /// Stored during registration; used to create the University record upon admin approval
   pending_university_name String?
   phone_number  String?

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   LogOut,
@@ -19,12 +19,22 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
+import api from "@/lib/api/client";
 
 const HodSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
+  const [universityName, setUniversityName] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<{ university?: { name: string } }>("/hod/dashboard-stats")
+      .then(({ data }) => {
+        if (data?.university?.name) setUniversityName(data.university.name);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -74,7 +84,10 @@ const HodSidebar = () => {
           <span className="block truncate text-lg font-bold tracking-tight text-text-heading">
             Department Portal
           </span>
-          <span className="hidden text-xs text-text-muted sm:block">Head of Department</span>
+          {universityName
+            ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{universityName}</span>
+            : <span className="hidden text-xs text-text-muted sm:block">Head of Department</span>
+          }
         </div>
       </div>
 

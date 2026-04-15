@@ -30,12 +30,14 @@ const SupervisorSidebar = () => {
   const [showLogout, setShowLogout] = useState(false);
   const [pendingProposals, setPendingProposals] = useState(0);
   const [pendingPlans, setPendingPlans] = useState(0);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<{ stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } }>("/supervisor/me")
+    api.get<{ supervisor: { company: { name: string } }; stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } }>("/supervisor/me")
       .then(({ data }) => {
         setPendingProposals(data.stats.pendingProposalsCount);
         setPendingPlans(data.stats.pendingWeeklyPlansCount);
+        if (data.supervisor?.company?.name) setCompanyName(data.supervisor.company.name);
       })
       .catch(() => {});
   }, []);
@@ -93,7 +95,11 @@ const SupervisorSidebar = () => {
           <span className="block truncate text-lg font-bold tracking-tight text-text-heading">
             Company Portal
           </span>
-          <span className="hidden text-xs text-text-muted sm:block">Supervisor workspace</span>
+          {companyName
+            ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{companyName}</span>
+            : <span className="hidden text-xs text-text-muted sm:block">Supervisor workspace</span>
+          }
+        </div>
         </div>
       </div>
 

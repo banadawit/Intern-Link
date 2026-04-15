@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   LogOut,
   Sparkles,
-  Users,
+  ClipboardCheck,
+  History,
   Factory,
   Briefcase,
   FileText,
@@ -17,12 +18,30 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
+import api from "@/lib/api/client";
 
 const CoordinatorSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
+  const [pendingHodCount, setPendingHodCount] = useState(0);
+  const [universityName, setUniversityName] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<{ id: number; university?: { name: string } }[]>("/coordinator/pending-hods")
+      .then(({ data }) => {
+        setPendingHodCount(data.length);
+        if (data.length > 0 && data[0].university?.name) setUniversityName(data[0].university.name);
+      })
+      .catch(() => {});
+    // Also try approved-hods if pending is empty
+    api.get<{ id: number; university?: { name: string } }[]>("/coordinator/approved-hods")
+      .then(({ data }) => {
+        if (data.length > 0 && data[0].university?.name) setUniversityName(data[0].university.name);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -40,13 +59,14 @@ const CoordinatorSidebar = () => {
       .slice(0, 2) ?? "CR";
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/coordinator" },
-    { icon: MessageSquare, label: "Common Feed", path: "/common-feed" },
-    { icon: Users, label: "HOD management", path: "/coordinator/hods" },
-    { icon: Factory, label: "Companies", path: "/coordinator/companies" },
-    { icon: Briefcase, label: "Placements", path: "/coordinator/placements" },
-    { icon: FileText, label: "Reports", path: "/coordinator/reports" },
-    { icon: Sparkles, label: "AI assistant", path: "/coordinator/ai" },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/coordinator", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/common-feed", badge: 0 },
+    { icon: ClipboardCheck, label: "HOD management", path: "/coordinator/hods", badge: pendingHodCount },
+    { icon: History, label: "Approvals", path: "/coordinator/approvals", badge: 0 },
+    { icon: Factory, label: "Companies", path: "/coordinator/companies", badge: 0 },
+    { icon: Briefcase, label: "Placements", path: "/coordinator/placements", badge: 0 },
+    { icon: FileText, label: "Reports", path: "/coordinator/reports", badge: 0 },
+    { icon: Sparkles, label: "AI assistant", path: "/coordinator/ai", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>
@@ -70,7 +90,10 @@ const CoordinatorSidebar = () => {
           <span className="block truncate text-lg font-bold tracking-tight text-text-heading">
             University portal
           </span>
-          <span className="hidden text-xs text-text-muted sm:block">Coordinator</span>
+          {universityName
+            ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{universityName}</span>
+            : <span className="hidden text-xs text-text-muted sm:block">Coordinator</span>
+          }
         </div>
       </div>
 
@@ -86,7 +109,12 @@ const CoordinatorSidebar = () => {
           return (
             <Link key={item.path} href={item.path} className={linkClass(!!active)}>
               <item.icon className="h-5 w-5 shrink-0" />
-              <span className="whitespace-nowrap">{item.label}</span>
+              <span className="whitespace-nowrap flex-1">{item.label}</span>
+              {item.badge > 0 && (
+                <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-rose-700 ring-1 ring-rose-200/80">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              )}
             </Link>
           );
         })}
