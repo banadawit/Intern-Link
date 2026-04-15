@@ -45,6 +45,10 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             activeInternships,
             pendingCoordinators,
             pendingSupervisors,
+            rejectedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'REJECTED' } }),
+            rejectedSupervisors: await prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'REJECTED' } }),
+            suspendedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'SUSPENDED' } }),
+            suspendedSupervisors: await prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'SUSPENDED' } }),
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -443,15 +447,41 @@ export const getApprovedSupervisors = async (req: AuthRequest, res: Response) =>
     }
 };
 
+/** List all rejected supervisors */
+export const getRejectedSupervisors = async (req: AuthRequest, res: Response) => {
+    try {
+        const supervisors = await prisma.supervisor.findMany({
+            where: { user: { institution_access_approval: 'REJECTED' } },
+            include: {
+                user: { select: { id: true, full_name: true, email: true, institution_access_approval: true, created_at: true } },
+                company: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(supervisors);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
+/** List all suspended supervisors */
+export const getSuspendedSupervisors = async (req: AuthRequest, res: Response) => {
+    try {
+        const supervisors = await prisma.supervisor.findMany({
+            where: { user: { institution_access_approval: 'SUSPENDED' } },
+            include: {
+                user: { select: { id: true, full_name: true, email: true, institution_access_approval: true, created_at: true } },
+                company: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(supervisors);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
 /** List all approved supervisors */
 export const getPendingSupervisors = async (req: AuthRequest, res: Response) => {
     try {
         const supervisors = await prisma.supervisor.findMany({
-            where: {
-                user: {
-                    institution_access_approval: 'PENDING',
-                },
-            },
+            where: { user: { institution_access_approval: 'PENDING' } },
             include: {
                 user: {
                     select: {
@@ -576,6 +606,36 @@ export const getApprovedCoordinators = async (req: AuthRequest, res: Response) =
     }
 };
 
+/** List all rejected coordinators */
+export const getRejectedCoordinators = async (req: AuthRequest, res: Response) => {
+    try {
+        const coordinators = await prisma.coordinator.findMany({
+            where: { user: { institution_access_approval: 'REJECTED' } },
+            include: {
+                user: { select: { id: true, full_name: true, email: true, institution_access_approval: true, created_at: true } },
+                university: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(coordinators);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
+/** List all suspended coordinators */
+export const getSuspendedCoordinators = async (req: AuthRequest, res: Response) => {
+    try {
+        const coordinators = await prisma.coordinator.findMany({
+            where: { user: { institution_access_approval: 'SUSPENDED' } },
+            include: {
+                user: { select: { id: true, full_name: true, email: true, institution_access_approval: true, created_at: true } },
+                university: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(coordinators);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
 /** List all coordinators pending admin approval (no university linked yet) */
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
     try {
@@ -651,6 +711,16 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
             await prisma.university.update({
                 where: { id: university.id },
                 data: { approval_status: 'APPROVED' },
+            });
+        }
+
+        // Enforce one coordinator per university
+        const existingCoordinator = await prisma.coordinator.findUnique({
+            where: { universityId: university.id },
+        });
+        if (existingCoordinator && existingCoordinator.userId !== userId) {
+            return res.status(409).json({
+                error: `University "${university.name}" already has an approved coordinator. Each university can only have one coordinator.`,
             });
         }
 

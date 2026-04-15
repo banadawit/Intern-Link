@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -17,12 +17,22 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
+import api from "@/lib/api/client";
 
 const StudentSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
+  const [universityName, setUniversityName] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get<{ university?: { name: string } }>("/students/me")
+      .then(({ data }) => {
+        if (data?.university?.name) setUniversityName(data.university.name);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -42,7 +52,7 @@ const StudentSidebar = () => {
     { icon: LayoutDashboard, label: "Dashboard", path: "/student" },
     { icon: ClipboardList, label: "Weekly Plans", path: "/student/plans" },
     { icon: Sparkles, label: "AI assistant", path: "/student/ai" },
-    { icon: MessageSquare, label: "Common Feed", path: "/common-feed" },
+    { icon: MessageSquare, label: "Common Feed", path: "/student/common" },
     { icon: Building, label: "Request Company", path: "/student/request-company" },
     { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation" },
     { icon: Settings, label: "Settings", path: "/student/settings" },
@@ -67,7 +77,10 @@ const StudentSidebar = () => {
         </div>
         <div className="min-w-0">
           <span className="block truncate text-lg font-bold tracking-tight text-text-heading">StudentPortal</span>
-          <span className="hidden text-xs text-text-muted sm:block">Internship workspace</span>
+          {universityName
+            ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{universityName}</span>
+            : <span className="hidden text-xs text-text-muted sm:block">Internship workspace</span>
+          }
         </div>
       </div>
 

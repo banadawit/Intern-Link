@@ -140,6 +140,18 @@ export const register = async (req: Request, res: Response) => {
                 });
             }
 
+            // Block HOD registration if the university has no approved coordinator yet
+            const universityCoordinator = await prisma.coordinator.findFirst({
+                where: { universityId },
+            });
+            if (!universityCoordinator) {
+                await prisma.user.delete({ where: { id: newUser.id } });
+                return res.status(400).json({
+                    success: false,
+                    message: `Your university "${university.name}" does not have a coordinator yet. Please make sure your coordinator registers and gets approved first before you register as Head of Department.`,
+                });
+            }
+
             await prisma.hodProfile.create({
                 data: {
                     userId: newUser.id,

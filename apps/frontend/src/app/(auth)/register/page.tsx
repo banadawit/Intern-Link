@@ -96,7 +96,7 @@ const RegisterPage = () => {
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, label: '', color: '' });
 
   // Approved universities for HoD & Student dropdown
-  const [approvedUniversities, setApprovedUniversities] = useState<{ id: number; name: string }[]>([]);
+  const [approvedUniversities, setApprovedUniversities] = useState<{ id: number; name: string; hasCoordinator: boolean }[]>([]);
   const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
   // Departments (HoD profiles) for the selected university
   const [departments, setDepartments] = useState<{ id: number; department: string }[]>([]);
@@ -187,6 +187,9 @@ const RegisterPage = () => {
     }
     if (role === 'hod') {
       if (!formData.universityId) return 'Please select a university';
+      if (!approvedUniversities.find((u) => u.id === formData.universityId)?.hasCoordinator) {
+        return 'This university does not have a coordinator yet. Please make sure your coordinator registers and gets approved first.';
+      }
       if (!formData.department) return 'Department is required';
     }
     if (role === 'supervisor') {
@@ -795,6 +798,12 @@ const RegisterPage = () => {
                       <AlertCircle className="h-3 w-3" />
                       {errors.universityId}
                     </p>
+                  )}
+                  {role === 'hod' && formData.universityId && !approvedUniversities.find((u) => u.id === formData.universityId)?.hasCoordinator && (
+                    <div className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>This university does not have a coordinator yet. Please make sure your coordinator registers and gets approved first before you register as Head of Department.</span>
+                    </div>
                   )}
                 </div>
 

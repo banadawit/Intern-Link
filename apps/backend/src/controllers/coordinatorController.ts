@@ -3,41 +3,77 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail } from '../services/email.service';
 
+const hodInclude = {
+    user: {
+        select: {
+            id: true,
+            full_name: true,
+            email: true,
+            verification_document: true,
+            institution_access_approval: true,
+            verification_status: true,
+            created_at: true,
+        },
+    },
+    university: { select: { name: true } },
+};
+
+async function getCoordinatorUniversityId(userId: number) {
+    const profile = await prisma.coordinator.findUnique({ where: { userId } });
+    return profile?.universityId ?? null;
+}
+
 /**
  * GET /coordinator/pending-hods
- * List all HoDs from the coordinator's university that are pending approval.
  */
 export const getPendingHods = async (req: AuthRequest, res: Response) => {
     try {
-        const coordinatorProfile = await prisma.coordinator.findUnique({
-            where: { userId: req.user!.userId },
-        });
-
-        if (!coordinatorProfile?.universityId) {
-            return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
-        }
+        const universityId = await getCoordinatorUniversityId(req.user!.userId);
+        if (!universityId) return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
 
         const hods = await prisma.hodProfile.findMany({
-            where: {
-                universityId: coordinatorProfile.universityId,
-                user: { institution_access_approval: 'PENDING' },
-            },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        full_name: true,
-                        email: true,
-                        verification_document: true,
-                        institution_access_approval: true,
-                        created_at: true,
-                    },
-                },
-                university: { select: { name: true } },
-            },
+            where: { universityId, user: { institution_access_approval: 'PENDING', role: 'HOD' } },
+            include: hodInclude,
             orderBy: { user: { created_at: 'desc' } },
         });
+        res.json(hods);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
+/**
+ * GET /coordinator/approved-hods
+ */
+export const getApprovedHods = async (req: AuthRequest, res: Response) => {
+    try {
+        const universityId = await getCoordinatorUniversityId(req.user!.userId);
+        if (!universityId) return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+
+        const hods = await prisma.hodProfile.findMany({
+            where: { universityId, user: { institution_access_approval: 'APPROVED', role: 'HOD' } },
+            include: hodInclude,
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(hods);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * GET /coordinator/rejected-hods
+ */
+export const getRejectedHods = async (req: AuthRequest, res: Response) => {
+    try {
+        const universityId = await getCoordinatorUniversityId(req.user!.userId);
+        if (!universityId) return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+
+        const hods = await prisma.hodProfile.findMany({
+            where: { universityId, user: { institution_access_approval: 'REJECTED', role: 'HOD' } },
+            include: hodInclude,
+            orderBy: { user: { created_at: 'desc' } },
+        });
         res.json(hods);
     } catch (error: any) {
         res.status(500).json({ error: error.message });

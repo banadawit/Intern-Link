@@ -102,6 +102,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             pendingApprovals,
             placedStudents,
             reports: reportCount,
+            university: { name: hod.university.name },
         });
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Server error';
