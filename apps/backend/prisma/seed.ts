@@ -4,8 +4,8 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminEmail = 'ayanafileorg@gmail.com';
-  const adminPassword = '12121212';
+  const adminEmail = 'admin@internlink.com';
+  const adminPassword = 'Admin@1234';
 
   let admin = await prisma.user.findUnique({ where: { email: adminEmail } });
   if (!admin) {
@@ -23,9 +23,14 @@ async function main() {
     console.log('✅ Admin user created');
     console.log(`   Email:    ${adminEmail}`);
     console.log(`   Password: ${adminPassword}`);
-    console.log('   ⚠️  Change this password after first login!');
   } else {
-    console.log(`Admin already exists: ${adminEmail}`);
+    // Ensure password is always in sync with the seed value
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    await prisma.user.update({
+      where: { email: adminEmail },
+      data: { password_hash: hashedPassword },
+    });
+    console.log(`Admin already exists: ${adminEmail} (password refreshed)`);
   }
 
   const supEmail = 'supervisor@company.com';

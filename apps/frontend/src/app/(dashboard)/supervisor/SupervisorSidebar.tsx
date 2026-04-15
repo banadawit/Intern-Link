@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -21,12 +21,24 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
+import api from "@/lib/api/client";
 
 const SupervisorSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
+  const [pendingProposals, setPendingProposals] = useState(0);
+  const [pendingPlans, setPendingPlans] = useState(0);
+
+  useEffect(() => {
+    api.get<{ stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } }>("/supervisor/me")
+      .then(({ data }) => {
+        setPendingProposals(data.stats.pendingProposalsCount);
+        setPendingPlans(data.stats.pendingWeeklyPlansCount);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -44,15 +56,15 @@ const SupervisorSidebar = () => {
       .slice(0, 2) ?? "SV";
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/supervisor" },
-    { icon: MessageSquare, label: "Common Feed", path: "/common-feed" },
-    { icon: Users, label: "Students", path: "/supervisor/students" },
-    { icon: UsersRound, label: "Teams", path: "/supervisor/teams" },
-    { icon: FolderKanban, label: "Projects", path: "/supervisor/projects" },
-    { icon: Inbox, label: "Proposals", path: "/supervisor/proposals" },
-    { icon: ClipboardList, label: "Weekly plans", path: "/supervisor/plans" },
-    { icon: Sparkles, label: "AI assistant", path: "/supervisor/ai" },
-    { icon: FileCheck, label: "Reports", path: "/supervisor/reports" },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/supervisor", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/common-feed", badge: 0 },
+    { icon: Users, label: "Students", path: "/supervisor/students", badge: 0 },
+    { icon: UsersRound, label: "Teams", path: "/supervisor/teams", badge: 0 },
+    { icon: FolderKanban, label: "Projects", path: "/supervisor/projects", badge: 0 },
+    { icon: Inbox, label: "Proposals", path: "/supervisor/proposals", badge: pendingProposals },
+    { icon: ClipboardList, label: "Weekly plans", path: "/supervisor/plans", badge: pendingPlans },
+    { icon: Sparkles, label: "AI assistant", path: "/supervisor/ai", badge: 0 },
+    { icon: FileCheck, label: "Reports", path: "/supervisor/reports", badge: 0 },
   ];
 
   const attendanceNavItems = [
@@ -97,7 +109,12 @@ const SupervisorSidebar = () => {
           return (
             <Link key={item.path} href={item.path} className={linkClass(!!active)}>
               <item.icon className="h-5 w-5 shrink-0" />
-              <span className="whitespace-nowrap">{item.label}</span>
+              <span className="whitespace-nowrap flex-1">{item.label}</span>
+              {item.badge > 0 && (
+                <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-rose-700 ring-1 ring-rose-200/80">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

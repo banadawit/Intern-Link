@@ -151,7 +151,7 @@ model Company {
 
 model Coordinator {
   id            Int         @id @default(autoincrement())
-  user          User        @relation(fields: [userId], references: [id])
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        Int         @unique
   university    University? @relation(fields: [universityId], references: [id])
   universityId  Int?
@@ -180,7 +180,7 @@ model HodProfile {
 
 model Supervisor {
   id            Int       @id @default(autoincrement())
-  user          User      @relation(fields: [userId], references: [id])
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        Int       @unique
   company       Company   @relation(fields: [companyId], references: [id])
   companyId     Int
@@ -192,7 +192,7 @@ model Supervisor {
 
 model Student {
   id                Int              @id @default(autoincrement())
-  user              User             @relation(fields: [userId], references: [id])
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId            Int              @unique
   university        University       @relation(fields: [universityId], references: [id])
   universityId      Int

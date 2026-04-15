@@ -417,7 +417,33 @@ export const verifyInstitution = async (req: AuthRequest, res: Response) => {
 
 // --- SUPERVISOR APPROVAL WORKFLOW ---
 
-/** List all supervisors pending admin approval */
+/** List all approved supervisors */
+export const getApprovedSupervisors = async (req: AuthRequest, res: Response) => {
+    try {
+        const supervisors = await prisma.supervisor.findMany({
+            where: { user: { institution_access_approval: 'APPROVED' } },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                        verification_document: true,
+                        institution_access_approval: true,
+                        created_at: true,
+                    },
+                },
+                company: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(supervisors);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** List all approved supervisors */
 export const getPendingSupervisors = async (req: AuthRequest, res: Response) => {
     try {
         const supervisors = await prisma.supervisor.findMany({
@@ -522,6 +548,33 @@ export const rejectSupervisor = async (req: AuthRequest, res: Response) => {
 };
 
 // --- COORDINATOR APPROVAL WORKFLOW ---
+
+/** List all approved coordinators */
+export const getApprovedCoordinators = async (req: AuthRequest, res: Response) => {
+    try {
+        const coordinators = await prisma.coordinator.findMany({
+            where: { universityId: { not: null } },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                        verification_status: true,
+                        institution_access_approval: true,
+                        verification_document: true,
+                        created_at: true,
+                    },
+                },
+                university: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(coordinators);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
 /** List all coordinators pending admin approval (no university linked yet) */
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
