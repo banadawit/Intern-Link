@@ -59,7 +59,7 @@ const SupervisorSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/supervisor", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/common-feed", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/supervisor/common-feed", badge: 0 },
     { icon: Users, label: "Students", path: "/supervisor/students", badge: 0 },
     { icon: UsersRound, label: "Teams", path: "/supervisor/teams", badge: 0 },
     { icon: FolderKanban, label: "Projects", path: "/supervisor/projects", badge: 0 },
@@ -99,7 +99,6 @@ const SupervisorSidebar = () => {
             ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{companyName}</span>
             : <span className="hidden text-xs text-text-muted sm:block">Supervisor workspace</span>
           }
-        </div>
         </div>
       </div>
 

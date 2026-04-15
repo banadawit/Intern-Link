@@ -57,9 +57,7 @@ export default function CoordinatorDashboardPage() {
 
   const shortcuts = [
     { href: "/coordinator/hods", label: "HOD management", desc: "Approve HOD accounts and view all heads" },
-    { href: "/coordinator/companies", label: "Companies", desc: "Monitor platform company verification" },
-    { href: "/coordinator/placements", label: "Placements", desc: "Proposals and active assignments" },
-    { href: "/coordinator/reports", label: "Reports", desc: "Final reports from your students" },
+    { href: "/coordinator/approvals", label: "Approvals history", desc: "View approved and rejected HODs" },
   ];
 
   return (

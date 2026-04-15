@@ -7,9 +7,6 @@ import {
   Sparkles,
   ClipboardCheck,
   History,
-  Factory,
-  Briefcase,
-  FileText,
   Landmark,
   MessageSquare,
 } from "lucide-react";
@@ -60,12 +57,9 @@ const CoordinatorSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/coordinator", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/common-feed", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/coordinator/common-feed", badge: 0 },
     { icon: ClipboardCheck, label: "HOD management", path: "/coordinator/hods", badge: pendingHodCount },
     { icon: History, label: "Approvals", path: "/coordinator/approvals", badge: 0 },
-    { icon: Factory, label: "Companies", path: "/coordinator/companies", badge: 0 },
-    { icon: Briefcase, label: "Placements", path: "/coordinator/placements", badge: 0 },
-    { icon: FileText, label: "Reports", path: "/coordinator/reports", badge: 0 },
     { icon: Sparkles, label: "AI assistant", path: "/coordinator/ai", badge: 0 },
   ];
 
