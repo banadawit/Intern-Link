@@ -11,10 +11,18 @@ router.get('/approved', async (_req, res) => {
     try {
         const universities = await prisma.university.findMany({
             where: { approval_status: 'APPROVED' },
-            select: { id: true, name: true },
+            select: {
+                id: true,
+                name: true,
+                coordinators: { select: { id: true }, take: 1 },
+            },
             orderBy: { name: 'asc' },
         });
-        res.json(universities);
+        res.json(universities.map((u) => ({
+            id: u.id,
+            name: u.name,
+            hasCoordinator: u.coordinators.length > 0,
+        })));
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

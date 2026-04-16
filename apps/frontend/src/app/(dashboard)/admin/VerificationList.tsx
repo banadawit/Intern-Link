@@ -14,9 +14,10 @@ interface Props {
   proposals: VerificationProposal[];
   onReview: (proposal: VerificationProposal) => void;
   loading?: boolean;
+  hideHero?: boolean;
 }
 
-const VerificationList = ({ title, proposals, onReview, loading }: Props) => {
+const VerificationList = ({ title, proposals, onReview, loading, hideHero = false }: Props) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"All" | "University" | "Company">("All");
 
@@ -28,11 +29,13 @@ const VerificationList = ({ title, proposals, onReview, loading }: Props) => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <AdminPageHero
-        badge="Verification"
-        title={title}
-        description="Manage and review institutional verification requests."
-      />
+      {!hideHero && (
+        <AdminPageHero
+          badge="Verification"
+          title={title}
+          description="Manage and review institutional verification requests."
+        />
+      )}
 
       {loading && (
         <p className="text-sm text-slate-500" role="status">

@@ -43,8 +43,9 @@ export default function CoordinatorHodsPage() {
     try {
       const { data } = await api.get<PendingHod[]>("/coordinator/pending-hods");
       setHods(data);
-    } catch {
-      setError("Could not load pending HoD accounts.");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setError(msg || "Could not load pending HoD accounts.");
     } finally {
       setLoading(false);
     }

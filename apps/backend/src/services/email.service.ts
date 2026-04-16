@@ -690,22 +690,72 @@ export const sendCompanyInviteEmail = async (params: {
 }): Promise<void> => {
     try {
         const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const registerUrl = `${frontendUrl}/register`;
         const transporter = await getTransporter();
         const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
         const html = `
-        <!DOCTYPE html><html><head><meta charset="utf-8"/></head>
-        <body style="font-family:sans-serif;line-height:1.5;color:#334155;">
-          <p>Hello,</p>
-          <p><strong>${escapeHtml(params.hodName)}</strong> from <strong>${escapeHtml(params.universityName)}</strong>
-          has invited <strong>${escapeHtml(params.companyName)}</strong> to join InternLink for internship collaboration.</p>
-          <p>Please register your company supervisor account at:<br/>
-          <a href="${frontendUrl}/register">${frontendUrl}/register</a></p>
-          <p>— InternLink</p>
-        </body></html>`;
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Invitation to Join InternLink</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .card { background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #0d9488 0%, #115e59 100%); padding: 32px 24px; text-align: center; }
+            .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+            .content { padding: 32px 24px; }
+            .button { display: inline-block; background-color: #0d9488; color: white !important; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; margin: 24px 0; }
+            .info-box { background-color: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+            .info-row { margin: 6px 0; font-size: 14px; color: #334155; }
+            .footer { background-color: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+            .text-muted { color: #64748b; font-size: 14px; }
+            hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="card">
+              <div class="header">
+                <h1 class="logo">InternLink</h1>
+                <p style="color:rgba(255,255,255,0.9);margin-top:8px;">Smart Internship Management System</p>
+              </div>
+              <div class="content">
+                <h2 style="margin-top:0;">You've Been Invited!</h2>
+                <p>Hello,</p>
+                <p><strong>${escapeHtml(params.hodName)}</strong>, Head of Department at <strong>${escapeHtml(params.universityName)}</strong>, has invited <strong>${escapeHtml(params.companyName)}</strong> to join InternLink and collaborate on student internship placements.</p>
+
+                <div class="info-box">
+                  <div class="info-row"><strong>Invited by:</strong> ${escapeHtml(params.hodName)}</div>
+                  <div class="info-row"><strong>University:</strong> ${escapeHtml(params.universityName)}</div>
+                  <div class="info-row"><strong>Company:</strong> ${escapeHtml(params.companyName)}</div>
+                </div>
+
+                <p>To get started, register your company supervisor account on InternLink:</p>
+                <div style="text-align:center;">
+                  <a href="${registerUrl}" class="button">Register on InternLink</a>
+                </div>
+
+                <p class="text-muted">Or copy and paste this link into your browser:</p>
+                <p style="background-color:#f1f5f9;padding:12px;border-radius:8px;word-break:break-all;font-size:12px;">${registerUrl}</p>
+
+                <hr />
+                <p class="text-muted" style="font-size:12px;">If your company was not expecting this invitation, you can safely ignore this email.</p>
+              </div>
+              <div class="footer">
+                <p>&copy; ${new Date().getFullYear()} InternLink. All rights reserved.</p>
+                <p>Connecting Ethiopian Universities with Industry Leaders</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>`;
         const info = await transporter.sendMail({
             from: `"InternLink" <${fromAddr}>`,
             to: params.to,
-            subject: `[InternLink] Invitation to register — ${params.companyName}`,
+            subject: `[InternLink] Invitation to join — ${params.companyName}`,
             html,
         });
         const preview = nodemailer.getTestMessageUrl(info);

@@ -28,11 +28,17 @@ router.patch('/users/:id/institution-access', adminCtrl.updateUserInstitutionAcc
 
 // Coordinator Approval Workflow
 router.get('/pending-coordinators', adminCtrl.getPendingCoordinators);
+router.get('/approved-coordinators', adminCtrl.getApprovedCoordinators);
+router.get('/rejected-coordinators', adminCtrl.getRejectedCoordinators);
+router.get('/suspended-coordinators', adminCtrl.getSuspendedCoordinators);
 router.post('/coordinators/:userId/approve', adminCtrl.approveCoordinator);
 router.post('/coordinators/:userId/reject', adminCtrl.rejectCoordinator);
 
 // Supervisor Approval Workflow
 router.get('/pending-supervisors', adminCtrl.getPendingSupervisors);
+router.get('/approved-supervisors', adminCtrl.getApprovedSupervisors);
+router.get('/rejected-supervisors', adminCtrl.getRejectedSupervisors);
+router.get('/suspended-supervisors', adminCtrl.getSuspendedSupervisors);
 router.post('/supervisors/:userId/approve', adminCtrl.approveSupervisor);
 router.post('/supervisors/:userId/reject', adminCtrl.rejectSupervisor);
 

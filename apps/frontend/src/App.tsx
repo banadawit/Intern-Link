@@ -16,6 +16,7 @@ import FinalEvaluation from '@/components/student/FinalEvaluation';
 
 import { VerificationProposal, AuditLogEntry } from '@/lib/superadmin/types';
 import { ShieldCheck, GraduationCap } from 'lucide-react';
+import AiChatFloating from '@/components/ai/AiChatFloating';
 
 export default function App() {
   const [proposals, setProposals] = useState<VerificationProposal[]>([]);
@@ -130,6 +131,7 @@ export default function App() {
                 <p className="text-text-muted">Track internship progress, submit plans, and view feedback.</p>
               </Link>
             </div>
+            <AiChatFloating role="student" />
           </div>
         } />
 

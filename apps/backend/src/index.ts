@@ -16,9 +16,9 @@ import reportRoutes from './routes/reportRoutes';
 import feedRoutes from './routes/feedRoutes';
 import supervisorRoutes from './routes/supervisorRoutes';
 import coordinatorRoutes from './routes/coordinatorRoutes';
+import coordinatorPortalRoutes from './routes/coordinatorPortalRoutes';
 import aiRoutes from './routes/aiRoutes';
 import activityRoutes from './routes/activityRoutes';
-import coordinatorPortalRoutes from './routes/coordinatorRoutes';
 import hodRoutes from './routes/hodRoutes';
 import commonFeedRoutes from './routes/commonFeedRoutes';
 
@@ -41,9 +41,9 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/supervisor', supervisorRoutes);
 app.use('/api/coordinator', coordinatorRoutes);
+app.use('/api/coordinator-portal', coordinatorPortalRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/activity', activityRoutes);
-app.use('/api/coordinator-portal', coordinatorPortalRoutes);
 app.use('/api/hod', hodRoutes);
 app.use('/api/common-feed', commonFeedRoutes);
 // 3. Basic Health Check Route
@@ -57,3 +57,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(` Server is running on http://localhost:${PORT}`);
 });
+
+// Trigger reload again

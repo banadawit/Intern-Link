@@ -22,9 +22,10 @@ interface PendingSupervisor {
 
 interface Props {
   onActionComplete?: () => void;
+  hideHero?: boolean;
 }
 
-const SupervisorApprovals = ({ onActionComplete }: Props) => {
+const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
   const [supervisors, setSupervisors] = useState<PendingSupervisor[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -74,11 +75,13 @@ const SupervisorApprovals = ({ onActionComplete }: Props) => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <AdminPageHero
-        badge="Supervisors"
-        title="Pending Supervisor Approvals"
-        description="Review and approve company supervisor registrations."
-      />
+      {!hideHero && (
+        <AdminPageHero
+          badge="Supervisors"
+          title="Pending Supervisor Approvals"
+          description="Review and approve company supervisor registrations."
+        />
+      )}
 
       {loading && (
         <p className="text-sm text-slate-500" role="status">Loading pending supervisors…</p>

@@ -22,9 +22,10 @@ interface PendingCoordinator {
 
 interface Props {
   onActionComplete?: () => void;
+  hideHero?: boolean;
 }
 
-const CoordinatorApprovals = ({ onActionComplete }: Props) => {
+const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
   const [coordinators, setCoordinators] = useState<PendingCoordinator[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -74,11 +75,13 @@ const CoordinatorApprovals = ({ onActionComplete }: Props) => {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <AdminPageHero
-        badge="Coordinators"
-        title="Pending Coordinator Approvals"
-        description="Review and approve university coordinator registrations."
-      />
+      {!hideHero && (
+        <AdminPageHero
+          badge="Coordinators"
+          title="Pending Coordinator Approvals"
+          description="Review and approve university coordinator registrations."
+        />
+      )}
 
       {loading && (
         <p className="text-sm text-slate-500" role="status">Loading pending coordinators…</p>

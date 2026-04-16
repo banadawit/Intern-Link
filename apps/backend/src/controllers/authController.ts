@@ -82,14 +82,23 @@ export const register = async (req: Request, res: Response) => {
             let createdNewCompany = false;
 
             if (!company && company_name) {
-                company = await prisma.company.create({
-                    data: {
-                        name: company_name,
-                        official_email: email,
-                        approval_status: 'PENDING'
-                    }
+                // Check if email is already used as a company official_email
+                const emailTaken = await prisma.company.findUnique({
+                    where: { official_email: email }
                 });
-                createdNewCompany = true;
+                if (emailTaken) {
+                    // Link to the existing company with this email
+                    company = emailTaken;
+                } else {
+                    company = await prisma.company.create({
+                        data: {
+                            name: company_name,
+                            official_email: email,
+                            approval_status: 'PENDING'
+                        }
+                    });
+                    createdNewCompany = true;
+                }
             }
 
             if (company && createdNewCompany) {
@@ -128,6 +137,18 @@ export const register = async (req: Request, res: Response) => {
                 return res.status(400).json({
                     success: false,
                     message: 'Selected university is not approved or does not exist.',
+                });
+            }
+
+            // Block HOD registration if the university has no approved coordinator yet
+            const universityCoordinator = await prisma.coordinator.findFirst({
+                where: { universityId },
+            });
+            if (!universityCoordinator) {
+                await prisma.user.delete({ where: { id: newUser.id } });
+                return res.status(400).json({
+                    success: false,
+                    message: `Your university "${university.name}" does not have a coordinator yet. Please make sure your coordinator registers and gets approved first before you register as Head of Department.`,
                 });
             }
 
@@ -428,10 +449,17 @@ export const login = async (req: Request, res: Response) => {
         if (user.role === 'HOD') {
             const profile = user.hodProfile;
             const uni = profile?.university;
-            if (!profile || !uni) {
+            if (!profile) {
                 return res.status(403).json({
                     success: false,
-                    message: 'No HOD profile is linked to this account. Contact support.',
+                    message: 'Your HoD profile is incomplete. Please re-register or contact support.',
+                    code: 'NO_INSTITUTION_PROFILE',
+                });
+            }
+            if (!uni) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No university is linked to your HoD account. Contact support.',
                     code: 'NO_INSTITUTION_PROFILE',
                 });
             }
