@@ -135,10 +135,15 @@ export default function SupervisorProjectsPage() {
     }
   };
 
-  // Students not yet in a given project
+  // Students not assigned to any active project at all
+  const assignedToAnyProject = new Set(
+    projects.flatMap((p) => p.students.map((m) => m.student.id))
+  );
+
   const availableFor = (proj: Project) => {
-    const assigned = new Set(proj.students.map((m) => m.student.id));
-    return students.filter((s) => !assigned.has(s.student.id));
+    const inThisProject = new Set(proj.students.map((m) => m.student.id));
+    // Show only students not in any project (excluding those already in this one, who are already shown as members)
+    return students.filter((s) => !assignedToAnyProject.has(s.student.id) && !inThisProject.has(s.student.id));
   };
 
   return (

@@ -15,6 +15,7 @@ type Team = {
   members: { student: { id: number; user: { full_name: string; email: string } } }[];
 };
 
+type DeletedTeam = { id: number; name: string; deleted_at: string };
 type StudentOpt = { student: { id: number; user: { full_name: string; email: string } } };
 
 function initials(name: string) {
@@ -35,6 +36,7 @@ function colorForId(id: number) {
 
 export default function SupervisorTeamsPage() {
   const [teams, setTeams] = useState<Team[]>([]);
+  const [deletedTeams, setDeletedTeams] = useState<DeletedTeam[]>([]);
   const [students, setStudents] = useState<StudentOpt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,10 +53,11 @@ export default function SupervisorTeamsPage() {
     setError(null);
     try {
       const [t, s] = await Promise.all([
-        api.get<Team[]>("/supervisor/teams"),
+        api.get<{ active: Team[]; deleted: DeletedTeam[] }>("/supervisor/teams"),
         api.get<StudentOpt[]>("/supervisor/students"),
       ]);
-      setTeams(t.data);
+      setTeams(t.data.active);
+      setDeletedTeams(t.data.deleted);
       setStudents(s.data);
     } catch {
       setError("Could not load teams.");
@@ -81,13 +84,30 @@ export default function SupervisorTeamsPage() {
     }
   };
 
-  const removeTeam = async (id: number) => {
-    if (!confirm("Delete this team and remove all members?")) return;
+  // Delete confirmation modal
+  const [deleteModal, setDeleteModal] = useState<{ id: number; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
+    setDeleting(true);
     try {
-      await api.delete(`/supervisor/teams/${id}`);
+      await api.delete(`/supervisor/teams/${deleteModal.id}`);
+      setDeleteModal(null);
       await load();
     } catch {
       setError("Failed to delete team.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const restoreTeam = async (id: number) => {
+    try {
+      await api.patch(`/supervisor/teams/${id}/restore`);
+      await load();
+    } catch {
+      setError("Failed to restore team.");
     }
   };
 
@@ -222,7 +242,7 @@ export default function SupervisorTeamsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => void removeTeam(team.id)}
+                    onClick={() => setDeleteModal({ id: team.id, name: team.name })}
                     className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                     aria-label="Delete team"
                   >
@@ -308,6 +328,38 @@ export default function SupervisorTeamsPage() {
         </div>
       )}
 
+      {/* Recently deleted */}
+      {deletedTeams.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">🗑️ Recently deleted</h2>
+          <p className="text-xs text-slate-400 mb-4">Teams are permanently deleted after 24 hours. Restore them before then.</p>
+          <div className="space-y-2">
+            {deletedTeams.map((t) => {
+              const deletedAt = new Date(t.deleted_at);
+              const expiresAt = new Date(deletedAt.getTime() + 24 * 60 * 60 * 1000);
+              const msLeft = expiresAt.getTime() - Date.now();
+              const hLeft = Math.max(0, Math.floor(msLeft / 3600000));
+              const mLeft = Math.max(0, Math.floor((msLeft % 3600000) / 60000));
+              return (
+                <div key={t.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <div>
+                    <p className="font-semibold text-slate-700 text-sm">{t.name}</p>
+                    <p className="text-xs text-slate-400">Expires in {hLeft}h {mLeft}m</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void restoreTeam(t.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors"
+                  >
+                    Restore
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Create team modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -341,6 +393,32 @@ export default function SupervisorTeamsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete confirmation modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-red-50 p-2.5 text-red-600">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Delete team?</h3>
+            </div>
+            <p className="text-sm text-slate-500">
+              <strong>"{deleteModal.name}"</strong> will be moved to trash. You have <strong>24 hours</strong> to restore it before it's permanently deleted.
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={() => setDeleteModal(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button type="button" onClick={() => void confirmDelete()} disabled={deleting}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
+                {deleting ? "Deleting…" : "Move to trash"}
+              </button>
+            </div>
           </div>
         </div>
       )}

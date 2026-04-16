@@ -331,6 +331,7 @@ model Team {
   company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   members    StudentTeam[]
   created_at DateTime      @default(now())
+  deleted_at DateTime?
 }
 
 model StudentTeam {

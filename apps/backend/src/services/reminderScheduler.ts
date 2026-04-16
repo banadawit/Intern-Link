@@ -162,11 +162,11 @@ export function scheduleProjectCleanup(): void {
     cron.schedule('0 * * * *', async () => {
         const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
         try {
-            // Use $executeRaw to avoid stale Prisma client type issues
             await prisma.$executeRaw`DELETE FROM "Project" WHERE "deleted_at" IS NOT NULL AND "deleted_at" <= ${cutoff}`;
-            console.log('🗑️  Project cleanup ran.');
+            await prisma.$executeRaw`DELETE FROM "Team" WHERE "deleted_at" IS NOT NULL AND "deleted_at" <= ${cutoff}`;
+            console.log('🗑️  Project & team cleanup ran.');
         } catch (e: any) {
-            console.error('Project cleanup error:', e?.message);
+            console.error('Cleanup error:', e?.message);
         }
     });
     console.log('✅ Project cleanup cron scheduled (every hour)');

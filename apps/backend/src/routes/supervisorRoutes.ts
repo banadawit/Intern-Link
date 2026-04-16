@@ -19,6 +19,7 @@ router.get('/attendance-heatmap', supervisorCtrl.getAttendanceHeatmap);
 router.get('/teams', supervisorTeamCtrl.listTeams);
 router.post('/teams', supervisorTeamCtrl.createTeam);
 router.delete('/teams/:id', supervisorTeamCtrl.deleteTeam);
+router.patch('/teams/:id/restore', supervisorTeamCtrl.restoreTeam);
 router.post('/teams/:id/members', supervisorTeamCtrl.addTeamMember);
 router.delete('/teams/:teamId/members/:studentId', supervisorTeamCtrl.removeTeamMember);
 

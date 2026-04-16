@@ -22,18 +22,25 @@ export const listTeams = async (req: AuthRequest, res: Response) => {
         const sup = await getSupervisor(req);
         if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
 
-        const teams = await prisma.team.findMany({
-            where: { companyId: sup.companyId },
-            include: {
-                members: {
-                    include: {
-                        student: { include: { user: { select: { full_name: true, email: true } } } },
+        const [active, deleted] = await Promise.all([
+            prisma.team.findMany({
+                where: { companyId: sup.companyId, deleted_at: null },
+                include: {
+                    members: {
+                        include: {
+                            student: { include: { user: { select: { full_name: true, email: true } } } },
+                        },
                     },
                 },
-            },
-            orderBy: { name: 'asc' },
-        });
-        res.json(teams);
+                orderBy: { name: 'asc' },
+            }),
+            prisma.team.findMany({
+                where: { companyId: sup.companyId, deleted_at: { not: null } },
+                select: { id: true, name: true, deleted_at: true },
+                orderBy: { deleted_at: 'desc' },
+            }),
+        ]);
+        res.json({ active, deleted });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         res.status(500).json({ error: message });
@@ -62,12 +69,25 @@ export const deleteTeam = async (req: AuthRequest, res: Response) => {
         const sup = await getSupervisor(req);
         if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
         const id = parseInt(String(req.params.id), 10);
-        const team = await prisma.team.findFirst({
-            where: { id, companyId: sup.companyId },
-        });
+        const team = await prisma.team.findFirst({ where: { id, companyId: sup.companyId, deleted_at: null } });
         if (!team) return res.status(404).json({ message: 'Team not found.' });
-        await prisma.team.delete({ where: { id } });
-        res.json({ message: 'Team deleted.' });
+        await prisma.team.update({ where: { id }, data: { deleted_at: new Date() } });
+        res.json({ message: 'Team moved to trash. You have 24 hours to restore it.' });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const restoreTeam = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const id = parseInt(String(req.params.id), 10);
+        const team = await prisma.team.findFirst({ where: { id, companyId: sup.companyId, deleted_at: { not: null } } });
+        if (!team) return res.status(404).json({ message: 'Team not found in trash.' });
+        await prisma.team.update({ where: { id }, data: { deleted_at: null } });
+        res.json({ message: 'Team restored.' });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         res.status(500).json({ error: message });
@@ -222,6 +242,17 @@ export const addProjectMember = async (req: AuthRequest, res: Response) => {
         if (!project) return res.status(404).json({ message: 'Project not found.' });
 
         await assertActiveStudentAtCompany(sup.companyId, studentId);
+
+        // Block if student is already assigned to any other active project at this company
+        const alreadyInProject = await prisma.studentProject.findFirst({
+            where: {
+                studentId,
+                project: { companyId: sup.companyId, deleted_at: null },
+            },
+        });
+        if (alreadyInProject) {
+            return res.status(400).json({ message: 'This student is already assigned to another project. Remove them first.' });
+        }
 
         await prisma.studentProject.create({
             data: { projectId, studentId },
