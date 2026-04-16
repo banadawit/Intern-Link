@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
 import api from "@/lib/api/client";
+import { useChatStore } from "@/lib/store/chatStore";
 
 const HodSidebar = () => {
   const pathname = usePathname();
@@ -28,18 +29,26 @@ const HodSidebar = () => {
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
-  const [unreadMessages, setUnreadMessages] = useState(0);
+  const { unreadCount, fetchUnread } = useChatStore();
+  const [pendingStudents, setPendingStudents] = useState(0);
 
   useEffect(() => {
-    api.get<{ university?: { name: string } }>("/hod/dashboard-stats")
+    api.get<{ university?: { name: string }; pendingApprovals?: number }>("/hod/dashboard-stats")
       .then(({ data }) => {
         if (data?.university?.name) setUniversityName(data.university.name);
+        if (typeof data?.pendingApprovals === 'number') setPendingStudents(data.pendingApprovals);
       })
       .catch(() => {});
-    api.get<{ count: number }>("/chat/unread-count")
-      .then(({ data }) => setUnreadMessages(data.count))
-      .catch(() => {});
-  }, []);
+    void fetchUnread();
+    const interval = setInterval(() => {
+      void fetchUnread();
+      // Refresh pending student count every 30s
+      api.get<{ pendingApprovals?: number }>("/hod/dashboard-stats")
+        .then(({ data }) => { if (typeof data?.pendingApprovals === 'number') setPendingStudents(data.pendingApprovals); })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   const handleLogout = () => {
     logout();
@@ -59,8 +68,8 @@ const HodSidebar = () => {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/hod", badge: 0 },
     { icon: MessageSquare, label: "Common Feed", path: "/hod/common-feed", badge: 0 },
-    { icon: MessagesSquare, label: "Messages", path: "/hod/chat", badge: unreadMessages },
-    { icon: Users, label: "Students", path: "/hod/students", badge: 0 },
+    { icon: MessagesSquare, label: "Messages", path: "/hod/chat", badge: unreadCount },
+    { icon: Users, label: "Students", path: "/hod/students", badge: pendingStudents },
     { icon: Building2, label: "Companies", path: "/hod/companies", badge: 0 },
     { icon: Send, label: "Placements", path: "/hod/placements", badge: 0 },
     { icon: Mail, label: "Invite company", path: "/hod/invite", badge: 0 },

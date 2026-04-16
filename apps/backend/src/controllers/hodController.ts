@@ -269,6 +269,11 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ error: 'Student must be approved by HOD before placement.' });
         }
 
+        // Block if student is already placed (active internship)
+        if (student.internship_status === 'PLACED') {
+            return res.status(400).json({ error: 'This student already has an active internship placement.' });
+        }
+
         const company = await prisma.company.findUnique({ where: { id: cid } });
         if (!company || company.approval_status !== 'APPROVED') {
             return res.status(400).json({ error: 'Company must be verified (approved).' });

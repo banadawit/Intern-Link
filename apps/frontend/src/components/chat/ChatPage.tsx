@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Send, MessageSquare, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
+import { useChatStore } from "@/lib/store/chatStore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ function formatMessageTime(dateStr: string) {
 
 export default function ChatPage() {
   const { user } = useAuth();
-  const myUserId = user?.profile?.id ?? 0;
+  const { fetchUnread } = useChatStore();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -115,6 +116,7 @@ export default function ChatPage() {
     pollRef.current = setInterval(() => {
       void loadMessages(activeId);
       void loadSidebar();
+      void fetchUnread();
     }, 3000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [activeId, loadMessages, loadSidebar]);
@@ -122,6 +124,9 @@ export default function ChatPage() {
   const openConversation = async (userId: number) => {
     setActiveId(userId);
     await loadMessages(userId);
+    void fetchUnread(); // decrement chat badge
+    // Mark any notification from this user as read
+    void api.patch("/notifications/read-all").catch(() => {});
   };
 
   const send = async (e: React.FormEvent) => {

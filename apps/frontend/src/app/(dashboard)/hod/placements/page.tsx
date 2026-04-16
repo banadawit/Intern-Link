@@ -46,7 +46,9 @@ export default function HodPlacementsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const approvedStudents = students.filter((s) => s.hod_approval_status === "APPROVED");
+  const approvedStudents = students.filter(
+    (s) => s.hod_approval_status === "APPROVED" && s.internship_status !== "PLACED"
+  );
 
   // Students whose latest proposal was rejected (internship_status reset to PENDING)
   const rejectedProposals = proposals.filter((p) => p.status === "REJECTED");
