@@ -15,6 +15,7 @@ import {
   FolderKanban,
   Sparkles,
   MessageSquare,
+  MessagesSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,6 +32,7 @@ const SupervisorSidebar = () => {
   const [pendingProposals, setPendingProposals] = useState(0);
   const [pendingPlans, setPendingPlans] = useState(0);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
     api.get<{ supervisor: { company: { name: string } }; stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } }>("/supervisor/me")
@@ -39,6 +41,9 @@ const SupervisorSidebar = () => {
         setPendingPlans(data.stats.pendingWeeklyPlansCount);
         if (data.supervisor?.company?.name) setCompanyName(data.supervisor.company.name);
       })
+      .catch(() => {});
+    api.get<{ count: number }>("/chat/unread-count")
+      .then(({ data }) => setUnreadMessages(data.count))
       .catch(() => {});
   }, []);
 
@@ -60,6 +65,7 @@ const SupervisorSidebar = () => {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/supervisor", badge: 0 },
     { icon: MessageSquare, label: "Common Feed", path: "/supervisor/common-feed", badge: 0 },
+    { icon: MessagesSquare, label: "Messages", path: "/supervisor/chat", badge: unreadMessages },
     { icon: Users, label: "Students", path: "/supervisor/students", badge: 0 },
     { icon: UsersRound, label: "Teams", path: "/supervisor/teams", badge: 0 },
     { icon: FolderKanban, label: "Projects", path: "/supervisor/projects", badge: 0 },

@@ -87,6 +87,8 @@ model User {
 
   aiChatMessages    AiChatMessage[]
   activityLogs      ActivityLog[]
+  sentMessages      ChatMessage[]   @relation("SentMessages")
+  receivedMessages  ChatMessage[]   @relation("ReceivedMessages")
 }
 
 /// Daily activity counts for contribution heatmap (login, submissions, etc.).
@@ -502,8 +504,22 @@ model Notification {
 model AuditLog {
   id          Int      @id @default(autoincrement())
   adminId     Int
-  action      String   // e.g., "APPROVED_UNIVERSITY"
-  targetId    Int      // ID of the university or company
-  details     String?  // e.g., "Approved Haramaya University"
+  action      String
+  targetId    Int
+  details     String?
   timestamp   DateTime @default(now())
+}
+
+model ChatMessage {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId Int
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@index([senderId, receiverId, created_at])
+  @@index([receiverId, is_read])
 }
