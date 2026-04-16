@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
+import { sendNotification } from '../utils/notificationHelper';
+import { sendProjectAssignmentEmail } from '../services/email.service';
 
 async function getSupervisor(req: AuthRequest) {
     return prisma.supervisor.findUnique({ where: { userId: req.user!.userId } });
@@ -257,6 +259,26 @@ export const addProjectMember = async (req: AuthRequest, res: Response) => {
         await prisma.studentProject.create({
             data: { projectId, studentId },
         });
+
+        // Notify student in-app and via email (fire-and-forget)
+        const [assignedStudent, assignedProject, supervisorProfile] = await Promise.all([
+            prisma.student.findUnique({ where: { id: studentId }, include: { user: { select: { id: true, email: true, full_name: true } } } }),
+            prisma.project.findUnique({ where: { id: projectId }, include: { company: { select: { name: true } } } }),
+            prisma.supervisor.findUnique({ where: { userId: req.user!.userId }, include: { user: { select: { full_name: true } } } }),
+        ]);
+
+        if (assignedStudent && assignedProject && supervisorProfile) {
+            const msg = `Your supervisor ${supervisorProfile.user.full_name} has assigned you to the project "${assignedProject.name}" at ${assignedProject.company.name}. Log in to InternLink to get started.`;
+            sendNotification(assignedStudent.user.id, msg).catch(() => {});
+            sendProjectAssignmentEmail({
+                to: assignedStudent.user.email,
+                studentName: assignedStudent.user.full_name,
+                projectName: assignedProject.name,
+                companyName: assignedProject.company.name,
+                supervisorName: supervisorProfile.user.full_name,
+            }).catch(() => {});
+        }
+
         res.status(201).json({ message: 'Student linked to project.' });
     } catch (error: unknown) {
         const e = error as Error & { status?: number };

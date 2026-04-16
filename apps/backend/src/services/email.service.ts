@@ -1029,7 +1029,6 @@ export const sendInternshipRejectionEmail = async (params: {
                 <p class="next-title">💡 What happens next?</p>
                 <p class="step">✅ Your Head of Department has been notified</p>
                 <p class="step">🔄 Your HOD can assign you to another company</p>
-                <p class="step">📬 You will receive a new notification once reassigned</p>
                 <p class="step">💪 Don't be discouraged — keep going!</p>
               </div>
 
@@ -1056,5 +1055,93 @@ export const sendInternshipRejectionEmail = async (params: {
         console.log(`✅ Rejection email sent to ${params.to}`);
     } catch (error: any) {
         console.error('❌ Failed to send rejection email:', error?.message || error);
+    }
+};
+
+/**
+ * Notify a student when a supervisor assigns them to a project.
+ */
+export const sendProjectAssignmentEmail = async (params: {
+    to: string;
+    studentName: string;
+    projectName: string;
+    companyName: string;
+    supervisorName: string;
+}): Promise<void> => {
+    try {
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>You've Been Assigned to a Project</title>
+          <style>
+            body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.6;color:#1e293b;background:#f8fafc;margin:0;padding:0;}
+            .container{max-width:600px;margin:40px auto;padding:0 20px;}
+            .card{background:#fff;border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1);overflow:hidden;}
+            .header{background:linear-gradient(135deg,#0d9488,#115e59);padding:36px 24px;text-align:center;}
+            .logo{font-size:26px;font-weight:700;color:#fff;margin:0 0 6px;}
+            .header-sub{color:rgba(255,255,255,.85);font-size:14px;margin:0;}
+            .badge{display:inline-block;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:50px;padding:5px 16px;color:#fff;font-size:12px;font-weight:600;margin-top:14px;}
+            .content{padding:32px 28px;}
+            .info-box{background:#f0fdfa;border-left:4px solid #0d9488;border-radius:8px;padding:16px 20px;margin:20px 0;}
+            .info-row{margin:6px 0;font-size:14px;color:#1e293b;}
+            .info-label{font-weight:600;color:#0f766e;min-width:110px;display:inline-block;}
+            .button{display:inline-block;background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff!important;text-decoration:none;padding:13px 32px;border-radius:10px;font-weight:700;font-size:14px;margin:20px 0;}
+            .divider{border:none;border-top:1px solid #e2e8f0;margin:24px 0;}
+            .footer{background:#f1f5f9;padding:22px 24px;text-align:center;font-size:12px;color:#64748b;}
+          </style>
+        </head>
+        <body>
+          <div class="container"><div class="card">
+            <div class="header">
+              <h1 class="logo">🚀 InternLink</h1>
+              <p class="header-sub">Smart Internship Management System</p>
+              <span class="badge">📁 New Project Assignment</span>
+            </div>
+            <div class="content">
+              <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Hi ${escapeHtml(params.studentName)},</h2>
+              <p style="color:#475569;font-size:15px;margin:0 0 20px;">
+                Great news! Your supervisor has assigned you to a new project. Please log in to the InternLink system, review the project details, and begin your work.
+              </p>
+
+              <div class="info-box">
+                <div class="info-row"><span class="info-label">📁 Project</span>${escapeHtml(params.projectName)}</div>
+                <div class="info-row"><span class="info-label">🏢 Company</span>${escapeHtml(params.companyName)}</div>
+                <div class="info-row"><span class="info-label">👤 Supervisor</span>${escapeHtml(params.supervisorName)}</div>
+              </div>
+
+              <p style="color:#475569;font-size:14px;">
+                Log in to InternLink to view your project, submit your weekly plans, and stay in sync with your supervisor throughout the internship.
+              </p>
+
+              <hr class="divider"/>
+              <div style="text-align:center;">
+                <a href="${frontendUrl}/student" class="button">View My Dashboard →</a>
+              </div>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} InternLink — Connecting Ethiopian Universities with Industry Leaders</p>
+            </div>
+          </div></div>
+        </body>
+        </html>`;
+
+        const info = await transporter.sendMail({
+            from: `"InternLink" <${fromAddr}>`,
+            to: params.to,
+            subject: `📁 You've been assigned to "${params.projectName}" — ${params.companyName}`,
+            html,
+        });
+        const preview = nodemailer.getTestMessageUrl(info);
+        if (preview) console.info(`ℹ️  Project assignment email preview: ${preview}`);
+        console.log(`✅ Project assignment email sent to ${params.to}`);
+    } catch (error: any) {
+        console.error('❌ Failed to send project assignment email:', error?.message || error);
     }
 };
