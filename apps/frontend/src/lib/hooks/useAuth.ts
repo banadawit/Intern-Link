@@ -27,6 +27,7 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   error: string | null;
+  _hydrated: boolean;
   
   // Actions
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
@@ -92,6 +93,7 @@ export const useAuth = create<AuthState>()(
       token: null,
       isLoading: false,
       error: null,
+      _hydrated: false,
 
       // ============================================
       // LOGIN - Real API Call
@@ -287,6 +289,11 @@ export const useAuth = create<AuthState>()(
     {
       name: 'auth-storage',
       partialize: (state) => ({ user: state.user, token: state.token }),
+      onRehydrateStorage: () => (_state, error) => {
+        if (!error) {
+          useAuth.setState({ _hydrated: true });
+        }
+      },
     }
   )
 );

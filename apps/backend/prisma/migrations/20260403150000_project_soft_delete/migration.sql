@@ -1,0 +1,1 @@
+ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "deleted_at" TIMESTAMP(3);

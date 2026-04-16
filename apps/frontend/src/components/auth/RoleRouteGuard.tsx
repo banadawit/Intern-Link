@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -33,65 +33,69 @@ function LoadingScreen() {
 export default function RoleRouteGuard({ allowedRole, children }: RoleRouteGuardProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const [hasToken, setHasToken] = useState<boolean | null>(null);
-  const [hydrationTimedOut, setHydrationTimedOut] = useState(false);
-  // Wait for Zustand to rehydrate from localStorage before making approval checks
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [ready, setReady] = useState(false);
+  const redirected = useRef(false);
 
   useEffect(() => {
-    setHasToken(Boolean(localStorage.getItem("token")));
-    // Give Zustand persist a tick to rehydrate
-    const t = setTimeout(() => setIsHydrated(true), 50);
-    return () => clearTimeout(t);
-  }, []);
+    // Read persisted auth directly from localStorage — avoids Zustand hydration race
+    let storedUser: { role?: string; institutionAccessApproval?: string } | null = null;
+    try {
+      const raw = localStorage.getItem("auth-storage");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        storedUser = parsed?.state?.user ?? null;
+      }
+    } catch {
+      storedUser = null;
+    }
 
-  useEffect(() => {
-    if (!hasToken || user) return;
-    const timeout = setTimeout(() => setHydrationTimedOut(true), 1500);
-    return () => clearTimeout(timeout);
-  }, [hasToken, user]);
+    const token = localStorage.getItem("token");
 
-  useEffect(() => {
-    if (hasToken === null || !isHydrated) return;
-    if (!hasToken) {
-      router.replace("/login");
+    if (!token || !storedUser) {
+      if (!redirected.current) {
+        redirected.current = true;
+        router.replace("/login");
+      }
       return;
     }
-    if (!user && hydrationTimedOut) {
-      router.replace("/login");
+
+    const role = storedUser.role as AppRole;
+
+    if (role !== allowedRole) {
+      if (!redirected.current) {
+        redirected.current = true;
+        router.replace(roleHome[role] ?? "/login");
+      }
       return;
     }
-    if (!user) return;
-    if (user.role !== allowedRole) {
-      router.replace(roleHome[user.role]);
-      return;
-    }
-    // Block access if institution approval is still pending
+
     if (
       requiresInstitutionApproval.includes(allowedRole) &&
-      user.institutionAccessApproval !== "APPROVED"
+      storedUser.institutionAccessApproval !== "APPROVED"
     ) {
-      const msg = encodeURIComponent(
-        allowedRole === "COORDINATOR"
-          ? "Your coordinator account is pending administrator approval. You will receive an email once approved."
-          : allowedRole === "HOD"
-          ? "Your Head of Department account is pending coordinator approval. You will receive an email once approved."
-          : "Your account is pending institutional approval."
-      );
-      router.replace(`/verification-pending?message=${msg}`);
+      if (!redirected.current) {
+        redirected.current = true;
+        const msg = encodeURIComponent(
+          allowedRole === "COORDINATOR"
+            ? "Your coordinator account is pending administrator approval."
+            : allowedRole === "HOD"
+            ? "Your Head of Department account is pending coordinator approval."
+            : "Your account is pending institutional approval."
+        );
+        router.replace(`/verification-pending?message=${msg}`);
+      }
+      return;
     }
-  }, [allowedRole, hasToken, hydrationTimedOut, isHydrated, router, user]);
 
-  // Show loader until hydrated and user is confirmed
-  if (hasToken === null || !isHydrated || !hasToken || !user || user.role !== allowedRole) {
-    return <LoadingScreen />;
-  }
+    setReady(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Block render if institution approval pending
-  if (
-    requiresInstitutionApproval.includes(allowedRole) &&
-    user.institutionAccessApproval !== "APPROVED"
-  ) {
+  if (!ready) return <LoadingScreen />;
+
+  // Double-check with live Zustand state once hydrated
+  if (user && user.role !== allowedRole) {
+    router.replace(roleHome[user.role]);
     return <LoadingScreen />;
   }
 

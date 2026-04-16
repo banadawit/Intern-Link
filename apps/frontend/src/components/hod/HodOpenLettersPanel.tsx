@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import type { HodProposalRow } from "./types";
 
 type Props = {
@@ -24,7 +25,13 @@ export default function HodOpenLettersPanel({ openLetters, submitting, onApprove
             <div className="text-sm text-slate-800">
               <span className="font-semibold">{p.student.user.full_name}</span>
               <span className="text-slate-500"> → {p.company.name} </span>
-              <span className="rounded-md bg-slate-200/80 px-1.5 py-0.5 text-xs font-medium text-slate-700">
+              <span className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-semibold",
+                p.status === "PENDING"  && "bg-amber-100 text-amber-800",
+                p.status === "APPROVED" && "bg-emerald-100 text-emerald-800",
+                p.status === "REJECTED" && "bg-red-100 text-red-700",
+                !["PENDING","APPROVED","REJECTED"].includes(p.status) && "bg-slate-200 text-slate-700",
+              )}>
                 {p.status}
               </span>
             </div>

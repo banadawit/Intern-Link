@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { attachProposalSla } from '../utils/verificationSla';
+import { sendInternshipAcceptanceEmail, sendInternshipRejectionEmail } from '../services/email.service';
 
 // 1. COORDINATOR: Send Placement Proposal to a Company
 export const sendPlacementProposal = async (req: AuthRequest, res: Response) => {
@@ -101,59 +102,59 @@ export const getIncomingProposals = async (req: AuthRequest, res: Response) => {
 // 3. SUPERVISOR: Accept or Reject Proposal
 export const respondToProposal = async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params; // Proposal ID
-        const { status } = req.body; // 'APPROVED' (Accept) or 'REJECTED'
+        const { id } = req.params;
+        const { status, reason } = req.body as { status: 'APPROVED' | 'REJECTED'; reason?: string };
+        const proposalId = parseInt(String(Array.isArray(id) ? id[0] : id), 10);
 
-        // Ensure id is a string (handle string | string[])
-        const proposalId = Array.isArray(id) ? id[0] : id;
-
-        const supervisor = await prisma.supervisor.findUnique({
+        const supervisorProfile = await prisma.supervisor.findUnique({
             where: { userId: req.user?.userId },
+            include: { user: { select: { full_name: true } } },
         });
-        if (!supervisor) {
-            return res.status(403).json({ message: 'Supervisor profile not found.' });
-        }
+        if (!supervisorProfile) return res.status(403).json({ message: 'Supervisor profile not found.' });
 
-        const existingProposal = await prisma.internshipProposal.findUnique({
-            where: { id: parseInt(String(proposalId), 10) },
-        });
-        if (!existingProposal || existingProposal.companyId !== supervisor.companyId) {
+        const existing = await prisma.internshipProposal.findUnique({ where: { id: proposalId } });
+        if (!existing || existing.companyId !== supervisorProfile.companyId) {
             return res.status(403).json({ message: 'This proposal does not belong to your company.' });
         }
 
-        // Start a Transaction (FR-4.6 Automation)
         const result = await prisma.$transaction(async (tx) => {
             const now = new Date();
             const proposal = await tx.internshipProposal.update({
-                where: { id: parseInt(String(proposalId), 10) },
-                data: {
-                    status,
-                    responded_at: now,
+                where: { id: proposalId },
+                data: { status, responded_at: now },
+                include: {
+                    student: { include: { user: { select: { email: true, full_name: true } } } },
+                    company: { select: { name: true } },
                 },
             });
 
             if (status === 'APPROVED') {
-                const start = now;
                 let endDate: Date | null = null;
-                const weeks = proposal.expected_duration_weeks;
-                if (weeks != null && weeks > 0) {
-                    const end = new Date(start);
-                    end.setDate(end.getDate() + weeks * 7);
+                if (proposal.expected_duration_weeks != null && proposal.expected_duration_weeks > 0) {
+                    const end = new Date(now);
+                    end.setDate(end.getDate() + proposal.expected_duration_weeks * 7);
                     endDate = end;
                 }
                 await tx.internshipAssignment.create({
                     data: {
                         studentId: proposal.studentId,
                         companyId: proposal.companyId,
-                        start_date: start,
+                        start_date: now,
                         end_date: endDate,
-                        status: 'ACTIVE'
-                    }
+                        status: 'ACTIVE',
+                    },
                 });
-
                 await tx.student.update({
                     where: { id: proposal.studentId },
-                    data: { internship_status: 'PLACED' }
+                    data: { internship_status: 'PLACED' },
+                });
+            }
+
+            if (status === 'REJECTED') {
+                // Reset student to PENDING so HOD can reassign to another company
+                await tx.student.update({
+                    where: { id: proposal.studentId },
+                    data: { internship_status: 'PENDING' },
                 });
             }
 
@@ -161,6 +162,32 @@ export const respondToProposal = async (req: AuthRequest, res: Response) => {
         });
 
         res.json({ message: `Proposal ${status}`, result });
+
+        // Post-response emails (fire-and-forget)
+        if (status === 'APPROVED') {
+            sendInternshipAcceptanceEmail({
+                to: result.student.user.email,
+                studentName: result.student.user.full_name,
+                companyName: result.company.name,
+                supervisorName: supervisorProfile.user.full_name,
+                startDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+            }).catch((e) => console.error('Acceptance email error:', e?.message));
+        }
+
+        if (status === 'REJECTED') {
+            const rejectionReason = (typeof reason === 'string' && reason.trim())
+                ? reason.trim()
+                : 'The company was unable to accommodate your application at this time.';
+
+            sendInternshipRejectionEmail({
+                to: result.student.user.email,
+                studentName: result.student.user.full_name,
+                companyName: result.company.name,
+                supervisorName: supervisorProfile.user.full_name,
+                reason: rejectionReason,
+            }).catch((e) => console.error('Rejection email error:', e?.message));
+        }
+
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
