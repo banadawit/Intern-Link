@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
 import api from "@/lib/api/client";
+import { useChatStore } from "@/lib/store/chatStore";
 
 const StudentSidebar = () => {
   const pathname = usePathname();
@@ -26,18 +27,16 @@ const StudentSidebar = () => {
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
-  const [unreadMessages, setUnreadMessages] = useState(0);
+  const { unreadCount, fetchUnread } = useChatStore();
 
   useEffect(() => {
     api.get<{ university?: { name: string } }>("/students/me")
-      .then(({ data }) => {
-        if (data?.university?.name) setUniversityName(data.university.name);
-      })
+      .then(({ data }) => { if (data?.university?.name) setUniversityName(data.university.name); })
       .catch(() => {});
-    api.get<{ count: number }>("/chat/unread-count")
-      .then(({ data }) => setUnreadMessages(data.count))
-      .catch(() => {});
-  }, []);
+    void fetchUnread();
+    const interval = setInterval(() => void fetchUnread(), 10000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   const handleLogout = () => {
     logout();
@@ -58,7 +57,7 @@ const StudentSidebar = () => {
     { icon: ClipboardList, label: "Weekly Plans", path: "/student/plans", badge: 0 },
     { icon: Sparkles, label: "AI assistant", path: "/student/ai", badge: 0 },
     { icon: MessageSquare, label: "Common Feed", path: "/student/common", badge: 0 },
-    { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadMessages },
+    { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
     { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
     { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation", badge: 0 },
     { icon: Settings, label: "Settings", path: "/student/settings", badge: 0 },

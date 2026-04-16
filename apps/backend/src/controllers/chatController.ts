@@ -155,7 +155,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                 contacts = assignments.map((a) => ({ ...a.student.user, role: 'STUDENT' }));
             }
         } else if (user.role === 'HOD') {
-            // HOD can chat with their approved students
+            // HOD can chat with their approved students AND the coordinator of their university
             const hod = await prisma.hodProfile.findUnique({ where: { userId: me } });
             if (hod) {
                 const students = await prisma.student.findMany({
@@ -163,6 +163,26 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                     include: { user: { select: { id: true, full_name: true } } },
                 });
                 contacts = students.map((s) => ({ ...s.user, role: 'STUDENT' }));
+
+                // Add the coordinator of the same university
+                const coordinator = await prisma.coordinator.findUnique({
+                    where: { universityId: hod.universityId },
+                    include: { user: { select: { id: true, full_name: true } } },
+                });
+                if (coordinator) contacts.push({ ...coordinator.user, role: 'COORDINATOR' });
+            }
+        } else if (user.role === 'COORDINATOR') {
+            // Coordinator can chat with all HODs at their university
+            const coordinator = await prisma.coordinator.findUnique({ where: { userId: me } });
+            if (coordinator?.universityId) {
+                const hods = await prisma.hodProfile.findMany({
+                    where: {
+                        universityId: coordinator.universityId,
+                        user: { institution_access_approval: 'APPROVED' },
+                    },
+                    include: { user: { select: { id: true, full_name: true } } },
+                });
+                contacts = hods.map((h) => ({ ...h.user, role: 'HOD' }));
             }
         }
 

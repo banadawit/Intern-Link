@@ -9,6 +9,7 @@ import {
   History,
   Landmark,
   MessageSquare,
+  MessagesSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
 import api from "@/lib/api/client";
+import { useChatStore } from "@/lib/store/chatStore";
 
 const CoordinatorSidebar = () => {
   const pathname = usePathname();
@@ -24,6 +26,7 @@ const CoordinatorSidebar = () => {
   const [showLogout, setShowLogout] = useState(false);
   const [pendingHodCount, setPendingHodCount] = useState(0);
   const [universityName, setUniversityName] = useState<string | null>(null);
+  const { unreadCount, fetchUnread } = useChatStore();
 
   useEffect(() => {
     api.get<{ id: number; university?: { name: string } }[]>("/coordinator/pending-hods")
@@ -32,13 +35,15 @@ const CoordinatorSidebar = () => {
         if (data.length > 0 && data[0].university?.name) setUniversityName(data[0].university.name);
       })
       .catch(() => {});
-    // Also try approved-hods if pending is empty
     api.get<{ id: number; university?: { name: string } }[]>("/coordinator/approved-hods")
       .then(({ data }) => {
         if (data.length > 0 && data[0].university?.name) setUniversityName(data[0].university.name);
       })
       .catch(() => {});
-  }, []);
+    void fetchUnread();
+    const interval = setInterval(() => void fetchUnread(), 10000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   const handleLogout = () => {
     logout();
@@ -60,6 +65,7 @@ const CoordinatorSidebar = () => {
     { icon: MessageSquare, label: "Common Feed", path: "/coordinator/common-feed", badge: 0 },
     { icon: ClipboardCheck, label: "HOD management", path: "/coordinator/hods", badge: pendingHodCount },
     { icon: History, label: "Approvals", path: "/coordinator/approvals", badge: 0 },
+    { icon: MessagesSquare, label: "Messages", path: "/coordinator/chat", badge: unreadCount },
     { icon: Sparkles, label: "AI assistant", path: "/coordinator/ai", badge: 0 },
   ];
 
