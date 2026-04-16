@@ -131,18 +131,25 @@ export const listProjects = async (req: AuthRequest, res: Response) => {
         const sup = await getSupervisor(req);
         if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
 
-        const projects = await prisma.project.findMany({
-            where: { companyId: sup.companyId },
-            include: {
-                students: {
-                    include: {
-                        student: { include: { user: { select: { full_name: true, email: true } } } },
+        const [active, deleted] = await Promise.all([
+            prisma.project.findMany({
+                where: { companyId: sup.companyId, deleted_at: null },
+                include: {
+                    students: {
+                        include: {
+                            student: { include: { user: { select: { full_name: true, email: true } } } },
+                        },
                     },
                 },
-            },
-            orderBy: { name: 'asc' },
-        });
-        res.json(projects);
+                orderBy: { name: 'asc' },
+            }),
+            prisma.project.findMany({
+                where: { companyId: sup.companyId, deleted_at: { not: null } },
+                select: { id: true, name: true, deleted_at: true },
+                orderBy: { deleted_at: 'desc' },
+            }),
+        ]);
+        res.json({ active, deleted });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         res.status(500).json({ error: message });
@@ -172,11 +179,29 @@ export const deleteProject = async (req: AuthRequest, res: Response) => {
         if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
         const id = parseInt(String(req.params.id), 10);
         const project = await prisma.project.findFirst({
-            where: { id, companyId: sup.companyId },
+            where: { id, companyId: sup.companyId, deleted_at: null },
         });
         if (!project) return res.status(404).json({ message: 'Project not found.' });
-        await prisma.project.delete({ where: { id } });
-        res.json({ message: 'Project deleted.' });
+        // Soft delete — hard delete happens after 24h via cron
+        await prisma.project.update({ where: { id }, data: { deleted_at: new Date() } });
+        res.json({ message: 'Project moved to trash. You have 24 hours to restore it.' });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};
+
+export const restoreProject = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        const id = parseInt(String(req.params.id), 10);
+        const project = await prisma.project.findFirst({
+            where: { id, companyId: sup.companyId, deleted_at: { not: null } },
+        });
+        if (!project) return res.status(404).json({ message: 'Project not found in trash.' });
+        await prisma.project.update({ where: { id }, data: { deleted_at: null } });
+        res.json({ message: 'Project restored.' });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         res.status(500).json({ error: message });

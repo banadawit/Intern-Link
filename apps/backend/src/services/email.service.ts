@@ -69,7 +69,7 @@ const initTransporter = async (): Promise<Transporter> => {
 /**
  * Get transporter instance
  */
-const getTransporter = async (): Promise<Transporter> => {
+export const getTransporter = async (): Promise<Transporter> => {
   if (!transporter) {
     transporter = await initTransporter();
   }
@@ -848,4 +848,213 @@ export const testEmailConfig = async (): Promise<boolean> => {
     console.error('❌ Email configuration is invalid:', error);
     return false;
   }
+};
+
+/**
+ * Congratulate a student when their internship proposal is accepted by a company supervisor.
+ */
+export const sendInternshipAcceptanceEmail = async (params: {
+    to: string;
+    studentName: string;
+    companyName: string;
+    supervisorName: string;
+    startDate: string;
+}): Promise<void> => {
+    try {
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Internship Accepted — Congratulations!</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .card { background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #0d9488 0%, #115e59 100%); padding: 40px 24px; text-align: center; }
+            .logo { font-size: 28px; font-weight: bold; color: white; margin: 0 0 8px; }
+            .header-sub { color: rgba(255,255,255,0.85); font-size: 15px; margin: 0; }
+            .congrats-badge { display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 50px; padding: 6px 18px; color: white; font-size: 13px; font-weight: 600; margin-top: 16px; letter-spacing: 0.5px; }
+            .content { padding: 36px 32px; }
+            .greeting { font-size: 22px; font-weight: 700; color: #0f172a; margin: 0 0 12px; }
+            .intro { font-size: 15px; color: #475569; margin: 0 0 28px; }
+            .info-box { background: linear-gradient(135deg, #f0fdfa, #ecfdf5); border: 1px solid #99f6e4; border-radius: 12px; padding: 20px 24px; margin: 24px 0; }
+            .info-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 14px; color: #1e293b; }
+            .info-label { font-weight: 600; color: #0f766e; min-width: 110px; }
+            .divider { border: none; border-top: 1px solid #e2e8f0; margin: 28px 0; }
+            .cta-section { text-align: center; margin: 28px 0; }
+            .button { display: inline-block; background: linear-gradient(135deg, #0d9488, #0f766e); color: white !important; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-weight: 700; font-size: 15px; letter-spacing: 0.3px; }
+            .tips { background: #f8fafc; border-radius: 10px; padding: 18px 22px; margin: 24px 0; }
+            .tips-title { font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 10px; }
+            .tip { font-size: 14px; color: #475569; margin: 6px 0; }
+            .footer { background-color: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="card">
+              <div class="header">
+                <h1 class="logo">🎉 InternLink</h1>
+                <p class="header-sub">Smart Internship Management System</p>
+                <span class="congrats-badge">✨ Internship Accepted</span>
+              </div>
+
+              <div class="content">
+                <h2 class="greeting">Congratulations, ${escapeHtml(params.studentName)}! 🎊</h2>
+                <p class="intro">
+                  We are thrilled to inform you that your internship application has been <strong>officially accepted</strong>.
+                  Your hard work and dedication have paid off — this is a huge milestone in your career journey! 🚀
+                </p>
+
+                <div class="info-box">
+                  <div class="info-row">
+                    <span class="info-label">🏢 Company</span>
+                    <span>${escapeHtml(params.companyName)}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">👤 Supervisor</span>
+                    <span>${escapeHtml(params.supervisorName)}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">📅 Start Date</span>
+                    <span>${escapeHtml(params.startDate)}</span>
+                  </div>
+                </div>
+
+                <div class="tips">
+                  <p class="tips-title">💡 Tips to get started</p>
+                  <p class="tip">✅ Log in to InternLink and check your dashboard</p>
+                  <p class="tip">📋 Visit the company and receive your assigned project to get started</p>
+                  <p class="tip">💬 Introduce yourself to your supervisor via the platform</p>
+                  <p class="tip">📈 Track your progress and stay consistent</p>
+                </div>
+
+                <hr class="divider" />
+
+                <div class="cta-section">
+                  <p style="font-size:14px;color:#64748b;margin-bottom:16px;">Ready to begin your internship journey?</p>
+                  <a href="${frontendUrl}/student" class="button">Go to My Dashboard →</a>
+                </div>
+              </div>
+
+              <div class="footer">
+                <p>🌟 Best of luck with your internship at <strong>${escapeHtml(params.companyName)}</strong>!</p>
+                <p style="margin-top:8px;">&copy; ${new Date().getFullYear()} InternLink — Connecting Ethiopian Universities with Industry Leaders</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>`;
+
+        const info = await transporter.sendMail({
+            from: `"InternLink" <${fromAddr}>`,
+            to: params.to,
+            subject: `🎉 Congratulations! Your internship at ${params.companyName} has been accepted`,
+            html,
+        });
+
+        const preview = nodemailer.getTestMessageUrl(info);
+        if (preview) console.info(`ℹ️  Acceptance email preview: ${preview}`);
+        console.log(`✅ Internship acceptance email sent to ${params.to}`);
+    } catch (error: any) {
+        console.error('❌ Failed to send acceptance email:', error?.message || error);
+    }
+};
+
+/**
+ * Notify a student when a supervisor rejects their internship proposal.
+ */
+export const sendInternshipRejectionEmail = async (params: {
+    to: string;
+    studentName: string;
+    companyName: string;
+    supervisorName: string;
+    reason: string;
+}): Promise<void> => {
+    try {
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Internship Application Update</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #0d9488 0%, #115e59 100%); padding: 36px 24px; text-align: center; }
+            .logo { font-size: 26px; font-weight: 700; color: #fff; margin: 0 0 6px; }
+            .header-sub { color: rgba(255,255,255,0.85); font-size: 14px; margin: 0; }
+            .content { padding: 32px 28px; }
+            .reason-box { background: #fff7ed; border-left: 4px solid #f97316; border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+            .reason-label { font-size: 12px; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.6px; margin: 0 0 6px; }
+            .reason-text { font-size: 14px; color: #431407; margin: 0; }
+            .next-steps { background: #f0fdfa; border-radius: 10px; padding: 18px 22px; margin: 20px 0; }
+            .next-title { font-size: 13px; font-weight: 700; color: #0f766e; text-transform: uppercase; letter-spacing: 0.6px; margin: 0 0 10px; }
+            .step { font-size: 14px; color: #475569; margin: 6px 0; }
+            .button { display: inline-block; background: linear-gradient(135deg, #0d9488, #0f766e); color: #fff !important; text-decoration: none; padding: 12px 30px; border-radius: 8px; font-weight: 700; font-size: 14px; margin: 20px 0; }
+            .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+            .footer { background: #f1f5f9; padding: 22px 24px; text-align: center; font-size: 12px; color: #64748b; }
+          </style>
+        </head>
+        <body>
+          <div class="container"><div class="card">
+            <div class="header">
+              <h1 class="logo">InternLink</h1>
+              <p class="header-sub">Smart Internship Management System</p>
+            </div>
+            <div class="content">
+              <h2 style="margin:0 0 12px;font-size:20px;color:#0f172a;">Hi ${escapeHtml(params.studentName)},</h2>
+              <p style="color:#475569;font-size:15px;margin:0 0 20px;">
+                We want to keep you informed about your internship application. Unfortunately, your proposal to
+                <strong>${escapeHtml(params.companyName)}</strong> has not been accepted at this time.
+              </p>
+
+              <div class="reason-box">
+                <p class="reason-label">📋 Reason from supervisor</p>
+                <p class="reason-text">${escapeHtml(params.reason)}</p>
+              </div>
+
+              <div class="next-steps">
+                <p class="next-title">💡 What happens next?</p>
+                <p class="step">✅ Your Head of Department has been notified</p>
+                <p class="step">🔄 Your HOD can assign you to another company</p>
+                <p class="step">📬 You will receive a new notification once reassigned</p>
+                <p class="step">💪 Don't be discouraged — keep going!</p>
+              </div>
+
+              <hr class="divider" />
+              <div style="text-align:center;">
+                <a href="${frontendUrl}/student" class="button">Go to My Dashboard →</a>
+              </div>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} InternLink — Connecting Ethiopian Universities with Industry Leaders</p>
+            </div>
+          </div></div>
+        </body>
+        </html>`;
+
+        const info = await transporter.sendMail({
+            from: `"InternLink" <${fromAddr}>`,
+            to: params.to,
+            subject: `Update on your internship application — ${params.companyName}`,
+            html,
+        });
+        const preview = nodemailer.getTestMessageUrl(info);
+        if (preview) console.info(`ℹ️  Rejection email preview: ${preview}`);
+        console.log(`✅ Rejection email sent to ${params.to}`);
+    } catch (error: any) {
+        console.error('❌ Failed to send rejection email:', error?.message || error);
+    }
 };

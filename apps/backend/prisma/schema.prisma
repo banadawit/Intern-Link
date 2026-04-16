@@ -349,6 +349,7 @@ model Project {
   company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   students   StudentProject[]
   created_at DateTime          @default(now())
+  deleted_at DateTime?
 }
 
 model StudentProject {

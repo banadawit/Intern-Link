@@ -22,6 +22,8 @@ import activityRoutes from './routes/activityRoutes';
 import hodRoutes from './routes/hodRoutes';
 import commonFeedRoutes from './routes/commonFeedRoutes';
 
+import { startReminderScheduler } from './services/reminderScheduler';
+
 const app: Application = express();
 
 // 1. Middlewares
@@ -56,6 +58,7 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
     console.log(` Server is running on http://localhost:${PORT}`);
+    startReminderScheduler();
 });
 
 // Trigger reload again

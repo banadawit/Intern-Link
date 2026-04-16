@@ -25,6 +25,7 @@ router.delete('/teams/:teamId/members/:studentId', supervisorTeamCtrl.removeTeam
 router.get('/projects', supervisorTeamCtrl.listProjects);
 router.post('/projects', supervisorTeamCtrl.createProject);
 router.delete('/projects/:id', supervisorTeamCtrl.deleteProject);
+router.patch('/projects/:id/restore', supervisorTeamCtrl.restoreProject);
 router.post('/projects/:id/members', supervisorTeamCtrl.addProjectMember);
 router.delete('/projects/:projectId/members/:studentId', supervisorTeamCtrl.removeProjectMember);
 
