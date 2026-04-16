@@ -113,6 +113,18 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
             select: { id: true, content: true, created_at: true, senderId: true, receiverId: true, is_read: true },
         });
 
+        // Create in-app notification for the receiver
+        const sender = await prisma.user.findUnique({ where: { id: me }, select: { full_name: true } });
+        if (sender) {
+            await prisma.notification.create({
+                data: {
+                    recipientId: other,
+                    message: `New message from ${sender.full_name}: "${content.slice(0, 60)}${content.length > 60 ? '…' : ''}"`,
+                    is_read: false,
+                },
+            });
+        }
+
         res.status(201).json(message);
     } catch (e: any) {
         res.status(500).json({ error: e.message });

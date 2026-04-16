@@ -30,13 +30,23 @@ const HodSidebar = () => {
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const { unreadCount, fetchUnread } = useChatStore();
+  const [pendingStudents, setPendingStudents] = useState(0);
 
   useEffect(() => {
-    api.get<{ university?: { name: string } }>("/hod/dashboard-stats")
-      .then(({ data }) => { if (data?.university?.name) setUniversityName(data.university.name); })
+    api.get<{ university?: { name: string }; pendingApprovals?: number }>("/hod/dashboard-stats")
+      .then(({ data }) => {
+        if (data?.university?.name) setUniversityName(data.university.name);
+        if (typeof data?.pendingApprovals === 'number') setPendingStudents(data.pendingApprovals);
+      })
       .catch(() => {});
     void fetchUnread();
-    const interval = setInterval(() => void fetchUnread(), 10000);
+    const interval = setInterval(() => {
+      void fetchUnread();
+      // Refresh pending student count every 30s
+      api.get<{ pendingApprovals?: number }>("/hod/dashboard-stats")
+        .then(({ data }) => { if (typeof data?.pendingApprovals === 'number') setPendingStudents(data.pendingApprovals); })
+        .catch(() => {});
+    }, 30000);
     return () => clearInterval(interval);
   }, [fetchUnread]);
 
@@ -59,7 +69,7 @@ const HodSidebar = () => {
     { icon: LayoutDashboard, label: "Dashboard", path: "/hod", badge: 0 },
     { icon: MessageSquare, label: "Common Feed", path: "/hod/common-feed", badge: 0 },
     { icon: MessagesSquare, label: "Messages", path: "/hod/chat", badge: unreadCount },
-    { icon: Users, label: "Students", path: "/hod/students", badge: 0 },
+    { icon: Users, label: "Students", path: "/hod/students", badge: pendingStudents },
     { icon: Building2, label: "Companies", path: "/hod/companies", badge: 0 },
     { icon: Send, label: "Placements", path: "/hod/placements", badge: 0 },
     { icon: Mail, label: "Invite company", path: "/hod/invite", badge: 0 },

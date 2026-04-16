@@ -8,6 +8,7 @@ export type HodStats = {
 export type HodStudentRow = {
   id: number;
   hod_approval_status: string;
+  internship_status: string;
   department: string | null;
   user: { full_name: string; email: string };
 };

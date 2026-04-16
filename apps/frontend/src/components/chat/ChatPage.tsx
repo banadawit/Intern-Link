@@ -124,7 +124,9 @@ export default function ChatPage() {
   const openConversation = async (userId: number) => {
     setActiveId(userId);
     await loadMessages(userId);
-    void fetchUnread(); // decrement badge after marking as read
+    void fetchUnread(); // decrement chat badge
+    // Mark any notification from this user as read
+    void api.patch("/notifications/read-all").catch(() => {});
   };
 
   const send = async (e: React.FormEvent) => {

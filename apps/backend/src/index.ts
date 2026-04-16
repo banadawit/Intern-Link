@@ -24,6 +24,7 @@ import commonFeedRoutes from './routes/commonFeedRoutes';
 
 import { startReminderScheduler } from './services/reminderScheduler';
 import chatRoutes from './routes/chatRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 const app: Application = express();
 
@@ -50,6 +51,7 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/hod', hodRoutes);
 app.use('/api/common-feed', commonFeedRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationRoutes);
 // 3. Basic Health Check Route
 app.get('/', (req: Request, res: Response) => {
     res.send('InternLink Backend API is Running...');
