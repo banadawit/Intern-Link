@@ -174,9 +174,6 @@ export default function AIChat({ variant, role, className, title = "InternLink A
             <Sparkles className="h-5 w-5 text-primary-600" aria-hidden />
             <div>
               <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
-              <p className="text-xs text-slate-500">
-                Chat naturally. You can edit or copy replies before using them elsewhere.
-              </p>
             </div>
           </div>
           <button
