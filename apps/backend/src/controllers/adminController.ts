@@ -715,7 +715,7 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
         }
 
         // Enforce one coordinator per university
-        const existingCoordinator = await prisma.coordinator.findUnique({
+        const existingCoordinator = await prisma.coordinator.findFirst({
             where: { universityId: university.id },
         });
         if (existingCoordinator && existingCoordinator.userId !== userId) {
