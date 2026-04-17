@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   LogOut,
   School,
-  Sparkles,
   Users,
   Building2,
   Send,
@@ -75,7 +74,6 @@ const HodSidebar = () => {
     { icon: Mail, label: "Invite company", path: "/hod/invite", badge: 0 },
     { icon: FileCheck, label: "Open letters", path: "/hod/open-letters", badge: 0 },
     { icon: FileText, label: "Reports", path: "/hod/reports", badge: 0 },
-    { icon: Sparkles, label: "AI assistant", path: "/hod/ai", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>

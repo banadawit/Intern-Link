@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   LogOut,
-  Sparkles,
   ClipboardCheck,
   History,
   Landmark,
@@ -66,7 +65,6 @@ const CoordinatorSidebar = () => {
     { icon: ClipboardCheck, label: "HOD management", path: "/coordinator/hods", badge: pendingHodCount },
     { icon: History, label: "Approvals", path: "/coordinator/approvals", badge: 0 },
     { icon: MessagesSquare, label: "Messages", path: "/coordinator/chat", badge: unreadCount },
-    { icon: Sparkles, label: "AI assistant", path: "/coordinator/ai", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>

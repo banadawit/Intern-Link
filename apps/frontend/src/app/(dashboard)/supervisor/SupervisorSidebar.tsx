@@ -13,7 +13,6 @@ import {
   ListChecks,
   UsersRound,
   FolderKanban,
-  Sparkles,
   MessageSquare,
   MessagesSquare,
 } from "lucide-react";
@@ -72,7 +71,6 @@ const SupervisorSidebar = () => {
     { icon: FolderKanban, label: "Projects", path: "/supervisor/projects", badge: 0 },
     { icon: Inbox, label: "Proposals", path: "/supervisor/proposals", badge: pendingProposals },
     { icon: ClipboardList, label: "Weekly plans", path: "/supervisor/plans", badge: pendingPlans },
-    { icon: Sparkles, label: "AI assistant", path: "/supervisor/ai", badge: 0 },
     { icon: FileCheck, label: "Reports", path: "/supervisor/reports", badge: 0 },
   ];
 
