@@ -12,6 +12,7 @@ import {
   Ban,
   Sparkles,
   UserCheck,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -25,19 +26,19 @@ type ViewKey =
   | "rejected"
   | "suspended"
   | "coordinator-approvals"
+  | "supervisor-approvals"
   | "audit-log"
   | "settings";
 
 interface Props {
   activeView: ViewKey;
   onNavigate: (view: ViewKey) => void;
-  /** Pending organization verification requests (badge on nav). */
   pendingCount?: number;
-  /** Pending coordinator approvals (badge on nav). */
   pendingCoordinatorCount?: number;
+  pendingSupervisorCount?: number;
 }
 
-const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorCount = 0 }: Props) => {
+const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorCount = 0, pendingSupervisorCount = 0 }: Props) => {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
@@ -57,6 +58,7 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
     { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" },
     { icon: Clock, label: "Pending Approvals", view: "pending" },
     { icon: UserCheck, label: "Coordinator Approvals", view: "coordinator-approvals" },
+    { icon: UserCheck, label: "Supervisor Approvals", view: "supervisor-approvals" },
     { icon: CheckCircle, label: "Approved History", view: "approved" },
     { icon: Ban, label: "Suspended", view: "suspended" },
     { icon: XCircle, label: "Rejected History", view: "rejected" },
@@ -107,8 +109,20 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
                 {pendingCoordinatorCount > 99 ? "99+" : pendingCoordinatorCount}
               </span>
             )}
+            {item.view === "supervisor-approvals" && pendingSupervisorCount > 0 && (
+              <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold tabular-nums text-slate-800 ring-1 ring-slate-300/80">
+                {pendingSupervisorCount > 99 ? "99+" : pendingSupervisorCount}
+              </span>
+            )}
           </button>
         ))}
+        <Link
+          href="/common-feed"
+          className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 lg:w-full lg:gap-3 lg:px-4 lg:py-3"
+        >
+          <MessageSquare className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1 whitespace-nowrap text-left">Common Feed</span>
+        </Link>
         <Link
           href="/admin/ai"
           className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 lg:w-full lg:gap-3 lg:px-4 lg:py-3"

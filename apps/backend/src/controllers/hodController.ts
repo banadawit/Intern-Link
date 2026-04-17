@@ -4,14 +4,68 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import type { ApprovalStatus } from '@prisma/client';
 import { departmentsMatch } from '../utils/hodScope';
 import { sendCompanyInviteEmail } from '../services/email.service';
+import { sendNotification } from '../utils/notificationHelper';
+import { sendStudentHodDecisionEmail } from '../services/email.service';
 
 async function getHodOr403(userId: number) {
-    const hod = await prisma.hod.findUnique({
+    const hod = await prisma.hodProfile.findUnique({
         where: { userId },
         include: { university: true },
     });
     return hod;
 }
+
+export const verifyStudent = async (req: AuthRequest, res: Response) => {
+    try {
+        const uid = req.user?.userId;
+        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
+        const hod = await getHodOr403(uid);
+        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+
+        const { studentId, status, reason } = req.body as {
+            studentId?: number;
+            status?: string;
+            reason?: string;
+        };
+
+        if (!studentId || !status || !['APPROVED', 'REJECTED'].includes(status)) {
+            return res.status(400).json({ error: 'studentId and status (APPROVED | REJECTED) are required.' });
+        }
+
+        const student = await prisma.student.findUnique({
+            where: { id: studentId },
+            include: { user: true },
+        });
+        if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
+            return res.status(404).json({ error: 'Student not in your department.' });
+        }
+
+        await prisma.student.update({
+            where: { id: studentId },
+            data: { hod_approval_status: status as ApprovalStatus },
+        });
+
+        // Notify the student via in-app + email
+        const msg = status === 'APPROVED'
+            ? `Your registration has been approved by your Head of Department. You can now access InternLink features.`
+            : `Your registration was not approved by your Head of Department. Reason: ${reason?.trim() || 'No reason provided.'}`;
+        await sendNotification(student.userId, msg);
+
+        await sendStudentHodDecisionEmail({
+            to: student.user.email,
+            studentName: student.user.full_name,
+            universityName: hod.university.name,
+            department: hod.department,
+            decision: status === 'APPROVED' ? 'approved' : 'rejected',
+            reason: reason?.trim(),
+        });
+
+        res.json({ message: `Student ${status.toLowerCase()}.`, studentId, status });
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Server error';
+        res.status(500).json({ error: msg });
+    }
+};
 
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
     try {
@@ -128,15 +182,34 @@ export const rejectStudent = async (req: AuthRequest, res: Response) => {
         const studentId = parseInt(String(req.params.studentId), 10);
         if (Number.isNaN(studentId)) return res.status(400).json({ error: 'Invalid student id' });
 
-        const student = await prisma.student.findUnique({ where: { id: studentId } });
+        const student = await prisma.student.findUnique({
+            where: { id: studentId },
+            include: { user: true },
+        });
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
             return res.status(404).json({ error: 'Student not in your department.' });
         }
+
+        const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
 
         await prisma.student.update({
             where: { id: studentId },
             data: { hod_approval_status: 'REJECTED' },
         });
+
+        await sendNotification(student.userId,
+            `Your registration was not approved by your Head of Department.${reason ? ` Reason: ${reason}` : ''}`
+        );
+
+        await sendStudentHodDecisionEmail({
+            to: student.user.email,
+            studentName: student.user.full_name,
+            universityName: hod.university.name,
+            department: hod.department,
+            decision: 'rejected',
+            reason,
+        });
+
         res.json({ message: 'Student rejected.', studentId });
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Server error';

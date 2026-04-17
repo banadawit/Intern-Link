@@ -9,6 +9,7 @@ import VerificationDetail from "./VerificationDetail";
 import AuditLog from "./AuditLog";
 import AdminPageHero from "./AdminPageHero";
 import CoordinatorApprovals from "./CoordinatorApprovals";
+import SupervisorApprovals from "./SupervisorApprovals";
 import api from "@/lib/api/client";
 import {
   mapUniversityToProposal,
@@ -25,6 +26,7 @@ type ViewKey =
   | "rejected"
   | "suspended"
   | "coordinator-approvals"
+  | "supervisor-approvals"
   | "audit-log"
   | "settings";
 
@@ -35,6 +37,7 @@ const VALID_VIEWS: ViewKey[] = [
   "rejected",
   "suspended",
   "coordinator-approvals",
+  "supervisor-approvals",
   "audit-log",
   "settings",
 ];
@@ -212,6 +215,12 @@ export default function App() {
           onActionComplete={() => { loadStats(); loadAuditLogs(); }}
         />
       );
+    if (activeView === "supervisor-approvals")
+      return (
+        <SupervisorApprovals
+          onActionComplete={() => { loadStats(); loadAuditLogs(); }}
+        />
+      );
     return (
       <div className="space-y-6">
         <AdminPageHero
@@ -228,7 +237,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
-      <Sidebar activeView={activeView} onNavigate={handleNavigate} pendingCount={pendingVerificationCount} pendingCoordinatorCount={stats?.pendingCoordinators ?? 0} />
+      <Sidebar activeView={activeView} onNavigate={handleNavigate} pendingCount={pendingVerificationCount} pendingCoordinatorCount={stats?.pendingCoordinators ?? 0} pendingSupervisorCount={stats?.pendingSupervisors ?? 0} />
 
       <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         <div className="mx-auto w-full max-w-7xl">{mainContent}</div>

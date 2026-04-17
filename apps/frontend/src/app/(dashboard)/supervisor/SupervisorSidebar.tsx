@@ -14,6 +14,7 @@ import {
   UsersRound,
   FolderKanban,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -44,6 +45,7 @@ const SupervisorSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/supervisor" },
+    { icon: MessageSquare, label: "Common Feed", path: "/common-feed" },
     { icon: Users, label: "Students", path: "/supervisor/students" },
     { icon: UsersRound, label: "Teams", path: "/supervisor/teams" },
     { icon: FolderKanban, label: "Projects", path: "/supervisor/projects" },

@@ -6,8 +6,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { generateVerificationToken, getVerificationTokenExpiry } from '../utils/token.utils';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service';
+import { sendVerificationEmail, sendPasswordResetEmail, sendCoordinatorHodReviewEmail } from '../services/email.service';
 import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
+import { sendNotification } from '../utils/notificationHelper';
 
 // ============================================
 // REGISTER - with email verification
@@ -37,13 +38,7 @@ export const register = async (req: Request, res: Response) => {
 
         // Create user with verification token
         const roleUpper = role.toUpperCase();
-        if (roleUpper === 'HOD' && !(university_name && String(university_name).trim())) {
-            return res.status(400).json({
-                success: false,
-                message: 'University name is required for Head of Department registration.',
-            });
-        }
-        const needsIndividualAccessApproval =
+        const needsIndividualAdminApproval =
             roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR' || roleUpper === 'HOD';
 
         const newUser = await prisma.user.create({
@@ -56,7 +51,7 @@ export const register = async (req: Request, res: Response) => {
                 verification_token: verificationToken,
                 verification_token_expiry: verificationTokenExpiry,
                 verification_document: file ? file.path : null, // Store file path if uploaded
-                institution_access_approval: needsIndividualAccessApproval ? 'PENDING' : 'APPROVED',
+                institution_access_approval: needsIndividualAdminApproval ? 'PENDING' : 'APPROVED',
             }
         });
 
@@ -116,83 +111,98 @@ export const register = async (req: Request, res: Response) => {
                 });
             }
         } else if (roleUpper === 'HOD') {
-            let university = university_name
-                ? await prisma.university.findFirst({
-                      where: { name: university_name },
-                  })
-                : null;
-            let createdNewUniversity = false;
-            if (!university && university_name) {
-                university = await prisma.university.create({
-                    data: {
-                        name: university_name,
-                        official_email: email,
-                        approval_status: 'PENDING',
-                    },
-                });
-                createdNewUniversity = true;
-            }
-            if (university && createdNewUniversity) {
-                await notifyAdminsNewVerificationProposal({
-                    organizationName: university.name,
-                    institutionType: 'University',
-                    organizationId: university.id,
-                    submitterEmail: email,
+            const { university_id, employee_id } = req.body;
+            const universityId = parseInt(university_id, 10);
+
+            if (!universityId || !department) {
+                await prisma.user.delete({ where: { id: newUser.id } });
+                return res.status(400).json({
+                    success: false,
+                    message: 'University and department are required for HoD registration.',
                 });
             }
-            if (university) {
-                const dept = typeof department === 'string' && department.trim() ? department.trim() : 'General';
-                await prisma.hod.create({
-                    data: {
-                        userId: newUser.id,
-                        universityId: university.id,
-                        department: dept,
-                        phone_number: position || null,
-                    },
+
+            const university = await prisma.university.findUnique({ where: { id: universityId } });
+            if (!university || university.approval_status !== 'APPROVED') {
+                await prisma.user.delete({ where: { id: newUser.id } });
+                return res.status(400).json({
+                    success: false,
+                    message: 'Selected university is not approved or does not exist.',
                 });
+            }
+
+            await prisma.hodProfile.create({
+                data: {
+                    userId: newUser.id,
+                    universityId,
+                    department,
+                    phone_number: typeof employee_id === 'string' && employee_id.trim() ? employee_id.trim() : null,
+                },
+            });
+
+            // Notify all coordinators of this university
+            const coordinators = await prisma.coordinator.findMany({
+                where: { universityId },
+                include: { user: { select: { email: true } } },
+            });
+            const coordinatorEmails = coordinators.map((c) => c.user.email);
+
+            if (coordinatorEmails.length > 0) {
+                await sendCoordinatorHodReviewEmail(coordinatorEmails, {
+                    hodName: full_name,
+                    hodEmail: email,
+                    department,
+                    universityName: university.name,
+                });
+            } else {
+                console.log(`ℹ️ No coordinators found for university ${universityId} to notify about new HoD.`);
             }
         } else if (roleUpper === 'STUDENT') {
-            // Find university
-            let university = await prisma.university.findFirst({
-                where: { name: university_name }
+            const { university_id, hod_id } = req.body;
+            const universityId = parseInt(university_id, 10);
+            const hodId = hod_id ? parseInt(hod_id, 10) : null;
+
+            if (!universityId) {
+                await prisma.user.delete({ where: { id: newUser.id } });
+                return res.status(400).json({ success: false, message: 'University is required for student registration.' });
+            }
+
+            const university = await prisma.university.findUnique({ where: { id: universityId } });
+            if (!university || university.approval_status !== 'APPROVED') {
+                await prisma.user.delete({ where: { id: newUser.id } });
+                return res.status(400).json({ success: false, message: 'Selected university is not approved.' });
+            }
+
+            // Validate HoD if provided
+            let hodProfile = null;
+            if (hodId) {
+                hodProfile = await prisma.hodProfile.findUnique({ where: { id: hodId } });
+                if (!hodProfile || hodProfile.universityId !== universityId) {
+                    await prisma.user.delete({ where: { id: newUser.id } });
+                    return res.status(400).json({ success: false, message: 'Selected department is not valid for this university.' });
+                }
+            }
+
+            const student = await prisma.student.create({
+                data: {
+                    userId: newUser.id,
+                    universityId,
+                    hodId: hodId || null,
+                    registration_type: email.includes('.edu.et') ? 'Official' : 'Personal',
+                    studentId: student_id || null,
+                    department: hodProfile?.department || department || null,
+                    hod_approval_status: 'PENDING',
+                },
             });
-            let createdNewUniversityForStudent = false;
 
-            if (!university && university_name) {
-                university = await prisma.university.create({
-                    data: {
-                        name: university_name,
-                        official_email: email,
-                        approval_status: 'PENDING'
-                    }
-                });
-                createdNewUniversityForStudent = true;
-            }
-
-            if (university && createdNewUniversityForStudent) {
-                await notifyAdminsNewVerificationProposal({
-                    organizationName: university.name,
-                    institutionType: 'University',
-                    organizationId: university.id,
-                    submitterEmail: email,
-                });
-            }
-            
-            if (university) {
-                await prisma.student.create({
-                    data: {
-                        userId: newUser.id,
-                        universityId: university.id,
-                        registration_type: email.includes('.edu.et') ? 'Official' : 'Personal',
-                        studentId: student_id || null,
-                        department: department || null,
-                        hod_approval_status: 'PENDING',
-                    }
-                });
+            // Notify the HoD about the new pending student
+            if (hodProfile) {
+                await sendNotification(
+                    hodProfile.userId,
+                    `New student ${full_name} (${email}) has registered for your department "${hodProfile.department}" and is awaiting your approval.`
+                );
             }
         }
-
-        // ✅ Send verification email
         let emailSendError = null;
         try {
             await sendVerificationEmail(email, verificationToken, roleUpper);
@@ -229,11 +239,16 @@ export const register = async (req: Request, res: Response) => {
             success: true,
             message: roleUpper === 'COORDINATOR'
                 ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
+                : roleUpper === 'HOD'
+                ? "Registration submitted. Your University Coordinator will review your department credentials. You will be notified via email upon approval."
+                : roleUpper === 'STUDENT'
+                ? "Registration submitted. Your Head of Department will review your academic status. You will be notified via email once approved."
                 : "Registration successful. Please check your email to verify your account.",
             data: {
                 ...baseResponse,
                 emailSent: true,
                 pendingAdminReview: roleUpper === 'COORDINATOR',
+                pendingCoordinatorReview: roleUpper === 'HOD',
             }
         });
         
@@ -282,6 +297,38 @@ export const login = async (req: Request, res: Response) => {
 
         // ✅ Check if email is verified
         if (user.verification_status !== 'APPROVED') {
+            if (user.role === 'COORDINATOR') {
+                return res.status(401).json({
+                    success: false,
+                    message: "Your registration is pending administrator approval. You will receive an email once your university credentials are reviewed.",
+                    code: 'PENDING_ADMIN_REVIEW',
+                    email: user.email
+                });
+            }
+            if (user.role === 'HOD') {
+                return res.status(401).json({
+                    success: false,
+                    message: "Your registration is pending coordinator approval. You will receive an email once your department credentials are reviewed.",
+                    code: 'PENDING_COORDINATOR_REVIEW',
+                    email: user.email
+                });
+            }
+            if (user.role === 'STUDENT') {
+                return res.status(401).json({
+                    success: false,
+                    message: "Your registration is pending Head of Department approval. You will receive an email once your academic status is reviewed.",
+                    code: 'PENDING_HOD_REVIEW',
+                    email: user.email
+                });
+            }
+            if (user.role === 'SUPERVISOR') {
+                return res.status(401).json({
+                    success: false,
+                    message: "Your registration is pending administrator approval. You will receive an email once your company credentials are reviewed.",
+                    code: 'PENDING_ADMIN_REVIEW',
+                    email: user.email
+                });
+            }
             return res.status(401).json({ 
                 success: false,
                 message: "Please verify your email before logging in",

@@ -10,6 +10,7 @@ import {
   Briefcase,
   FileText,
   Landmark,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -40,6 +41,7 @@ const CoordinatorSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/coordinator" },
+    { icon: MessageSquare, label: "Common Feed", path: "/common-feed" },
     { icon: Users, label: "HOD management", path: "/coordinator/hods" },
     { icon: Factory, label: "Companies", path: "/coordinator/companies" },
     { icon: Briefcase, label: "Placements", path: "/coordinator/placements" },

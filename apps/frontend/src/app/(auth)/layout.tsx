@@ -19,12 +19,22 @@ export default function AuthLayout({
   // If already logged in, redirect to appropriate dashboard
   useEffect(() => {
     if (user) {
+      // Pending institution approval — stay on auth pages (verification-pending)
+      if (
+        (user.role === 'COORDINATOR' || user.role === 'HOD' || user.role === 'SUPERVISOR') &&
+        user.institutionAccessApproval !== 'APPROVED'
+      ) {
+        return;
+      }
       switch (user.role) {
         case 'ADMIN':
           router.push('/admin');
           break;
         case 'COORDINATOR':
           router.push('/coordinator');
+          break;
+        case 'HOD':
+          router.push('/hod');
           break;
         case 'SUPERVISOR':
           router.push('/supervisor');

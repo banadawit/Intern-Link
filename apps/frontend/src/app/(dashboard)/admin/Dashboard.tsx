@@ -25,6 +25,7 @@ export type AdminDashboardStats = {
   totalStudents: number;
   activeInternships: number;
   pendingCoordinators?: number;
+  pendingSupervisors?: number;
 };
 
 const StatCard = ({

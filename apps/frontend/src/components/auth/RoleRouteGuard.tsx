@@ -20,6 +20,8 @@ const roleHome: Record<AppRole, string> = {
   STUDENT: "/student",
 };
 
+const requiresInstitutionApproval: AppRole[] = ["COORDINATOR", "HOD", "SUPERVISOR"];
+
 function LoadingScreen() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -33,9 +35,14 @@ export default function RoleRouteGuard({ allowedRole, children }: RoleRouteGuard
   const router = useRouter();
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [hydrationTimedOut, setHydrationTimedOut] = useState(false);
+  // Wait for Zustand to rehydrate from localStorage before making approval checks
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     setHasToken(Boolean(localStorage.getItem("token")));
+    // Give Zustand persist a tick to rehydrate
+    const t = setTimeout(() => setIsHydrated(true), 50);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -45,7 +52,7 @@ export default function RoleRouteGuard({ allowedRole, children }: RoleRouteGuard
   }, [hasToken, user]);
 
   useEffect(() => {
-    if (hasToken === null) return;
+    if (hasToken === null || !isHydrated) return;
     if (!hasToken) {
       router.replace("/login");
       return;
@@ -57,10 +64,34 @@ export default function RoleRouteGuard({ allowedRole, children }: RoleRouteGuard
     if (!user) return;
     if (user.role !== allowedRole) {
       router.replace(roleHome[user.role]);
+      return;
     }
-  }, [allowedRole, hasToken, hydrationTimedOut, router, user]);
+    // Block access if institution approval is still pending
+    if (
+      requiresInstitutionApproval.includes(allowedRole) &&
+      user.institutionAccessApproval !== "APPROVED"
+    ) {
+      const msg = encodeURIComponent(
+        allowedRole === "COORDINATOR"
+          ? "Your coordinator account is pending administrator approval. You will receive an email once approved."
+          : allowedRole === "HOD"
+          ? "Your Head of Department account is pending coordinator approval. You will receive an email once approved."
+          : "Your account is pending institutional approval."
+      );
+      router.replace(`/verification-pending?message=${msg}`);
+    }
+  }, [allowedRole, hasToken, hydrationTimedOut, isHydrated, router, user]);
 
-  if (hasToken === null || !hasToken || !user || user.role !== allowedRole) {
+  // Show loader until hydrated and user is confirmed
+  if (hasToken === null || !isHydrated || !hasToken || !user || user.role !== allowedRole) {
+    return <LoadingScreen />;
+  }
+
+  // Block render if institution approval pending
+  if (
+    requiresInstitutionApproval.includes(allowedRole) &&
+    user.institutionAccessApproval !== "APPROVED"
+  ) {
     return <LoadingScreen />;
   }
 

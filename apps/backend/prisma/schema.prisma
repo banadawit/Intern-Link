@@ -71,12 +71,19 @@ model User {
   // Specific Role Relations
   studentProfile    Student?
   coordinatorProfile Coordinator?
-  hodProfile        Hod?
+  hodProfile        HodProfile?
   supervisorProfile Supervisor?
   
   // Announcements & Notifications
   announcements     Announcement[]
   notifications     Notification[]
+  
+  // Common Feed
+  commonPosts       CommonPost[]
+  postComments      PostComment[]
+  postLikes         PostLike[]
+  postViews         PostView[]
+  postReports       PostReport[]
 
   aiChatMessages    AiChatMessage[]
   activityLogs      ActivityLog[]
@@ -118,7 +125,7 @@ model University {
 
   rejection_reason String?
   coordinators      Coordinator[]
-  hods              Hod[]
+  hods              HodProfile[]
   students          Student[]
   proposalsSent     InternshipProposal[]
   reportsReceived   Report[] @relation("ReportToUniversity")
@@ -153,17 +160,22 @@ model Coordinator {
   phone_number  String?
 }
 
-/// Head of Department — scoped to one university and department; coordinator approves account access.
-model Hod {
+/// Maps to the `Hod` table (see migration add_hod_module). Prisma model name kept as HodProfile for stable client API.
+model HodProfile {
   id           Int         @id @default(autoincrement())
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       Int         @unique
-  university   University  @relation(fields: [universityId], references: [id])
+  university   University @relation(fields: [universityId], references: [id])
   universityId Int
   department   String
+
   phone_number String?
 
   @@index([universityId, department])
+  @@map("Hod")
+
+  students     Student[]
+
 }
 
 model Supervisor {
@@ -184,6 +196,8 @@ model Student {
   userId            Int              @unique
   university        University       @relation(fields: [universityId], references: [id])
   universityId      Int
+  hod               HodProfile?      @relation(fields: [hodId], references: [id])
+  hodId             Int?
   registration_type String           // e.g. "Official" or "Personal"
   internship_status InternshipStatus @default(PENDING)
   created_at        DateTime         @default(now())
@@ -191,7 +205,7 @@ model Student {
   studentId         String?          
   department        String?
   /// HOD must approve self-registered students before full access (coordinator-registered students are APPROVED).
-  hod_approval_status ApprovalStatus @default(APPROVED)
+  hod_approval_status ApprovalStatus @default(PENDING)
 
   assignments       InternshipAssignment[]
   weeklyPlans       WeeklyPlan[]
@@ -346,6 +360,20 @@ model StudentProject {
   @@id([studentId, projectId])
 }
 
+enum PostType {
+  ANNOUNCEMENT
+  OPPORTUNITY
+  EXPERIENCE
+  GENERAL_UPDATE
+}
+
+enum PostVisibility {
+  PUBLIC          // Visible to all authenticated users
+  UNIVERSITY      // Visible to specific university members
+  COMPANY         // Visible to specific company members
+  ROLE_SPECIFIC   // Visible to specific roles
+}
+
 model Announcement {
   id         Int      @id @default(autoincrement())
   author     User     @relation(fields: [authorId], references: [id])
@@ -353,6 +381,112 @@ model Announcement {
   title      String
   content    String   @db.Text
   created_at DateTime @default(now())
+}
+
+model CommonPost {
+  id              Int            @id @default(autoincrement())
+  author          User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId        Int
+  postType        PostType       @default(GENERAL_UPDATE)
+  visibility      PostVisibility @default(PUBLIC)
+  title           String
+  content         String         @db.Text
+  
+  // Optional attachments
+  imageUrls       String[]       @default([])
+  documentUrls    String[]       @default([])
+  
+  // Visibility filters
+  targetUniversityId Int?
+  targetCompanyId    Int?
+  targetRoles        Role[]       @default([])
+  
+  // Engagement metrics
+  viewCount       Int            @default(0)
+  likeCount       Int            @default(0)
+  commentCount    Int            @default(0)
+  
+  // Moderation
+  isModerated     Boolean        @default(false)
+  isPinned        Boolean        @default(false)
+  isArchived      Boolean        @default(false)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  comments        PostComment[]
+  likes           PostLike[]
+  views           PostView[]
+  reports         PostReport[]
+  
+  @@index([authorId, createdAt])
+  @@index([postType, createdAt])
+  @@index([visibility, createdAt])
+  @@index([isPinned, isArchived, createdAt])
+}
+
+model PostComment {
+  id          Int        @id @default(autoincrement())
+  post        CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId      Int
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    Int
+  content     String     @db.Text
+  
+  // Nested comments support
+  parentId    Int?
+  parent      PostComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     PostComment[] @relation("CommentReplies")
+  
+  isEdited    Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@index([postId, createdAt])
+  @@index([authorId])
+}
+
+model PostLike {
+  id        Int        @id @default(autoincrement())
+  post      CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    Int
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  createdAt DateTime   @default(now())
+  
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostView {
+  id        Int        @id @default(autoincrement())
+  post      CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    Int
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  viewedAt  DateTime   @default(now())
+  
+  @@unique([postId, userId])
+  @@index([postId])
+}
+
+model PostReport {
+  id          Int        @id @default(autoincrement())
+  post        CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId      Int
+  reporter    User       @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId  Int
+  reason      String
+  description String?    @db.Text
+  status      String     @default("PENDING") // PENDING, REVIEWED, RESOLVED
+  createdAt   DateTime   @default(now())
+  reviewedAt  DateTime?
+  
+  @@index([postId])
+  @@index([reporterId])
+  @@index([status])
 }
 
 model Notification {
