@@ -11,7 +11,6 @@ import {
   LogOut,
   GraduationCap,
   Settings,
-  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -55,7 +54,6 @@ const StudentSidebar = () => {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/student", badge: 0 },
     { icon: ClipboardList, label: "Weekly Plans", path: "/student/plans", badge: 0 },
-    { icon: Sparkles, label: "AI assistant", path: "/student/ai", badge: 0 },
     { icon: MessageSquare, label: "Common Feed", path: "/student/common", badge: 0 },
     { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
     { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
