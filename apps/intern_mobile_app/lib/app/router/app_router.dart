@@ -1,18 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/session_service.dart';
 import '../../features/app_entry/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/pending_review_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/verify_email_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboards.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'app_routes.dart';
 
+const Set<String> _protectedRoutes = {
+  AppRoutes.studentDashboard,
+  AppRoutes.supervisorDashboard,
+  AppRoutes.coordinatorDashboard,
+  AppRoutes.adminDashboard,
+};
+
 final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
+  redirect: (context, state) async {
+    final location = state.uri.path;
+    if (!_protectedRoutes.contains(location)) {
+      return null;
+    }
+
+    try {
+      final token = await AppSessionService().getToken();
+      if (token == null) {
+        return AppRoutes.auth;
+      }
+      return null;
+    } catch (_) {
+      return AppRoutes.auth;
+    }
+  },
   routes: [
     GoRoute(
       path: AppRoutes.splash,
@@ -91,9 +116,71 @@ final GoRouter appRouter = GoRouter(
       pageBuilder: (context, state) {
         final email = state.uri.queryParameters['email'];
         final role = state.uri.queryParameters['role'];
+        final token = state.uri.queryParameters['token'];
         return CustomTransitionPage<void>(
           key: state.pageKey,
-          child: VerifyEmailScreen(email: email, role: role),
+          child: VerifyEmailScreen(
+            email: email,
+            role: role,
+            initialToken: token,
+          ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final fade = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOut,
+            );
+            return FadeTransition(opacity: fade, child: child);
+          },
+        );
+      },
+    ),
+    GoRoute(
+      path: '${AppRoutes.verifyEmail}/:token',
+      pageBuilder: (context, state) {
+        final email = state.uri.queryParameters['email'];
+        final role = state.uri.queryParameters['role'];
+        final token = state.pathParameters['token'];
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: VerifyEmailScreen(
+            email: email,
+            role: role,
+            initialToken: token,
+          ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final fade = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOut,
+            );
+            return FadeTransition(opacity: fade, child: child);
+          },
+        );
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.resetPassword,
+      pageBuilder: (context, state) {
+        final token = state.uri.queryParameters['token'];
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: ResetPasswordScreen(initialToken: token),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final fade = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOut,
+            );
+            return FadeTransition(opacity: fade, child: child);
+          },
+        );
+      },
+    ),
+    GoRoute(
+      path: '${AppRoutes.resetPassword}/:token',
+      pageBuilder: (context, state) {
+        final token = state.pathParameters['token'];
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: ResetPasswordScreen(initialToken: token),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             final fade = CurvedAnimation(
               parent: animation,
