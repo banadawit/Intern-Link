@@ -267,4 +267,40 @@ class AuthController extends Notifier<AuthUiState> {
       return false;
     }
   }
+
+  Future<bool> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearInfo: true,
+      clearAuthMeta: true,
+    );
+
+    try {
+      await ref
+          .read(authRemoteServiceProvider)
+          .resetPassword(token: token.trim(), newPassword: newPassword);
+      state = state.copyWith(
+        isLoading: false,
+        infoMessage: 'Password reset successful. Please login.',
+      );
+      return true;
+    } on AuthApiException catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: error.message,
+        errorCode: error.code,
+      );
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unexpected error occurred. Please try again.',
+      );
+      return false;
+    }
+  }
 }

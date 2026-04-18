@@ -90,6 +90,20 @@ class AuthRemoteService {
     }
   }
 
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.post<void>(
+        '/auth/reset-password',
+        data: {'token': token, 'newPassword': newPassword},
+      );
+    } on DioException catch (error) {
+      throw _buildException(error);
+    }
+  }
+
   String _extractErrorMessage(DioException error) {
     final data = error.response?.data;
     if (data is Map<String, dynamic>) {

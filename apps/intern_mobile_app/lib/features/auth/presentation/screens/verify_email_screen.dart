@@ -8,10 +8,16 @@ import '../widgets/auth_button.dart';
 import '../widgets/custom_text_field.dart';
 
 class VerifyEmailScreen extends ConsumerStatefulWidget {
-  const VerifyEmailScreen({super.key, this.email, this.role});
+  const VerifyEmailScreen({
+    super.key,
+    this.email,
+    this.role,
+    this.initialToken,
+  });
 
   final String? email;
   final String? role;
+  final String? initialToken;
 
   @override
   ConsumerState<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
@@ -26,8 +32,17 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   void initState() {
     super.initState();
     _emailController.text = widget.email ?? '';
+    _tokenController.text = widget.initialToken ?? '';
     _tokenController.addListener(_refresh);
     _emailController.addListener(_refresh);
+
+    if ((widget.initialToken?.trim().isNotEmpty ?? false)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _verify();
+        }
+      });
+    }
   }
 
   void _refresh() {
