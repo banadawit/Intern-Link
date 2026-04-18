@@ -11,7 +11,7 @@ void main() {
       child: DevicePreview(
         enabled: !kReleaseMode,
         builder: (context) => const InternLinkApp(),
-      ),Implemented. I built a production-style app entry flow in Flutter with Riverpod + GoRouter, aligned to your existing backend auth conventions and role names from web.
+      ),
     ),
   );
 }

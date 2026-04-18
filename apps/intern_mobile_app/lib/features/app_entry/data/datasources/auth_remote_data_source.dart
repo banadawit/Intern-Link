@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
 
 import '../../../../core/network/api_client.dart';
 import '../models/current_user_model.dart';
