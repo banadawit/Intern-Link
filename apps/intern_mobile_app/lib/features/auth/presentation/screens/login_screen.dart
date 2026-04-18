@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -115,9 +116,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           password: _passwordController.text,
         );
 
-    if (!mounted || !ok) {
+    if (!mounted) {
       return;
     }
+
+    if (!ok) {
+      final state = ref.read(authControllerProvider);
+
+      if (state.requiresVerification) {
+        final email =
+            state.emailForVerification ?? _emailController.text.trim();
+        context.go(
+          '${AppRoutes.verifyEmail}?email=${Uri.encodeComponent(email)}',
+        );
+        return;
+      }
+
+      const pendingCodes = {
+        'PENDING_ADMIN_REVIEW',
+        'PENDING_COORDINATOR_REVIEW',
+        'PENDING_HOD_REVIEW',
+        'INSTITUTION_NOT_APPROVED',
+        'INSTITUTION_MEMBER_NOT_APPROVED',
+        'HOD_APPROVAL_PENDING',
+      };
+      if (state.errorCode != null && pendingCodes.contains(state.errorCode)) {
+        final message =
+            state.errorMessage ??
+            'Your account is waiting for institutional approval.';
+        context.go(
+          '${AppRoutes.pendingReview}?message=${Uri.encodeComponent(message)}',
+        );
+      }
+      return;
+    }
+
+    HapticFeedback.selectionClick();
 
     // Hand control to app entry startup resolver for role-based navigation.
     context.go(AppRoutes.splash);
@@ -286,14 +320,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       onPressed: state.isLoading
                                           ? null
                                           : () {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Forgot password flow will be added next.',
-                                                  ),
-                                                ),
+                                              context.push(
+                                                AppRoutes.forgotPassword,
                                               );
                                             },
                                       child: const Text('Forgot Password?'),

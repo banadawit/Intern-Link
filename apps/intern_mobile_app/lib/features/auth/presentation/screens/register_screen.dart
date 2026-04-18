@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -190,12 +191,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Registration submitted. Please verify your email.'),
-      ),
-    );
-    context.pop();
+    HapticFeedback.selectionClick();
+    final roleParam = _role.name;
+    final email = Uri.encodeComponent(_emailController.text.trim());
+    context.go('${AppRoutes.verifyEmail}?email=$email&role=$roleParam');
   }
 
   @override

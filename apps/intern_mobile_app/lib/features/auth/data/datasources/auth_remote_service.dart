@@ -14,10 +14,7 @@ class AuthRemoteService {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/auth/login',
-        data: {
-          'email': email,
-          'password': password,
-        },
+        data: {'email': email, 'password': password},
       );
 
       final data = response.data?['data'] as Map<String, dynamic>?;
@@ -28,7 +25,7 @@ class AuthRemoteService {
 
       return LoginResult(token: token);
     } on DioException catch (error) {
-      throw AuthApiException(_extractErrorMessage(error), statusCode: error.response?.statusCode);
+      throw _buildException(error);
     }
   }
 
@@ -62,7 +59,34 @@ class AuthRemoteService {
         options: Options(contentType: 'multipart/form-data'),
       );
     } on DioException catch (error) {
-      throw AuthApiException(_extractErrorMessage(error), statusCode: error.response?.statusCode);
+      throw _buildException(error);
+    }
+  }
+
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _dio.post<void>('/auth/forgot-password', data: {'email': email});
+    } on DioException catch (error) {
+      throw _buildException(error);
+    }
+  }
+
+  Future<void> verifyEmail(String token) async {
+    try {
+      await _dio.post<void>('/auth/verify-email', data: {'token': token});
+    } on DioException catch (error) {
+      throw _buildException(error);
+    }
+  }
+
+  Future<void> resendVerification(String email) async {
+    try {
+      await _dio.post<void>(
+        '/auth/resend-verification',
+        data: {'email': email},
+      );
+    } on DioException catch (error) {
+      throw _buildException(error);
     }
   }
 
@@ -83,13 +107,43 @@ class AuthRemoteService {
 
     return 'Request failed. Please try again.';
   }
+
+  AuthApiException _buildException(DioException error) {
+    final data = error.response?.data;
+
+    String? code;
+    bool requiresVerification = false;
+    String? email;
+    if (data is Map<String, dynamic>) {
+      code = data['code']?.toString();
+      requiresVerification = data['requiresVerification'] == true;
+      email = data['email']?.toString();
+    }
+
+    return AuthApiException(
+      _extractErrorMessage(error),
+      statusCode: error.response?.statusCode,
+      code: code,
+      requiresVerification: requiresVerification,
+      email: email,
+    );
+  }
 }
 
 class AuthApiException implements Exception {
-  const AuthApiException(this.message, {this.statusCode});
+  const AuthApiException(
+    this.message, {
+    this.statusCode,
+    this.code,
+    this.requiresVerification = false,
+    this.email,
+  });
 
   final String message;
   final int? statusCode;
+  final String? code;
+  final bool requiresVerification;
+  final String? email;
 
   @override
   String toString() => message;

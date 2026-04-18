@@ -14,26 +14,43 @@ class AuthUiState {
     this.isLoading = false,
     this.errorMessage,
     this.infoMessage,
+    this.errorCode,
+    this.requiresVerification = false,
+    this.emailForVerification,
   });
 
   final AuthMode mode;
   final bool isLoading;
   final String? errorMessage;
   final String? infoMessage;
+  final String? errorCode;
+  final bool requiresVerification;
+  final String? emailForVerification;
 
   AuthUiState copyWith({
     AuthMode? mode,
     bool? isLoading,
     String? errorMessage,
     String? infoMessage,
+    String? errorCode,
+    bool? requiresVerification,
+    String? emailForVerification,
     bool clearError = false,
     bool clearInfo = false,
+    bool clearAuthMeta = false,
   }) {
     return AuthUiState(
       mode: mode ?? this.mode,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       infoMessage: clearInfo ? null : (infoMessage ?? this.infoMessage),
+      errorCode: clearAuthMeta ? null : (errorCode ?? this.errorCode),
+      requiresVerification: clearAuthMeta
+          ? false
+          : (requiresVerification ?? this.requiresVerification),
+      emailForVerification: clearAuthMeta
+          ? null
+          : (emailForVerification ?? this.emailForVerification),
     );
   }
 }
@@ -68,15 +85,29 @@ class AuthController extends Notifier<AuthUiState> {
   AuthUiState build() => const AuthUiState();
 
   void setMode(AuthMode mode) {
-    state = state.copyWith(mode: mode, clearError: true, clearInfo: true);
+    state = state.copyWith(
+      mode: mode,
+      clearError: true,
+      clearInfo: true,
+      clearAuthMeta: true,
+    );
   }
 
   void clearMessages() {
-    state = state.copyWith(clearError: true, clearInfo: true);
+    state = state.copyWith(
+      clearError: true,
+      clearInfo: true,
+      clearAuthMeta: true,
+    );
   }
 
   Future<bool> login({required String email, required String password}) async {
-    state = state.copyWith(isLoading: true, clearError: true, clearInfo: true);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearInfo: true,
+      clearAuthMeta: true,
+    );
 
     try {
       final result = await ref
@@ -95,19 +126,31 @@ class AuthController extends Notifier<AuthUiState> {
       final fallback = error.statusCode == 401
           ? 'Invalid email or password. Please try again.'
           : error.message;
-      state = state.copyWith(isLoading: false, errorMessage: fallback);
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: fallback,
+        errorCode: error.code,
+        requiresVerification: error.requiresVerification,
+        emailForVerification: error.email,
+      );
       return false;
     } catch (_) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Unexpected error occurred. Please try again.',
+        clearAuthMeta: true,
       );
       return false;
     }
   }
 
   Future<bool> register(RegisterPayload payload) async {
-    state = state.copyWith(isLoading: true, clearError: true, clearInfo: true);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearInfo: true,
+      clearAuthMeta: true,
+    );
 
     try {
       await ref.read(authRemoteServiceProvider).register(payload);
@@ -119,6 +162,102 @@ class AuthController extends Notifier<AuthUiState> {
       return true;
     } on AuthApiException catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.message);
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unexpected error occurred. Please try again.',
+        clearAuthMeta: true,
+      );
+      return false;
+    }
+  }
+
+  Future<bool> forgotPassword(String email) async {
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearInfo: true,
+      clearAuthMeta: true,
+    );
+
+    try {
+      await ref.read(authRemoteServiceProvider).forgotPassword(email.trim());
+      state = state.copyWith(
+        isLoading: false,
+        infoMessage: 'Password reset link sent. Check your email inbox.',
+      );
+      return true;
+    } on AuthApiException catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: error.message,
+        errorCode: error.code,
+      );
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unexpected error occurred. Please try again.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> verifyEmail(String token) async {
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearInfo: true,
+      clearAuthMeta: true,
+    );
+
+    try {
+      await ref.read(authRemoteServiceProvider).verifyEmail(token.trim());
+      state = state.copyWith(
+        isLoading: false,
+        infoMessage: 'Email verified successfully. You can now login.',
+      );
+      return true;
+    } on AuthApiException catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: error.message,
+        errorCode: error.code,
+      );
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Unexpected error occurred. Please try again.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> resendVerification(String email) async {
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      clearInfo: true,
+      clearAuthMeta: true,
+    );
+
+    try {
+      await ref
+          .read(authRemoteServiceProvider)
+          .resendVerification(email.trim());
+      state = state.copyWith(
+        isLoading: false,
+        infoMessage: 'Verification email resent successfully.',
+      );
+      return true;
+    } on AuthApiException catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: error.message,
+        errorCode: error.code,
+      );
       return false;
     } catch (_) {
       state = state.copyWith(
