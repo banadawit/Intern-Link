@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../models/current_user_model.dart';
@@ -10,31 +9,32 @@ class AuthRemoteDataSource {
   final ApiClient _apiClient;
 
   Future<CurrentUserModel> fetchCurrentUser(String token) async {
-    final response = await _apiClient.get(
-      _apiClient.authUri('me'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 401) {
-      throw const SessionInvalidException();
-    }
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw SessionValidationException(
-        'Failed to validate token: HTTP ${response.statusCode}',
+    try {
+      final response = await _apiClient.dio.get(
+        '/auth/me',
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
       );
-    }
 
-    final payload = jsonDecode(response.body) as Map<String, dynamic>;
-    final data = payload['data'];
-    if (data is! Map<String, dynamic>) {
-      throw const SessionValidationException('Malformed /auth/me response.');
+      final data = response.data['data'];
+      if (data == null) {
+        throw const SessionValidationException('Malformed /auth/me response.');
+      }
+      return CurrentUserModel.fromJson(data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw const SessionInvalidException();
+      }
+      throw SessionValidationException(
+        'Failed to validate token: HTTP ${e.response?.statusCode}',
+      );
+    } catch (e) {
+      throw const SessionValidationException('An unexpected error occurred.');
     }
-
-    return CurrentUserModel.fromJson(data);
   }
 }
 

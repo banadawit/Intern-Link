@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/student_repository.dart';
 import '../../data/repositories/progress_repository.dart';
+import '../../data/repositories/placement_repository.dart';
+import '../../data/repositories/supervisor_repository.dart';
+import '../../../auth/presentation/widgets/custom_text_field.dart';
 
 // ---------------------------------------------------------
 // REUSABLE MODERN SCAFFOLD WITH BOTTOM NAVIGATION
@@ -627,6 +630,365 @@ class _StudentPlansTab extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------
+// STUDENT REAL JOBS TAB (API INTEGRATED)
+// ---------------------------------------------------------
+
+class _StudentJobsTab extends ConsumerStatefulWidget {
+  const _StudentJobsTab();
+
+  @override
+  ConsumerState<_StudentJobsTab> createState() => _StudentJobsTabState();
+}
+
+class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
+  final _companyController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _notesController = TextEditingController();
+
+  void _submitSuggestion() {
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.info_outline_rounded, color: Theme.of(context).colorScheme.onPrimary),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Placement proposals are created by your coordinator. Contact them with these details.',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+    _companyController.clear();
+    _emailController.clear();
+    _notesController.clear();
+  }
+
+  @override
+  void dispose() {
+    _companyController.dispose();
+    _emailController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final proposalsAsync = ref.watch(myProposalsProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            const Color(0xFFF5AF19).withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+      ),
+      child: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(myProposalsProvider),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+          children: [
+            Text('Placement Proposals', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(
+              'Track proposals sent by your school to partner companies.',
+              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+            ),
+            const SizedBox(height: 24),
+            proposalsAsync.when(
+              loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+              error: (err, stack) => Center(child: Text('Error loading proposals: $err')),
+              data: (proposals) {
+                if (proposals.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.business_rounded, size: 48, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+                          const SizedBox(height: 16),
+                          const Text('No placement proposals yet.', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: proposals.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final p = proposals[index];
+                    return Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondary.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.apartment_rounded, color: theme.colorScheme.secondary),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(p.companyName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Requested: ${p.requestedAt.toLocal().toString().split(' ')[0]}',
+                                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              p.status.toUpperCase(),
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimaryContainer),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 40),
+            Text('Suggest a Company', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  )
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomTextField(
+                    controller: _companyController,
+                    label: 'Company Name',
+                    hint: 'Enter company name',
+                    prefixIcon: Icons.business_outlined,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    controller: _emailController,
+                    label: 'Contact Email',
+                    hint: 'HR or Supervisor email',
+                    prefixIcon: Icons.alternate_email_rounded,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    controller: _notesController,
+                    label: 'Notes',
+                    hint: 'Additional info',
+                    prefixIcon: Icons.notes_rounded,
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: _submitSuggestion,
+                    icon: const Icon(Icons.send_rounded),
+                    label: const Text('Save Draft / Remind Coordinator', style: TextStyle(fontWeight: FontWeight.bold)),
+                  )
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// STUDENT REAL PROFILE TAB
+// ---------------------------------------------------------
+
+class _StudentProfileTab extends ConsumerWidget {
+  const _StudentProfileTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final profileAsync = ref.watch(studentProfileProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            const Color(0xFF11998E).withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+      ),
+      child: profileAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+        data: (profile) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(24, 40, 24, 100),
+            children: [
+              Center(
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      )
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      profile.fullName[0].toUpperCase(),
+                      style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Center(
+                child: Text(
+                  profile.fullName,
+                  style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Text(
+                  profile.email,
+                  style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 40),
+              _buildSettingItem(context, Icons.security_rounded, 'Account Security', 'Manage passwords and authentication'),
+              const SizedBox(height: 16),
+              _buildSettingItem(context, Icons.notifications_active_rounded, 'Notifications', 'Manage alert preferences'),
+              const SizedBox(height: 16),
+              _buildSettingItem(context, Icons.help_outline_rounded, 'Help & Support', 'Contact coordinator or platform admin'),
+              const SizedBox(height: 40),
+              OutlinedButton.icon(
+                onPressed: () {
+                  // TODO: Implement logout via AuthController
+                },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  foregroundColor: Colors.redAccent,
+                  side: const BorderSide(color: Colors.redAccent),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+              )
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSettingItem(BuildContext context, IconData icon, String title, String subtitle) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: theme.colorScheme.primary),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
 // PLACEHOLDER VIEWS FOR OTHER TABS
 // ---------------------------------------------------------
 
@@ -726,25 +1088,401 @@ class StudentDashboardScreen extends StatelessWidget {
           label: 'Jobs',
           icon: Icons.work_outline_rounded,
           activeIcon: Icons.work_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Job Requests',
-            subtitle: 'Find and apply for placements',
-            icon: Icons.business_center_rounded,
-            gradient: [Color(0xFFF12711), Color(0xFFF5AF19)],
-          ),
+          view: const _StudentJobsTab(),
         ),
         _DashboardTab(
           label: 'Profile',
           icon: Icons.person_outline_rounded,
           activeIcon: Icons.person_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'My Profile',
-            subtitle: 'Manage your personal details',
-            icon: Icons.manage_accounts_rounded,
-            gradient: [Color(0xFF11998E), Color(0xFF38EF7D)],
-          ),
+          view: const _StudentProfileTab(),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// SUPERVISOR REAL OVERVIEW TAB
+// ---------------------------------------------------------
+
+class _SupervisorOverviewTab extends ConsumerWidget {
+  const _SupervisorOverviewTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    final meAsync = ref.watch(supervisorMeProvider);
+    final plansAsync = ref.watch(supervisorPlansProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            const Color(0xFFF2994A).withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+      ),
+      child: meAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (me) {
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(supervisorMeProvider);
+              ref.invalidate(supervisorPlansProvider);
+            },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 32,
+                      backgroundColor: const Color(0xFFF2994A),
+                      child: Text(
+                        me.fullName[0].toUpperCase(),
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Supervisor Dashboard',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            me.fullName,
+                            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF2994A), Color(0xFFF2C94C)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFF2994A).withValues(alpha: 0.3),
+                        blurRadius: 24,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.business_rounded, size: 48, color: Colors.white.withValues(alpha: 0.8)),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Company',
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w500),
+                            ),
+                            Text(
+                              me.companyName,
+                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+                            ),
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Text('Pending Plan Reviews', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                plansAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => Text('Failed to load plans: $err'),
+                  data: (plans) {
+                    final pending = plans.where((p) => p.status == 'PENDING').toList();
+                    if (pending.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 32),
+                            const SizedBox(width: 16),
+                            const Expanded(child: Text('All student plans are reviewed!', style: TextStyle(fontWeight: FontWeight.w600))),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: pending.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final plan = pending[index];
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: const Color(0xFFF2994A).withValues(alpha: 0.2),
+                                child: Text(plan.studentName[0], style: const TextStyle(color: Color(0xFFF2994A), fontWeight: FontWeight.bold)),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(plan.studentName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    Text('Week ${plan.weekNumber} Plan', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              FilledButton.tonal(
+                                onPressed: () {
+                                  // TODO: Navigate to plan review screen
+                                },
+                                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF2994A).withValues(alpha: 0.1), foregroundColor: const Color(0xFFD6771F)),
+                                child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold)),
+                              )
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// SUPERVISOR REAL STUDENTS TAB
+// ---------------------------------------------------------
+
+class _SupervisorStudentsTab extends ConsumerWidget {
+  const _SupervisorStudentsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final studentsAsync = ref.watch(supervisorStudentsProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            const Color(0xFF56CCF2).withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+      ),
+      child: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(supervisorStudentsProvider),
+        child: studentsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(child: Text('Error: $err')),
+          data: (students) {
+            if (students.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.group_off_rounded, size: 64, color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+                    const SizedBox(height: 16),
+                    Text('No students assigned yet.', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              );
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+              itemCount: students.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                final student = students[index];
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: const Color(0xFF56CCF2).withValues(alpha: 0.2),
+                        child: Text(student.fullName[0], style: const TextStyle(color: Color(0xFF2F80ED), fontWeight: FontWeight.bold, fontSize: 18)),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(student.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text(student.email, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(color: const Color(0xFF2F80ED).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                        child: Text(student.status, style: const TextStyle(color: Color(0xFF2F80ED), fontSize: 10, fontWeight: FontWeight.bold)),
+                      )
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// SUPERVISOR REAL SETTINGS TAB
+// ---------------------------------------------------------
+
+class _SupervisorSettingsTab extends ConsumerWidget {
+  const _SupervisorSettingsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final meAsync = ref.watch(supervisorMeProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            const Color(0xFF8A2387).withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+      ),
+      child: meAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (me) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(24, 40, 24, 100),
+            children: [
+              Center(
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057)]),
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFFE94057).withValues(alpha: 0.4), blurRadius: 24, offset: const Offset(0, 8))
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      me.fullName[0].toUpperCase(),
+                      style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Center(child: Text(me.fullName, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900))),
+              Center(child: Text(me.email, style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6), fontSize: 16))),
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: const Color(0xFFE94057).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.security_rounded, color: Color(0xFFE94057)),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Account Security', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('Manage passwords and authentication', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+              OutlinedButton.icon(
+                onPressed: () {
+                  // TODO: Implement logout
+                },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  foregroundColor: Colors.redAccent,
+                  side: const BorderSide(color: Colors.redAccent),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+              )
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -766,34 +1504,19 @@ class SupervisorDashboardScreen extends StatelessWidget {
           label: 'Overview',
           icon: Icons.pie_chart_outline_rounded,
           activeIcon: Icons.pie_chart_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Supervisor Dashboard',
-            subtitle: 'Track overall team performance',
-            icon: Icons.analytics_rounded,
-            gradient: [Color(0xFFF2994A), Color(0xFFF2C94C)],
-          ),
+          view: const _SupervisorOverviewTab(),
         ),
         _DashboardTab(
           label: 'Students',
           icon: Icons.people_outline_rounded,
           activeIcon: Icons.people_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'My Students',
-            subtitle: 'Review student plans and evaluations',
-            icon: Icons.groups_rounded,
-            gradient: [Color(0xFF56CCF2), Color(0xFF2F80ED)],
-          ),
+          view: const _SupervisorStudentsTab(),
         ),
         _DashboardTab(
           label: 'Settings',
           icon: Icons.settings_outlined,
           activeIcon: Icons.settings_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Settings',
-            subtitle: 'Configure your preferences',
-            icon: Icons.tune_rounded,
-            gradient: [Color(0xFF8A2387), Color(0xFFE94057)],
-          ),
+          view: const _SupervisorSettingsTab(),
         ),
       ],
     );

@@ -1,10 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../services/session_service.dart';
-
-final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient(sessionService: AppSessionService());
-});
+import '../services/session_service.dart';
 
 class ApiClient {
   ApiClient({required this.sessionService}) {
