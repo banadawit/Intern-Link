@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class AuthButton extends StatelessWidget {
+class AuthButton extends StatefulWidget {
   const AuthButton({
     super.key,
     required this.label,
@@ -15,64 +15,120 @@ class AuthButton extends StatelessWidget {
   final bool enabled;
 
   @override
-  Widget build(BuildContext context) {
-    final canPress = enabled && !isLoading;
+  State<AuthButton> createState() => _AuthButtonState();
+}
 
-    return SizedBox(
-      height: 56,
-      width: double.infinity,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: canPress
-              ? const LinearGradient(
-                  colors: [Color(0xFF0C8B83), Color(0xFF0A6E7A)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                )
-              : LinearGradient(
-                  colors: [Colors.grey.shade400, Colors.grey.shade500],
-                ),
-          boxShadow: canPress
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF0C8B83).withValues(alpha: 0.3),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
-        ),
-        child: FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            disabledBackgroundColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-          onPressed: canPress ? onPressed : null,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            child: isLoading
-                ? const SizedBox(
-                    key: ValueKey('loading'),
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: Colors.white,
-                    ),
+class _AuthButtonState extends State<AuthButton> with SingleTickerProviderStateMixin {
+  late final AnimationController _pressController;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _pressController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressController.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    if (widget.enabled && !widget.isLoading) {
+      _pressController.forward();
+    }
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    _pressController.reverse();
+    if (widget.enabled && !widget.isLoading) {
+      widget.onPressed();
+    }
+  }
+
+  void _handleTapCancel() {
+    _pressController.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final canPress = widget.enabled && !widget.isLoading;
+
+    return GestureDetector(
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapUp,
+      onTapCancel: _handleTapCancel,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          height: 60,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: canPress
+                ? LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary,
+                      theme.colorScheme.secondary,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   )
-                : Text(
-                    label,
-                    key: const ValueKey('label'),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
+                : LinearGradient(
+                    colors: [
+                      theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                      theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                    ],
                   ),
+            boxShadow: canPress
+                ? [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              ),
+              child: widget.isLoading
+                  ? const SizedBox(
+                      key: ValueKey('loading'),
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      widget.label,
+                      key: const ValueKey('label'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+            ),
           ),
         ),
       ),
