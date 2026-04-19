@@ -19,7 +19,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
   final _fullNameController = TextEditingController();
@@ -40,9 +40,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool _obscureConfirmPassword = true;
   bool _hasInteracted = false;
 
-  late final AnimationController _controller;
+  late final AnimationController _animController;
   late final Animation<Offset> _slide;
   late final Animation<double> _fade;
+  late final AnimationController _bgAnimationController;
 
   @override
   void initState() {
@@ -51,16 +52,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       controller.addListener(_onFieldChanged);
     }
 
-    _controller = AnimationController(
+    _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 600),
     );
     _slide = Tween<Offset>(
       begin: const Offset(0, 0.08),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-    _controller.forward();
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+    _fade = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _animController.forward();
+
+    _bgAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat(reverse: true);
   }
 
   List<TextEditingController> get _controllers => [
@@ -86,7 +92,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _animController.dispose();
+    _bgAnimationController.dispose();
     for (final controller in _controllers) {
       controller
         ..removeListener(_onFieldChanged)
@@ -99,8 +106,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     if (_fullNameController.text.trim().isEmpty) return false;
     if (!_isEmailValid(_emailController.text.trim())) return false;
     if (_passwordController.text.length < 8) return false;
-    if (_passwordController.text != _confirmPasswordController.text)
-      return false;
+    if (_passwordController.text != _confirmPasswordController.text) return false;
 
     switch (_role) {
       case RegistrationRole.coordinator:
@@ -200,7 +206,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final state = ref.watch(authControllerProvider);
+    final isDark = theme.brightness == Brightness.dark;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
@@ -208,238 +214,347 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
         padding: EdgeInsets.only(bottom: bottomInset),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                const Color(0xFF0C8B83).withValues(alpha: 0.10),
-                theme.colorScheme.surface,
-              ],
+        child: Stack(
+          children: [
+            // Animated Background
+            AnimatedBuilder(
+              animation: _bgAnimationController,
+              builder: (context, child) {
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        Color.lerp(
+                              theme.colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.05),
+                              theme.colorScheme.secondary.withValues(alpha: isDark ? 0.3 : 0.15),
+                              _bgAnimationController.value,
+                            ) ??
+                            theme.colorScheme.surface,
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-          ),
-          child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-              child: FadeTransition(
-                opacity: _fade,
-                child: SlideTransition(
-                  position: _slide,
-                  child: Column(
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: IconButton.filledTonal(
-                          onPressed: state.isLoading
-                              ? null
-                              : () => context.pop(),
-                          icon: const Icon(Icons.arrow_back_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Hero(
-                        tag: 'internlink-auth-logo',
-                        child: Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0C8B83), Color(0xFF0A6E7A)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+            // Background Orbs
+            Positioned(
+              top: -50,
+              right: -100,
+              child: Container(
+                width: 350,
+                height: 350,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                ),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: SlideTransition(
+                    position: _slide,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: IconButton.filledTonal(
+                            onPressed: () => context.pop(),
+                            icon: const Icon(Icons.arrow_back_rounded),
+                            style: IconButton.styleFrom(
+                              backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.6),
                             ),
                           ),
-                          child: const Icon(
-                            Icons.school_rounded,
-                            color: Colors.white,
-                            size: 38,
-                          ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        'Create Account',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Set up your InternLink profile to get started.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.72,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                        const SizedBox(height: 12),
+                        Hero(
+                          tag: 'internlink-auth-logo',
                           child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
+                            width: 72,
+                            height: 72,
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surface.withValues(
-                                alpha: 0.92,
-                              ),
                               borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: theme.colorScheme.outlineVariant
-                                    .withValues(alpha: 0.4),
+                              gradient: LinearGradient(
+                                colors: [
+                                  theme.colorScheme.primary,
+                                  theme.colorScheme.primary.withValues(alpha: 0.8)
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
                                   blurRadius: 24,
-                                  offset: const Offset(0, 14),
+                                  offset: const Offset(0, 8),
                                 ),
                               ],
                             ),
-                            child: Form(
-                              key: _formKey,
-                              autovalidateMode: _hasInteracted
-                                  ? AutovalidateMode.onUserInteraction
-                                  : AutovalidateMode.disabled,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (state.errorMessage != null) ...[
-                                    _InlineError(message: state.errorMessage!),
-                                    const SizedBox(height: 14),
-                                  ],
-                                  DropdownButtonFormField<RegistrationRole>(
-                                    value: _role,
-                                    onChanged: state.isLoading
-                                        ? null
-                                        : (role) {
-                                            if (role != null) {
-                                              setState(() => _role = role);
-                                            }
-                                          },
-                                    decoration: const InputDecoration(
-                                      labelText: 'Role',
-                                      prefixIcon: Icon(Icons.badge_outlined),
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    items: RegistrationRole.values
-                                        .map(
-                                          (role) => DropdownMenuItem(
-                                            value: role,
-                                            child: Text(role.label),
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  CustomTextField(
-                                    controller: _fullNameController,
-                                    label: 'Full Name',
-                                    hint: 'Your full name',
-                                    prefixIcon: Icons.person_outline_rounded,
-                                    enabled: !state.isLoading,
-                                    validator: (value) {
-                                      if ((value ?? '').trim().isEmpty) {
-                                        return 'Full name is required';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 14),
-                                  CustomTextField(
-                                    controller: _emailController,
-                                    label: 'Email',
-                                    hint: 'name@university.edu',
-                                    prefixIcon: Icons.alternate_email_rounded,
-                                    keyboardType: TextInputType.emailAddress,
-                                    enabled: !state.isLoading,
-                                    validator: _emailValidator,
-                                  ),
-                                  const SizedBox(height: 14),
-                                  CustomTextField(
-                                    controller: _passwordController,
-                                    label: 'Password',
-                                    hint: 'Minimum 8 characters',
-                                    prefixIcon: Icons.lock_outline_rounded,
-                                    obscureText: _obscurePassword,
-                                    enabled: !state.isLoading,
-                                    validator: _passwordValidator,
-                                    suffix: IconButton(
-                                      onPressed: state.isLoading
-                                          ? null
-                                          : () {
-                                              setState(() {
-                                                _obscurePassword =
-                                                    !_obscurePassword;
-                                              });
-                                            },
-                                      icon: Icon(
-                                        _obscurePassword
-                                            ? Icons.visibility_outlined
-                                            : Icons.visibility_off_outlined,
+                            child: const Icon(
+                              Icons.school_rounded,
+                              color: Colors.white,
+                              size: 38,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Create Account',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Join InternLink and elevate your internship experience.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        // Glassmorphic Form
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(32),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                                blurRadius: 40,
+                                offset: const Offset(0, 20),
+                              )
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(32),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                              child: Container(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.03)
+                                    : Colors.white.withValues(alpha: 0.7),
+                                padding: const EdgeInsets.all(28),
+                                child: Form(
+                                  key: _formKey,
+                                  autovalidateMode: _hasInteracted
+                                      ? AutovalidateMode.onUserInteraction
+                                      : AutovalidateMode.disabled,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final state = ref.watch(authControllerProvider);
+                                          if (state.errorMessage != null) {
+                                            return Padding(
+                                              padding: const EdgeInsets.only(bottom: 20),
+                                              child: _InlineError(message: state.errorMessage!),
+                                            );
+                                          }
+                                          return const SizedBox.shrink();
+                                        },
                                       ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  CustomTextField(
-                                    controller: _confirmPasswordController,
-                                    label: 'Confirm Password',
-                                    hint: 'Re-enter password',
-                                    prefixIcon: Icons.lock_reset_rounded,
-                                    obscureText: _obscureConfirmPassword,
-                                    enabled: !state.isLoading,
-                                    validator: _confirmPasswordValidator,
-                                    suffix: IconButton(
-                                      onPressed: state.isLoading
-                                          ? null
-                                          : () {
-                                              setState(() {
-                                                _obscureConfirmPassword =
-                                                    !_obscureConfirmPassword;
-                                              });
-                                            },
-                                      icon: Icon(
-                                        _obscureConfirmPassword
-                                            ? Icons.visibility_outlined
-                                            : Icons.visibility_off_outlined,
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final state = ref.watch(authControllerProvider);
+                                          return DropdownButtonFormField<RegistrationRole>(
+                                            value: _role,
+                                            onChanged: state.isLoading
+                                                ? null
+                                                : (role) {
+                                                    if (role != null) {
+                                                      setState(() => _role = role);
+                                                    }
+                                                  },
+                                            decoration: InputDecoration(
+                                              labelText: 'Role',
+                                              prefixIcon: const Icon(Icons.badge_outlined),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                              filled: true,
+                                              fillColor: theme.colorScheme.surface.withValues(alpha: 0.5),
+                                            ),
+                                            items: RegistrationRole.values
+                                                .map(
+                                                  (role) => DropdownMenuItem(
+                                                    value: role,
+                                                    child: Text(role.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                  ),
+                                                )
+                                                .toList(),
+                                          );
+                                        },
                                       ),
-                                    ),
+                                      const SizedBox(height: 16),
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final state = ref.watch(authControllerProvider);
+                                          return CustomTextField(
+                                            controller: _fullNameController,
+                                            label: 'Full Name',
+                                            hint: 'Your full name',
+                                            prefixIcon: Icons.person_outline_rounded,
+                                            enabled: !state.isLoading,
+                                            validator: (value) {
+                                              if ((value ?? '').trim().isEmpty) {
+                                                return 'Full name is required';
+                                              }
+                                              return null;
+                                            },
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final state = ref.watch(authControllerProvider);
+                                          return CustomTextField(
+                                            controller: _emailController,
+                                            label: 'Email',
+                                            hint: 'name@university.edu',
+                                            prefixIcon: Icons.alternate_email_rounded,
+                                            keyboardType: TextInputType.emailAddress,
+                                            enabled: !state.isLoading,
+                                            validator: _emailValidator,
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final state = ref.watch(authControllerProvider);
+                                          return CustomTextField(
+                                            controller: _passwordController,
+                                            label: 'Password',
+                                            hint: 'Minimum 8 characters',
+                                            prefixIcon: Icons.lock_outline_rounded,
+                                            obscureText: _obscurePassword,
+                                            enabled: !state.isLoading,
+                                            validator: _passwordValidator,
+                                            suffix: IconButton(
+                                              onPressed: state.isLoading
+                                                  ? null
+                                                  : () {
+                                                      setState(() {
+                                                        _obscurePassword = !_obscurePassword;
+                                                      });
+                                                    },
+                                              icon: Icon(
+                                                _obscurePassword
+                                                    ? Icons.visibility_outlined
+                                                    : Icons.visibility_off_outlined,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final state = ref.watch(authControllerProvider);
+                                          return CustomTextField(
+                                            controller: _confirmPasswordController,
+                                            label: 'Confirm Password',
+                                            hint: 'Re-enter password',
+                                            prefixIcon: Icons.lock_reset_rounded,
+                                            obscureText: _obscureConfirmPassword,
+                                            enabled: !state.isLoading,
+                                            validator: _confirmPasswordValidator,
+                                            suffix: IconButton(
+                                              onPressed: state.isLoading
+                                                  ? null
+                                                  : () {
+                                                      setState(() {
+                                                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                                                      });
+                                                    },
+                                              icon: Icon(
+                                                _obscureConfirmPassword
+                                                    ? Icons.visibility_outlined
+                                                    : Icons.visibility_off_outlined,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final state = ref.watch(authControllerProvider);
+                                          return Column(
+                                            children: _buildRoleFields(state.isLoading),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 32),
+                                      Consumer(
+                                        builder: (context, ref, child) {
+                                          final state = ref.watch(authControllerProvider);
+                                          return SizedBox(
+                                            height: 56,
+                                            child: AuthButton(
+                                              label: 'Create Account',
+                                              onPressed: _submit,
+                                              isLoading: state.isLoading,
+                                              enabled: _isFormReady,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
                                   ),
-                                  ..._buildRoleFields(state.isLoading),
-                                  const SizedBox(height: 18),
-                                  AuthButton(
-                                    label: 'Create Account',
-                                    onPressed: _submit,
-                                    isLoading: state.isLoading,
-                                    enabled: _isFormReady,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  TextButton(
-                                    onPressed: state.isLoading
-                                        ? null
-                                        : () => context.pushReplacement(
-                                            AppRoutes.auth,
-                                          ),
-                                    child: const Text(
-                                      'Already have an account? Login',
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Already have an account?',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            TextButton(
+                              onPressed: () => context.pushReplacement(AppRoutes.auth),
+                              style: TextButton.styleFrom(
+                                foregroundColor: theme.colorScheme.primary,
+                              ),
+                              child: const Text(
+                                'Login',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -449,7 +564,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     switch (_role) {
       case RegistrationRole.coordinator:
         return [
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _universityNameController,
             label: 'University Name',
@@ -463,7 +578,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               return null;
             },
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _positionController,
             label: 'Position (optional)',
@@ -474,7 +589,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         ];
       case RegistrationRole.supervisor:
         return [
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _companyNameController,
             label: 'Company Name',
@@ -488,7 +603,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               return null;
             },
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _positionController,
             label: 'Position (optional)',
@@ -499,7 +614,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         ];
       case RegistrationRole.hod:
         return [
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _universityIdController,
             label: 'University ID',
@@ -509,7 +624,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             enabled: !isLoading,
             validator: _positiveIntValidator,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _departmentController,
             label: 'Department',
@@ -523,7 +638,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               return null;
             },
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _employeeIdController,
             label: 'Employee ID (optional)',
@@ -534,7 +649,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         ];
       case RegistrationRole.student:
         return [
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _universityIdController,
             label: 'University ID',
@@ -544,7 +659,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             enabled: !isLoading,
             validator: _positiveIntValidator,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _hodIdController,
             label: 'HoD ID (optional)',
@@ -554,7 +669,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             enabled: !isLoading,
             validator: _optionalPositiveIntValidator,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           CustomTextField(
             controller: _studentIdController,
             label: 'Student ID (optional)',
@@ -575,22 +690,28 @@ class _InlineError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF1F1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF7B2B2)),
+        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Color(0xFFB42318)),
-          const SizedBox(width: 10),
+          Icon(
+            Icons.error_outline_rounded,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                color: Color(0xFFB42318),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
                 fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ),
