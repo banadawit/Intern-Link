@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/repositories/student_repository.dart';
+
 // ---------------------------------------------------------
 // REUSABLE MODERN SCAFFOLD WITH BOTTOM NAVIGATION
 // ---------------------------------------------------------
@@ -34,14 +36,14 @@ class _ModernDashboardScaffoldState extends State<_ModernDashboardScaffold> {
       appBar: AppBar(
         title: Text(
           widget.tabs[_currentIndex].label,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5),
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.8),
+        backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.7),
         flexibleSpace: ClipRect(
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(color: Colors.transparent),
           ),
         ),
@@ -50,18 +52,29 @@ class _ModernDashboardScaffoldState extends State<_ModernDashboardScaffold> {
         index: _currentIndex,
         children: widget.tabs.map((t) => t.view).toList(),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-        backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.8),
-        elevation: 0,
-        destinations: widget.tabs.map((t) {
-          return NavigationDestination(
-            icon: Icon(t.icon),
-            selectedIcon: Icon(t.activeIcon, color: theme.colorScheme.primary),
-            label: t.label,
-          );
-        }).toList(),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              width: 1,
+            ),
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+          backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.85),
+          elevation: 0,
+          indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.2),
+          destinations: widget.tabs.map((t) {
+            return NavigationDestination(
+              icon: Icon(t.icon),
+              selectedIcon: Icon(t.activeIcon, color: theme.colorScheme.primary),
+              label: t.label,
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -82,7 +95,294 @@ class _DashboardTab {
 }
 
 // ---------------------------------------------------------
-// PLACEHOLDER VIEWS
+// STUDENT REAL HOME TAB (API INTEGRATED)
+// ---------------------------------------------------------
+
+class _StudentHomeTab extends ConsumerWidget {
+  const _StudentHomeTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final profileAsync = ref.watch(studentProfileProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            theme.colorScheme.primary.withValues(alpha: isDark ? 0.15 : 0.05),
+          ],
+        ),
+      ),
+      child: profileAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load profile',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                err.toString(),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => ref.invalidate(studentProfileProvider),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              )
+            ],
+          ),
+        ),
+        data: (profile) => RefreshIndicator(
+          onRefresh: () async => ref.invalidate(studentProfileProvider),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+            children: [
+              // Greeting Section
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Text(
+                      profile.fullName[0].toUpperCase(),
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome back,',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          profile.fullName,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              // Glassmorphic Status Card
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0C8B83), Color(0xFF0A6E7A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0C8B83).withValues(alpha: 0.3),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: -30,
+                        top: -30,
+                        child: Icon(Icons.stars_rounded, size: 140, color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    profile.status.toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                const Icon(Icons.calendar_month_rounded, color: Colors.white70),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Current Progress',
+                              style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Week ${profile.currentInternshipWeek}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Internship Details
+              if (profile.companyName != null) ...[
+                Text(
+                  'Internship Placement',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondary.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.business_rounded, color: theme.colorScheme.secondary),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Company',
+                                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                ),
+                                Text(
+                                  profile.companyName!,
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 32),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.person_pin_rounded, color: Color(0xFF6C63FF)),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Supervisor',
+                                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                ),
+                                Text(
+                                  profile.supervisorName ?? 'Not Assigned',
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // If not placed yet
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: theme.colorScheme.error),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text(
+                          'You have not been placed in a company yet. Check the Jobs tab to request placements.',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// PLACEHOLDER VIEWS FOR OTHER TABS
 // ---------------------------------------------------------
 
 class _PremiumPlaceholderView extends StatelessWidget {
@@ -169,12 +469,7 @@ class StudentDashboardScreen extends StatelessWidget {
           label: 'Home',
           icon: Icons.dashboard_outlined,
           activeIcon: Icons.dashboard_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Welcome Student',
-            subtitle: 'Overview of your internship progress',
-            icon: Icons.space_dashboard_rounded,
-            gradient: [Color(0xFF00B4DB), Color(0xFF0083B0)],
-          ),
+          view: const _StudentHomeTab(),
         ),
         _DashboardTab(
           label: 'Plans',
