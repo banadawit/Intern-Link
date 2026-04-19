@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/student_repository.dart';
+import '../../data/repositories/progress_repository.dart';
 
 // ---------------------------------------------------------
 // REUSABLE MODERN SCAFFOLD WITH BOTTOM NAVIGATION
@@ -382,6 +383,250 @@ class _StudentHomeTab extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------
+// STUDENT REAL PLANS TAB (API INTEGRATED)
+// ---------------------------------------------------------
+
+class _StudentPlansTab extends ConsumerWidget {
+  const _StudentPlansTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final plansAsync = ref.watch(myWeeklyPlansProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            const Color(0xFF8E2DE2).withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+      ),
+      child: plansAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 64),
+              const SizedBox(height: 16),
+              Text('Failed to load plans', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: () => ref.invalidate(myWeeklyPlansProvider),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              )
+            ],
+          ),
+        ),
+        data: (plans) {
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(myWeeklyPlansProvider),
+            child: plans.isEmpty
+                ? ListView(
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      const SizedBox(height: 60),
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                          borderRadius: BorderRadius.circular(32),
+                          border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.calendar_today_rounded, size: 64, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                            const SizedBox(height: 24),
+                            Text('No Plans Yet', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Submit your first weekly plan to get started.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                            ),
+                            const SizedBox(height: 24),
+                            FilledButton.icon(
+                              onPressed: () {
+                                // TODO: Navigate to submit plan screen
+                              },
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('New Plan'),
+                            )
+                          ],
+                        ),
+                      )
+                    ],
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+                    itemCount: plans.length + 1,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'My Submissions',
+                                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                              FilledButton.tonalIcon(
+                                onPressed: () {
+                                  // TODO: Navigate to submit plan screen
+                                },
+                                icon: const Icon(Icons.add_rounded, size: 18),
+                                label: const Text('Submit'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final plan = plans[index - 1];
+                      Color statusColor;
+                      IconData statusIcon;
+
+                      switch (plan.status.toUpperCase()) {
+                        case 'APPROVED':
+                          statusColor = const Color(0xFF067647);
+                          statusIcon = Icons.check_circle_rounded;
+                          break;
+                        case 'REJECTED':
+                          statusColor = const Color(0xFFB42318);
+                          statusIcon = Icons.cancel_rounded;
+                          break;
+                        default:
+                          statusColor = const Color(0xFFB54708);
+                          statusIcon = Icons.pending_rounded;
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            )
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(statusIcon, color: statusColor, size: 16),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        plan.status.toUpperCase(),
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  'Week ${plan.weekNumber}',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              plan.planDescription,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                height: 1.5,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (plan.feedback != null && plan.feedback!.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.format_quote_rounded, size: 20, color: theme.colorScheme.primary),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        plan.feedback!,
+                                        style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Icon(Icons.event_available_rounded, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${plan.daySubmissions.length} Daily Check-ins',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: theme.colorScheme.primary),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
 // PLACEHOLDER VIEWS FOR OTHER TABS
 // ---------------------------------------------------------
 
@@ -475,12 +720,7 @@ class StudentDashboardScreen extends StatelessWidget {
           label: 'Plans',
           icon: Icons.calendar_today_outlined,
           activeIcon: Icons.calendar_today_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Weekly Plans',
-            subtitle: 'Manage and submit your weekly tasks',
-            icon: Icons.event_note_rounded,
-            gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-          ),
+          view: const _StudentPlansTab(),
         ),
         _DashboardTab(
           label: 'Jobs',
