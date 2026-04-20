@@ -6,6 +6,7 @@ import '../../data/repositories/student_repository.dart';
 import '../../data/repositories/progress_repository.dart';
 import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/supervisor_repository.dart';
+import '../../data/repositories/coordinator_repository.dart';
 import '../../../auth/presentation/widgets/custom_text_field.dart';
 
 // ---------------------------------------------------------
@@ -1537,37 +1538,22 @@ class CoordinatorDashboardScreen extends StatelessWidget {
       roleLabel: 'COORDINATOR',
       tabs: [
         _DashboardTab(
-          label: 'Home',
+          label: 'Overview',
           icon: Icons.dashboard_outlined,
           activeIcon: Icons.dashboard_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Coordinator Dashboard',
-            subtitle: 'University-wide placement overview',
-            icon: Icons.domain_rounded,
-            gradient: [Color(0xFF1D976C), Color(0xFF93F9B9)],
-          ),
+          view: const _CoordinatorHomeTab(),
         ),
         _DashboardTab(
-          label: 'Placements',
-          icon: Icons.assignment_outlined,
-          activeIcon: Icons.assignment_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Manage Placements',
-            subtitle: 'Approve and monitor student placements',
-            icon: Icons.fact_check_rounded,
-            gradient: [Color(0xFF4CB8C4), Color(0xFF3CD3AD)],
-          ),
+          label: 'HODs',
+          icon: Icons.people_outline_rounded,
+          activeIcon: Icons.people_rounded,
+          view: const _CoordinatorHodsTab(),
         ),
         _DashboardTab(
           label: 'Companies',
           icon: Icons.business_outlined,
           activeIcon: Icons.business_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Company Directory',
-            subtitle: 'Partner organizations list',
-            icon: Icons.corporate_fare_rounded,
-            gradient: [Color(0xFF834D9B), Color(0xFFD04ED6)],
-          ),
+          view: const _CoordinatorCompaniesTab(),
         ),
         _DashboardTab(
           label: 'Profile',
@@ -1582,6 +1568,242 @@ class CoordinatorDashboardScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _CoordinatorHomeTab extends ConsumerWidget {
+  const _CoordinatorHomeTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final statsAsync = ref.watch(coordinatorStatsProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            theme.colorScheme.primary.withValues(alpha: isDark ? 0.15 : 0.05),
+          ],
+        ),
+      ),
+      child: statsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (stats) => RefreshIndicator(
+          onRefresh: () async => ref.invalidate(coordinatorStatsProvider),
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Text(
+                stats.universityName,
+                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Institutional Overview',
+                style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              ),
+              const SizedBox(height: 32),
+              
+              // Stats Grid
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.2,
+                children: [
+                  _buildStatCard(context, 'Total Students', stats.totalStudents.toString(), Icons.people_rounded, Colors.blue),
+                  _buildStatCard(context, 'Active Placements', stats.activePlacements.toString(), Icons.assignment_turned_in_rounded, Colors.green),
+                  _buildStatCard(context, 'Partner Companies', stats.totalCompanies.toString(), Icons.business_rounded, Colors.orange),
+                  _buildStatCard(context, 'Pending Proposals', stats.pendingProposals.toString(), Icons.pending_actions_rounded, Colors.purple),
+                ],
+              ),
+              
+              const SizedBox(height: 40),
+              Text('Quick Actions', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _buildQuickAction(context, 'Invite Department Head', Icons.person_add_alt_1_rounded, 'Share registration link with HODs'),
+              const SizedBox(height: 12),
+              _buildQuickAction(context, 'Generate Yearly Report', Icons.analytics_rounded, 'Export placement statistics to PDF'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900, color: color)),
+              Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickAction(BuildContext context, String title, IconData icon, String subtitle) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: theme.colorScheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+            child: Icon(icon, color: theme.colorScheme.primary),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: theme.colorScheme.primary),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoordinatorHodsTab extends ConsumerWidget {
+  const _CoordinatorHodsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final hodsAsync = ref.watch(pendingHodsProvider);
+
+    return Container(
+      color: theme.colorScheme.surface,
+      child: hodsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (hods) => RefreshIndicator(
+          onRefresh: () async => ref.invalidate(pendingHodsProvider),
+          child: hods.isEmpty 
+            ? const Center(child: Text('No pending department heads to verify.'))
+            : ListView.separated(
+                padding: const EdgeInsets.all(24),
+                itemCount: hods.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final hod = hods[index];
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: theme.colorScheme.outlineVariant),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(child: Text(hod['user']['full_name'][0])),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(hod['user']['full_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(hod['department'], style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _verify(context, ref, hod['userId'], 'REJECTED'),
+                                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                                  child: const Text('Reject'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: () => _verify(context, ref, hod['userId'], 'APPROVED'),
+                                  child: const Text('Approve'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _verify(BuildContext context, WidgetRef ref, int userId, String status) async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).verifyHod(userId, status);
+      ref.invalidate(pendingHodsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('HOD $status successfully')));
+      }
+    } catch (e) {
+       if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+}
+
+class _CoordinatorCompaniesTab extends ConsumerWidget {
+  const _CoordinatorCompaniesTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Basic list for now
+    return const Center(child: Text('Partner Companies List (Coming Soon)'));
   }
 }
 
