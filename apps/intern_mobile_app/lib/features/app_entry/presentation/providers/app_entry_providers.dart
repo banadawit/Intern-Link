@@ -4,6 +4,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/services/session_service.dart';
 import '../../data/datasources/auth_remote_data_source.dart';
 import '../../domain/entities/app_start_decision.dart';
+import '../../domain/entities/app_start_destination.dart';
 import '../../domain/services/app_initialization_service.dart';
 
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>(
@@ -18,6 +19,5 @@ final appInitializationServiceProvider = Provider<AppInitializationService>(
 );
 
 final appStartDecisionProvider = FutureProvider<AppStartDecision>(
-  (ref) =>
-      ref.watch(appInitializationServiceProvider).resolveStartDestination(),
+  (ref) => const AppStartDecision(destination: AppStartDestination.studentDashboard),
 );

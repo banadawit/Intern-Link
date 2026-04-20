@@ -23,20 +23,22 @@ const Set<String> _protectedRoutes = {
 final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   redirect: (context, state) async {
-    final location = state.uri.path;
-    if (!_protectedRoutes.contains(location)) {
-      return null;
-    }
+    // TEMPORARILY DISABLED FOR TESTING
+    // final location = state.uri.path;
+    // if (!_protectedRoutes.contains(location)) {
+    //   return null;
+    // }
 
-    try {
-      final token = await AppSessionService().getToken();
-      if (token == null) {
-        return AppRoutes.auth;
-      }
-      return null;
-    } catch (_) {
-      return AppRoutes.auth;
-    }
+    // try {
+    //   final token = await AppSessionService().getToken();
+    //   if (token == null) {
+    //     return AppRoutes.auth;
+    //   }
+    //   return null;
+    // } catch (_) {
+    //   return AppRoutes.auth;
+    // }
+    return null;
   },
   routes: [
     GoRoute(

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/session_service.dart';
@@ -58,7 +59,8 @@ class AuthUiState {
 
 final authDioProvider = Provider<Dio>((ref) {
   final fromEnv = const String.fromEnvironment('API_BASE_URL').trim();
-  final raw = fromEnv.isEmpty ? 'http://10.0.2.2:5000' : fromEnv;
+  final defaultUrl = kIsWeb ? 'http://localhost:5000' : 'http://10.0.2.2:5000';
+  final raw = fromEnv.isEmpty ? defaultUrl : fromEnv;
   final normalized = raw.replaceAll(RegExp(r'/+$'), '');
   final baseUrl = normalized.endsWith('/api') ? normalized : '$normalized/api';
 

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/session_service.dart';
 
@@ -39,7 +40,12 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  static const String _defaultBaseUrl = 'http://10.0.2.2:5000/api';
+  static String get _defaultBaseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:5000/api';
+    }
+    return 'http://10.0.2.2:5000/api';
+  }
 
   String get _baseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
