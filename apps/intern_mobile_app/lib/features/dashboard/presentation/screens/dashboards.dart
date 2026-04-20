@@ -1,12 +1,17 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../app/router/app_routes.dart';
+import '../../../../core/services/session_service.dart';
 
 import '../../data/repositories/student_repository.dart';
 import '../../data/repositories/progress_repository.dart';
 import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/supervisor_repository.dart';
 import '../../data/repositories/coordinator_repository.dart';
+import '../../data/repositories/admin_repository.dart';
 import '../../../auth/presentation/widgets/custom_text_field.dart';
 
 // ---------------------------------------------------------
@@ -1468,8 +1473,27 @@ class _SupervisorSettingsTab extends ConsumerWidget {
               ),
               const SizedBox(height: 40),
               OutlinedButton.icon(
-                onPressed: () {
-                  // TODO: Implement logout
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+                      content: const Text('Are you sure you want to sign out?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+                          child: const Text('Sign Out'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    await ref.read(appSessionServiceProvider).clearSession();
+                    if (context.mounted) context.go(AppRoutes.auth);
+                  }
                 },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1824,34 +1848,13 @@ class AdminDashboardScreen extends StatelessWidget {
           label: 'Overview',
           icon: Icons.security_outlined,
           activeIcon: Icons.security_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Admin Console',
-            subtitle: 'System health and overview',
-            icon: Icons.admin_panel_settings_rounded,
-            gradient: [Color(0xFF141E30), Color(0xFF243B55)],
-          ),
+          view: const _AdminOverviewTab(),
         ),
         _DashboardTab(
           label: 'Approvals',
           icon: Icons.verified_user_outlined,
           activeIcon: Icons.verified_user_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Pending Approvals',
-            subtitle: 'Review institutional registrations',
-            icon: Icons.how_to_reg_rounded,
-            gradient: [Color(0xFFCB2D3E), Color(0xFFEF473A)],
-          ),
-        ),
-        _DashboardTab(
-          label: 'Logs',
-          icon: Icons.receipt_long_outlined,
-          activeIcon: Icons.receipt_long_rounded,
-          view: const _PremiumPlaceholderView(
-            title: 'Audit Logs',
-            subtitle: 'Monitor platform activity',
-            icon: Icons.list_alt_rounded,
-            gradient: [Color(0xFF3A1C71), Color(0xFFD76D77)],
-          ),
+          view: const _AdminApprovalsTab(),
         ),
         _DashboardTab(
           label: 'Settings',
@@ -1866,5 +1869,299 @@ class AdminDashboardScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _AdminOverviewTab extends ConsumerWidget {
+  const _AdminOverviewTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final statsAsync = ref.watch(adminStatsProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            theme.colorScheme.error.withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+      ),
+      child: statsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (stats) => RefreshIndicator(
+          onRefresh: () async => ref.invalidate(adminStatsProvider),
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Text('System Console', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              Text('Global Platform Monitoring', style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+              const SizedBox(height: 32),
+              
+              _buildLargeStat(context, 'Total Active Users', stats.totalUsers.toString(), Icons.group_rounded, theme.colorScheme.primary),
+              const SizedBox(height: 16),
+              
+              Row(
+                children: [
+                  Expanded(child: _buildSmallStat(context, 'Universities', stats.totalUniversities.toString(), Icons.school_rounded, Colors.indigo)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildSmallStat(context, 'Companies', stats.totalCompanies.toString(), Icons.business_center_rounded, Colors.teal)),
+                ],
+              ),
+              
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: theme.colorScheme.error,
+                      child: const Icon(Icons.notifications_active_rounded, color: Colors.white),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${stats.pendingApprovals} Pending Approvals', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const Text('Review institutional verification requests'),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 16, color: theme.colorScheme.error),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLargeStat(BuildContext context, String label, String value, IconData icon, Color color) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+              Text(value, style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.w900, color: color)),
+            ],
+          ),
+          Icon(icon, size: 48, color: color.withValues(alpha: 0.2)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallStat(BuildContext context, String label, String value, IconData icon, Color color) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(height: 12),
+          Text(value, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900, color: color)),
+          Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminApprovalsTab extends ConsumerWidget {
+  const _AdminApprovalsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final unisAsync = ref.watch(pendingUniversitiesProvider);
+    final compsAsync = ref.watch(pendingCompaniesProvider);
+
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          TabBar(
+            tabs: const [
+              Tab(text: 'Universities'),
+              Tab(text: 'Companies'),
+            ],
+            labelColor: theme.colorScheme.primary,
+            indicatorColor: theme.colorScheme.primary,
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildApprovalList(context, ref, unisAsync, true),
+                _buildApprovalList(context, ref, compsAsync, false),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApprovalList(BuildContext context, WidgetRef ref, AsyncValue<List<dynamic>> asyncData, bool isUni) {
+    final theme = Theme.of(context);
+    return asyncData.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(child: Text('Error: $err')),
+      data: (items) => RefreshIndicator(
+        onRefresh: () async => ref.invalidate(isUni ? pendingUniversitiesProvider : pendingCompaniesProvider),
+        child: items.isEmpty
+            ? const Center(child: Text('No pending requests.'))
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: FilledButton(
+                      onPressed: () => _approveAll(context, ref, items, isUni),
+                      child: const Text('Approve All'),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(24),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            side: BorderSide(color: theme.colorScheme.outlineVariant),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(color: theme.colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(12)),
+                                      child: Icon(isUni ? Icons.school_rounded : Icons.business_rounded, color: theme.colorScheme.onSecondaryContainer),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(item['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                                          Text(item['official_email'], style: theme.textTheme.bodySmall),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: () => _updateStatus(context, ref, item['id'], 'REJECTED', isUni),
+                                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                                        child: const Text('Reject'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: FilledButton(
+                                        onPressed: () => _updateStatus(context, ref, item['id'], 'APPROVED', isUni),
+                                        child: const Text('Approve'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Future<void> _approveAll(BuildContext context, WidgetRef ref, List<dynamic> items, bool isUni) async {
+    try {
+      final repo = ref.read(adminRepositoryProvider);
+      for (final item in items) {
+        if (isUni) {
+          await repo.updateUniversityStatus(item['id'], 'APPROVED');
+        } else {
+          await repo.updateCompanyStatus(item['id'], 'APPROVED');
+        }
+      }
+      ref.invalidate(isUni ? pendingUniversitiesProvider : pendingCompaniesProvider);
+      ref.invalidate(adminStatsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('All pending items approved')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _updateStatus(BuildContext context, WidgetRef ref, int id, String status, bool isUni) async {
+    try {
+      final repo = ref.read(adminRepositoryProvider);
+      if (isUni) {
+        await repo.updateUniversityStatus(id, status);
+      } else {
+        await repo.updateCompanyStatus(id, status);
+      }
+      ref.invalidate(isUni ? pendingUniversitiesProvider : pendingCompaniesProvider);
+      ref.invalidate(adminStatsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Institution ${status.toLowerCase()} successfully')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 }
