@@ -53,12 +53,24 @@ class StudentRepository {
 
   Future<StudentProfile> getStudentProfile() async {
     try {
-      final response = await _apiClient.dio.get('/student/profile');
+      final response = await _apiClient.dio.get('/students/me');
+      if (response.data is! Map) {
+        throw Exception('Unexpected response format from server');
+      }
       return StudentProfile.fromJson(response.data);
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Failed to load profile');
+      final data = e.response?.data;
+      String message = 'Failed to load profile';
+      if (data is Map && data.containsKey('message')) {
+        message = data['message'];
+      } else if (data is Map && data.containsKey('error')) {
+        message = data['error'];
+      } else if (data is String) {
+        message = data;
+      }
+      throw Exception(message);
     } catch (e) {
-      throw Exception('An unexpected error occurred');
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 }
