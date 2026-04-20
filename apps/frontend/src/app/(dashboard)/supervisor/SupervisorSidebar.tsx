@@ -64,7 +64,6 @@ const SupervisorSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/supervisor", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/supervisor/common-feed", badge: 0 },
     { icon: MessagesSquare, label: "Messages", path: "/supervisor/chat", badge: unreadCount },
     { icon: Users, label: "Students", path: "/supervisor/students", badge: 0 },
     { icon: UsersRound, label: "Teams", path: "/supervisor/teams", badge: 0 },
@@ -72,6 +71,7 @@ const SupervisorSidebar = () => {
     { icon: Inbox, label: "Proposals", path: "/supervisor/proposals", badge: pendingProposals },
     { icon: ClipboardList, label: "Weekly plans", path: "/supervisor/plans", badge: pendingPlans },
     { icon: FileCheck, label: "Reports", path: "/supervisor/reports", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/supervisor/common-feed", badge: 0 },
   ];
 
   const attendanceNavItems = [
