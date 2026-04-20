@@ -45,6 +45,13 @@ export const verifyStudent = async (req: AuthRequest, res: Response) => {
             data: { hod_approval_status: status as ApprovalStatus },
         });
 
+        if (status === 'APPROVED') {
+            await prisma.user.update({
+                where: { id: student.userId },
+                data: { verification_status: 'APPROVED' },
+            });
+        }
+
         // Notify the student via in-app + email
         const msg = status === 'APPROVED'
             ? `Your registration has been approved by your Head of Department. You can now access InternLink features.`
@@ -165,6 +172,11 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
         await prisma.student.update({
             where: { id: studentId },
             data: { hod_approval_status: 'APPROVED' },
+        });
+
+        await prisma.user.update({
+            where: { id: student.userId },
+            data: { verification_status: 'APPROVED' },
         });
         res.json({ message: 'Student approved.', studentId });
     } catch (e: unknown) {

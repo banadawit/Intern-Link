@@ -187,7 +187,7 @@ export const register = async (req: Request, res: Response) => {
                 where: { universityId },
                 include: { user: { select: { email: true } } },
             });
-            const coordinatorEmails = coordinators.map((c) => c.user.email);
+            const coordinatorEmails = coordinators.map((c: any) => c.user.email);
 
             if (coordinatorEmails.length > 0) {
                 await sendCoordinatorHodReviewEmail(coordinatorEmails, {

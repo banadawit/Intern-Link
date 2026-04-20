@@ -52,9 +52,16 @@ class PlacementRepository {
       final data = response.data as List;
       return data.map((e) => PlacementProposal.fromJson(e)).toList();
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Failed to load proposals');
+      final data = e.response?.data;
+      String message = 'Failed to load proposals';
+      if (data is Map && data.containsKey('message')) {
+        message = data['message'];
+      } else if (data is String) {
+        message = data;
+      }
+      throw Exception(message);
     } catch (e) {
-      throw Exception('An unexpected error occurred');
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 }

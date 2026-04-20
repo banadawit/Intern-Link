@@ -75,9 +75,16 @@ class ProgressRepository {
       final data = response.data as List;
       return data.map((e) => WeeklyPlan.fromJson(e)).toList();
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Failed to load plans');
+      final data = e.response?.data;
+      String message = 'Failed to load plans';
+      if (data is Map && data.containsKey('message')) {
+        message = data['message'];
+      } else if (data is String) {
+        message = data;
+      }
+      throw Exception(message);
     } catch (e) {
-      throw Exception('An unexpected error occurred');
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 
@@ -92,9 +99,16 @@ class ProgressRepository {
       );
       return WeeklyPlan.fromJson(response.data['plan']);
     } on DioException catch (e) {
-      throw Exception(e.response?.data['message'] ?? 'Failed to submit plan');
+      final data = e.response?.data;
+      String message = 'Failed to submit plan';
+      if (data is Map && data.containsKey('message')) {
+        message = data['message'];
+      } else if (data is String) {
+        message = data;
+      }
+      throw Exception(message);
     } catch (e) {
-      throw Exception('An unexpected error occurred');
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 }

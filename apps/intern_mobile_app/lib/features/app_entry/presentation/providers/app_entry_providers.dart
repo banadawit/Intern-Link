@@ -19,5 +19,5 @@ final appInitializationServiceProvider = Provider<AppInitializationService>(
 );
 
 final appStartDecisionProvider = FutureProvider<AppStartDecision>(
-  (ref) => const AppStartDecision(destination: AppStartDestination.studentDashboard),
+  (ref) => ref.watch(appInitializationServiceProvider).resolveStartDestination(),
 );
