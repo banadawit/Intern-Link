@@ -564,6 +564,7 @@ export const login = async (req: Request, res: Response) => {
                     role: user.role,
                     isVerified: user.verification_status === 'APPROVED',
                     institutionAccessApproval: user.institution_access_approval,
+                    hodApprovalStatus: user.role === 'STUDENT' ? user.studentProfile?.hod_approval_status : undefined,
                 }
             }
         });

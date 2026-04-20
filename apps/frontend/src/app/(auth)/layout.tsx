@@ -32,6 +32,9 @@ export default function AuthLayout({
       storedUser.institutionAccessApproval !== 'APPROVED'
     ) return;
 
+    // Students with pending HoD approval stay on pending page
+    if (storedUser.role === 'STUDENT' && (storedUser as any).hodApprovalStatus === 'PENDING') return;
+
     const dest: Record<string, string> = {
       ADMIN: '/admin', COORDINATOR: '/coordinator', HOD: '/hod',
       SUPERVISOR: '/supervisor', STUDENT: '/student',

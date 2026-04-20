@@ -13,6 +13,7 @@ interface User {
   role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
   isVerified: boolean;
   institutionAccessApproval?: string;
+  hodApprovalStatus?: string;
   profile?: {
     universityId?: number;
     universityName?: string;
@@ -71,6 +72,7 @@ interface LoginResponse {
       role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
       isVerified: boolean;
       institutionAccessApproval?: string;
+      hodApprovalStatus?: string;
     };
   };
 }
@@ -114,6 +116,7 @@ export const useAuth = create<AuthState>()(
               role: user.role,
               isVerified: user.isVerified,
               institutionAccessApproval: user.institutionAccessApproval,
+              hodApprovalStatus: user.hodApprovalStatus,
             },
             token,
             isLoading: false,
