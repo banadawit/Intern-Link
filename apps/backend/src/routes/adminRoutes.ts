@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as adminCtrl from '../controllers/adminController';
+import * as configCtrl from '../controllers/systemConfigController';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
 
@@ -44,5 +45,12 @@ router.post('/supervisors/:userId/reject', adminCtrl.rejectSupervisor);
 
 // Common Page Feed
 router.post('/announcements', adminCtrl.postAnnouncement);
+
+// System Configuration
+router.get('/config', configCtrl.getConfig);
+router.patch('/config', configCtrl.updateConfig);
+router.post('/config/test-smtp', configCtrl.testSmtp);
+router.get('/config/export-audit-csv', configCtrl.exportAuditLogCsv);
+router.post('/config/broadcast', configCtrl.broadcastAnnouncement);
 
 export default router;

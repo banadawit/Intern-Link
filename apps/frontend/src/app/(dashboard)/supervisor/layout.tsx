@@ -5,10 +5,12 @@ import SupervisorSidebar from "./SupervisorSidebar";
 import SupervisorRouteGuard from "./SupervisorRouteGuard";
 import AiChatFloating from "@/components/ai/AiChatFloating";
 import NotificationBell from "@/components/shared/NotificationBell";
+import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
 
 export default function SupervisorLayout({ children }: { children: React.ReactNode }) {
   return (
     <SupervisorRouteGuard>
+      <MaintenanceGuard>
       <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
         <SupervisorSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -21,6 +23,7 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
         </div>
         <AiChatFloating role="supervisor" />
       </div>
+      </MaintenanceGuard>
     </SupervisorRouteGuard>
   );
 }

@@ -5,10 +5,12 @@ import StudentSidebar from "./StudentSidebar";
 import AiChatFloating from "@/components/ai/AiChatFloating";
 import StudentRouteGuard from "./StudentRouteGuard";
 import NotificationBell from "@/components/shared/NotificationBell";
+import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
     <StudentRouteGuard>
+      <MaintenanceGuard>
       <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
         <StudentSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -21,6 +23,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         </div>
         <AiChatFloating role="student" />
       </div>
+      </MaintenanceGuard>
     </StudentRouteGuard>
   );
 }
