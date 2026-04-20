@@ -6,14 +6,6 @@ import '../../data/datasources/auth_remote_data_source.dart';
 import '../../domain/entities/app_start_decision.dart';
 import '../../domain/services/app_initialization_service.dart';
 
-final appSessionServiceProvider = Provider<AppSessionService>(
-  (ref) => AppSessionService(),
-);
-
-final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient(sessionService: ref.watch(appSessionServiceProvider));
-});
-
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>(
   (ref) => AuthRemoteDataSource(apiClient: ref.watch(apiClientProvider)),
 );

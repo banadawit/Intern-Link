@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/services/session_service.dart';
 import '../../../../features/app_entry/presentation/providers/app_entry_providers.dart';
 import '../../../app_entry/domain/entities/app_start_decision.dart';
 import '../../data/datasources/auth_remote_service.dart';
