@@ -9,6 +9,7 @@ import { generateVerificationToken, getVerificationTokenExpiry } from '../utils/
 import { sendVerificationEmail, sendPasswordResetEmail, sendCoordinatorHodReviewEmail } from '../services/email.service';
 import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
 import { sendNotification } from '../utils/notificationHelper';
+import { isRegistrationOpen, isMaintenanceMode } from './systemConfigController';
 
 // ============================================
 // REGISTER - with email verification
@@ -19,6 +20,27 @@ export const register = async (req: Request, res: Response) => {
         
         // Get uploaded file if exists
         const file = (req as any).file;
+
+        // Maintenance mode check
+        const maintenance = await isMaintenanceMode();
+        if (maintenance.active) {
+            return res.status(503).json({
+                success: false,
+                message: maintenance.message,
+                code: 'MAINTENANCE_MODE',
+            });
+        }
+
+        // Check if registration is open for this role
+        const roleUpper = (role ?? '').toUpperCase();
+        const registrationOpen = await isRegistrationOpen(roleUpper);
+        if (!registrationOpen) {
+            return res.status(403).json({
+                success: false,
+                message: `Registration for ${roleUpper} accounts is currently closed. Please try again later.`,
+                code: 'REGISTRATION_CLOSED',
+            });
+        }
 
         // Check if user exists
         const userExists = await prisma.user.findUnique({ where: { email } });
@@ -37,7 +59,6 @@ export const register = async (req: Request, res: Response) => {
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
         // Create user with verification token
-        const roleUpper = role.toUpperCase();
         const needsIndividualAdminApproval =
             roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR' || roleUpper === 'HOD';
 

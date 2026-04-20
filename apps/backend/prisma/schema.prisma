@@ -510,6 +510,13 @@ model AuditLog {
   timestamp   DateTime @default(now())
 }
 
+/// Key-value store for platform-wide configuration set by admins.
+model SystemConfig {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
 model ChatMessage {
   id         Int      @id @default(autoincrement())
   senderId   Int

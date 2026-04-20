@@ -14,6 +14,7 @@ import ApprovalsView from "./ApprovalsView";
 import ApprovedHistoryView from "./ApprovedHistoryView";
 import RejectedHistoryView from "./RejectedHistoryView";
 import SuspendedView from "./SuspendedView";
+import SystemSettings from "./SystemSettings";
 import api from "@/lib/api/client";
 import {
   mapUniversityToProposal,
@@ -213,18 +214,7 @@ export default function App() {
         />
       );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
-    return (
-      <div className="space-y-6">
-        <AdminPageHero
-          badge="Settings"
-          title="System configuration"
-          description="Global settings and platform parameters are managed here."
-        />
-        <div className="card p-8 text-center shadow-sm">
-          <p className="text-slate-600">Additional settings can be connected to the backend as needed.</p>
-        </div>
-      </div>
-    );
+    if (activeView === "settings") return <SystemSettings />;
   }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading]);
 
   return (

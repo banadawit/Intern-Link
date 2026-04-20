@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, MessageSquare, FolderKanban, CheckCircle2, Info, X } from "lucide-react";
+import { Bell, MessageSquare, FolderKanban, CheckCircle2, Info, X, Megaphone } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/hooks/useAuth";
 import api from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
@@ -16,10 +18,25 @@ type Notification = {
 
 function iconFor(message: string) {
   const m = message.toLowerCase();
+  if (m.startsWith("📢") || m.includes("announcement")) return <Megaphone className="h-4 w-4 text-amber-500" />;
   if (m.includes("message") || m.includes("chat")) return <MessageSquare className="h-4 w-4 text-blue-500" />;
   if (m.includes("project") || m.includes("assigned")) return <FolderKanban className="h-4 w-4 text-teal-600" />;
   if (m.includes("approved") || m.includes("approval")) return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
   return <Info className="h-4 w-4 text-slate-400" />;
+}
+
+function linkFor(message: string, role: string | undefined): string | null {
+  const m = message.toLowerCase();
+  const r = role?.toLowerCase() ?? '';
+  // Broadcast announcements → common feed for that role
+  if (m.startsWith("📢") || m.includes("announcement")) {
+    if (r === 'student') return '/student/common';
+    if (r === 'coordinator') return '/coordinator/common-feed';
+    if (r === 'supervisor') return '/supervisor/common-feed';
+    if (r === 'hod') return '/hod/common-feed';
+    return null;
+  }
+  return null;
 }
 
 export default function NotificationBell() {
@@ -28,6 +45,8 @@ export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [panelPos, setPanelPos] = useState({ top: 0, right: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const router = useRouter();
+  const { user } = useAuth();
 
   const load = useCallback(async () => {
     try {
@@ -112,32 +131,44 @@ export default function NotificationBell() {
               No notifications yet.
             </li>
           ) : (
-            notifications.map((n) => (
-              <li
-                key={n.id}
-                onClick={() => { if (!n.is_read) void markOne(n.id); }}
-                className={cn(
-                  "flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-slate-50",
-                  !n.is_read && "bg-primary-50/50"
-                )}
-              >
-                <span className="mt-0.5 shrink-0">{iconFor(n.message)}</span>
-                <div className="min-w-0 flex-1">
-                  <p className={cn(
-                    "text-sm leading-snug text-slate-700",
-                    !n.is_read && "font-semibold text-slate-900"
-                  )}>
-                    {n.message}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-400">
-                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
-                  </p>
-                </div>
-                {!n.is_read && (
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-600" />
-                )}
-              </li>
-            ))
+            notifications.map((n) => {
+              const link = linkFor(n.message, user?.role);
+              return (
+                <li
+                  key={n.id}
+                  onClick={() => {
+                    if (!n.is_read) void markOne(n.id);
+                    if (link) { setOpen(false); router.push(link); }
+                  }}
+                  className={cn(
+                    "flex items-start gap-3 px-4 py-3 transition-colors hover:bg-slate-50",
+                    link ? "cursor-pointer" : !n.is_read ? "cursor-pointer" : "cursor-default",
+                    !n.is_read && "bg-primary-50/50"
+                  )}
+                >
+                  <span className="mt-0.5 shrink-0">{iconFor(n.message)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className={cn(
+                      "text-sm leading-snug text-slate-700",
+                      !n.is_read && "font-semibold text-slate-900"
+                    )}>
+                      {n.message}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                    </p>
+                    {link && (
+                      <p className="mt-0.5 text-xs font-medium text-primary-600">
+                        View in Common Feed →
+                      </p>
+                    )}
+                  </div>
+                  {!n.is_read && (
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-600" />
+                  )}
+                </li>
+              );
+            })
           )}
         </ul>
       </div>

@@ -4,10 +4,12 @@ import HodSidebar from "./HodSidebar";
 import HodRouteGuard from "./HodRouteGuard";
 import AiChatFloating from "@/components/ai/AiChatFloating";
 import NotificationBell from "@/components/shared/NotificationBell";
+import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
 
 export default function HodLayout({ children }: { children: React.ReactNode }) {
   return (
     <HodRouteGuard>
+      <MaintenanceGuard>
       <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
         <HodSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -20,6 +22,7 @@ export default function HodLayout({ children }: { children: React.ReactNode }) {
         </div>
         <AiChatFloating role="hod" />
       </div>
+      </MaintenanceGuard>
     </HodRouteGuard>
   );
 }
