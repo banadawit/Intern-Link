@@ -1,14 +1,54 @@
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/session_service.dart';
+
+final apiClientProvider = Provider<ApiClient>((ref) {
+  return ApiClient(sessionService: ref.watch(appSessionServiceProvider));
+});
 
 class ApiClient {
-  ApiClient({http.Client? client}) : _client = client ?? http.Client();
+  ApiClient({required this.sessionService}) {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: _baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
 
-  final http.Client _client;
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await sessionService.getToken();
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
+        },
+        onError: (DioException e, handler) {
+          // Handle global errors here if needed (e.g. 401 token expiry)
+          return handler.next(e);
+        },
+      ),
+    );
+  }
 
-  static const String _defaultBaseUrl = 'http://10.0.2.2:5000/api';
+  final AppSessionService sessionService;
+  late final Dio _dio;
 
-  String get baseUrl {
-    final fromEnv = const String.fromEnvironment('API_BASE_URL');
+  Dio get dio => _dio;
+
+  static String get _defaultBaseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:5000/api';
+    }
+    return 'http://10.0.2.2:5000/api';
+  }
+
+  String get _baseUrl {
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
     if (fromEnv.trim().isNotEmpty) {
       return _normalizeApiBase(fromEnv);
     }
@@ -21,14 +61,5 @@ class ApiClient {
       return trimmed;
     }
     return '$trimmed/api';
-  }
-
-  Uri authUri(String path) => Uri.parse('$baseUrl/auth/$path');
-
-  Future<http.Response> get(
-    Uri url, {
-    Map<String, String>? headers,
-  }) {
-    return _client.get(url, headers: headers);
   }
 }
