@@ -61,10 +61,10 @@ const CoordinatorSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/coordinator", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/coordinator/common-feed", badge: 0 },
     { icon: ClipboardCheck, label: "HOD management", path: "/coordinator/hods", badge: pendingHodCount },
     { icon: History, label: "Approvals", path: "/coordinator/approvals", badge: 0 },
     { icon: MessagesSquare, label: "Messages", path: "/coordinator/chat", badge: unreadCount },
+    { icon: MessageSquare, label: "Common Feed", path: "/coordinator/common-feed", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>

@@ -66,7 +66,6 @@ const HodSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/hod", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/hod/common-feed", badge: 0 },
     { icon: MessagesSquare, label: "Messages", path: "/hod/chat", badge: unreadCount },
     { icon: Users, label: "Students", path: "/hod/students", badge: pendingStudents },
     { icon: Building2, label: "Companies", path: "/hod/companies", badge: 0 },
@@ -74,6 +73,7 @@ const HodSidebar = () => {
     { icon: Mail, label: "Invite company", path: "/hod/invite", badge: 0 },
     { icon: FileCheck, label: "Open letters", path: "/hod/open-letters", badge: 0 },
     { icon: FileText, label: "Reports", path: "/hod/reports", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/hod/common-feed", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>
