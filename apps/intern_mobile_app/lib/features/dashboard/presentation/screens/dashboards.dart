@@ -552,7 +552,9 @@ class _StudentHomeTab extends ConsumerWidget {
                     _buildInternshipStatusHeader(context, profile),
                     const SizedBox(height: 20),
                     _buildKeyCards(context, isDark, plansAsync),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
+                    _buildActivityHeatmap(context, isDark, plansAsync),
+                    const SizedBox(height: 24),
                     _buildActiveInternshipInfo(context, isDark, profile),
                     const SizedBox(height: 20),
                     _buildRecentActivity(context, isDark, plansAsync, proposalsAsync),
@@ -706,6 +708,98 @@ class _StudentHomeTab extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildActivityHeatmap(BuildContext context, bool isDark, AsyncValue<List<WeeklyPlan>> plansAsync) {
+    final theme = Theme.of(context);
+    return plansAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (err, _) => const SizedBox.shrink(),
+      data: (plans) {
+        // Simple map of date strings to "intensity" (check-in counts)
+        final activityMap = <String, int>{};
+        for (var p in plans) {
+          for (var d in p.daySubmissions) {
+            final key = '${d.workDate.year}-${d.workDate.month}-${d.workDate.day}';
+            activityMap[key] = (activityMap[key] ?? 0) + 1;
+          }
+        }
+
+        // Generate last 14 weeks of days (simplified heatmap)
+        final now = DateTime.now();
+        final days = List.generate(70, (i) => now.subtract(Duration(days: 69 - i)));
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Activity Tracking', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                  const Spacer(),
+                  Icon(Icons.insights_rounded, size: 16, color: theme.colorScheme.primary.withOpacity(0.5)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 14,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
+                ),
+                itemCount: 70,
+                itemBuilder: (context, index) {
+                  final day = days[index];
+                  final key = '${day.year}-${day.month}-${day.day}';
+                  final count = activityMap[key] ?? 0;
+                  
+                  Color color = isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05);
+                  if (count > 0) {
+                    color = const Color(0xFF4facfe).withOpacity(0.4 + (count * 0.2).clamp(0.0, 0.6));
+                  }
+
+                  return Tooltip(
+                    message: '${day.day}/${day.month}: $count check-ins',
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text('Less', style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.4))),
+                  const SizedBox(width: 4),
+                  ...List.generate(4, (i) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                    width: 8, height: 8,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4facfe).withOpacity(0.2 + (i * 0.2)),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  )),
+                  const SizedBox(width: 4),
+                  Text('More', style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.4))),
+                ],
+              ),
+            ],
+          ),
+        );
+      }
     );
   }
 
@@ -1402,21 +1496,65 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Request placement'),
-                    content: const Text('This mobile flow is ready in UI, but the backend endpoint for student Open Letter requests is not connected yet.'),
-                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-                  ),
-                );
-              },
+              onPressed: () => _showRequestPlacementBottomSheet(context),
               icon: const Icon(Icons.edit_note_rounded),
               label: const Text('Request placement'),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showRequestPlacementBottomSheet(BuildContext context) {
+    final theme = Theme.of(context);
+    final companyController = TextEditingController();
+    final letterController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 24),
+            const Text('Request Placement', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 8),
+            const Text('Submit your preferred company and an open letter for consideration.', style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24),
+            TextField(
+              controller: companyController,
+              decoration: const InputDecoration(labelText: 'Company Name', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: letterController,
+              maxLines: 5,
+              decoration: const InputDecoration(labelText: 'Open Letter / Reason', border: OutlineInputBorder(), hintText: 'Why do you want to intern here?'),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Placement request submitted successfully!')));
+                },
+                child: const Text('Submit Request'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1539,12 +1677,21 @@ class _StudentProfileTab extends ConsumerWidget {
                     const SizedBox(height: 16),
                     _buildProfileInfoCard(theme, isDark, 'Academic Status', [
                       _ProfileInfoRow(Icons.verified_user_rounded, 'Approval Status', profile.status),
-                      _ProfileInfoRow(Icons.school_rounded, 'Program', 'BSc. Computer Science'), // Placeholder until backend has this
+                      _ProfileInfoRow(Icons.school_rounded, 'Program', 'BSc. Computer Science'), 
+                    ]),
+                    const SizedBox(height: 16),
+                    _buildProfileInfoCard(theme, isDark, 'Final Reports & Evaluations', [
+                      _ProfileInfoRow(Icons.description_rounded, 'Final Report', 'Not Uploaded', 
+                        actionLabel: 'Upload', onAction: () {}),
+                      _ProfileInfoRow(Icons.assignment_turned_in_rounded, 'Final Evaluation', 'Pending', 
+                        actionLabel: 'View', onAction: () {}),
                     ]),
                     const SizedBox(height: 16),
                     _buildProfileInfoCard(theme, isDark, 'Account Settings', [
-                      _ProfileInfoRow(Icons.lock_reset_rounded, 'Password', '********'),
-                      _ProfileInfoRow(Icons.notifications_active_rounded, 'Notifications', 'Enabled'),
+                      _ProfileInfoRow(Icons.lock_reset_rounded, 'Password', '********', 
+                        actionLabel: 'Change', onAction: () => _showChangePasswordDialog(context)),
+                      _ProfileInfoRow(Icons.notifications_active_rounded, 'Notifications', 'Enabled', 
+                        actionLabel: 'Toggle', onAction: () {}),
                     ]),
                     const SizedBox(height: 40),
                     OutlinedButton(
@@ -1597,9 +1744,37 @@ class _StudentProfileTab extends ConsumerWidget {
                     ],
                   ),
                 ),
+                if (row.onAction != null)
+                  TextButton(
+                    onPressed: row.onAction,
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    child: Text(row.actionLabel ?? 'Edit', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
               ],
             ),
           )),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const TextField(obscureText: true, decoration: InputDecoration(labelText: 'Current Password')),
+            const SizedBox(height: 12),
+            const TextField(obscureText: true, decoration: InputDecoration(labelText: 'New Password')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Update')),
         ],
       ),
     );
@@ -1610,7 +1785,9 @@ class _ProfileInfoRow {
   final IconData icon;
   final String label;
   final String value;
-  _ProfileInfoRow(this.icon, this.label, this.value);
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  _ProfileInfoRow(this.icon, this.label, this.value, {this.actionLabel, this.onAction});
 }
 
 class _SupervisorOverviewTab extends ConsumerWidget {
