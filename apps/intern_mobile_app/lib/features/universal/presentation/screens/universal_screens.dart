@@ -6,10 +6,149 @@ class CommonFeedScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Common Feed')),
-      body: const Center(child: Text('Common Feed Interface Pending')),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            _buildFeedAppBar(context),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildSectionHeader('System Announcements', theme),
+                  const SizedBox(height: 16),
+                  _buildAnnouncements(context),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader('Recent Activities', theme),
+                  const SizedBox(height: 16),
+                  _buildFeedItem(context, 'University Coordinator', 'Important: Final report submissions are now open. Please check the portal for instructions.', '2h ago', Icons.campaign_rounded, Colors.orange),
+                  const SizedBox(height: 16),
+                  _buildFeedItem(context, 'Global Tech Inc.', 'New Internship Opening: We are looking for 5 Software Engineering interns for the Summer 2026 cohort.', '5h ago', Icons.work_rounded, Colors.blue),
+                  const SizedBox(height: 16),
+                  _buildFeedItem(context, 'System Update', 'New Feature Alert: AI Assistant is now integrated into your dashboard to help with internship matching.', '1d ago', Icons.auto_awesome_rounded, Colors.purple),
+                  const SizedBox(height: 120),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Widget _buildFeedAppBar(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 120,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      flexibleSpace: const FlexibleSpaceBar(
+        title: Text('Community Feed', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -1)),
+        centerTitle: true,
+      ),
+      actions: [
+        IconButton(icon: const Icon(Icons.filter_list_rounded), onPressed: () {}),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, ThemeData theme) {
+    return Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1));
+  }
+
+  Widget _buildAnnouncements(BuildContext context) {
+    return SizedBox(
+      height: 160,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        children: [
+          _announcementCard(context, 'Exam Schedule', 'The mid-term evaluation starts next Monday. Be prepared!', const Color(0xFF6A11CB)),
+          _announcementCard(context, 'Placement Deadline', 'Ensure all open letters are submitted by Friday, 5 PM.', const Color(0xFFFF512F)),
+          _announcementCard(context, 'App Workshop', 'Join our "Building a Resume" workshop this Saturday at 10 AM.', const Color(0xFF00B4DB)),
+        ],
+      ),
+    );
+  }
+
+  Widget _announcementCard(BuildContext context, String title, String desc, Color color) {
+    return Container(
+      width: 280,
+      margin: const EdgeInsets.only(right: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [color, color.withOpacity(0.7)]),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+          const SizedBox(height: 8),
+          Text(desc, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12, height: 1.4), maxLines: 3, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeedItem(BuildContext context, String author, String content, String time, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 20)),
+              const SizedBox(width: 16),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(author, style: const TextStyle(fontWeight: FontWeight.bold)), Text(time, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
+              const Icon(Icons.more_horiz_rounded),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(content, style: const TextStyle(height: 1.5)),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _feedAction(Icons.favorite_border_rounded, '24'),
+              const SizedBox(width: 20),
+              _feedAction(Icons.chat_bubble_outline_rounded, '8'),
+              const Spacer(),
+              _feedAction(Icons.share_outlined, 'Share'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _feedAction(IconData icon, String label) {
+    return Row(children: [Icon(icon, size: 18, color: Colors.grey), const SizedBox(width: 6), Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12))]);
   }
 }
 
@@ -18,9 +157,89 @@ class NotificationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
-      body: const Center(child: Text('Notifications Interface Pending')),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            _buildNotificationsAppBar(context),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _notificationItem(context, 'Weekly Plan Approved', 'Your supervisor approved your Week 4 plan.', '10m ago', Icons.check_circle_rounded, Colors.green),
+                  _notificationItem(context, 'New Message', 'Abebe Bikila sent you a message.', '1h ago', Icons.chat_bubble_rounded, Colors.blue),
+                  _notificationItem(context, 'System Alert', 'Please complete your profile details.', '2h ago', Icons.warning_rounded, Colors.orange),
+                  _notificationItem(context, 'Meeting Invite', 'Final evaluation meeting scheduled for Friday.', '1d ago', Icons.event_rounded, Colors.purple),
+                  _notificationItem(context, 'Document Verified', 'Your university letter has been verified.', '2d ago', Icons.verified_rounded, Colors.teal),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationsAppBar(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 120,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      flexibleSpace: const FlexibleSpaceBar(
+        title: Text('Notifications', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -1)),
+        centerTitle: true,
+      ),
+      actions: [
+        IconButton(icon: const Icon(Icons.done_all_rounded), onPressed: () {}),
+      ],
+    );
+  }
+
+  Widget _notificationItem(BuildContext context, String title, String body, String time, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 22)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)), Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10))]),
+                const SizedBox(height: 4),
+                Text(body, style: const TextStyle(color: Colors.grey, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -30,9 +249,128 @@ class ChatScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages / Chat')),
-      body: const Center(child: Text('Chat Interface Pending')),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            _buildChatHeader(context),
+            _buildSearchBar(context),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                physics: const BouncingScrollPhysics(),
+                children: [
+                  _conversationItem(context, 'Abebe Bikila', 'Can you review my proposal?', '10:45 AM', 2, true),
+                  _conversationItem(context, 'Dr. Sarah Smith', 'Your internship has been approved.', 'Yesterday', 0, false),
+                  _conversationItem(context, 'Hana Worku', 'Meet you at the workshop.', 'Wed', 0, true),
+                  _conversationItem(context, 'Coordinator (Admin)', 'Please update your contact info.', '24 May', 1, false),
+                  _conversationItem(context, 'Supervisor Support', 'Evaluation results are ready.', '12 May', 0, false),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        backgroundColor: theme.colorScheme.primary,
+        child: const Icon(Icons.edit_rounded, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildChatHeader(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 24, 8),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            const SizedBox(width: 8),
+            const Text('Messages', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
+            const Spacer(),
+            CircleAvatar(backgroundColor: Colors.blue.withOpacity(0.1), child: const Icon(Icons.add_rounded, color: Colors.blue)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        ),
+        child: const TextField(
+          decoration: InputDecoration(hintText: 'Search conversations...', border: InputBorder.none, prefixIcon: Icon(Icons.search_rounded, size: 20)),
+        ),
+      ),
+    );
+  }
+
+  Widget _conversationItem(BuildContext context, String name, String lastMsg, String time, int unread, bool isOnline) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.02) : Colors.black.withOpacity(0.02)),
+      ),
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(radius: 28, child: Text(name[0])),
+              if (isOnline)
+                Positioned(right: 0, bottom: 0, child: Container(width: 14, height: 14, decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text(time, style: const TextStyle(color: Colors.grey, fontSize: 12))]),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(child: Text(lastMsg, style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    if (unread > 0)
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(12)), child: Text(unread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

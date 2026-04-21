@@ -72,6 +72,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         return AppRoutes.coordinatorDashboard;
       case AppStartDestination.adminDashboard:
         return AppRoutes.adminDashboard;
+      case AppStartDestination.hodDashboard:
+        return AppRoutes.hodDashboard;
     }
   }
 

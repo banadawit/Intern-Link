@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/supervisor_providers.dart';
 import '../widgets/supervisor_widgets.dart';
-import '../../dashboard/presentation/screens/dashboards.dart' show ModernSliverAppBar;
+import '../../../dashboard/presentation/screens/dashboards.dart';
 
 class SupervisorWorkflowTab extends ConsumerWidget {
   const SupervisorWorkflowTab({super.key});
@@ -11,6 +11,8 @@ class SupervisorWorkflowTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final proposalsAsync = ref.watch(supervisorProposalsProvider);
     final plansAsync = ref.watch(supervisorPendingPlansProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return DefaultTabController(
       length: 2,
@@ -25,13 +27,13 @@ class SupervisorWorkflowTab extends ConsumerWidget {
           ),
           SliverPersistentHeader(
             pinned: true,
-            delegate: _SliverTabBarDelegate(
-              const TabBar(
-                tabs: [Tab(text: 'Weekly Plans'), Tab(text: 'Proposals')],
-                labelColor: Colors.orange,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: Colors.orange,
+            delegate: SliverTabBarDelegate(
+              TabBar(
+                tabs: const [Tab(text: 'Weekly Plans'), Tab(text: 'Proposals')],
+                labelColor: theme.colorScheme.primary,
+                unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.5),
               ),
+              isDark,
             ),
           ),
         ],
@@ -180,22 +182,4 @@ class _ProposalCard extends StatelessWidget {
   Widget _infoRow(IconData icon, String label, String value) {
     return Row(children: [Icon(icon, size: 14, color: Colors.grey), const SizedBox(width: 8), Text('$label: ', style: const TextStyle(fontSize: 12, color: Colors.grey)), Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))]);
   }
-}
-
-class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar tabBar;
-  _SliverTabBarDelegate(this.tabBar);
-
-  @override
-  double get minExtent => tabBar.preferredSize.height;
-  @override
-  double get maxExtent => tabBar.preferredSize.height;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(color: Theme.of(context).scaffoldBackgroundColor, child: tabBar);
-  }
-
-  @override
-  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) => false;
 }

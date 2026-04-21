@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/supervisor_providers.dart';
-import '../../dashboard/presentation/screens/dashboards.dart' show ModernDashboardScaffold, DashboardTab, ModernSliverAppBar;
+import '../../../dashboard/presentation/screens/dashboards.dart';
 import 'supervisor_workflow_screen.dart';
 import 'supervisor_students_screen.dart';
 import 'supervisor_teams_screen.dart';
@@ -168,7 +168,3 @@ class _SupervisorOverviewTab extends ConsumerWidget {
   }
 }
 
-// Placeholder tabs - to be filled in separate files
-class _SupervisorWorkflowTab extends StatelessWidget { const _SupervisorWorkflowTab(); @override Widget build(BuildContext context) => const Center(child: Text('Workflow Tab')); }
-class _SupervisorStudentsTab extends StatelessWidget { const _SupervisorStudentsTab(); @override Widget build(BuildContext context) => const Center(child: Text('Students Tab')); }
-class _SupervisorTeamsTab extends StatelessWidget { const _SupervisorTeamsTab(); @override Widget build(BuildContext context) => const Center(child: Text('Teams Tab')); }
