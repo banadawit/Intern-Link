@@ -11,6 +11,7 @@ import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/verify_email_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboards.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../features/universal/presentation/screens/universal_screens.dart';
 import 'app_routes.dart';
 
 const Set<String> _protectedRoutes = {
@@ -19,6 +20,10 @@ const Set<String> _protectedRoutes = {
   AppRoutes.coordinatorDashboard,
   AppRoutes.hodDashboard,
   AppRoutes.adminDashboard,
+  AppRoutes.commonFeed,
+  AppRoutes.notifications,
+  AppRoutes.chat,
+  AppRoutes.aiAssistant,
 };
 
 final GoRouter appRouter = GoRouter(
@@ -235,6 +240,22 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.hodDashboard,
       builder: (context, state) => const HodDashboardScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.commonFeed,
+      builder: (context, state) => const CommonFeedScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.notifications,
+      builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.chat,
+      builder: (context, state) => const ChatScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.aiAssistant,
+      builder: (context, state) => const AiAssistantScreen(),
     ),
   ],
 );

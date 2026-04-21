@@ -57,6 +57,34 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
           key: _scaffoldKey,
           extendBody: true,
           drawer: _buildDrawer(context, isDark),
+          floatingActionButton: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Deep vibrant purple to match modern AI aesthetics
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4A00E0).withOpacity(0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => context.push(AppRoutes.aiAssistant),
+                borderRadius: BorderRadius.circular(20),
+                child: const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+                ),
+              ),
+            ),
+          ),
           body: IndexedStack(
             index: currentIndex,
             children: widget.tabs.map((t) => t.view).toList(),
@@ -138,16 +166,43 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
               ),
             ),
           ),
-          _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', () => Navigator.pop(context)),
-          _buildDrawerItem(Icons.history_rounded, 'Previous Jobs History', () => Navigator.pop(context)),
-          _buildDrawerItem(Icons.check_circle_outline_rounded, 'Approved', () => Navigator.pop(context)),
-          _buildDrawerItem(Icons.pending_actions_rounded, 'Not Done', () => Navigator.pop(context)),
-          _buildDrawerItem(Icons.person_rounded, 'Profile Settings', () {
-            Navigator.pop(context);
-            ref.read(dashboardIndexProvider).value = widget.tabs.length - 1; // Go to last tab (Profile)
-          }),
-          _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () => Navigator.pop(context)),
-          const Spacer(),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', () => Navigator.pop(context)),
+                
+                // --- Universal Features (All Roles) ---
+                _buildDrawerItem(Icons.dynamic_feed_rounded, 'Common Feed', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.commonFeed);
+                }),
+                _buildDrawerItem(Icons.notifications_active_rounded, 'Notifications', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.notifications);
+                }),
+                _buildDrawerItem(Icons.chat_bubble_outline_rounded, 'Messages / Chat', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.chat);
+                }),
+                _buildDrawerItem(Icons.smart_toy_rounded, 'AI Assistant', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.aiAssistant);
+                }),
+                const Divider(color: Colors.black12, height: 32),
+                // --------------------------------------
+
+                _buildDrawerItem(Icons.history_rounded, 'Previous Jobs History', () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.check_circle_outline_rounded, 'Approved', () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.pending_actions_rounded, 'Not Done', () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.person_rounded, 'Profile Settings', () {
+                  Navigator.pop(context);
+                  ref.read(dashboardIndexProvider).value = widget.tabs.length - 1; // Go to last tab (Profile)
+                }),
+                _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () => Navigator.pop(context)),
+              ],
+            ),
+          ),
           _buildDrawerItem(
             Icons.logout_rounded,
             'Sign Out',
@@ -1614,6 +1669,8 @@ class AdminDashboardScreen extends StatelessWidget {
       tabs: [
         _DashboardTab(label: 'Overview', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, view: _AdminOverviewTab()),
         _DashboardTab(label: 'Approvals', icon: Icons.verified_user_outlined, activeIcon: Icons.verified_user_rounded, view: _AdminApprovalsTab()),
+        _DashboardTab(label: 'Users', icon: Icons.group_outlined, activeIcon: Icons.group_rounded, view: _AdminUsersTab()),
+        _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
       ],
     );
   }
@@ -1624,7 +1681,81 @@ class _AdminOverviewTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Center(child: Text('Admin Overview'));
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final statsAsync = ref.watch(adminStatsProvider);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+          ),
+        ),
+        child: statsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (stats) => CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              const _ModernSliverAppBar(
+                title: 'Overview',
+                subtitle: 'System Statistics',
+                profileName: 'Admin',
+                gradient: [Color(0xFF373B44), Color(0xFF4286F4)],
+                backgroundIcon: Icons.analytics_rounded,
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(24),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    Text('System Health', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 24),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      children: [
+                        _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
+                        _buildStatCard(context, 'Universities', stats.totalUniversities.toString(), Icons.school_rounded, Colors.orange, isDark),
+                        _buildStatCard(context, 'Companies', stats.totalCompanies.toString(), Icons.business_rounded, Colors.green, isDark),
+                        _buildStatCard(context, 'Pending Apprs.', stats.pendingApprovals.toString(), Icons.pending_actions_rounded, Colors.red, isDark),
+                      ],
+                    ),
+                    const SizedBox(height: 120),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+        ],
+      ),
+    );
   }
 }
 
@@ -1637,6 +1768,8 @@ class _AdminApprovalsTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final unisAsync = ref.watch(pendingUniversitiesProvider);
     final compsAsync = ref.watch(pendingCompaniesProvider);
+    final coordsAsync = ref.watch(pendingCoordinatorsProvider);
+    final supersAsync = ref.watch(pendingSupervisorsProvider);
 
     return Material(
       color: Colors.transparent,
@@ -1652,7 +1785,7 @@ class _AdminApprovalsTab extends ConsumerWidget {
           ),
         ),
         child: DefaultTabController(
-          length: 2,
+          length: 4,
           child: NestedScrollView(
             headerSliverBuilder: (context, _) => [
               _ModernSliverAppBar(
@@ -1666,7 +1799,8 @@ class _AdminApprovalsTab extends ConsumerWidget {
                 pinned: true,
                 delegate: _SliverTabBarDelegate(
                   TabBar(
-                    tabs: const [Tab(text: 'Universities'), Tab(text: 'Companies')],
+                    isScrollable: true,
+                    tabs: const [Tab(text: 'Universities'), Tab(text: 'Companies'), Tab(text: 'Coordinators'), Tab(text: 'Supervisors')],
                     labelColor: theme.colorScheme.primary,
                     unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.5),
                   ),
@@ -1676,8 +1810,10 @@ class _AdminApprovalsTab extends ConsumerWidget {
             ],
             body: TabBarView(
               children: [
-                _buildApprovalList(context, unisAsync),
-                _buildApprovalList(context, compsAsync),
+                _buildApprovalList(context, ref, unisAsync, type: 'university'),
+                _buildApprovalList(context, ref, compsAsync, type: 'company'),
+                _buildApprovalList(context, ref, coordsAsync, type: 'coordinator'),
+                _buildApprovalList(context, ref, supersAsync, type: 'supervisor'),
               ],
             ),
           ),
@@ -1686,78 +1822,247 @@ class _AdminApprovalsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildApprovalList(BuildContext context, AsyncValue<List<dynamic>> asyncData) {
+  Widget _buildApprovalList(BuildContext context, WidgetRef ref, AsyncValue<List<dynamic>> asyncData, {required String type}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return asyncData.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error: $err')),
-      data: (items) => ListView.builder(
-        padding: const EdgeInsets.all(24),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                      child: Icon(Icons.account_balance_rounded, color: theme.colorScheme.primary),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                          Text(item['email'] ?? 'No email provided', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                        ],
+      data: (items) {
+        if (items.isEmpty) return const Center(child: Text('No pending approvals'));
+        return ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            final name = type == 'university' || type == 'company' ? item['name'] : item['user']['full_name'];
+            final email = type == 'university' || type == 'company' ? item['email'] : item['user']['email'];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                        child: Icon(Icons.account_balance_rounded, color: theme.colorScheme.primary),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: const BorderSide(color: Colors.redAccent),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                            Text(email ?? 'No email', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                          ],
                         ),
-                        child: const Text('Reject'),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () {},
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            try {
+                               final adminRepo = ref.read(adminRepositoryProvider);
+                               if (type == 'university') await adminRepo.updateUniversityStatus(item['id'], 'REJECTED');
+                               if (type == 'company') await adminRepo.updateCompanyStatus(item['id'], 'REJECTED');
+                               if (type == 'coordinator') await adminRepo.rejectCoordinator(item['userId']);
+                               if (type == 'supervisor') await adminRepo.rejectSupervisor(item['userId']);
+                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected')));
+                            } catch (e) {
+                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            side: const BorderSide(color: Colors.redAccent),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: const Text('Reject'),
                         ),
-                        child: const Text('Approve'),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () async {
+                            try {
+                               final adminRepo = ref.read(adminRepositoryProvider);
+                               if (type == 'university') await adminRepo.updateUniversityStatus(item['id'], 'APPROVED');
+                               if (type == 'company') await adminRepo.updateCompanyStatus(item['id'], 'APPROVED');
+                               if (type == 'coordinator') await adminRepo.approveCoordinator(item['userId']);
+                               if (type == 'supervisor') await adminRepo.approveSupervisor(item['userId']);
+                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!')));
+                            } catch (e) {
+                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: const Text('Approve'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _AdminUsersTab extends ConsumerWidget {
+  const _AdminUsersTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final usersAsync = ref.watch(allUsersProvider);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+          ),
+        ),
+        child: usersAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (users) => CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              const _ModernSliverAppBar(
+                title: 'Users',
+                subtitle: 'All Registered Users',
+                profileName: 'Admin',
+                gradient: [Color(0xFF11998e), Color(0xFF38ef7d)],
+                backgroundIcon: Icons.people_rounded,
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final user = users[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                        ),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(child: Text(user['full_name']?[0] ?? '?')),
+                          title: Text(user['full_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('${user['role']} • ${user['email']}'),
+                          trailing: const Icon(Icons.more_vert_rounded),
+                        ),
+                      );
+                    },
+                    childCount: users.length,
+                  ),
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminLogsTab extends ConsumerWidget {
+  const _AdminLogsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final logsAsync = ref.watch(auditLogsProvider);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+          ),
+        ),
+        child: logsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (logs) => CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              const _ModernSliverAppBar(
+                title: 'Audit Logs',
+                subtitle: 'System Activity',
+                profileName: 'Admin',
+                gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                backgroundIcon: Icons.receipt_long_rounded,
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final log = logs[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.history_rounded, color: theme.colorScheme.primary),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(log['action'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Text('By: ${log['userId']}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    childCount: logs.length,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -12,5 +12,10 @@ abstract final class AppRoutes {
   static const String coordinatorDashboard = '/coordinator';
   static const String hodDashboard = '/hod';
   static const String adminDashboard = '/admin';
+  
+  static const String commonFeed = '/feed';
+  static const String notifications = '/notifications';
+  static const String chat = '/chat';
+  static const String aiAssistant = '/ai-assistant';
 }
 
