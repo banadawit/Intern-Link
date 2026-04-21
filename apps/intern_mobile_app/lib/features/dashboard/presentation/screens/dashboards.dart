@@ -308,6 +308,12 @@ class _ModernSliverAppBar extends ConsumerWidget {
                           Row(
                             children: [
                               _buildHeaderIcon(
+                                context,
+                                Icons.chat_bubble_outline_rounded,
+                                () => context.push(AppRoutes.chat),
+                              ),
+                              const SizedBox(width: 14),
+                              _buildHeaderIcon(
                             context,
                             Icons.notifications_none_rounded,
                             () => _showNotificationCenter(context),
@@ -508,6 +514,8 @@ class _StudentHomeTab extends ConsumerWidget {
                     _buildActiveInternshipInfo(context, isDark, profile),
                     const SizedBox(height: 20),
                     _buildRecentActivity(context, isDark, plansAsync, proposalsAsync),
+                    const SizedBox(height: 20),
+                    _buildCommonFeedPreview(context, isDark),
                     const SizedBox(height: 24),
                     _buildQuickActions(context, ref, theme, isDark),
                     const SizedBox(height: 120),
@@ -788,6 +796,72 @@ class _StudentHomeTab extends ConsumerWidget {
                 )),
         ],
       ),
+    );
+  }
+
+  Widget _buildCommonFeedPreview(BuildContext context, bool isDark) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Common Feed',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push(AppRoutes.commonFeed),
+                child: const Text('See all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Announcements, opportunities, and updates.',
+            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+          ),
+          const SizedBox(height: 14),
+          _feedPreviewRow(context, Icons.campaign_rounded, 'New announcement posted'),
+          const SizedBox(height: 10),
+          _feedPreviewRow(context, Icons.work_outline_rounded, 'Opportunity shared by a company'),
+          const SizedBox(height: 10),
+          _feedPreviewRow(context, Icons.lightbulb_outline_rounded, 'Experience tip from a student'),
+        ],
+      ),
+    );
+  }
+
+  Widget _feedPreviewRow(BuildContext context, IconData icon, String text) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, size: 18, color: theme.colorScheme.primary),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        const Icon(Icons.chevron_right_rounded, size: 18),
+      ],
     );
   }
 
