@@ -2313,8 +2313,9 @@ class CoordinatorDashboardScreen extends StatelessWidget {
       title: 'Coordinator Portal',
       roleLabel: 'COORDINATOR',
       tabs: [
-        _DashboardTab(label: 'Home', icon: Icons.home_outlined, activeIcon: Icons.home_rounded, view: _CoordinatorHomeTab()),
+        _DashboardTab(label: 'Overview', icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, view: _CoordinatorHomeTab()),
         _DashboardTab(label: 'HODs', icon: Icons.school_outlined, activeIcon: Icons.school_rounded, view: _CoordinatorHodsTab()),
+        _DashboardTab(label: 'Students', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _CoordinatorStudentsTab()),
         _DashboardTab(label: 'Companies', icon: Icons.business_outlined, activeIcon: Icons.business_rounded, view: _CoordinatorCompaniesTab()),
       ],
     );
@@ -2346,23 +2347,88 @@ class _CoordinatorHomeTab extends ConsumerWidget {
           physics: const BouncingScrollPhysics(),
           slivers: [
             ModernSliverAppBar(
-              title: 'Dashboard',
-              subtitle: 'School Coordination',
+              title: 'Coordinator',
+              subtitle: 'University Overview',
               profileName: 'Coordinator',
-              gradient: [const Color(0xFF2193b0), const Color(0xFF6dd5ed)],
-              backgroundIcon: Icons.admin_panel_settings_rounded,
+              gradient: [const Color(0xFF1CB5E0), const Color(0xFF000046)],
+              backgroundIcon: Icons.assessment_rounded,
             ),
             SliverPadding(
               padding: const EdgeInsets.all(24),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  Text('Overview', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text('Quick Stats', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _buildStatCard(context, '1,240', 'Students', Icons.people_rounded, Colors.blue),
+                      const SizedBox(width: 16),
+                      _buildStatCard(context, '856', 'Placed', Icons.check_circle_rounded, Colors.green),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _buildStatCard(context, '12', 'Depts/HODs', Icons.domain_rounded, Colors.purple),
+                      const SizedBox(width: 16),
+                      _buildStatCard(context, '45', 'Proposals', Icons.description_rounded, Colors.orange),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  _buildActivityItem(context, 'Weekly Report', 'CS Dept: 15 reports submitted', '10m ago', Colors.blue),
+                  _buildActivityItem(context, 'Placement', 'Mechanical Dept: 5 students placed', '2h ago', Colors.green),
+                  _buildActivityItem(context, 'New Proposal', 'Civil Dept: New request to Google', '5h ago', Colors.orange),
                   const SizedBox(height: 120),
                 ]),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(BuildContext context, String value, String label, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 12),
+            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityItem(BuildContext context, String title, String subtitle, String time, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.flash_on_rounded, color: color, size: 16)),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
+          Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+        ],
       ),
     );
   }
@@ -2373,10 +2439,7 @@ class _CoordinatorHodsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final hodsAsync = ref.watch(pendingHodsProvider);
-
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -2390,45 +2453,157 @@ class _CoordinatorHodsTab extends ConsumerWidget {
             ],
           ),
         ),
-        child: hodsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
-          data: (hods) => CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              ModernSliverAppBar(
-                title: 'HODs',
-                subtitle: 'Verification Requests',
-                profileName: 'Coordinator',
-                gradient: [const Color(0xFFcc2b5e), const Color(0xFF753a88)],
-                backgroundIcon: Icons.how_to_reg_rounded,
+        child: CustomScrollView(
+          slivers: [
+            ModernSliverAppBar(
+              title: 'Department Heads',
+              subtitle: 'HOD Management',
+              profileName: 'Coordinator',
+              gradient: [const Color(0xFF00F260), const Color(0xFF0575E6)],
+              backgroundIcon: Icons.school_rounded,
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _sectionHeader('Pending Verification'),
+                  _buildHodRequestCard(context, 'Dr. Samuel Kebede', 'Computer Science', isDark),
+                  const SizedBox(height: 32),
+                  _sectionHeader('Verified HODs'),
+                  _buildHodItem(context, 'Dr. Abebech Tadesse', 'Mechanical Engineering', true, isDark),
+                  _buildHodItem(context, 'Dr. Solomon Haile', 'Civil Engineering', true, isDark),
+                  const SizedBox(height: 120),
+                ]),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildHodCard(context, ref, hods[index], isDark, theme),
-                    childCount: hods.length,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildHodCard(BuildContext context, WidgetRef ref, dynamic hod, bool isDark, ThemeData theme) {
+  Widget _sectionHeader(String title) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)));
+
+  Widget _buildHodRequestCard(BuildContext context, String name, String dept, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.orange.withOpacity(0.3))),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              CircleAvatar(radius: 24, child: Text(name[0])),
+              const SizedBox(width: 16),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text(dept, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('Reject'))),
+              const SizedBox(width: 12),
+              Expanded(child: FilledButton(onPressed: () {}, child: const Text('Approve'))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHodItem(BuildContext context, String name, String dept, bool isVerified, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        children: [
+          CircleAvatar(radius: 20, child: Text(name[0])),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), Text(dept, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
+          if (isVerified) const Icon(Icons.verified_rounded, color: Colors.blue, size: 20),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoordinatorStudentsTab extends ConsumerWidget {
+  const _CoordinatorStudentsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: CustomScrollView(
+          slivers: [
+            ModernSliverAppBar(
+              title: 'Students',
+              subtitle: 'University Enrollment',
+              profileName: 'Coordinator',
+              gradient: [const Color(0xFFF2994A), const Color(0xFFF2C94C)],
+              backgroundIcon: Icons.group_rounded,
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildStudentSummaryItem(context, 'Total Enrolled', '1,240', Colors.blue, isDark),
+                  _buildStudentSummaryItem(context, 'Actively Placed', '856', Colors.green, isDark),
+                  _buildStudentSummaryItem(context, 'Pending Placement', '384', Colors.orange, isDark),
+                  const SizedBox(height: 32),
+                  Text('Department Breakdown', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  _buildDeptItem('Computer Science', '450 Students', '80% Placed', Colors.blue, isDark),
+                  _buildDeptItem('Mechanical Engineering', '320 Students', '65% Placed', Colors.green, isDark),
+                  _buildDeptItem('Electrical Engineering', '280 Students', '72% Placed', Colors.purple, isDark),
+                  const SizedBox(height: 120),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentSummaryItem(BuildContext context, String label, String value, Color color, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeptItem(String name, String count, String placementRate, Color color, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
-      child: Column(
+      child: Row(
         children: [
-          Row(children: [CircleAvatar(child: Text(hod['user']['full_name'][0])), const SizedBox(width: 16), Expanded(child: Text(hod['user']['full_name'], style: const TextStyle(fontWeight: FontWeight.bold)))]),
-          const SizedBox(height: 16),
-          Row(children: [Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('Reject'))), const SizedBox(width: 12), Expanded(child: FilledButton(onPressed: () {}, child: const Text('Approve')))]),
+          Container(width: 4, height: 40, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), Text(count, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
+          Text(placementRate, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
         ],
       ),
     );
@@ -2440,7 +2615,61 @@ class _CoordinatorCompaniesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Center(child: Text('Companies Tab'));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: CustomScrollView(
+          slivers: [
+            ModernSliverAppBar(
+              title: 'Companies',
+              subtitle: 'Industry Partners',
+              profileName: 'Coordinator',
+              gradient: [const Color(0xFFDA22FF), const Color(0xFF9733EE)],
+              backgroundIcon: Icons.business_rounded,
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildPartnerCard('Ethio Telecom', 'Public Sector', '150 Placements', isDark),
+                  _buildPartnerCard('Commercial Bank', 'Finance', '120 Placements', isDark),
+                  _buildPartnerCard('Safaricom Ethiopia', 'Telecom', '85 Placements', isDark),
+                  _buildPartnerCard('Orbit Health', 'Healthcare IT', '45 Placements', isDark),
+                  const SizedBox(height: 120),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPartnerCard(String name, String sector, String stats, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(24)),
+      child: Row(
+        children: [
+          const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.business_rounded, color: Colors.white, size: 20)),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text(sector, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(stats, style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
   }
 }
 
