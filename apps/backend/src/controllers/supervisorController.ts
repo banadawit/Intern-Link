@@ -345,3 +345,45 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: message });
     }
 };
+
+export const submitEvaluation = async (req: AuthRequest, res: Response) => {
+    try {
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId: req.user!.userId },
+        });
+        if (!supervisor) return res.status(403).json({ message: 'Supervisor profile not found.' });
+
+        const { studentId, technical_score, soft_skill_score, comments } = req.body;
+        const sid = parseInt(String(studentId), 10);
+
+        // Verify student belongs to this company
+        const assignment = await prisma.internshipAssignment.findFirst({
+            where: { studentId: sid, companyId: supervisor.companyId, status: 'ACTIVE' },
+        });
+        if (!assignment) {
+            return res.status(403).json({ message: 'Student not assigned to your company.' });
+        }
+
+        const evaluation = await prisma.finalEvaluation.upsert({
+            where: { studentId: sid },
+            update: {
+                technical_score,
+                soft_skill_score,
+                comments,
+                evaluated_at: new Date(),
+            },
+            create: {
+                studentId: sid,
+                supervisorId: supervisor.id,
+                technical_score,
+                soft_skill_score,
+                comments,
+            },
+        });
+
+        res.json({ message: 'Evaluation submitted successfully.', evaluation });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        res.status(500).json({ error: message });
+    }
+};

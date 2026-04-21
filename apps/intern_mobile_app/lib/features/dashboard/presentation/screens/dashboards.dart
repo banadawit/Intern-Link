@@ -1829,9 +1829,15 @@ class _SupervisorOverviewTab extends ConsumerWidget {
                 padding: const EdgeInsets.all(24),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    Text('Statistics', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Quick Overview', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 24),
                     _buildStatsGrid(context, stats),
+                    const SizedBox(height: 32),
+                    Text('Critical Actions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    _buildActionCard(context, Icons.assignment_late_rounded, 'Pending Plan Reviews', '5 plans waiting for feedback', Colors.orange),
+                    const SizedBox(height: 12),
+                    _buildActionCard(context, Icons.rate_review_rounded, 'Final Evaluations', '3 students ready for grading', Colors.purple),
                     const SizedBox(height: 120),
                   ]),
                 ),
@@ -1839,6 +1845,27 @@ class _SupervisorOverviewTab extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildActionCard(BuildContext context, IconData icon, String title, String subtitle, Color color) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color)),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), Text(subtitle, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5)))])),
+          const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+        ],
       ),
     );
   }
@@ -1929,21 +1956,215 @@ class _SupervisorStudentsTab extends ConsumerWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(20),
+        onTap: () => _showStudentManagement(context, student),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
           margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
-          child: Row(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, 
+            borderRadius: BorderRadius.circular(24), 
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          ),
+          child: Column(
             children: [
-              CircleAvatar(child: Text(student.fullName[0])),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(student.fullName, style: const TextStyle(fontWeight: FontWeight.bold)), Text(student.email, style: theme.textTheme.bodySmall)])),
-              const Icon(Icons.chevron_right_rounded),
+              Row(
+                children: [
+                  CircleAvatar(radius: 24, child: Text(student.fullName[0], style: const TextStyle(fontWeight: FontWeight.bold))),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start, 
+                      children: [
+                        Text(student.fullName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), 
+                        Text(student.email, style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    child: const Text('ACTIVE', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _miniStat(context, 'Progress', 'Week 4/12'),
+                  _miniStat(context, 'Plans', '3 Pending'),
+                  _miniStat(context, 'Attendance', '95%'),
+                ],
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _miniStat(BuildContext context, String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      ],
+    );
+  }
+
+  void _showStudentManagement(BuildContext context, SupervisorStudent student) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(color: theme.scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 24),
+            Text(student.fullName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 32),
+            _mgmtAction(context, Icons.assignment_turned_in_rounded, 'Review Weekly Plans', 'Review and provide feedback', () {}),
+            const SizedBox(height: 16),
+            _mgmtAction(context, Icons.history_rounded, 'Attendance History', 'View daily check-ins', () {}),
+            const SizedBox(height: 16),
+            _mgmtAction(context, Icons.star_rounded, 'Final Evaluation', 'Submit technical & soft skills grade', () {}),
+            const SizedBox(height: 40),
+            SizedBox(width: double.infinity, child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _mgmtAction(BuildContext context, IconData icon, String title, String subtitle, VoidCallback onTap) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1))),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.primary),
+            const SizedBox(width: 16),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), Text(subtitle, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5)))])),
+            const Icon(Icons.chevron_right_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SupervisorTeamsTab extends ConsumerWidget {
+  const _SupervisorTeamsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            _ModernSliverAppBar(
+              title: 'Teams',
+              subtitle: 'Projects & Groups',
+              profileName: 'Supervisor',
+              gradient: [const Color(0xFF4568dc), const Color(0xFFb06ab3)],
+              backgroundIcon: Icons.group_work_rounded,
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildCreateTeamCard(context, isDark, theme),
+                  const SizedBox(height: 32),
+                  Text('Active Teams', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 16),
+                  _buildTeamCard(context, 'AI Integration', '3 Students', 'Module A Optimization', Colors.blue, isDark, theme),
+                  const SizedBox(height: 16),
+                  _buildTeamCard(context, 'Backend Scalability', '2 Students', 'Database Sharding', Colors.purple, isDark, theme),
+                  const SizedBox(height: 120),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCreateTeamCard(BuildContext context, bool isDark, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF4568dc), Color(0xFFb06ab3)]),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: const Color(0xFF4568dc).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Structure your projects', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          const Text('Create a New Team', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: () {},
+            style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF4568dc)),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Build Team'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamCard(BuildContext context, String name, String memberCount, String project, Color color, bool isDark, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Icon(Icons.groups_rounded, color: color)),
+              const SizedBox(width: 16),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), Text(memberCount, style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 12))])),
+              const Icon(Icons.more_vert_rounded),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Text('PROJECT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey)),
+          const SizedBox(height: 4),
+          Text(project, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
@@ -2023,6 +2244,7 @@ class SupervisorDashboardScreen extends StatelessWidget {
       tabs: [
         _DashboardTab(label: 'Overview', icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, view: _SupervisorOverviewTab()),
         _DashboardTab(label: 'Students', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _SupervisorStudentsTab()),
+        _DashboardTab(label: 'Teams', icon: Icons.group_work_outlined, activeIcon: Icons.group_work_rounded, view: _SupervisorTeamsTab()),
         _DashboardTab(label: 'Settings', icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, view: _SupervisorSettingsTab()),
       ],
     );

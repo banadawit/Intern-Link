@@ -30,4 +30,6 @@ router.patch('/projects/:id/restore', supervisorTeamCtrl.restoreProject);
 router.post('/projects/:id/members', supervisorTeamCtrl.addProjectMember);
 router.delete('/projects/:projectId/members/:studentId', supervisorTeamCtrl.removeProjectMember);
 
+router.post('/evaluation', supervisorCtrl.submitEvaluation);
+
 export default router;
