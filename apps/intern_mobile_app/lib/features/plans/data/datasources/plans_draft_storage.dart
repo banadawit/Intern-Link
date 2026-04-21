@@ -9,9 +9,9 @@ class PlansDraftStorage {
   Future<List<Map<String, dynamic>>> loadDrafts() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(StorageKeys.studentPlanDrafts);
-    if (raw == null || raw.trim().isEmpty) return const [];
+    if (raw == null || raw.trim().isEmpty) return [];
     final decoded = jsonDecode(raw);
-    if (decoded is! List) return const [];
+    if (decoded is! List) return [];
     return decoded.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   }
 

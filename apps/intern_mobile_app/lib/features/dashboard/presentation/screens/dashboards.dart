@@ -145,6 +145,7 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
 
   Widget _buildDrawer(BuildContext context, bool isDark) {
     final theme = Theme.of(context);
+    final indexNotifier = ref.read(dashboardIndexProvider);
     return Drawer(
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       child: Column(
@@ -170,7 +171,7 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.dashboard_rounded, 'Main Dashboard', () => Navigator.pop(context)),
                 
                 // --- Universal Features (All Roles) ---
                 _buildDrawerItem(Icons.dynamic_feed_rounded, 'Common Feed', () {
@@ -190,14 +191,33 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                   context.push(AppRoutes.aiAssistant);
                 }),
                 const Divider(color: Colors.black12, height: 32),
-                // --------------------------------------
+                
+                // --- Role-Specific Features ---
+                if (widget.roleLabel == 'STUDENT') ...[
+                  _buildDrawerItem(Icons.assignment_ind_rounded, 'My Internship', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.history_edu_rounded, 'Weekly Reports', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.business_center_rounded, 'Placement Requests', () => Navigator.pop(context)),
+                ] else if (widget.roleLabel == 'SUPERVISOR') ...[
+                  _buildDrawerItem(Icons.people_alt_rounded, 'Assigned Students', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.rate_review_rounded, 'Weekly Reviews', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.group_work_rounded, 'Team Management', () => Navigator.pop(context)),
+                ] else if (widget.roleLabel == 'COORDINATOR') ...[
+                  _buildDrawerItem(Icons.school_rounded, 'University Profile', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.how_to_reg_rounded, 'HOD Approvals', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.apartment_rounded, 'Company Directory', () => Navigator.pop(context)),
+                ] else if (widget.roleLabel == 'HEAD OF DEPARTMENT') ...[
+                  _buildDrawerItem(Icons.groups_3_rounded, 'Department Students', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.fact_check_rounded, 'Student Verification', () => Navigator.pop(context)),
+                ] else if (widget.roleLabel == 'ADMIN') ...[
+                  _buildDrawerItem(Icons.manage_accounts_rounded, 'User Management', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.domain_verification_rounded, 'Institutions', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.analytics_rounded, 'System Analytics', () => Navigator.pop(context)),
+                ],
 
-                _buildDrawerItem(Icons.history_rounded, 'Previous Jobs History', () => Navigator.pop(context)),
-                _buildDrawerItem(Icons.check_circle_outline_rounded, 'Approved', () => Navigator.pop(context)),
-                _buildDrawerItem(Icons.pending_actions_rounded, 'Not Done', () => Navigator.pop(context)),
-                _buildDrawerItem(Icons.person_rounded, 'Profile Settings', () {
+                const Divider(color: Colors.black12, height: 32),
+                _buildDrawerItem(Icons.person_rounded, 'Account Settings', () {
                   Navigator.pop(context);
-                  ref.read(dashboardIndexProvider).value = widget.tabs.length - 1; // Go to last tab (Profile)
+                  indexNotifier.value = widget.tabs.length - 1; // Go to last tab (Settings/Profile)
                 }),
                 _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () => Navigator.pop(context)),
               ],
