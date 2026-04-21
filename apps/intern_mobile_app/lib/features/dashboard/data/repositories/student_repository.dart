@@ -12,8 +12,10 @@ class StudentProfile {
   final String email;
   final String? companyName;
   final String? supervisorName;
+  final DateTime? internshipStartDate;
   final int currentInternshipWeek;
   final String status;
+  final String internshipStatus;
 
   StudentProfile({
     required this.id,
@@ -21,8 +23,10 @@ class StudentProfile {
     required this.email,
     this.companyName,
     this.supervisorName,
+    this.internshipStartDate,
     required this.currentInternshipWeek,
     required this.status,
+    required this.internshipStatus,
   });
 
   factory StudentProfile.fromJson(Map<String, dynamic> json) {
@@ -30,6 +34,7 @@ class StudentProfile {
     final activeAssignment = json['activeAssignment'];
     final company = activeAssignment != null ? activeAssignment['company'] : null;
     final supervisor = json['supervisor'];
+    final startDateRaw = activeAssignment != null ? activeAssignment['start_date'] : null;
 
     return StudentProfile(
       id: json['id'] ?? 0,
@@ -37,8 +42,10 @@ class StudentProfile {
       email: user['email'] ?? '',
       companyName: company != null ? company['name'] : null,
       supervisorName: supervisor != null ? supervisor['full_name'] : null,
+      internshipStartDate: startDateRaw is String ? DateTime.tryParse(startDateRaw) : null,
       currentInternshipWeek: json['currentInternshipWeek'] ?? 1,
       status: json['hod_approval_status'] ?? 'PENDING',
+      internshipStatus: json['internship_status'] ?? 'PENDING',
     );
   }
 }

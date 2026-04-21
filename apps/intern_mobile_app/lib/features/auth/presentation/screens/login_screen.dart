@@ -439,29 +439,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ),
                 ),
               ),
-              Positioned(
-                    top: 16,
-                    right: 16,
-                    child: PopupMenuButton<String>(
-                      icon: Icon(Icons.bug_report_rounded, color: theme.colorScheme.primary),
-                      tooltip: 'Demo Login',
-                      onSelected: (value) {
-                        final parts = value.split('|');
-                        _emailController.text = parts[0];
-                        _passwordController.text = parts[1];
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'admin@internlink.com|Admin@1234', child: Text('Admin')),
-                        const PopupMenuItem(value: 'supervisor@company.com|Super123!', child: Text('Supervisor')),
-                        const PopupMenuItem(value: 'coordinator@haramaya.edu|Coord123!', child: Text('Coordinator')),
-                        const PopupMenuItem(value: 'hod@haramaya.edu|Hod12345', child: Text('HOD')),
-                        const PopupMenuItem(value: 'student@haramaya.edu|Student123!', child: Text('Student')),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
+          ),
+        ),
           ],
         ),
       ),

@@ -32,6 +32,7 @@ class WeeklyPlan {
   final String planDescription;
   final String status;
   final String? feedback;
+  final String? presentationFileUrl;
   final DateTime submittedAt;
   final List<PlanDaySubmission> daySubmissions;
 
@@ -41,17 +42,20 @@ class WeeklyPlan {
     required this.planDescription,
     required this.status,
     this.feedback,
+    this.presentationFileUrl,
     required this.submittedAt,
     required this.daySubmissions,
   });
 
   factory WeeklyPlan.fromJson(Map<String, dynamic> json) {
+    final presentation = json['presentation'];
     return WeeklyPlan(
       id: json['id'] ?? 0,
       weekNumber: json['week_number'] ?? 0,
       planDescription: json['plan_description'] ?? '',
       status: json['status'] ?? 'PENDING',
       feedback: json['feedback'],
+      presentationFileUrl: presentation is Map ? presentation['file_url'] : null,
       submittedAt: DateTime.parse(json['submitted_at']),
       daySubmissions: (json['daySubmissions'] as List?)
               ?.map((e) => PlanDaySubmission.fromJson(e))

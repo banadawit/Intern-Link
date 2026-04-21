@@ -13,7 +13,6 @@ import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/supervisor_repository.dart';
 import '../../data/repositories/coordinator_repository.dart';
 import '../../data/repositories/admin_repository.dart';
-import '../../../auth/presentation/widgets/custom_text_field.dart';
 
 // ---------------------------------------------------------
 // STATE MANAGEMENT (NAVIGATION)
@@ -469,6 +468,8 @@ class _StudentHomeTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final profileAsync = ref.watch(studentProfileProvider);
+    final plansAsync = ref.watch(myWeeklyPlansProvider);
+    final proposalsAsync = ref.watch(myProposalsProvider);
 
     return Material(
       color: Colors.transparent,
@@ -490,7 +491,7 @@ class _StudentHomeTab extends ConsumerWidget {
             physics: const BouncingScrollPhysics(),
             slivers: [
               _ModernSliverAppBar(
-                title: 'Welcome back,',
+                title: 'Welcome,',
                 subtitle: profile.fullName,
                 profileName: profile.fullName,
                 gradient: [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
@@ -500,10 +501,14 @@ class _StudentHomeTab extends ConsumerWidget {
                 padding: const EdgeInsets.all(24),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    Text('Dashboard Overview', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                    _buildInternshipStatusHeader(context, profile),
                     const SizedBox(height: 20),
-                    _buildStatsGrid(context, theme, isDark),
-                    const SizedBox(height: 32),
+                    _buildKeyCards(context, isDark, plansAsync),
+                    const SizedBox(height: 20),
+                    _buildActiveInternshipInfo(context, isDark, profile),
+                    const SizedBox(height: 20),
+                    _buildRecentActivity(context, isDark, plansAsync, proposalsAsync),
+                    const SizedBox(height: 24),
                     _buildQuickActions(context, ref, theme, isDark),
                     const SizedBox(height: 120),
                   ]),
@@ -516,7 +521,97 @@ class _StudentHomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsGrid(BuildContext context, ThemeData theme, bool isDark) {
+  Widget _buildInternshipStatusHeader(BuildContext context, StudentProfile profile) {
+    final theme = Theme.of(context);
+    final status = _deriveInternshipStatusLabel(profile);
+    final (label, color, icon) = switch (status) {
+      _InternshipStatus.active => ('Active', const Color(0xFF067647), Icons.check_circle_rounded),
+      _InternshipStatus.pending => ('Pending', const Color(0xFFB54708), Icons.pending_rounded),
+      _InternshipStatus.notPlaced => ('Not placed', const Color(0xFFB42318), Icons.cancel_rounded),
+    };
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Dashboard',
+            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withOpacity(0.25)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKeyCards(BuildContext context, bool isDark, AsyncValue<List<WeeklyPlan>> plansAsync) {
+    return plansAsync.when(
+      loading: () => _buildKeyCardsGrid(
+        context,
+        isDark,
+        attendanceOrCheckinsValue: '—',
+        weeklyPlansProgressValue: '—',
+        internshipProgressValue: '—',
+        latestFeedbackValue: '—',
+      ),
+      error: (err, _) => _buildKeyCardsGrid(
+        context,
+        isDark,
+        attendanceOrCheckinsValue: '—',
+        weeklyPlansProgressValue: '—',
+        internshipProgressValue: '—',
+        latestFeedbackValue: '—',
+      ),
+      data: (plans) {
+        final totalCheckins = plans.fold<int>(0, (sum, p) => sum + p.daySubmissions.length);
+        final submitted = plans.length;
+        final approved = plans.where((p) => p.status.toUpperCase() == 'APPROVED').length;
+        final latestFeedbackPlan = plans.where((p) => (p.feedback ?? '').trim().isNotEmpty).toList()
+          ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+
+        final latestFeedbackValue = latestFeedbackPlan.isEmpty
+            ? 'None'
+            : 'Week ${latestFeedbackPlan.first.weekNumber}';
+
+        // We don’t have a real “weeks completed” API yet; show derived from current week when available elsewhere.
+        // Keep it lightweight and consistent with “5 seconds” requirement.
+        return _buildKeyCardsGrid(
+          context,
+          isDark,
+          attendanceOrCheckinsValue: '$totalCheckins',
+          weeklyPlansProgressValue: '$approved/$submitted',
+          internshipProgressValue: 'Week —',
+          latestFeedbackValue: latestFeedbackValue,
+        );
+      },
+    );
+  }
+
+  Widget _buildKeyCardsGrid(
+    BuildContext context,
+    bool isDark, {
+    required String attendanceOrCheckinsValue,
+    required String weeklyPlansProgressValue,
+    required String internshipProgressValue,
+    required String latestFeedbackValue,
+  }) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -525,10 +620,10 @@ class _StudentHomeTab extends ConsumerWidget {
       crossAxisSpacing: 16,
       childAspectRatio: 1.2,
       children: [
-        _buildStatCard(context, 'Attendance', '92%', Icons.calendar_today_rounded, Colors.blue),
-        _buildStatCard(context, 'Tasks', '12/15', Icons.task_alt_rounded, Colors.orange),
-        _buildStatCard(context, 'Weeks', '4/12', Icons.timeline_rounded, Colors.purple),
-        _buildStatCard(context, 'Feedback', '4.8', Icons.star_rounded, Colors.amber),
+        _buildStatCard(context, 'Check-ins', attendanceOrCheckinsValue, Icons.calendar_today_rounded, Colors.blue),
+        _buildStatCard(context, 'Plans Progress', weeklyPlansProgressValue, Icons.assignment_turned_in_rounded, Colors.orange),
+        _buildStatCard(context, 'Internship', internshipProgressValue, Icons.timeline_rounded, Colors.purple),
+        _buildStatCard(context, 'Latest Feedback', latestFeedbackValue, Icons.star_rounded, Colors.amber),
       ],
     );
   }
@@ -560,6 +655,138 @@ class _StudentHomeTab extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildActiveInternshipInfo(BuildContext context, bool isDark, StudentProfile profile) {
+    final theme = Theme.of(context);
+    final company = profile.companyName ?? 'Not assigned';
+    final supervisor = profile.supervisorName ?? 'Not assigned';
+    final start = profile.internshipStartDate;
+    final startText = start == null
+        ? '—'
+        : '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year}';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Active Internship', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 14),
+          _infoRow(context, Icons.business_rounded, 'Company', company),
+          const SizedBox(height: 10),
+          _infoRow(context, Icons.person_pin_rounded, 'Supervisor', supervisor),
+          const SizedBox(height: 10),
+          _infoRow(context, Icons.event_rounded, 'Start date', startText),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(BuildContext context, IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: theme.colorScheme.primary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentActivity(
+    BuildContext context,
+    bool isDark,
+    AsyncValue<List<WeeklyPlan>> plansAsync,
+    AsyncValue<List<PlacementProposal>> proposalsAsync,
+  ) {
+    final theme = Theme.of(context);
+
+    final plans = plansAsync.maybeWhen(data: (v) => v, orElse: () => const <WeeklyPlan>[]);
+    final proposals = proposalsAsync.maybeWhen(data: (v) => v, orElse: () => const <PlacementProposal>[]);
+
+    String? planStatusLine;
+    String? feedbackLine;
+    String? proposalLine;
+
+    if (plans.isNotEmpty) {
+      final latestPlan = (List<WeeklyPlan>.from(plans)..sort((a, b) => b.submittedAt.compareTo(a.submittedAt))).first;
+      planStatusLine = 'Plan week ${latestPlan.weekNumber}: ${latestPlan.status}';
+
+      final feedbackPlans = plans.where((p) => (p.feedback ?? '').trim().isNotEmpty).toList()
+        ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      if (feedbackPlans.isNotEmpty) {
+        feedbackLine = 'New feedback on week ${feedbackPlans.first.weekNumber}';
+      }
+    }
+
+    if (proposals.isNotEmpty) {
+      final latest = proposals.first;
+      proposalLine = 'Proposal: ${latest.companyName} • ${latest.status}';
+    }
+
+    final items = <_ActivityItem>[
+      if (feedbackLine != null) _ActivityItem(Icons.forum_rounded, feedbackLine, 'Feedback'),
+      if (planStatusLine != null) _ActivityItem(Icons.assignment_turned_in_rounded, planStatusLine, 'Plans'),
+      if (proposalLine != null) _ActivityItem(Icons.work_outline_rounded, proposalLine, 'Jobs'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 14),
+          if (items.isEmpty)
+            Text('No recent updates yet.', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)))
+          else
+            ...items.take(3).map((i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(i.icon, size: 18, color: theme.colorScheme.primary),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(i.category, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                            Text(i.text, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+        ],
       ),
     );
   }
@@ -629,6 +856,25 @@ class _StudentHomeTab extends ConsumerWidget {
     );
   }
 }
+
+  _InternshipStatus _deriveInternshipStatusLabel(StudentProfile profile) {
+    if ((profile.internshipStatus).toUpperCase() == 'PLACED' || profile.companyName != null) {
+      return _InternshipStatus.active;
+    }
+    if ((profile.internshipStatus).toUpperCase() == 'PENDING') {
+      return _InternshipStatus.pending;
+    }
+    return _InternshipStatus.notPlaced;
+  }
+
+class _ActivityItem {
+  final IconData icon;
+  final String text;
+  final String category;
+  _ActivityItem(this.icon, this.text, this.category);
+}
+
+enum _InternshipStatus { active, pending, notPlaced }
 
 class _StudentPlansTab extends ConsumerWidget {
   const _StudentPlansTab();
@@ -870,6 +1116,49 @@ class _StudentPlansTab extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Text(plan.planDescription, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5, color: theme.colorScheme.onSurface.withOpacity(0.7)), maxLines: 3, overflow: TextOverflow.ellipsis),
+          if ((plan.presentationFileUrl ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.upload_file_rounded, size: 20, color: theme.colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Presentation uploaded', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          plan.presentationFileUrl!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Presentation file'),
+                        content: SelectableText(plan.presentationFileUrl!),
+                        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+                      ),
+                    ),
+                    child: const Text('View'),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (plan.feedback != null && plan.feedback!.isNotEmpty) ...[
             const SizedBox(height: 16),
             Container(
@@ -980,9 +1269,16 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
                   padding: const EdgeInsets.all(24),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      Text('Placement Proposals', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                      if ((profile.internshipStatus).toUpperCase() == 'PLACED' || profile.companyName != null) ...[
+                        _buildPlacementSummaryCard(context, profile, isDark, theme),
+                        const SizedBox(height: 24),
+                      ] else ...[
+                        _buildRequestPlacementCard(context, isDark, theme),
+                        const SizedBox(height: 24),
+                      ],
+                      Text('Proposal Tracking', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
                       const SizedBox(height: 8),
-                      Text('Track proposals sent by your school to partner companies.', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                      Text('Pending / Approved / Rejected', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5))),
                       const SizedBox(height: 32),
                       proposalsAsync.when(
                         loading: () => const Center(child: CircularProgressIndicator()),
@@ -1021,6 +1317,94 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
             const Text('No proposals yet.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlacementSummaryCard(BuildContext context, StudentProfile profile, bool isDark, ThemeData theme) {
+    final company = profile.companyName ?? 'Assigned company';
+    final supervisor = profile.supervisorName ?? 'Assigned supervisor';
+    final start = profile.internshipStartDate;
+    final startText = start == null
+        ? '—'
+        : '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year}';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Placed', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Icon(Icons.business_rounded, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(child: Text(company, style: const TextStyle(fontWeight: FontWeight.w800))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.person_pin_rounded, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(child: Text(supervisor, style: const TextStyle(fontWeight: FontWeight.w800))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.event_rounded, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(child: Text('Start: $startText', style: const TextStyle(fontWeight: FontWeight.w800))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestPlacementCard(BuildContext context, bool isDark, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Not placed yet', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Text(
+            'Request placement (Open Letter) and track its status here.',
+            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Request placement'),
+                    content: const Text('This mobile flow is ready in UI, but the backend endpoint for student Open Letter requests is not connected yet.'),
+                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.edit_note_rounded),
+              label: const Text('Request placement'),
+            ),
+          ),
+        ],
       ),
     );
   }
