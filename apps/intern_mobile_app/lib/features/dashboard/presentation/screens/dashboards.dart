@@ -139,6 +139,9 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
             ),
           ),
           _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', () => Navigator.pop(context)),
+          _buildDrawerItem(Icons.history_rounded, 'Previous Jobs History', () => Navigator.pop(context)),
+          _buildDrawerItem(Icons.check_circle_outline_rounded, 'Approved', () => Navigator.pop(context)),
+          _buildDrawerItem(Icons.pending_actions_rounded, 'Not Done', () => Navigator.pop(context)),
           _buildDrawerItem(Icons.person_rounded, 'Profile Settings', () {
             Navigator.pop(context);
             ref.read(dashboardIndexProvider).value = widget.tabs.length - 1; // Go to last tab (Profile)
@@ -208,6 +211,7 @@ class _ModernSliverAppBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SliverAppBar(
+      automaticallyImplyLeading: false,
       expandedHeight: 240,
       floating: false,
       pinned: true,
