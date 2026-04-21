@@ -29,7 +29,7 @@ class PlanEditorState {
   bool get isEditingDraft => draftId != null && submittedPlanId == null;
 }
 
-final planEditorProvider = AutoDisposeNotifierProviderFamily<PlanEditorNotifier, PlanEditorState, PlanEditorArgs>(
+final planEditorProvider = AutoDisposeNotifierProvider<PlanEditorNotifier, PlanEditorState>(
   PlanEditorNotifier.new,
 );
 
@@ -52,9 +52,24 @@ class PlanEditorArgs {
 }
 
 class PlanEditorNotifier extends AutoDisposeNotifier<PlanEditorState> {
+  bool _didInit = false;
+
   @override
-  PlanEditorState build(PlanEditorArgs arg) {
-    return PlanEditorState(
+  PlanEditorState build() {
+    return const PlanEditorState(
+      weekNumber: 1,
+      title: '',
+      objectives: '',
+      tasks: ['', ''],
+    );
+  }
+
+  void init(PlanEditorArgs arg) {
+    // Idempotent init per screen lifetime.
+    if (_didInit) return;
+    _didInit = true;
+
+    state = PlanEditorState(
       draftId: arg.draftId,
       submittedPlanId: arg.submittedPlanId,
       weekNumber: arg.initialWeekNumber,
@@ -246,7 +261,7 @@ class PlanEditorNotifier extends AutoDisposeNotifier<PlanEditorState> {
       deleteDraftIdAfterSubmit: state.draftId,
     );
 
-    ref.read(plansProvider.notifier).refresh();
+    await ref.read(plansProvider.notifier).refresh();
     state = PlanEditorState(
       draftId: null,
       submittedPlanId: null,

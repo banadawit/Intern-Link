@@ -48,8 +48,8 @@ class _PlanEditorScreenState extends ConsumerState<PlanEditorScreen> {
       initialTasks: existing?.tasks.isNotEmpty == true ? existing!.tasks : const ['', ''],
     );
 
-    final state = ref.watch(planEditorProvider(args));
-    final notifier = ref.read(planEditorProvider(args).notifier);
+    final notifier = ref.read(planEditorProvider.notifier)..init(args);
+    final state = ref.watch(planEditorProvider);
 
     _titleCtrl.value = _titleCtrl.value.copyWith(text: state.title, selection: _titleCtrl.selection);
     _objectivesCtrl.value = _objectivesCtrl.value.copyWith(text: state.objectives, selection: _objectivesCtrl.selection);

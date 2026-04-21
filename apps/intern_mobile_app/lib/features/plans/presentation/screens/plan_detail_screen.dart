@@ -168,7 +168,7 @@ class _CheckinsSection extends ConsumerWidget {
                     ? null
                     : () async {
                         try {
-                          await ref.read(checkinsControllerProvider(plan.id).notifier).markPresent(planId: plan.id, workDateIso: workDateIso);
+                          await ref.read(checkinsControllerProvider.notifier).markPresent(planId: plan.id, workDateIso: workDateIso);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Check-in saved.')));
                           }

@@ -3,37 +3,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/plans_repository.dart';
 import 'plans_providers.dart';
 
-final checkinsControllerProvider =
-    StateNotifierProvider.family.autoDispose<CheckinsController, AsyncValue<void>, int>(
-  (ref, planId) => CheckinsController(ref, planId),
+final checkinsControllerProvider = AutoDisposeNotifierProvider<CheckinsController, AsyncValue<void>>(
+  CheckinsController.new,
 );
 
-class CheckinsController extends StateNotifier<AsyncValue<void>> {
-  CheckinsController(this._ref, this.planId) : super(const AsyncData(null));
-
-  final Ref _ref;
-  final int planId;
+class CheckinsController extends AutoDisposeNotifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<void> markPresent({
+    required int planId,
     required String workDateIso,
     String? notes,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final repo = _ref.read(plansRepositoryProvider);
+      final repo = ref.read(plansRepositoryProvider);
       await repo.submitCheckin(planId: planId, workDateIso: workDateIso, notes: notes);
-      await _ref.read(plansProvider.notifier).refresh();
+      await ref.read(plansProvider.notifier).refresh();
     });
   }
 
   Future<void> delete({
+    required int planId,
     required String workDateIso,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final repo = _ref.read(plansRepositoryProvider);
+      final repo = ref.read(plansRepositoryProvider);
       await repo.deleteCheckin(planId: planId, workDateIso: workDateIso);
-      await _ref.read(plansProvider.notifier).refresh();
+      await ref.read(plansProvider.notifier).refresh();
     });
   }
 }
