@@ -11,6 +11,8 @@ import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/verify_email_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboards.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../features/settings/presentation/screens/account_settings_screen.dart';
+import '../../features/support/presentation/screens/support_screen.dart';
 import '../../features/universal/presentation/screens/universal_screens.dart';
 import 'app_routes.dart';
 
@@ -24,6 +26,8 @@ const Set<String> _protectedRoutes = {
   AppRoutes.notifications,
   AppRoutes.chat,
   AppRoutes.aiAssistant,
+  AppRoutes.helpSupport,
+  AppRoutes.accountSettings,
 };
 
 final GoRouter appRouter = GoRouter(
@@ -256,6 +260,29 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.aiAssistant,
       builder: (context, state) => const AiAssistantScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.helpSupport,
+      pageBuilder: (context, state) => CustomTransitionPage<void>(
+        key: state.pageKey,
+        child: const HelpSupportScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.accountSettings,
+      pageBuilder: (context, state) {
+        final section = state.uri.queryParameters['section'] ?? 'profile';
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: AccountSettingsScreen(initialSection: section),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        );
+      },
     ),
   ],
 );
