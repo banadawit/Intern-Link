@@ -3,6 +3,7 @@ enum AppRole {
   supervisor,
   coordinator,
   admin,
+  hod,
 }
 
 extension AppRoleX on AppRole {
@@ -16,6 +17,8 @@ extension AppRoleX on AppRole {
         return 'COORDINATOR';
       case AppRole.admin:
         return 'ADMIN';
+      case AppRole.hod:
+        return 'HEAD_OF_DEPARTMENT';
     }
   }
 }
@@ -30,6 +33,10 @@ AppRole? appRoleFromBackend(String value) {
       return AppRole.coordinator;
     case 'ADMIN':
       return AppRole.admin;
+    case 'HEAD_OF_DEPARTMENT':
+    case 'HEAD OF DEPARTMENT':
+    case 'HOD':
+      return AppRole.hod;
     default:
       return null;
   }

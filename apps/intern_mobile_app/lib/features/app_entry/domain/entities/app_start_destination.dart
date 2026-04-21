@@ -5,4 +5,5 @@ enum AppStartDestination {
   supervisorDashboard,
   coordinatorDashboard,
   adminDashboard,
+  hodDashboard,
 }

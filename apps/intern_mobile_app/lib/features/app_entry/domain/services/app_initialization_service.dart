@@ -61,6 +61,8 @@ class AppInitializationService {
         return AppStartDestination.coordinatorDashboard;
       case AppRole.admin:
         return AppStartDestination.adminDashboard;
+      case AppRole.hod:
+        return AppStartDestination.hodDashboard;
     }
   }
 }
