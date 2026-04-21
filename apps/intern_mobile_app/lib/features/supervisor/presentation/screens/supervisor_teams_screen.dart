@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/supervisor_providers.dart';
-import '../../dashboard/presentation/screens/dashboards.dart' show ModernSliverAppBar;
+import '../../../dashboard/presentation/screens/dashboards.dart';
 
 class SupervisorTeamsTab extends ConsumerWidget {
   const SupervisorTeamsTab({super.key});

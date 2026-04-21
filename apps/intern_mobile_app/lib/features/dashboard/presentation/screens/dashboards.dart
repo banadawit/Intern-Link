@@ -2715,11 +2715,11 @@ class _HodOverviewTab extends ConsumerWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            const ModernSliverAppBar(
+            ModernSliverAppBar(
               title: 'Dashboard',
               subtitle: 'Department Level Insights',
               profileName: 'HOD',
-              gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+              gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
               backgroundIcon: Icons.analytics_rounded,
             ),
             SliverPadding(
@@ -2913,11 +2913,11 @@ class _HodPlacementTab extends ConsumerWidget {
       color: Colors.transparent,
       child: CustomScrollView(
         slivers: [
-          const ModernSliverAppBar(
+          ModernSliverAppBar(
             title: 'Placements',
             subtitle: 'Proposals & Open Letters',
             profileName: 'HOD',
-            gradient: [Color(0xFFf857a6), Color(0xFFff5858)],
+            gradient: const [Color(0xFFf857a6), Color(0xFFff5858)],
             backgroundIcon: Icons.business_center_rounded,
           ),
           SliverPadding(
@@ -2989,11 +2989,11 @@ class _HodDirectoryTab extends ConsumerWidget {
       color: Colors.transparent,
       child: CustomScrollView(
         slivers: [
-          const ModernSliverAppBar(
+          ModernSliverAppBar(
             title: 'Directory',
             subtitle: 'Company Partners',
             profileName: 'HOD',
-            gradient: [Color(0xFF1fa2ff), Color(0xFF12d8fa)],
+            gradient: const [Color(0xFF1fa2ff), Color(0xFF12d8fa)],
             backgroundIcon: Icons.corporate_fare_rounded,
           ),
           SliverPadding(
@@ -3043,7 +3043,8 @@ class AdminDashboardScreen extends StatelessWidget {
         _DashboardTab(label: 'Overview', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, view: _AdminOverviewTab()),
         _DashboardTab(label: 'Approvals', icon: Icons.verified_user_outlined, activeIcon: Icons.verified_user_rounded, view: _AdminApprovalsTab()),
         _DashboardTab(label: 'Users', icon: Icons.group_outlined, activeIcon: Icons.group_rounded, view: _AdminUsersTab()),
-        _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
+        _DashboardTab(label: 'Audit Log', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
+        _DashboardTab(label: 'Config', icon: Icons.settings_suggest_outlined, activeIcon: Icons.settings_suggest_rounded, view: _AdminSettingsTab()),
       ],
     );
   }
@@ -3074,11 +3075,11 @@ class _AdminOverviewTab extends ConsumerWidget {
           data: (stats) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              const ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'Overview',
                 subtitle: 'System Statistics',
                 profileName: 'Admin',
-                gradient: [Color(0xFF373B44), Color(0xFF4286F4)],
+                gradient: const [Color(0xFF373B44), Color(0xFF4286F4)],
                 backgroundIcon: Icons.analytics_rounded,
               ),
               SliverPadding(
@@ -3097,7 +3098,9 @@ class _AdminOverviewTab extends ConsumerWidget {
                         _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
                         _buildStatCard(context, 'Universities', stats.totalUniversities.toString(), Icons.school_rounded, Colors.orange, isDark),
                         _buildStatCard(context, 'Companies', stats.totalCompanies.toString(), Icons.business_rounded, Colors.green, isDark),
+                        _buildStatCard(context, 'Active Interns', '452', Icons.work_rounded, Colors.purple, isDark),
                         _buildStatCard(context, 'Pending Apprs.', stats.pendingApprovals.toString(), Icons.pending_actions_rounded, Colors.red, isDark),
+                        _buildStatCard(context, 'Sys Health', '99.9%', Icons.speed_rounded, Colors.teal, isDark),
                       ],
                     ),
                     const SizedBox(height: 120),
@@ -3170,7 +3173,7 @@ class _AdminApprovalsTab extends ConsumerWidget {
               ),
               SliverPersistentHeader(
                 pinned: true,
-                delegate: _SliverTabBarDelegate(
+                delegate: SliverTabBarDelegate(
                   TabBar(
                     isScrollable: true,
                     tabs: const [Tab(text: 'Universities'), Tab(text: 'Companies'), Tab(text: 'Coordinators'), Tab(text: 'Supervisors')],
@@ -3324,11 +3327,11 @@ class _AdminUsersTab extends ConsumerWidget {
           data: (users) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              const ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'Users',
                 subtitle: 'All Registered Users',
                 profileName: 'Admin',
-                gradient: [Color(0xFF11998e), Color(0xFF38ef7d)],
+                gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
                 backgroundIcon: Icons.people_rounded,
               ),
               SliverPadding(
@@ -3366,11 +3369,19 @@ class _AdminUsersTab extends ConsumerWidget {
   }
 }
 
-class _AdminLogsTab extends ConsumerWidget {
+class _AdminLogsTab extends ConsumerStatefulWidget {
   const _AdminLogsTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AdminLogsTab> createState() => _AdminLogsTabState();
+}
+
+class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
+  String _searchQuery = '';
+  String _filter = 'All';
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final logsAsync = ref.watch(auditLogsProvider);
@@ -3388,54 +3399,221 @@ class _AdminLogsTab extends ConsumerWidget {
         child: logsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
-          data: (logs) => CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              const ModernSliverAppBar(
-                title: 'Audit Logs',
-                subtitle: 'System Activity',
-                profileName: 'Admin',
-                gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-                backgroundIcon: Icons.receipt_long_rounded,
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final log = logs[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          data: (logs) {
+            final filteredLogs = logs.where((l) {
+              final matchesSearch = l['action'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+              final matchesFilter = _filter == 'All' || l['type'] == _filter;
+              return matchesSearch && matchesFilter;
+            }).toList();
+
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                ModernSliverAppBar(
+                  title: 'Audit Logs',
+                  subtitle: 'System Activity Trace',
+                  profileName: 'Admin',
+                  gradient: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
+                  backgroundIcon: Icons.receipt_long_rounded,
+                  actions: [
+                    IconButton(onPressed: () {}, icon: const Icon(Icons.file_download_rounded, color: Colors.white)),
+                  ],
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    child: Column(
+                      children: [
+                        TextField(
+                          onChanged: (v) => setState(() => _searchQuery = v),
+                          decoration: InputDecoration(
+                            hintText: 'Search actions...',
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            filled: true,
+                            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.history_rounded, color: theme.colorScheme.primary),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(log['action'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Text('By: ${log['userId']}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                                ],
+                        const SizedBox(height: 16),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: ['All', 'Security', 'User', 'Content', 'System'].map((f) => Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(f),
+                                selected: _filter == f,
+                                onSelected: (s) => setState(() => _filter = f),
                               ),
-                            ),
-                          ],
+                            )).toList(),
+                          ),
                         ),
-                      );
-                    },
-                    childCount: logs.length,
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+                SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final log = filteredLogs[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                child: Icon(Icons.history_rounded, color: theme.colorScheme.primary, size: 20),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(log['action'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    Text('By: ${log['userId']} • ${log['timestamp']}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      childCount: filteredLogs.length,
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminSettingsTab extends ConsumerWidget {
+  const _AdminSettingsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
           ),
         ),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            ModernSliverAppBar(
+              title: 'Configuration',
+              subtitle: 'System Control Panel',
+              profileName: 'Admin',
+              gradient: const [Color(0xFF2C3E50), Color(0xFF000000)],
+              backgroundIcon: Icons.settings_suggest_rounded,
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildSettingSection(context, 'Registration Controls', [
+                    _buildSwitchTile(context, 'Open University Registration', true, isDark),
+                    _buildSwitchTile(context, 'Open Company Registration', true, isDark),
+                    _buildSwitchTile(context, 'Allow Student Self-Reg', false, isDark),
+                  ]),
+                  const SizedBox(height: 32),
+                  _buildSettingSection(context, 'Internship Rules', [
+                    _buildConfigItem(context, 'Minimum Duration (Weeks)', '8', Icons.timer_rounded, isDark),
+                    _buildConfigItem(context, 'Max Proposals per Student', '3', Icons.send_rounded, isDark),
+                  ]),
+                  const SizedBox(height: 32),
+                  _buildSettingSection(context, 'Maintenance & Tools', [
+                    _buildSwitchTile(context, 'Maintenance Mode', false, isDark),
+                    ListTile(
+                      onTap: () {},
+                      leading: const Icon(Icons.mail_rounded, color: Colors.blue),
+                      title: const Text('Test SMTP Connection', style: TextStyle(fontWeight: FontWeight.bold)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                    ),
+                  ]),
+                  const SizedBox(height: 32),
+                  _buildSettingSection(context, 'Broadcast', [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+                      child: Column(
+                        children: [
+                          const TextField(decoration: InputDecoration(hintText: 'System-wide announcement...', border: InputBorder.none)),
+                          const Divider(),
+                          Row(
+                            children: [
+                              const Text('Target: ALL ROLES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                              const Spacer(),
+                              FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.campaign_rounded, size: 16), label: const Text('Broadcast')),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 120),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingSection(BuildContext context, String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 16),
+        ...children,
+      ],
+    );
+  }
+
+  Widget _buildSwitchTile(BuildContext context, String title, bool value, bool isDark) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      trailing: Switch(value: value, onChanged: (v) {}),
+    );
+  }
+
+  Widget _buildConfigItem(BuildContext context, String title, String value, IconData icon, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey),
+          const SizedBox(width: 16),
+          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w500))),
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+        ],
       ),
     );
   }
@@ -3531,11 +3709,11 @@ Widget _buildModernSettingItem(BuildContext context, IconData icon, String title
   );
 }
 
-class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+class SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;
   final bool isDark;
 
-  _SliverTabBarDelegate(this.tabBar, this.isDark);
+  SliverTabBarDelegate(this.tabBar, this.isDark);
 
   @override
   double get minExtent => tabBar.preferredSize.height;
@@ -3551,7 +3729,7 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) => false;
+  bool shouldRebuild(SliverTabBarDelegate oldDelegate) => false;
 }
 
 // ---------------------------------------------------------

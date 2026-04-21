@@ -15,11 +15,18 @@ class AdminStats {
   });
 
   factory AdminStats.fromJson(Map<String, dynamic> json) {
+    int toInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     return AdminStats(
-      totalUsers: json['totalUsers'] ?? 0,
-      totalUniversities: json['totalUniversities'] ?? 0,
-      totalCompanies: json['totalCompanies'] ?? 0,
-      pendingApprovals: json['pendingApprovals'] ?? 0,
+      totalUsers: toInt(json['totalUsers']),
+      totalUniversities: toInt(json['totalUniversities']),
+      totalCompanies: toInt(json['totalCompanies']),
+      pendingApprovals: toInt(json['pendingApprovals']),
     );
   }
 }
@@ -28,26 +35,35 @@ class AdminRepository {
   AdminRepository({required this.apiClient});
   final ApiClient apiClient;
 
+  bool _isSuccess(dynamic data) {
+    if (data == null) return false;
+    final success = data['success'];
+    return success == true || success == 'true' || success == 1;
+  }
+
   Future<AdminStats> getStats() async {
     final response = await apiClient.dio.get('/admin/stats');
-    if (response.data['success'] == true) {
-      return AdminStats.fromJson(response.data['data']);
+    final data = response.data;
+    if (_isSuccess(data)) {
+      return AdminStats.fromJson(data['data']);
     }
-    throw Exception(response.data['message'] ?? 'Failed to fetch admin stats');
+    throw Exception(data['message'] ?? 'Failed to fetch admin stats');
   }
 
   Future<List<dynamic>> getPendingUniversities() async {
     final response = await apiClient.dio.get('/admin/pending-universities');
-    if (response.data['success'] == true) {
-      return response.data['data'];
+    final data = response.data;
+    if (_isSuccess(data)) {
+      return data['data'] ?? [];
     }
     return [];
   }
 
   Future<List<dynamic>> getPendingCompanies() async {
     final response = await apiClient.dio.get('/admin/pending-companies');
-    if (response.data['success'] == true) {
-      return response.data['data'];
+    final data = response.data;
+    if (_isSuccess(data)) {
+      return data['data'] ?? [];
     }
     return [];
   }
@@ -68,7 +84,8 @@ class AdminRepository {
 
   Future<List<dynamic>> getPendingCoordinators() async {
     final response = await apiClient.dio.get('/admin/pending-coordinators');
-    if (response.data['success'] == true) return response.data['data'];
+    final data = response.data;
+    if (_isSuccess(data)) return data['data'] ?? [];
     return [];
   }
 
@@ -82,7 +99,8 @@ class AdminRepository {
 
   Future<List<dynamic>> getPendingSupervisors() async {
     final response = await apiClient.dio.get('/admin/pending-supervisors');
-    if (response.data['success'] == true) return response.data['data'];
+    final data = response.data;
+    if (_isSuccess(data)) return data['data'] ?? [];
     return [];
   }
 
@@ -96,13 +114,15 @@ class AdminRepository {
 
   Future<List<dynamic>> getAllUsers() async {
     final response = await apiClient.dio.get('/admin/users');
-    if (response.data['success'] == true) return response.data['data'];
+    final data = response.data;
+    if (_isSuccess(data)) return data['data'] ?? [];
     return [];
   }
 
   Future<List<dynamic>> getAuditLogs() async {
     final response = await apiClient.dio.get('/admin/audit-logs');
-    if (response.data['success'] == true) return response.data['data'];
+    final data = response.data;
+    if (_isSuccess(data)) return data['data'] ?? [];
     return [];
   }
 }
