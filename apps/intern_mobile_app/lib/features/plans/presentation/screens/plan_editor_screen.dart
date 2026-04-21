@@ -22,8 +22,24 @@ class _PlanEditorScreenState extends ConsumerState<PlanEditorScreen> {
   @override
   void initState() {
     super.initState();
-    _titleCtrl = TextEditingController(text: widget.existing?.title ?? '');
-    _objectivesCtrl = TextEditingController(text: widget.existing?.objectives ?? '');
+    final existing = widget.existing;
+    _titleCtrl = TextEditingController(text: existing?.title ?? '');
+    _objectivesCtrl = TextEditingController(text: existing?.objectives ?? '');
+
+    // Initialize provider outside of build to avoid "modify while building" error
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final args = PlanEditorArgs(
+          draftId: (existing != null && existing.status == WeeklyPlanStatus.draft) ? existing.id : null,
+          submittedPlanId: (existing != null && existing.status != WeeklyPlanStatus.draft) ? existing.id : null,
+          initialWeekNumber: existing?.weekNumber ?? 1,
+          initialTitle: existing?.title ?? '',
+          initialObjectives: existing?.objectives ?? '',
+          initialTasks: existing?.tasks.isNotEmpty == true ? existing!.tasks : const ['', ''],
+        );
+        ref.read(planEditorProvider.notifier).init(args);
+      }
+    });
   }
 
   @override
@@ -39,16 +55,7 @@ class _PlanEditorScreenState extends ConsumerState<PlanEditorScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final existing = widget.existing;
 
-    final args = PlanEditorArgs(
-      draftId: (existing != null && existing.status == WeeklyPlanStatus.draft) ? existing.id : null,
-      submittedPlanId: (existing != null && existing.status != WeeklyPlanStatus.draft) ? existing.id : null,
-      initialWeekNumber: existing?.weekNumber ?? 1,
-      initialTitle: existing?.title ?? '',
-      initialObjectives: existing?.objectives ?? '',
-      initialTasks: existing?.tasks.isNotEmpty == true ? existing!.tasks : const ['', ''],
-    );
-
-    final notifier = ref.read(planEditorProvider.notifier)..init(args);
+    final notifier = ref.read(planEditorProvider.notifier);
     final state = ref.watch(planEditorProvider);
 
     _titleCtrl.value = _titleCtrl.value.copyWith(text: state.title, selection: _titleCtrl.selection);

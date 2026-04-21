@@ -273,95 +273,124 @@ class _ModernSliverAppBar extends ConsumerWidget {
       stretch: true,
       elevation: 0,
       backgroundColor: Colors.transparent,
-      flexibleSpace: FlexibleSpaceBar(
-        stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradient,
-            ),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned(
-                right: -50,
-                bottom: -50,
-                child: Icon(backgroundIcon, size: 240, color: Colors.white.withOpacity(0.15)),
+      flexibleSpace: LayoutBuilder(
+        builder: (context, constraints) {
+          final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+          final deltaExtent = settings!.maxExtent - settings.minExtent;
+          final t = (1.0 - (settings.currentExtent - settings.minExtent) / deltaExtent).clamp(0.0, 1.0);
+          final fadeOpacity = (1.0 - t * 1.5).clamp(0.0, 1.0); // Fades out faster than it shrinks
+
+          return FlexibleSpaceBar(
+            stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
+            background: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: gradient,
+                ),
               ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Builder(
-                          builder: (context) => _buildHeaderIcon(
-                            context,
-                            Icons.menu_rounded,
-                            () => Scaffold.of(context).openDrawer(),
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            _buildHeaderIcon(
-                              context,
-                              Icons.chat_bubble_outline_rounded,
-                              () => context.push(AppRoutes.chat),
-                            ),
-                            const SizedBox(width: 14),
-                            _buildHeaderIcon(
-                              context,
-                              Icons.notifications_none_rounded,
-                              () => _showNotificationCenter(context),
-                            ),
-                            const SizedBox(width: 14),
-                            IconButton(
-                              onPressed: () => ref.read(dashboardIndexProvider).value = 3,
-                              icon: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: CircleAvatar(
-                                  radius: 14,
-                                  backgroundColor: Colors.white.withOpacity(0.2),
-                                  child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned(
+                    right: -50,
+                    bottom: -50,
+                    child: Opacity(
+                      opacity: fadeOpacity,
+                      child: Icon(backgroundIcon, size: 240, color: Colors.white.withOpacity(0.15)),
                     ),
                   ),
-                ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Opacity(
+                        opacity: fadeOpacity,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Builder(
+                                builder: (context) => _buildHeaderIcon(
+                                  context,
+                                  Icons.menu_rounded,
+                                  () => Scaffold.of(context).openDrawer(),
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  _buildHeaderIcon(
+                                    context,
+                                    Icons.chat_bubble_outline_rounded,
+                                    () => context.push(AppRoutes.chat),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  _buildHeaderIcon(
+                                    context,
+                                    Icons.notifications_none_rounded,
+                                    () => _showNotificationCenter(context),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  IconButton(
+                                    onPressed: () => ref.read(dashboardIndexProvider).value = 3,
+                                    icon: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: CircleAvatar(
+                                        radius: 14,
+                                        backgroundColor: Colors.white.withOpacity(0.2),
+                                        child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?',
+                                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 28,
+                    left: 28,
+                    right: 28,
+                    child: Opacity(
+                      opacity: fadeOpacity,
+                      child: Transform.translate(
+                        offset: Offset(0, 20 * t), // Subtle slide up as it fades
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(subtitle,
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.8),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.5)),
+                            const SizedBox(height: 6),
+                            Text(title,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              Positioned(
-                bottom: 28,
-                left: 28,
-                right: 28,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                    const SizedBox(height: 6),
-                    Text(title, style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
