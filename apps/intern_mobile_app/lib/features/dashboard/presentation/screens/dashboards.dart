@@ -1015,7 +1015,7 @@ class _StudentPlansTab extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 24),
                                   FilledButton.icon(
-                                    onPressed: () {},
+                                    onPressed: () => _showSubmitPlanDialog(context, ref),
                                     icon: const Icon(Icons.add_rounded),
                                     label: const Text('New Plan'),
                                   )
