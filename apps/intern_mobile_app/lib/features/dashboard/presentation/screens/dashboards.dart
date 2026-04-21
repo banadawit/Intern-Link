@@ -13,7 +13,7 @@ import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/supervisor_repository.dart';
 import '../../data/repositories/coordinator_repository.dart';
 import '../../data/repositories/admin_repository.dart';
-import '../../../auth/presentation/widgets/custom_text_field.dart';
+import '../../../plans/presentation/screens/plans_screen.dart';
 
 // ---------------------------------------------------------
 // STATE MANAGEMENT (NAVIGATION)
@@ -57,6 +57,34 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
           key: _scaffoldKey,
           extendBody: true,
           drawer: _buildDrawer(context, isDark),
+          floatingActionButton: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Deep vibrant purple to match modern AI aesthetics
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4A00E0).withOpacity(0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => context.push(AppRoutes.aiAssistant),
+                borderRadius: BorderRadius.circular(20),
+                child: const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+                ),
+              ),
+            ),
+          ),
           body: IndexedStack(
             index: currentIndex,
             children: widget.tabs.map((t) => t.view).toList(),
@@ -138,16 +166,43 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
               ),
             ),
           ),
-          _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', () => Navigator.pop(context)),
-          _buildDrawerItem(Icons.history_rounded, 'Previous Jobs History', () => Navigator.pop(context)),
-          _buildDrawerItem(Icons.check_circle_outline_rounded, 'Approved', () => Navigator.pop(context)),
-          _buildDrawerItem(Icons.pending_actions_rounded, 'Not Done', () => Navigator.pop(context)),
-          _buildDrawerItem(Icons.person_rounded, 'Profile Settings', () {
-            Navigator.pop(context);
-            ref.read(dashboardIndexProvider).value = widget.tabs.length - 1; // Go to last tab (Profile)
-          }),
-          _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () => Navigator.pop(context)),
-          const Spacer(),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', () => Navigator.pop(context)),
+                
+                // --- Universal Features (All Roles) ---
+                _buildDrawerItem(Icons.dynamic_feed_rounded, 'Common Feed', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.commonFeed);
+                }),
+                _buildDrawerItem(Icons.notifications_active_rounded, 'Notifications', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.notifications);
+                }),
+                _buildDrawerItem(Icons.chat_bubble_outline_rounded, 'Messages / Chat', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.chat);
+                }),
+                _buildDrawerItem(Icons.smart_toy_rounded, 'AI Assistant', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.aiAssistant);
+                }),
+                const Divider(color: Colors.black12, height: 32),
+                // --------------------------------------
+
+                _buildDrawerItem(Icons.history_rounded, 'Previous Jobs History', () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.check_circle_outline_rounded, 'Approved', () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.pending_actions_rounded, 'Not Done', () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.person_rounded, 'Profile Settings', () {
+                  Navigator.pop(context);
+                  ref.read(dashboardIndexProvider).value = widget.tabs.length - 1; // Go to last tab (Profile)
+                }),
+                _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () => Navigator.pop(context)),
+              ],
+            ),
+          ),
           _buildDrawerItem(
             Icons.logout_rounded,
             'Sign Out',
@@ -229,61 +284,79 @@ class _ModernSliverAppBar extends ConsumerWidget {
             ),
           ),
           child: Stack(
+            fit: StackFit.expand,
             children: [
               Positioned(
                 right: -50,
                 bottom: -50,
                 child: Icon(backgroundIcon, size: 240, color: Colors.white.withOpacity(0.15)),
               ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Builder(
-                            builder: (context) => _buildHeaderIcon(
-                              context,
-                              Icons.menu_rounded,
-                              () => Scaffold.of(context).openDrawer(),
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              _buildHeaderIcon(
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Builder(
+                          builder: (context) => _buildHeaderIcon(
                             context,
-                            Icons.notifications_none_rounded,
-                            () => _showNotificationCenter(context),
+                            Icons.menu_rounded,
+                            () => Scaffold.of(context).openDrawer(),
                           ),
-                              const SizedBox(width: 14),
-                              IconButton(
-                                onPressed: () => ref.read(dashboardIndexProvider).value = 3,
-                                icon: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 14,
-                                    backgroundColor: Colors.white.withOpacity(0.2),
-                                    child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                  ),
+                        ),
+                        Row(
+                          children: [
+                            _buildHeaderIcon(
+                              context,
+                              Icons.chat_bubble_outline_rounded,
+                              () => context.push(AppRoutes.chat),
+                            ),
+                            const SizedBox(width: 14),
+                            _buildHeaderIcon(
+                              context,
+                              Icons.notifications_none_rounded,
+                              () => _showNotificationCenter(context),
+                            ),
+                            const SizedBox(width: 14),
+                            IconButton(
+                              onPressed: () => ref.read(dashboardIndexProvider).value = 3,
+                              icon: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: Colors.white.withOpacity(0.2),
+                                  child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                      const SizedBox(height: 6),
-                      Text(title, style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
-                    ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+              ),
+              Positioned(
+                bottom: 28,
+                left: 28,
+                right: 28,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                    const SizedBox(height: 6),
+                    Text(title, style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
+                  ],
                 ),
               ),
             ],
@@ -414,6 +487,8 @@ class _StudentHomeTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final profileAsync = ref.watch(studentProfileProvider);
+    final plansAsync = ref.watch(myWeeklyPlansProvider);
+    final proposalsAsync = ref.watch(myProposalsProvider);
 
     return Material(
       color: Colors.transparent,
@@ -435,7 +510,7 @@ class _StudentHomeTab extends ConsumerWidget {
             physics: const BouncingScrollPhysics(),
             slivers: [
               _ModernSliverAppBar(
-                title: 'Welcome back,',
+                title: 'Welcome,',
                 subtitle: profile.fullName,
                 profileName: profile.fullName,
                 gradient: [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
@@ -445,10 +520,16 @@ class _StudentHomeTab extends ConsumerWidget {
                 padding: const EdgeInsets.all(24),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    Text('Dashboard Overview', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                    _buildInternshipStatusHeader(context, profile),
                     const SizedBox(height: 20),
-                    _buildStatsGrid(context, theme, isDark),
-                    const SizedBox(height: 32),
+                    _buildKeyCards(context, isDark, plansAsync),
+                    const SizedBox(height: 20),
+                    _buildActiveInternshipInfo(context, isDark, profile),
+                    const SizedBox(height: 20),
+                    _buildRecentActivity(context, isDark, plansAsync, proposalsAsync),
+                    const SizedBox(height: 20),
+                    _buildCommonFeedPreview(context, isDark),
+                    const SizedBox(height: 24),
                     _buildQuickActions(context, ref, theme, isDark),
                     const SizedBox(height: 120),
                   ]),
@@ -461,7 +542,97 @@ class _StudentHomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsGrid(BuildContext context, ThemeData theme, bool isDark) {
+  Widget _buildInternshipStatusHeader(BuildContext context, StudentProfile profile) {
+    final theme = Theme.of(context);
+    final status = _deriveInternshipStatusLabel(profile);
+    final (label, color, icon) = switch (status) {
+      _InternshipStatus.active => ('Active', const Color(0xFF067647), Icons.check_circle_rounded),
+      _InternshipStatus.pending => ('Pending', const Color(0xFFB54708), Icons.pending_rounded),
+      _InternshipStatus.notPlaced => ('Not placed', const Color(0xFFB42318), Icons.cancel_rounded),
+    };
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Dashboard',
+            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withOpacity(0.25)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKeyCards(BuildContext context, bool isDark, AsyncValue<List<WeeklyPlan>> plansAsync) {
+    return plansAsync.when(
+      loading: () => _buildKeyCardsGrid(
+        context,
+        isDark,
+        attendanceOrCheckinsValue: '—',
+        weeklyPlansProgressValue: '—',
+        internshipProgressValue: '—',
+        latestFeedbackValue: '—',
+      ),
+      error: (err, _) => _buildKeyCardsGrid(
+        context,
+        isDark,
+        attendanceOrCheckinsValue: '—',
+        weeklyPlansProgressValue: '—',
+        internshipProgressValue: '—',
+        latestFeedbackValue: '—',
+      ),
+      data: (plans) {
+        final totalCheckins = plans.fold<int>(0, (sum, p) => sum + p.daySubmissions.length);
+        final submitted = plans.length;
+        final approved = plans.where((p) => p.status.toUpperCase() == 'APPROVED').length;
+        final latestFeedbackPlan = plans.where((p) => (p.feedback ?? '').trim().isNotEmpty).toList()
+          ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+
+        final latestFeedbackValue = latestFeedbackPlan.isEmpty
+            ? 'None'
+            : 'Week ${latestFeedbackPlan.first.weekNumber}';
+
+        // We don’t have a real “weeks completed” API yet; show derived from current week when available elsewhere.
+        // Keep it lightweight and consistent with “5 seconds” requirement.
+        return _buildKeyCardsGrid(
+          context,
+          isDark,
+          attendanceOrCheckinsValue: '$totalCheckins',
+          weeklyPlansProgressValue: '$approved/$submitted',
+          internshipProgressValue: 'Week —',
+          latestFeedbackValue: latestFeedbackValue,
+        );
+      },
+    );
+  }
+
+  Widget _buildKeyCardsGrid(
+    BuildContext context,
+    bool isDark, {
+    required String attendanceOrCheckinsValue,
+    required String weeklyPlansProgressValue,
+    required String internshipProgressValue,
+    required String latestFeedbackValue,
+  }) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -470,10 +641,10 @@ class _StudentHomeTab extends ConsumerWidget {
       crossAxisSpacing: 16,
       childAspectRatio: 1.2,
       children: [
-        _buildStatCard(context, 'Attendance', '92%', Icons.calendar_today_rounded, Colors.blue),
-        _buildStatCard(context, 'Tasks', '12/15', Icons.task_alt_rounded, Colors.orange),
-        _buildStatCard(context, 'Weeks', '4/12', Icons.timeline_rounded, Colors.purple),
-        _buildStatCard(context, 'Feedback', '4.8', Icons.star_rounded, Colors.amber),
+        _buildStatCard(context, 'Check-ins', attendanceOrCheckinsValue, Icons.calendar_today_rounded, Colors.blue),
+        _buildStatCard(context, 'Plans Progress', weeklyPlansProgressValue, Icons.assignment_turned_in_rounded, Colors.orange),
+        _buildStatCard(context, 'Internship', internshipProgressValue, Icons.timeline_rounded, Colors.purple),
+        _buildStatCard(context, 'Latest Feedback', latestFeedbackValue, Icons.star_rounded, Colors.amber),
       ],
     );
   }
@@ -506,6 +677,204 @@ class _StudentHomeTab extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildActiveInternshipInfo(BuildContext context, bool isDark, StudentProfile profile) {
+    final theme = Theme.of(context);
+    final company = profile.companyName ?? 'Not assigned';
+    final supervisor = profile.supervisorName ?? 'Not assigned';
+    final start = profile.internshipStartDate;
+    final startText = start == null
+        ? '—'
+        : '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year}';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Active Internship', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 14),
+          _infoRow(context, Icons.business_rounded, 'Company', company),
+          const SizedBox(height: 10),
+          _infoRow(context, Icons.person_pin_rounded, 'Supervisor', supervisor),
+          const SizedBox(height: 10),
+          _infoRow(context, Icons.event_rounded, 'Start date', startText),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(BuildContext context, IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: theme.colorScheme.primary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentActivity(
+    BuildContext context,
+    bool isDark,
+    AsyncValue<List<WeeklyPlan>> plansAsync,
+    AsyncValue<List<PlacementProposal>> proposalsAsync,
+  ) {
+    final theme = Theme.of(context);
+
+    final plans = plansAsync.maybeWhen(data: (v) => v, orElse: () => const <WeeklyPlan>[]);
+    final proposals = proposalsAsync.maybeWhen(data: (v) => v, orElse: () => const <PlacementProposal>[]);
+
+    String? planStatusLine;
+    String? feedbackLine;
+    String? proposalLine;
+
+    if (plans.isNotEmpty) {
+      final latestPlan = (List<WeeklyPlan>.from(plans)..sort((a, b) => b.submittedAt.compareTo(a.submittedAt))).first;
+      planStatusLine = 'Plan week ${latestPlan.weekNumber}: ${latestPlan.status}';
+
+      final feedbackPlans = plans.where((p) => (p.feedback ?? '').trim().isNotEmpty).toList()
+        ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      if (feedbackPlans.isNotEmpty) {
+        feedbackLine = 'New feedback on week ${feedbackPlans.first.weekNumber}';
+      }
+    }
+
+    if (proposals.isNotEmpty) {
+      final latest = proposals.first;
+      proposalLine = 'Proposal: ${latest.companyName} • ${latest.status}';
+    }
+
+    final items = <_ActivityItem>[
+      if (feedbackLine != null) _ActivityItem(Icons.forum_rounded, feedbackLine, 'Feedback'),
+      if (planStatusLine != null) _ActivityItem(Icons.assignment_turned_in_rounded, planStatusLine, 'Plans'),
+      if (proposalLine != null) _ActivityItem(Icons.work_outline_rounded, proposalLine, 'Jobs'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 14),
+          if (items.isEmpty)
+            Text('No recent updates yet.', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)))
+          else
+            ...items.take(3).map((i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(i.icon, size: 18, color: theme.colorScheme.primary),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(i.category, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                            Text(i.text, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommonFeedPreview(BuildContext context, bool isDark) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Common Feed',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push(AppRoutes.commonFeed),
+                child: const Text('See all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Announcements, opportunities, and updates.',
+            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+          ),
+          const SizedBox(height: 14),
+          _feedPreviewRow(context, Icons.campaign_rounded, 'New announcement posted'),
+          const SizedBox(height: 10),
+          _feedPreviewRow(context, Icons.work_outline_rounded, 'Opportunity shared by a company'),
+          const SizedBox(height: 10),
+          _feedPreviewRow(context, Icons.lightbulb_outline_rounded, 'Experience tip from a student'),
+        ],
+      ),
+    );
+  }
+
+  Widget _feedPreviewRow(BuildContext context, IconData icon, String text) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, size: 18, color: theme.colorScheme.primary),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        const Icon(Icons.chevron_right_rounded, size: 18),
+      ],
     );
   }
 
@@ -575,117 +944,32 @@ class _StudentHomeTab extends ConsumerWidget {
   }
 }
 
+  _InternshipStatus _deriveInternshipStatusLabel(StudentProfile profile) {
+    if ((profile.internshipStatus).toUpperCase() == 'PLACED' || profile.companyName != null) {
+      return _InternshipStatus.active;
+    }
+    if ((profile.internshipStatus).toUpperCase() == 'PENDING') {
+      return _InternshipStatus.pending;
+    }
+    return _InternshipStatus.notPlaced;
+  }
+
+class _ActivityItem {
+  final IconData icon;
+  final String text;
+  final String category;
+  _ActivityItem(this.icon, this.text, this.category);
+}
+
+enum _InternshipStatus { active, pending, notPlaced }
+
 class _StudentPlansTab extends ConsumerWidget {
   const _StudentPlansTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final plansAsync = ref.watch(myWeeklyPlansProvider);
-    final profileAsync = ref.watch(studentProfileProvider);
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
-          ),
-        ),
-        child: profileAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
-          data: (profile) => RefreshIndicator(
-            onRefresh: () async => ref.invalidate(myWeeklyPlansProvider),
-            child: plansAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('Error: $err')),
-              data: (plans) => CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  _ModernSliverAppBar(
-                    title: 'Weekly Plans',
-                    subtitle: 'Track Your Progress',
-                    profileName: profile.fullName,
-                    gradient: [const Color(0xFF667eea), const Color(0xFF764ba2)],
-                    backgroundIcon: Icons.assignment_turned_in_rounded,
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.all(24),
-                    sliver: plans.isEmpty
-                        ? SliverToBoxAdapter(
-                            child: Container(
-                              padding: const EdgeInsets.all(32),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                                borderRadius: BorderRadius.circular(32),
-                                border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(Icons.calendar_today_rounded, size: 64, color: theme.colorScheme.primary.withOpacity(0.1)),
-                                  const SizedBox(height: 24),
-                                  Text('No Plans Yet', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Submit your first weekly plan to get started.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  FilledButton.icon(
-                                    onPressed: () {},
-                                    icon: const Icon(Icons.add_rounded),
-                                    label: const Text('New Plan'),
-                                  )
-                                ],
-                              ),
-                            ),
-                          )
-                        : SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                if (index == 0) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 16.0),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'My Submissions',
-                                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5),
-                                        ),
-                                        FilledButton.tonalIcon(
-                                          onPressed: () => _showSubmitPlanDialog(context, ref),
-                                          icon: const Icon(Icons.add_rounded, size: 18),
-                                          label: const Text('Submit'),
-                                          style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.primary.withOpacity(0.1)),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-                                final plan = plans[index - 1];
-                                return _buildPlanCard(context, plan, isDark, theme, ref);
-                              },
-                              childCount: plans.length + 1,
-                            ),
-                          ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    // Delegate to production-ready Plans module.
+    return const PlansScreen();
   }
 
   void _showSubmitPlanDialog(BuildContext context, WidgetRef ref) {
@@ -815,6 +1099,49 @@ class _StudentPlansTab extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Text(plan.planDescription, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5, color: theme.colorScheme.onSurface.withOpacity(0.7)), maxLines: 3, overflow: TextOverflow.ellipsis),
+          if ((plan.presentationFileUrl ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.upload_file_rounded, size: 20, color: theme.colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Presentation uploaded', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          plan.presentationFileUrl!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Presentation file'),
+                        content: SelectableText(plan.presentationFileUrl!),
+                        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+                      ),
+                    ),
+                    child: const Text('View'),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (plan.feedback != null && plan.feedback!.isNotEmpty) ...[
             const SizedBox(height: 16),
             Container(
@@ -925,9 +1252,16 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
                   padding: const EdgeInsets.all(24),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      Text('Placement Proposals', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                      if ((profile.internshipStatus).toUpperCase() == 'PLACED' || profile.companyName != null) ...[
+                        _buildPlacementSummaryCard(context, profile, isDark, theme),
+                        const SizedBox(height: 24),
+                      ] else ...[
+                        _buildRequestPlacementCard(context, isDark, theme),
+                        const SizedBox(height: 24),
+                      ],
+                      Text('Proposal Tracking', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
                       const SizedBox(height: 8),
-                      Text('Track proposals sent by your school to partner companies.', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                      Text('Pending / Approved / Rejected', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5))),
                       const SizedBox(height: 32),
                       proposalsAsync.when(
                         loading: () => const Center(child: CircularProgressIndicator()),
@@ -966,6 +1300,94 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
             const Text('No proposals yet.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlacementSummaryCard(BuildContext context, StudentProfile profile, bool isDark, ThemeData theme) {
+    final company = profile.companyName ?? 'Assigned company';
+    final supervisor = profile.supervisorName ?? 'Assigned supervisor';
+    final start = profile.internshipStartDate;
+    final startText = start == null
+        ? '—'
+        : '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year}';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Placed', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Icon(Icons.business_rounded, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(child: Text(company, style: const TextStyle(fontWeight: FontWeight.w800))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.person_pin_rounded, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(child: Text(supervisor, style: const TextStyle(fontWeight: FontWeight.w800))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.event_rounded, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(child: Text('Start: $startText', style: const TextStyle(fontWeight: FontWeight.w800))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestPlacementCard(BuildContext context, bool isDark, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Not placed yet', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Text(
+            'Request placement (Open Letter) and track its status here.',
+            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Request placement'),
+                    content: const Text('This mobile flow is ready in UI, but the backend endpoint for student Open Letter requests is not connected yet.'),
+                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.edit_note_rounded),
+              label: const Text('Request placement'),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1171,9 +1593,9 @@ class _SupervisorOverviewTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final statsAsync = ref.watch(supervisorStatsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1255,9 +1677,9 @@ class _SupervisorStudentsTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final studentsAsync = ref.watch(supervisorStudentsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1330,9 +1752,9 @@ class _SupervisorSettingsTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final meAsync = ref.watch(supervisorMeProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1426,9 +1848,9 @@ class _CoordinatorHomeTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1474,9 +1896,9 @@ class _CoordinatorHodsTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final hodsAsync = ref.watch(pendingHodsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1541,6 +1963,68 @@ class _CoordinatorCompaniesTab extends ConsumerWidget {
   }
 }
 
+class HodDashboardScreen extends StatelessWidget {
+  const HodDashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ModernDashboardScaffold(
+      title: 'HOD Portal',
+      roleLabel: 'HEAD OF DEPARTMENT',
+      tabs: [
+        _DashboardTab(label: 'Home', icon: Icons.home_outlined, activeIcon: Icons.home_rounded, view: _HodHomeTab()),
+      ],
+    );
+  }
+}
+
+class _HodHomeTab extends ConsumerWidget {
+  const _HodHomeTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            const _ModernSliverAppBar(
+              title: 'Dashboard',
+              subtitle: 'Department Management',
+              profileName: 'HOD',
+              gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+              backgroundIcon: Icons.account_balance_rounded,
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  Text('Overview', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 120),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
@@ -1552,6 +2036,8 @@ class AdminDashboardScreen extends StatelessWidget {
       tabs: [
         _DashboardTab(label: 'Overview', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, view: _AdminOverviewTab()),
         _DashboardTab(label: 'Approvals', icon: Icons.verified_user_outlined, activeIcon: Icons.verified_user_rounded, view: _AdminApprovalsTab()),
+        _DashboardTab(label: 'Users', icon: Icons.group_outlined, activeIcon: Icons.group_rounded, view: _AdminUsersTab()),
+        _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
       ],
     );
   }
@@ -1562,7 +2048,81 @@ class _AdminOverviewTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Center(child: Text('Admin Overview'));
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final statsAsync = ref.watch(adminStatsProvider);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+          ),
+        ),
+        child: statsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (stats) => CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              const _ModernSliverAppBar(
+                title: 'Overview',
+                subtitle: 'System Statistics',
+                profileName: 'Admin',
+                gradient: [Color(0xFF373B44), Color(0xFF4286F4)],
+                backgroundIcon: Icons.analytics_rounded,
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(24),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    Text('System Health', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 24),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      children: [
+                        _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
+                        _buildStatCard(context, 'Universities', stats.totalUniversities.toString(), Icons.school_rounded, Colors.orange, isDark),
+                        _buildStatCard(context, 'Companies', stats.totalCompanies.toString(), Icons.business_rounded, Colors.green, isDark),
+                        _buildStatCard(context, 'Pending Apprs.', stats.pendingApprovals.toString(), Icons.pending_actions_rounded, Colors.red, isDark),
+                      ],
+                    ),
+                    const SizedBox(height: 120),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+        ],
+      ),
+    );
   }
 }
 
@@ -1575,10 +2135,12 @@ class _AdminApprovalsTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final unisAsync = ref.watch(pendingUniversitiesProvider);
     final compsAsync = ref.watch(pendingCompaniesProvider);
+    final coordsAsync = ref.watch(pendingCoordinatorsProvider);
+    final supersAsync = ref.watch(pendingSupervisorsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1590,7 +2152,7 @@ class _AdminApprovalsTab extends ConsumerWidget {
           ),
         ),
         child: DefaultTabController(
-          length: 2,
+          length: 4,
           child: NestedScrollView(
             headerSliverBuilder: (context, _) => [
               _ModernSliverAppBar(
@@ -1604,7 +2166,8 @@ class _AdminApprovalsTab extends ConsumerWidget {
                 pinned: true,
                 delegate: _SliverTabBarDelegate(
                   TabBar(
-                    tabs: const [Tab(text: 'Universities'), Tab(text: 'Companies')],
+                    isScrollable: true,
+                    tabs: const [Tab(text: 'Universities'), Tab(text: 'Companies'), Tab(text: 'Coordinators'), Tab(text: 'Supervisors')],
                     labelColor: theme.colorScheme.primary,
                     unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.5),
                   ),
@@ -1614,8 +2177,10 @@ class _AdminApprovalsTab extends ConsumerWidget {
             ],
             body: TabBarView(
               children: [
-                _buildApprovalList(context, unisAsync),
-                _buildApprovalList(context, compsAsync),
+                _buildApprovalList(context, ref, unisAsync, type: 'university'),
+                _buildApprovalList(context, ref, compsAsync, type: 'company'),
+                _buildApprovalList(context, ref, coordsAsync, type: 'coordinator'),
+                _buildApprovalList(context, ref, supersAsync, type: 'supervisor'),
               ],
             ),
           ),
@@ -1624,78 +2189,247 @@ class _AdminApprovalsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildApprovalList(BuildContext context, AsyncValue<List<dynamic>> asyncData) {
+  Widget _buildApprovalList(BuildContext context, WidgetRef ref, AsyncValue<List<dynamic>> asyncData, {required String type}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return asyncData.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error: $err')),
-      data: (items) => ListView.builder(
-        padding: const EdgeInsets.all(24),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                      child: Icon(Icons.account_balance_rounded, color: theme.colorScheme.primary),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                          Text(item['email'] ?? 'No email provided', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                        ],
+      data: (items) {
+        if (items.isEmpty) return const Center(child: Text('No pending approvals'));
+        return ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            final name = type == 'university' || type == 'company' ? item['name'] : item['user']['full_name'];
+            final email = type == 'university' || type == 'company' ? item['email'] : item['user']['email'];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                        child: Icon(Icons.account_balance_rounded, color: theme.colorScheme.primary),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: const BorderSide(color: Colors.redAccent),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                            Text(email ?? 'No email', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                          ],
                         ),
-                        child: const Text('Reject'),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () {},
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            try {
+                               final adminRepo = ref.read(adminRepositoryProvider);
+                               if (type == 'university') await adminRepo.updateUniversityStatus(item['id'], 'REJECTED');
+                               if (type == 'company') await adminRepo.updateCompanyStatus(item['id'], 'REJECTED');
+                               if (type == 'coordinator') await adminRepo.rejectCoordinator(item['userId']);
+                               if (type == 'supervisor') await adminRepo.rejectSupervisor(item['userId']);
+                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected')));
+                            } catch (e) {
+                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            side: const BorderSide(color: Colors.redAccent),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: const Text('Reject'),
                         ),
-                        child: const Text('Approve'),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () async {
+                            try {
+                               final adminRepo = ref.read(adminRepositoryProvider);
+                               if (type == 'university') await adminRepo.updateUniversityStatus(item['id'], 'APPROVED');
+                               if (type == 'company') await adminRepo.updateCompanyStatus(item['id'], 'APPROVED');
+                               if (type == 'coordinator') await adminRepo.approveCoordinator(item['userId']);
+                               if (type == 'supervisor') await adminRepo.approveSupervisor(item['userId']);
+                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!')));
+                            } catch (e) {
+                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: const Text('Approve'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _AdminUsersTab extends ConsumerWidget {
+  const _AdminUsersTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final usersAsync = ref.watch(allUsersProvider);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+          ),
+        ),
+        child: usersAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (users) => CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              const _ModernSliverAppBar(
+                title: 'Users',
+                subtitle: 'All Registered Users',
+                profileName: 'Admin',
+                gradient: [Color(0xFF11998e), Color(0xFF38ef7d)],
+                backgroundIcon: Icons.people_rounded,
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final user = users[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                        ),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(child: Text(user['full_name']?[0] ?? '?')),
+                          title: Text(user['full_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('${user['role']} • ${user['email']}'),
+                          trailing: const Icon(Icons.more_vert_rounded),
+                        ),
+                      );
+                    },
+                    childCount: users.length,
+                  ),
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminLogsTab extends ConsumerWidget {
+  const _AdminLogsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final logsAsync = ref.watch(auditLogsProvider);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+          ),
+        ),
+        child: logsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (logs) => CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              const _ModernSliverAppBar(
+                title: 'Audit Logs',
+                subtitle: 'System Activity',
+                profileName: 'Admin',
+                gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                backgroundIcon: Icons.receipt_long_rounded,
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final log = logs[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.history_rounded, color: theme.colorScheme.primary),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(log['action'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Text('By: ${log['userId']}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    childCount: logs.length,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

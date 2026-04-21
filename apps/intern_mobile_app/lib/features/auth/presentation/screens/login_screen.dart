@@ -232,8 +232,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
             // Main Content
             SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
+              child: Stack(
+                children: [
+                  Center(
+                    child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   child: FadeTransition(
                     opacity: _fade,
@@ -437,7 +439,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ),
                 ),
               ),
-            ),
+            ],
+          ),
+        ),
           ],
         ),
       ),

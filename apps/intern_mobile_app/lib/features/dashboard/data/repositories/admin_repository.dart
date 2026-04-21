@@ -65,6 +65,46 @@ class AdminRepository {
       'rejection_reason': reason,
     });
   }
+
+  Future<List<dynamic>> getPendingCoordinators() async {
+    final response = await apiClient.dio.get('/admin/pending-coordinators');
+    if (response.data['success'] == true) return response.data['data'];
+    return [];
+  }
+
+  Future<void> approveCoordinator(String userId) async {
+    await apiClient.dio.post('/admin/coordinators/$userId/approve');
+  }
+
+  Future<void> rejectCoordinator(String userId) async {
+    await apiClient.dio.post('/admin/coordinators/$userId/reject');
+  }
+
+  Future<List<dynamic>> getPendingSupervisors() async {
+    final response = await apiClient.dio.get('/admin/pending-supervisors');
+    if (response.data['success'] == true) return response.data['data'];
+    return [];
+  }
+
+  Future<void> approveSupervisor(String userId) async {
+    await apiClient.dio.post('/admin/supervisors/$userId/approve');
+  }
+
+  Future<void> rejectSupervisor(String userId) async {
+    await apiClient.dio.post('/admin/supervisors/$userId/reject');
+  }
+
+  Future<List<dynamic>> getAllUsers() async {
+    final response = await apiClient.dio.get('/admin/users');
+    if (response.data['success'] == true) return response.data['data'];
+    return [];
+  }
+
+  Future<List<dynamic>> getAuditLogs() async {
+    final response = await apiClient.dio.get('/admin/audit-logs');
+    if (response.data['success'] == true) return response.data['data'];
+    return [];
+  }
 }
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
@@ -81,4 +121,20 @@ final pendingUniversitiesProvider = FutureProvider<List<dynamic>>((ref) {
 
 final pendingCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getPendingCompanies();
+});
+
+final pendingCoordinatorsProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getPendingCoordinators();
+});
+
+final pendingSupervisorsProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getPendingSupervisors();
+});
+
+final allUsersProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getAllUsers();
+});
+
+final auditLogsProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getAuditLogs();
 });
