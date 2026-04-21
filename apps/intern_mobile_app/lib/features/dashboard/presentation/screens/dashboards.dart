@@ -194,24 +194,54 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                 
                 // --- Role-Specific Features ---
                 if (widget.roleLabel == 'STUDENT') ...[
-                  _buildDrawerItem(Icons.assignment_ind_rounded, 'My Internship', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.history_edu_rounded, 'Weekly Reports', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.business_center_rounded, 'Placement Requests', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.assignment_ind_rounded, 'My Internship', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 0; // Home
+                  }),
+                  _buildDrawerItem(Icons.history_edu_rounded, 'Weekly Reports', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 1; // Plans
+                  }),
+                  _buildDrawerItem(Icons.business_center_rounded, 'Placement Requests', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 2; // Jobs/Placement
+                  }),
                 ] else if (widget.roleLabel == 'SUPERVISOR') ...[
-                  _buildDrawerItem(Icons.people_alt_rounded, 'Assigned Students', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.rate_review_rounded, 'Weekly Reviews', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.group_work_rounded, 'Team Management', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.people_alt_rounded, 'Assigned Students', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 1; // Students
+                  }),
+                  _buildDrawerItem(Icons.group_work_rounded, 'Team Management', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 2; // Teams
+                  }),
                 ] else if (widget.roleLabel == 'COORDINATOR') ...[
-                  _buildDrawerItem(Icons.school_rounded, 'University Profile', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.how_to_reg_rounded, 'HOD Approvals', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.apartment_rounded, 'Company Directory', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.how_to_reg_rounded, 'HOD Approvals', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 1; // HODs Tab
+                  }),
+                  _buildDrawerItem(Icons.apartment_rounded, 'Company Directory', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 2; // Companies Tab
+                  }),
                 ] else if (widget.roleLabel == 'HEAD OF DEPARTMENT') ...[
-                  _buildDrawerItem(Icons.groups_3_rounded, 'Department Students', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.fact_check_rounded, 'Student Verification', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.groups_3_rounded, 'Department Students', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 0; // Home (assuming overview here)
+                  }),
                 ] else if (widget.roleLabel == 'ADMIN') ...[
-                  _buildDrawerItem(Icons.manage_accounts_rounded, 'User Management', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.domain_verification_rounded, 'Institutions', () => Navigator.pop(context)),
-                  _buildDrawerItem(Icons.analytics_rounded, 'System Analytics', () => Navigator.pop(context)),
+                  _buildDrawerItem(Icons.manage_accounts_rounded, 'User Management', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 2; // Users Tab
+                  }),
+                  _buildDrawerItem(Icons.domain_verification_rounded, 'Institution Approvals', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 1; // Approvals Tab
+                  }),
+                  _buildDrawerItem(Icons.analytics_rounded, 'System Logs', () {
+                    Navigator.pop(context);
+                    indexNotifier.value = 3; // Logs Tab
+                  }),
                 ],
 
                 const Divider(color: Colors.black12, height: 32),
