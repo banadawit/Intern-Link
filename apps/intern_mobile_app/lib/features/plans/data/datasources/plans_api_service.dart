@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
-import '../../../core/network/api_client.dart';
+import '../../../../core/network/api_client.dart';
 
 class PlansApiService {
   PlansApiService(this._apiClient);

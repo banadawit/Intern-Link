@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/network/api_client.dart';
+import '../../../../core/network/api_client.dart' show ApiClient, apiClientProvider;
 import '../../domain/entities/weekly_plan.dart';
 import '../../domain/entities/plan_enums.dart';
 import '../datasources/plans_api_service.dart';
