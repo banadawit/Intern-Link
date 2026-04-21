@@ -339,6 +339,36 @@ class ModernSliverAppBar extends ConsumerWidget {
       stretch: true,
       elevation: 0,
       backgroundColor: Colors.transparent,
+      actions: [
+        if (actions != null) ...actions!,
+        ModernHeaderIcon(
+          icon: Icons.chat_bubble_outline_rounded,
+          onTap: () => context.push(AppRoutes.chat),
+        ),
+        const SizedBox(width: 12),
+        ModernHeaderIcon(
+          icon: Icons.notifications_none_rounded,
+          onTap: () => _showNotificationCenter(context),
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          onPressed: () => context.push(AppRoutes.accountSettings),
+          icon: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: CircleAvatar(
+              radius: 14,
+              backgroundColor: Colors.white.withOpacity(0.2),
+              child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?',
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+      ],
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
           final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
@@ -367,58 +397,7 @@ class ModernSliverAppBar extends ConsumerWidget {
                       child: Icon(backgroundIcon, size: 240, color: Colors.white.withOpacity(0.15)),
                     ),
                   ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: SafeArea(
-                      bottom: false,
-                      child: Opacity(
-                        opacity: fadeOpacity,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Spacer(),
-                              Row(
-                                children: [
-                                  _buildHeaderIcon(
-                                    context,
-                                    Icons.chat_bubble_outline_rounded,
-                                    () => context.push(AppRoutes.chat),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  _buildHeaderIcon(
-                                    context,
-                                    Icons.notifications_none_rounded,
-                                    () => _showNotificationCenter(context),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  IconButton(
-                                    onPressed: () => context.push(AppRoutes.accountSettings),
-                                    icon: Container(
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: CircleAvatar(
-                                        radius: 14,
-                                        backgroundColor: Colors.white.withOpacity(0.2),
-                                        child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?',
-                                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                   const SizedBox.shrink(),
                   Positioned(
                     bottom: 28,
                     left: 28,
@@ -506,8 +485,16 @@ class ModernSliverAppBar extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildHeaderIcon(BuildContext context, IconData icon, VoidCallback onTap) {
+class ModernHeaderIcon extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const ModernHeaderIcon({super.key, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
