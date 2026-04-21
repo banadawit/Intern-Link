@@ -320,6 +320,19 @@ class _ModernSliverAppBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return SliverAppBar(
       automaticallyImplyLeading: false,
+      leading: Builder(
+        builder: (context) => IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.menu_rounded, color: Colors.white, size: 22),
+          ),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        ),
+      ),
       expandedHeight: 240,
       floating: false,
       pinned: true,
@@ -367,13 +380,7 @@ class _ModernSliverAppBar extends ConsumerWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Builder(
-                                builder: (context) => _buildHeaderIcon(
-                                  context,
-                                  Icons.menu_rounded,
-                                  () => Scaffold.of(context).openDrawer(),
-                                ),
-                              ),
+                              const Spacer(),
                               Row(
                                 children: [
                                   _buildHeaderIcon(
@@ -389,7 +396,7 @@ class _ModernSliverAppBar extends ConsumerWidget {
                                   ),
                                   const SizedBox(width: 14),
                                   IconButton(
-                                    onPressed: () => ref.read(dashboardIndexProvider).value = 3,
+                                    onPressed: () => context.push(AppRoutes.accountSettings),
                                     icon: Container(
                                       padding: const EdgeInsets.all(2),
                                       decoration: BoxDecoration(
@@ -2363,11 +2370,6 @@ class _CoordinatorHomeTab extends ConsumerWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   Text('Overview', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 40),
-                  OutlinedButton(
-                    onPressed: () => _showLogoutConfirmation(context, ref),
-                    child: const Text('Sign Out'),
-                  ),
                   const SizedBox(height: 120),
                 ]),
               ),
@@ -2514,11 +2516,6 @@ class _HodOverviewTab extends ConsumerWidget {
                   const SizedBox(height: 16),
                   _buildReportItem(context, 'Desta Kasaye', 'Week 4 Report', 'Pending', Colors.orange),
                   _buildReportItem(context, 'Sara Girma', 'Final Evaluation', 'Submitted', Colors.green),
-                  const SizedBox(height: 40),
-                  OutlinedButton(
-                    onPressed: () => _showLogoutConfirmation(context, ref),
-                    child: const Text('Sign Out'),
-                  ),
                   const SizedBox(height: 120),
                 ]),
               ),
@@ -2886,11 +2883,6 @@ class _AdminOverviewTab extends ConsumerWidget {
                         _buildStatCard(context, 'Companies', stats.totalCompanies.toString(), Icons.business_rounded, Colors.green, isDark),
                         _buildStatCard(context, 'Pending Apprs.', stats.pendingApprovals.toString(), Icons.pending_actions_rounded, Colors.red, isDark),
                       ],
-                    ),
-                    const SizedBox(height: 40),
-                    OutlinedButton(
-                      onPressed: () => _showLogoutConfirmation(context, ref),
-                      child: const Text('Sign Out'),
                     ),
                     const SizedBox(height: 120),
                   ]),
