@@ -27,6 +27,8 @@ import chatRoutes from './routes/chatRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import { isMaintenanceMode } from './controllers/systemConfigController';
 
+import { errorHandler } from './middlewares/errorMiddleware';
+
 const app: Application = express();
 
 // 1. Middlewares
@@ -91,7 +93,10 @@ app.get('/api/registration-status', async (_req: Request, res: Response) => {
     }
 });
 
-// 4. Start Server
+// 4. Error Handler (Must be last)
+app.use(errorHandler);
+
+// 5. Start Server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
