@@ -111,6 +111,26 @@ class ProgressRepository {
       throw Exception('An unexpected error occurred: $e');
     }
   }
+
+  Future<void> submitPlanDay(int planId, String workDate) async {
+    try {
+      await _apiClient.dio.post(
+        '/progress/plan/$planId/days',
+        data: {'workDate': workDate},
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String message = 'Failed to log daily check-in';
+      if (data is Map && data.containsKey('message')) {
+        message = data['message'];
+      } else if (data is String) {
+        message = data;
+      }
+      throw Exception(message);
+    } catch (e) {
+      throw Exception('An unexpected error occurred: $e');
+    }
+  }
 }
 
 // ---------------------------------------------------------
