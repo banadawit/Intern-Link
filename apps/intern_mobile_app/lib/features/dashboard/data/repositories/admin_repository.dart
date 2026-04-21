@@ -35,95 +35,91 @@ class AdminRepository {
   AdminRepository({required this.apiClient});
   final ApiClient apiClient;
 
-  bool _isSuccess(dynamic data) {
-    if (data == null) return false;
-    final success = data['success'];
-    return success == true || success == 'true' || success == 1;
+  dynamic _extractData(dynamic data) {
+    if (data == null) return null;
+    if (data is List) return data;
+    if (data is Map) {
+      if (data.containsKey('success')) {
+        final success = data['success'];
+        if (success == true || success == 'true' || success == 1) {
+          return data['data'];
+        }
+        return null;
+      }
+      return data;
+    }
+    return data;
   }
 
   Future<AdminStats> getStats() async {
     final response = await apiClient.dio.get('/admin/stats');
-    final data = response.data;
-    if (_isSuccess(data)) {
-      return AdminStats.fromJson(data['data']);
+    final data = _extractData(response.data);
+    if (data != null && data is Map) {
+      return AdminStats(
+        totalUsers: (data['totalUsers'] as num?)?.toInt() ?? 0,
+        totalUniversities: ((data['approvedUniversities'] as num?)?.toInt() ?? 0) + ((data['pendingUniversities'] as num?)?.toInt() ?? 0),
+        totalCompanies: ((data['approvedCompanies'] as num?)?.toInt() ?? 0) + ((data['pendingCompanies'] as num?)?.toInt() ?? 0),
+        pendingApprovals: ((data['pendingUniversities'] as num?)?.toInt() ?? 0) + 
+                         ((data['pendingCompanies'] as num?)?.toInt() ?? 0) + 
+                         ((data['pendingCoordinators'] as num?)?.toInt() ?? 0) + 
+                         ((data['pendingSupervisors'] as num?)?.toInt() ?? 0),
+      );
     }
-    throw Exception(data['message'] ?? 'Failed to fetch admin stats');
+    throw Exception('Failed to fetch admin stats');
   }
 
   Future<List<dynamic>> getPendingUniversities() async {
     final response = await apiClient.dio.get('/admin/pending-universities');
-    final data = response.data;
-    if (_isSuccess(data)) {
-      return data['data'] ?? [];
-    }
-    return [];
+    return (_extractData(response.data) as List?) ?? [];
   }
 
   Future<List<dynamic>> getPendingCompanies() async {
     final response = await apiClient.dio.get('/admin/pending-companies');
-    final data = response.data;
-    if (_isSuccess(data)) {
-      return data['data'] ?? [];
-    }
-    return [];
-  }
-
-  Future<void> updateUniversityStatus(int id, String status, {String? reason}) async {
-    await apiClient.dio.patch('/admin/university-status/$id', data: {
-      'status': status,
-      'rejection_reason': reason,
-    });
-  }
-
-  Future<void> updateCompanyStatus(int id, String status, {String? reason}) async {
-    await apiClient.dio.patch('/admin/company-status/$id', data: {
-      'status': status,
-      'rejection_reason': reason,
-    });
+    return (_extractData(response.data) as List?) ?? [];
   }
 
   Future<List<dynamic>> getPendingCoordinators() async {
     final response = await apiClient.dio.get('/admin/pending-coordinators');
-    final data = response.data;
-    if (_isSuccess(data)) return data['data'] ?? [];
-    return [];
-  }
-
-  Future<void> approveCoordinator(String userId) async {
-    await apiClient.dio.post('/admin/coordinators/$userId/approve');
-  }
-
-  Future<void> rejectCoordinator(String userId) async {
-    await apiClient.dio.post('/admin/coordinators/$userId/reject');
+    return (_extractData(response.data) as List?) ?? [];
   }
 
   Future<List<dynamic>> getPendingSupervisors() async {
     final response = await apiClient.dio.get('/admin/pending-supervisors');
-    final data = response.data;
-    if (_isSuccess(data)) return data['data'] ?? [];
-    return [];
-  }
-
-  Future<void> approveSupervisor(String userId) async {
-    await apiClient.dio.post('/admin/supervisors/$userId/approve');
-  }
-
-  Future<void> rejectSupervisor(String userId) async {
-    await apiClient.dio.post('/admin/supervisors/$userId/reject');
+    return (_extractData(response.data) as List?) ?? [];
   }
 
   Future<List<dynamic>> getAllUsers() async {
     final response = await apiClient.dio.get('/admin/users');
-    final data = response.data;
-    if (_isSuccess(data)) return data['data'] ?? [];
-    return [];
+    return (_extractData(response.data) as List?) ?? [];
   }
 
   Future<List<dynamic>> getAuditLogs() async {
     final response = await apiClient.dio.get('/admin/audit-logs');
-    final data = response.data;
-    if (_isSuccess(data)) return data['data'] ?? [];
-    return [];
+    return (_extractData(response.data) as List?) ?? [];
+  }
+
+  Future<void> updateUniversityStatus(int id, String status) async {
+    await apiClient.dio.patch('/admin/universities/$id/status', data: {'status': status});
+  }
+
+  Future<void> updateCompanyStatus(int id, String status) async {
+    await apiClient.dio.patch('/admin/companies/$id/status', data: {'status': status});
+  }
+
+  Future<void> approveCoordinator(int userId) async {
+    await apiClient.dio.post('/admin/coordinators/$userId/approve');
+  }
+
+  Future<void> rejectCoordinator(int userId) async {
+    await apiClient.dio.post('/admin/coordinators/$userId/reject');
+  }
+
+  Future<void> approveSupervisor(int userId) async {
+    await apiClient.dio.post('/admin/supervisors/$userId/approve');
+  }
+
+  Future<void> rejectSupervisor(int userId) async {
+    await apiClient.dio.post('/admin/supervisors/$userId/reject');
   }
 }
 

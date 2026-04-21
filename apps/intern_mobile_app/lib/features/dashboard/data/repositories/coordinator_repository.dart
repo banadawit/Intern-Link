@@ -18,10 +18,11 @@ class CoordinatorStats {
 
   factory CoordinatorStats.fromJson(Map<String, dynamic> json) {
     return CoordinatorStats(
-      totalStudents: json['totalStudents'] ?? 0,
-      totalCompanies: json['totalCompanies'] ?? 0,
-      activePlacements: json['activePlacements'] ?? 0,
-      pendingProposals: json['pendingProposals'] ?? 0,
+      totalStudents: (json['students']?['total'] as num?)?.toInt() ?? 0,
+      totalCompanies: (json['companies']?['total'] as num?)?.toInt() ?? 
+                       (json['totalCompanies'] as num?)?.toInt() ?? 0,
+      activePlacements: (json['activeAssignments'] as num?)?.toInt() ?? 0,
+      pendingProposals: (json['proposalsPending'] as num?)?.toInt() ?? 0,
       universityName: json['universityName'] ?? 'Your University',
     );
   }
@@ -31,28 +32,39 @@ class CoordinatorRepository {
   CoordinatorRepository({required this.apiClient});
   final ApiClient apiClient;
 
+  dynamic _extractData(dynamic data) {
+    if (data == null) return null;
+    if (data is List) return data;
+    if (data is Map) {
+      if (data.containsKey('success')) {
+        final success = data['success'];
+        if (success == true || success == 'true' || success == 1) {
+          return data['data'];
+        }
+        return null;
+      }
+      return data;
+    }
+    return data;
+  }
+
   Future<CoordinatorStats> getStats() async {
     final response = await apiClient.dio.get('/coordinator-portal/dashboard-stats');
-    if (response.data['success'] == true) {
-      return CoordinatorStats.fromJson(response.data['data']);
+    final data = _extractData(response.data);
+    if (data != null && data is Map) {
+      return CoordinatorStats.fromJson(data as Map<String, dynamic>);
     }
-    throw Exception(response.data['message'] ?? 'Failed to fetch stats');
+    throw Exception('Failed to fetch stats');
   }
 
   Future<List<dynamic>> getCompanies() async {
     final response = await apiClient.dio.get('/coordinator-portal/companies');
-    if (response.data['success'] == true) {
-      return response.data['data'];
-    }
-    return [];
+    return (_extractData(response.data) as List?) ?? [];
   }
 
   Future<List<dynamic>> getPendingHods() async {
     final response = await apiClient.dio.get('/coordinator/pending-hods');
-    if (response.data['success'] == true) {
-      return response.data['data'];
-    }
-    return [];
+    return (_extractData(response.data) as List?) ?? [];
   }
 
   Future<void> verifyHod(int userId, String status, {String? reason}) async {
