@@ -1171,9 +1171,9 @@ class _SupervisorOverviewTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final statsAsync = ref.watch(supervisorStatsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1255,9 +1255,9 @@ class _SupervisorStudentsTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final studentsAsync = ref.watch(supervisorStudentsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1330,9 +1330,9 @@ class _SupervisorSettingsTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final meAsync = ref.watch(supervisorMeProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1426,9 +1426,9 @@ class _CoordinatorHomeTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1474,9 +1474,9 @@ class _CoordinatorHodsTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final hodsAsync = ref.watch(pendingHodsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -1541,6 +1541,68 @@ class _CoordinatorCompaniesTab extends ConsumerWidget {
   }
 }
 
+class HodDashboardScreen extends StatelessWidget {
+  const HodDashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ModernDashboardScaffold(
+      title: 'HOD Portal',
+      roleLabel: 'HEAD OF DEPARTMENT',
+      tabs: [
+        _DashboardTab(label: 'Home', icon: Icons.home_outlined, activeIcon: Icons.home_rounded, view: _HodHomeTab()),
+      ],
+    );
+  }
+}
+
+class _HodHomeTab extends ConsumerWidget {
+  const _HodHomeTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            const _ModernSliverAppBar(
+              title: 'Dashboard',
+              subtitle: 'Department Management',
+              profileName: 'HOD',
+              gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+              backgroundIcon: Icons.account_balance_rounded,
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  Text('Overview', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 120),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
@@ -1576,9 +1638,9 @@ class _AdminApprovalsTab extends ConsumerWidget {
     final unisAsync = ref.watch(pendingUniversitiesProvider);
     final compsAsync = ref.watch(pendingCompaniesProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
+    return Material(
+      color: Colors.transparent,
+      child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,

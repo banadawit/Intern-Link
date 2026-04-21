@@ -17,6 +17,7 @@ const Set<String> _protectedRoutes = {
   AppRoutes.studentDashboard,
   AppRoutes.supervisorDashboard,
   AppRoutes.coordinatorDashboard,
+  AppRoutes.hodDashboard,
   AppRoutes.adminDashboard,
 };
 
@@ -230,6 +231,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.adminDashboard,
       builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.hodDashboard,
+      builder: (context, state) => const HodDashboardScreen(),
     ),
   ],
 );

@@ -10,6 +10,7 @@ abstract final class AppRoutes {
   static const String studentDashboard = '/student';
   static const String supervisorDashboard = '/supervisor';
   static const String coordinatorDashboard = '/coordinator';
+  static const String hodDashboard = '/hod';
   static const String adminDashboard = '/admin';
 }
 
