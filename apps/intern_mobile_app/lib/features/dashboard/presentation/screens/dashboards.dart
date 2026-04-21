@@ -13,6 +13,7 @@ import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/supervisor_repository.dart';
 import '../../data/repositories/coordinator_repository.dart';
 import '../../data/repositories/admin_repository.dart';
+import '../../../plans/presentation/screens/plans_screen.dart';
 
 // ---------------------------------------------------------
 // STATE MANAGEMENT (NAVIGATION)
@@ -955,112 +956,8 @@ class _StudentPlansTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final plansAsync = ref.watch(myWeeklyPlansProvider);
-    final profileAsync = ref.watch(studentProfileProvider);
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
-          ),
-        ),
-        child: profileAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
-          data: (profile) => RefreshIndicator(
-            onRefresh: () async => ref.invalidate(myWeeklyPlansProvider),
-            child: plansAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('Error: $err')),
-              data: (plans) => CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  _ModernSliverAppBar(
-                    title: 'Weekly Plans',
-                    subtitle: 'Track Your Progress',
-                    profileName: profile.fullName,
-                    gradient: [const Color(0xFF667eea), const Color(0xFF764ba2)],
-                    backgroundIcon: Icons.assignment_turned_in_rounded,
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.all(24),
-                    sliver: plans.isEmpty
-                        ? SliverToBoxAdapter(
-                            child: Container(
-                              padding: const EdgeInsets.all(32),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                                borderRadius: BorderRadius.circular(32),
-                                border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(Icons.calendar_today_rounded, size: 64, color: theme.colorScheme.primary.withOpacity(0.1)),
-                                  const SizedBox(height: 24),
-                                  Text('No Plans Yet', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Submit your first weekly plan to get started.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  FilledButton.icon(
-                                    onPressed: () => _showSubmitPlanDialog(context, ref),
-                                    icon: const Icon(Icons.add_rounded),
-                                    label: const Text('New Plan'),
-                                  )
-                                ],
-                              ),
-                            ),
-                          )
-                        : SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                if (index == 0) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 16.0),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'My Submissions',
-                                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.5),
-                                        ),
-                                        FilledButton.tonalIcon(
-                                          onPressed: () => _showSubmitPlanDialog(context, ref),
-                                          icon: const Icon(Icons.add_rounded, size: 18),
-                                          label: const Text('Submit'),
-                                          style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.primary.withOpacity(0.1)),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-                                final plan = plans[index - 1];
-                                return _buildPlanCard(context, plan, isDark, theme, ref);
-                              },
-                              childCount: plans.length + 1,
-                            ),
-                          ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    // Delegate to production-ready Plans module.
+    return const PlansScreen();
   }
 
   void _showSubmitPlanDialog(BuildContext context, WidgetRef ref) {
