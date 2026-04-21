@@ -249,7 +249,10 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                   Navigator.pop(context);
                   indexNotifier.value = widget.tabs.length - 1; // Go to last tab (Settings/Profile)
                 }),
-                _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () => Navigator.pop(context)),
+                _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () {
+                  Navigator.pop(context);
+                  context.push(AppRoutes.helpSupport);
+                }),
               ],
             ),
           ),
@@ -2260,9 +2263,21 @@ class _SupervisorSettingsTab extends ConsumerWidget {
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     const SizedBox(height: 20),
-                    _buildModernSettingItem(context, Icons.person_outline_rounded, 'Profile', 'Edit your details'),
+                    _buildModernSettingItem(
+                      context, 
+                      Icons.person_outline_rounded, 
+                      'Profile', 
+                      'Edit your details',
+                      onTap: () => context.push('${AppRoutes.accountSettings}?section=profile'),
+                    ),
                     const SizedBox(height: 16),
-                    _buildModernSettingItem(context, Icons.security_rounded, 'Security', 'Password & auth'),
+                    _buildModernSettingItem(
+                      context, 
+                      Icons.security_rounded, 
+                      'Security', 
+                      'Password & auth',
+                      onTap: () => context.push('${AppRoutes.accountSettings}?section=security'),
+                    ),
                     const SizedBox(height: 40),
                     OutlinedButton(
                       onPressed: () async {
@@ -2917,13 +2932,13 @@ class _AdminLogsTab extends ConsumerWidget {
 // TOP-LEVEL HELPERS & DELEGATES
 // ---------------------------------------------------------
 
-Widget _buildModernSettingItem(BuildContext context, IconData icon, String title, String subtitle) {
+Widget _buildModernSettingItem(BuildContext context, IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
   final theme = Theme.of(context);
   final isDark = theme.brightness == Brightness.dark;
   return Material(
     color: Colors.transparent,
     child: InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(20),
