@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/weekly_plan.dart';
+import '../../domain/entities/plan_enums.dart';
 import '../providers/checkins_provider.dart';
 import '../providers/plans_providers.dart';
 import '../widgets/status_badge.dart';

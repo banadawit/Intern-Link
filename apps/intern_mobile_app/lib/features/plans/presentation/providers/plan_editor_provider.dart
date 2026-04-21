@@ -29,7 +29,7 @@ class PlanEditorState {
   bool get isEditingDraft => draftId != null && submittedPlanId == null;
 }
 
-final planEditorProvider = AutoDisposeNotifierProvider<PlanEditorNotifier, PlanEditorState>(
+final planEditorProvider = NotifierProvider<PlanEditorNotifier, PlanEditorState>(
   PlanEditorNotifier.new,
 );
 
@@ -51,7 +51,7 @@ class PlanEditorArgs {
   });
 }
 
-class PlanEditorNotifier extends AutoDisposeNotifier<PlanEditorState> {
+class PlanEditorNotifier extends Notifier<PlanEditorState> {
   bool _didInit = false;
 
   @override

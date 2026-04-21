@@ -284,67 +284,79 @@ class _ModernSliverAppBar extends ConsumerWidget {
             ),
           ),
           child: Stack(
+            fit: StackFit.expand,
             children: [
               Positioned(
                 right: -50,
                 bottom: -50,
                 child: Icon(backgroundIcon, size: 240, color: Colors.white.withOpacity(0.15)),
               ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Builder(
-                            builder: (context) => _buildHeaderIcon(
-                              context,
-                              Icons.menu_rounded,
-                              () => Scaffold.of(context).openDrawer(),
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              _buildHeaderIcon(
-                                context,
-                                Icons.chat_bubble_outline_rounded,
-                                () => context.push(AppRoutes.chat),
-                              ),
-                              const SizedBox(width: 14),
-                              _buildHeaderIcon(
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Builder(
+                          builder: (context) => _buildHeaderIcon(
                             context,
-                            Icons.notifications_none_rounded,
-                            () => _showNotificationCenter(context),
+                            Icons.menu_rounded,
+                            () => Scaffold.of(context).openDrawer(),
                           ),
-                              const SizedBox(width: 14),
-                              IconButton(
-                                onPressed: () => ref.read(dashboardIndexProvider).value = 3,
-                                icon: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 14,
-                                    backgroundColor: Colors.white.withOpacity(0.2),
-                                    child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                  ),
+                        ),
+                        Row(
+                          children: [
+                            _buildHeaderIcon(
+                              context,
+                              Icons.chat_bubble_outline_rounded,
+                              () => context.push(AppRoutes.chat),
+                            ),
+                            const SizedBox(width: 14),
+                            _buildHeaderIcon(
+                              context,
+                              Icons.notifications_none_rounded,
+                              () => _showNotificationCenter(context),
+                            ),
+                            const SizedBox(width: 14),
+                            IconButton(
+                              onPressed: () => ref.read(dashboardIndexProvider).value = 3,
+                              icon: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: Colors.white.withOpacity(0.2),
+                                  child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                      const SizedBox(height: 6),
-                      Text(title, style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
-                    ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+              ),
+              Positioned(
+                bottom: 28,
+                left: 28,
+                right: 28,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                    const SizedBox(height: 6),
+                    Text(title, style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
+                  ],
                 ),
               ),
             ],

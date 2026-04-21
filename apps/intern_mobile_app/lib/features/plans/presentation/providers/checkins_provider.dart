@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/plans_repository.dart';
 import 'plans_providers.dart';
 
-final checkinsControllerProvider = AutoDisposeNotifierProvider<CheckinsController, AsyncValue<void>>(
+final checkinsControllerProvider = NotifierProvider<CheckinsController, AsyncValue<void>>(
   CheckinsController.new,
 );
 
-class CheckinsController extends AutoDisposeNotifier<AsyncValue<void>> {
+class CheckinsController extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncData(null);
 

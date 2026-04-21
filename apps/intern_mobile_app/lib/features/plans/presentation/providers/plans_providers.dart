@@ -22,12 +22,15 @@ class PlansNotifier extends AsyncNotifier<List<WeeklyPlan>> {
 }
 
 final planDetailProvider = Provider.family<WeeklyPlan?, int>((ref, planId) {
-  final plans = ref.watch(plansProvider).valueOrNull;
-  if (plans == null) return null;
-  try {
-    return plans.firstWhere((p) => p.id == planId);
-  } catch (_) {
-    return null;
-  }
+  return ref.watch(plansProvider).maybeWhen(
+        data: (plans) {
+          try {
+            return plans.firstWhere((p) => p.id == planId);
+          } catch (_) {
+            return null;
+          }
+        },
+        orElse: () => null,
+      );
 });
 
