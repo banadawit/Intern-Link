@@ -4,6 +4,7 @@ import '../providers/supervisor_providers.dart';
 import '../../dashboard/presentation/screens/dashboards.dart' show ModernDashboardScaffold, DashboardTab, ModernSliverAppBar;
 import 'supervisor_workflow_screen.dart';
 import 'supervisor_students_screen.dart';
+import 'supervisor_teams_screen.dart';
 
 class SupervisorDashboardScreen extends ConsumerWidget {
   const SupervisorDashboardScreen({super.key});
@@ -36,7 +37,7 @@ class SupervisorDashboardScreen extends ConsumerWidget {
           label: 'Teams', 
           icon: Icons.group_work_outlined, 
           activeIcon: Icons.group_work_rounded, 
-          view: _SupervisorTeamsTab(),
+          view: SupervisorTeamsTab(),
         ),
       ],
     );
