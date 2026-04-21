@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/supervisor_providers.dart';
 import '../../dashboard/presentation/screens/dashboards.dart' show ModernDashboardScaffold, DashboardTab, ModernSliverAppBar;
+import 'supervisor_workflow_screen.dart';
+import 'supervisor_students_screen.dart';
 
 class SupervisorDashboardScreen extends ConsumerWidget {
   const SupervisorDashboardScreen({super.key});
@@ -22,13 +24,13 @@ class SupervisorDashboardScreen extends ConsumerWidget {
           label: 'Workflow', 
           icon: Icons.assignment_turned_in_outlined, 
           activeIcon: Icons.assignment_turned_in_rounded, 
-          view: _SupervisorWorkflowTab(),
+          view: SupervisorWorkflowTab(),
         ),
         DashboardTab(
           label: 'Students', 
           icon: Icons.people_outline_rounded, 
           activeIcon: Icons.people_rounded, 
-          view: _SupervisorStudentsTab(),
+          view: SupervisorStudentsTab(),
         ),
         DashboardTab(
           label: 'Teams', 
