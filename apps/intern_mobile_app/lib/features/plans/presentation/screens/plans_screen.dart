@@ -7,6 +7,7 @@ import '../providers/plans_providers.dart';
 import '../widgets/plan_card.dart';
 import 'plan_detail_screen.dart';
 import 'plan_editor_screen.dart';
+import '../../dashboard/presentation/screens/dashboards.dart';
 
 class PlansScreen extends ConsumerStatefulWidget {
   const PlansScreen({super.key});
@@ -41,13 +42,18 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 18, 24, 12),
-                sliver: SliverToBoxAdapter(
-                  child: _Header(
-                    onNew: () => _openEditor(context),
+              ModernSliverAppBar(
+                title: 'Plans',
+                subtitle: 'Weekly Reports',
+                profileName: 'Student',
+                gradient: const [Color(0xFF6a11cb), Color(0xFF2575fc)],
+                backgroundIcon: Icons.assignment_rounded,
+                actions: [
+                  IconButton(
+                    onPressed: () => _openEditor(context),
+                    icon: const Icon(Icons.add_rounded, color: Colors.white),
                   ),
-                ),
+                ],
               ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),

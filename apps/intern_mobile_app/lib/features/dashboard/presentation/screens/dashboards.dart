@@ -299,8 +299,8 @@ class _DashboardTab {
 // REUSABLE MODERN SLIVER APP BAR
 // ---------------------------------------------------------
 
-class _ModernSliverAppBar extends ConsumerWidget {
-  const _ModernSliverAppBar({
+class ModernSliverAppBar extends ConsumerWidget {
+  const ModernSliverAppBar({
     required this.title,
     required this.subtitle,
     required this.profileName,
@@ -598,7 +598,7 @@ class _StudentHomeTab extends ConsumerWidget {
           data: (profile) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'Welcome,',
                 subtitle: profile.fullName,
                 profileName: profile.fullName,
@@ -1424,7 +1424,7 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
-                _ModernSliverAppBar(
+                ModernSliverAppBar(
                   title: 'Placements',
                   subtitle: 'Career Opportunities',
                   profileName: profile.fullName,
@@ -1706,7 +1706,7 @@ class _StudentProfileTab extends ConsumerWidget {
           data: (profile) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'Profile',
                 subtitle: 'Account Settings',
                 profileName: profile.fullName,
@@ -1875,7 +1875,7 @@ class _SupervisorOverviewTab extends ConsumerWidget {
           data: (stats) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'Overview',
                 subtitle: 'Management Dashboard',
                 profileName: 'Supervisor',
@@ -1986,7 +1986,7 @@ class _SupervisorStudentsTab extends ConsumerWidget {
           data: (students) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'Students',
                 subtitle: 'Assigned List',
                 profileName: 'Supervisor',
@@ -2148,7 +2148,7 @@ class _SupervisorTeamsTab extends ConsumerWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _ModernSliverAppBar(
+            ModernSliverAppBar(
               title: 'Teams',
               subtitle: 'Projects & Groups',
               profileName: 'Supervisor',
@@ -2255,7 +2255,7 @@ class _SupervisorSettingsTab extends ConsumerWidget {
           data: (me) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'Settings',
                 subtitle: 'Account Management',
                 profileName: me.fullName,
@@ -2358,7 +2358,7 @@ class _CoordinatorHomeTab extends ConsumerWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _ModernSliverAppBar(
+            ModernSliverAppBar(
               title: 'Dashboard',
               subtitle: 'School Coordination',
               profileName: 'Coordinator',
@@ -2409,7 +2409,7 @@ class _CoordinatorHodsTab extends ConsumerWidget {
           data: (hods) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'HODs',
                 subtitle: 'Verification Requests',
                 profileName: 'Coordinator',
@@ -2499,7 +2499,7 @@ class _HodOverviewTab extends ConsumerWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            const _ModernSliverAppBar(
+            const ModernSliverAppBar(
               title: 'Dashboard',
               subtitle: 'Department Level Insights',
               profileName: 'HOD',
@@ -2590,11 +2590,11 @@ class _HodStudentsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: CustomScrollView(
+    return Material(
+      color: Colors.transparent,
+      child: CustomScrollView(
         slivers: [
-          const _ModernSliverAppBar(
+          const ModernSliverAppBar(
             title: 'Students',
             subtitle: 'Department Enrollment',
             profileName: 'HOD',
@@ -2693,11 +2693,11 @@ class _HodPlacementTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: CustomScrollView(
+    return Material(
+      color: Colors.transparent,
+      child: CustomScrollView(
         slivers: [
-          const _ModernSliverAppBar(
+          const ModernSliverAppBar(
             title: 'Placements',
             subtitle: 'Proposals & Open Letters',
             profileName: 'HOD',
@@ -2769,11 +2769,11 @@ class _HodDirectoryTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: CustomScrollView(
+    return Material(
+      color: Colors.transparent,
+      child: CustomScrollView(
         slivers: [
-          const _ModernSliverAppBar(
+          const ModernSliverAppBar(
             title: 'Directory',
             subtitle: 'Company Partners',
             profileName: 'HOD',
@@ -2858,7 +2858,7 @@ class _AdminOverviewTab extends ConsumerWidget {
           data: (stats) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              const _ModernSliverAppBar(
+              const ModernSliverAppBar(
                 title: 'Overview',
                 subtitle: 'System Statistics',
                 profileName: 'Admin',
@@ -2945,7 +2945,7 @@ class _AdminApprovalsTab extends ConsumerWidget {
           length: 4,
           child: NestedScrollView(
             headerSliverBuilder: (context, _) => [
-              _ModernSliverAppBar(
+              ModernSliverAppBar(
                 title: 'Approvals',
                 subtitle: 'Platform Verification',
                 profileName: 'Admin',
@@ -3108,7 +3108,7 @@ class _AdminUsersTab extends ConsumerWidget {
           data: (users) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              const _ModernSliverAppBar(
+              const ModernSliverAppBar(
                 title: 'Users',
                 subtitle: 'All Registered Users',
                 profileName: 'Admin',
@@ -3175,7 +3175,7 @@ class _AdminLogsTab extends ConsumerWidget {
           data: (logs) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              const _ModernSliverAppBar(
+              const ModernSliverAppBar(
                 title: 'Audit Logs',
                 subtitle: 'System Activity',
                 profileName: 'Admin',
