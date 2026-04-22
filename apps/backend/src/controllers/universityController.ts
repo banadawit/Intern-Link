@@ -48,7 +48,7 @@ export const setupUniversity = async (req: AuthRequest, res: Response) => {
             submitterEmail: coordinatorUser?.email,
         });
 
-        return sendSuccess(res, "University profile submitted for approval.", { university }, 201);
+        return sendSuccess(res, { university }, "University profile submitted for approval.", 201);
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
@@ -60,7 +60,7 @@ export const getPendingUniversities = async (req: AuthRequest, res: Response) =>
         const pending = await prisma.university.findMany({
             where: { approval_status: 'PENDING' }
         });
-        return sendSuccess(res, "Pending universities fetched", pending.map((u) => attachVerificationSla(u)));
+        return sendSuccess(res, pending.map((u) => attachVerificationSla(u)), "Pending universities fetched");
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
@@ -119,7 +119,7 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             );
         }
 
-        return sendSuccess(res, `University is now ${status}`, { updated });
+        return sendSuccess(res, { updated }, `University is now ${status}`);
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }

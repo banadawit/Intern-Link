@@ -23,7 +23,7 @@ export const getMyWeeklyPlans = async (req: AuthRequest, res: Response) => {
                 daySubmissions: { orderBy: { workDate: 'asc' } },
             },
         });
-        return sendSuccess(res, 'Weekly plans fetched', plans);
+        return sendSuccess(res, plans, 'Weekly plans fetched');
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
@@ -55,7 +55,7 @@ export const updateMyWeeklyPlan = async (req: AuthRequest, res: Response) => {
             },
             include: { presentation: true },
         });
-        return sendSuccess(res, 'Plan updated.', { plan: updated });
+        return sendSuccess(res, { plan: updated }, 'Plan updated.');
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
@@ -77,7 +77,17 @@ export const submitWeeklyPlan = async (req: AuthRequest, res: Response) => {
             return sendError(res, "You must be placed in a company to submit plans.", 403);
         }
 
-        // 2. Create the Weekly Plan and Link Presentation File if uploaded
+        // 2. Prevent duplicate plan for the same week
+        const weekNum = parseInt(week_number);
+        const existingPlan = await prisma.weeklyPlan.findFirst({
+            where: { studentId: student.id, week_number: weekNum }
+        });
+
+        if (existingPlan) {
+            return sendError(res, `A weekly plan for Week ${weekNum} already exists.`, 400);
+        }
+
+        // 3. Create the Weekly Plan and Link Presentation File if uploaded
         const plan = await prisma.weeklyPlan.create({
             data: {
                 studentId: student.id,
@@ -97,7 +107,7 @@ export const submitWeeklyPlan = async (req: AuthRequest, res: Response) => {
             void incrementActivityForUser(userId);
         }
 
-        return sendSuccess(res, "Weekly plan submitted successfully.", { plan }, 201);
+        return sendSuccess(res, { plan }, "Weekly plan submitted successfully.", 201);
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
@@ -123,6 +133,10 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
 
         if (status !== 'APPROVED' && status !== 'REJECTED') {
             return sendError(res, "status must be 'APPROVED' or 'REJECTED'.", 400);
+        }
+
+        if (status === 'REJECTED' && (!remarks || remarks.trim().length < 5)) {
+            return sendError(res, "Feedback is required when rejecting a plan (min 5 chars).", 400);
         }
 
         const existing = await prisma.weeklyPlan.findUnique({
@@ -169,7 +183,7 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
             });
         }
 
-        return sendSuccess(res, `Plan ${status}`, { updatedPlan });
+        return sendSuccess(res, { updatedPlan }, `Plan ${status}`);
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
@@ -191,7 +205,7 @@ export const getPlanDaySubmissions = async (req: AuthRequest, res: Response) => 
             include: { daySubmissions: { orderBy: { workDate: 'asc' } } },
         });
         if (!plan) return sendError(res, 'Plan not found.', 404);
-        return sendSuccess(res, 'Day submissions fetched', plan.daySubmissions);
+        return sendSuccess(res, plan.daySubmissions, 'Day submissions fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -232,25 +246,31 @@ export const submitPlanDay = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'That date is outside the internship week for this plan.', 400);
         }
 
-        const created = await prisma.weeklyPlanDaySubmission.upsert({
+        const existingCheckin = await prisma.weeklyPlanDaySubmission.findUnique({
             where: {
                 weeklyPlanId_workDate: {
                     weeklyPlanId: planId,
                     workDate: new Date(`${workDateRaw}T12:00:00.000Z`),
                 },
             },
-            create: {
+        });
+
+        if (existingCheckin) {
+            return sendError(res, "You have already checked in for this date.", 400);
+        }
+
+        const created = await prisma.weeklyPlanDaySubmission.create({
+            data: {
                 weeklyPlanId: planId,
                 workDate: new Date(`${workDateRaw}T12:00:00.000Z`),
             },
-            update: {},
         });
 
         if (userId) {
             void incrementActivityForUser(userId);
         }
 
-        return sendSuccess(res, 'Daily check-in submitted.', created, 201);
+        return sendSuccess(res, created, 'Daily check-in submitted.', 201);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -282,7 +302,7 @@ export const deletePlanDay = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        return sendSuccess(res, 'Removed.');
+        return sendSuccess(res, null, 'Removed.');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);

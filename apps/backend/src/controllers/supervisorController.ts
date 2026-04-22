@@ -32,14 +32,14 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
             prisma.internshipAssignment.count({ where: { companyId, status: 'ACTIVE' } }),
         ]);
 
-        return sendSuccess(res, 'Supervisor profile fetched', {
+        return sendSuccess(res, {
             supervisor,
             stats: {
                 pendingProposalsCount,
                 pendingWeeklyPlansCount,
                 placedStudentsCount,
             },
-        });
+        }, 'Supervisor profile fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -89,7 +89,7 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
             },
         }));
 
-        return sendSuccess(res, 'Students fetched', payload);
+        return sendSuccess(res, payload, 'Students fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -111,7 +111,7 @@ export const getCompanyWeeklyPlans = async (req: AuthRequest, res: Response) => 
         });
         const studentIds = [...new Set(active.map((a) => a.studentId))];
         if (studentIds.length === 0) {
-            return sendSuccess(res, 'No students found', []);
+            return sendSuccess(res, [], 'No students found');
         }
 
         const statusParam = typeof req.query.status === 'string' ? req.query.status.toUpperCase() : undefined;
@@ -137,7 +137,7 @@ export const getCompanyWeeklyPlans = async (req: AuthRequest, res: Response) => 
             orderBy: [{ submitted_at: 'desc' }],
         });
 
-        return sendSuccess(res, 'Weekly plans fetched', plans);
+        return sendSuccess(res, plans, 'Weekly plans fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -183,7 +183,7 @@ export const listWeeklyAttendanceReports = async (req: AuthRequest, res: Respons
             orderBy: { submitted_at: 'desc' },
         });
 
-        return sendSuccess(res, 'Attendance reports fetched', reports);
+        return sendSuccess(res, reports, 'Attendance reports fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -249,7 +249,7 @@ export const patchWeeklyAttendanceReport = async (req: AuthRequest, res: Respons
             data,
         });
 
-        return sendSuccess(res, 'Attendance report updated', updated);
+        return sendSuccess(res, updated, 'Attendance report updated');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -336,11 +336,11 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
             };
         });
 
-        return sendSuccess(res, 'Attendance heatmap fetched', {
+        return sendSuccess(res, {
             rangeStart,
             rangeEnd,
             students: merged,
-        });
+        }, 'Attendance heatmap fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -382,7 +382,7 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        return sendSuccess(res, 'Evaluation submitted successfully.', evaluation);
+        return sendSuccess(res, evaluation, 'Evaluation submitted successfully.');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);

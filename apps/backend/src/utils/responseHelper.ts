@@ -8,10 +8,13 @@ export const sendSuccess = (res: Response, data: any, message: string = 'Success
     });
 };
 
-export const sendError = (res: Response, message: string = 'Internal Server Error', statusCode: number = 500, error: any = null) => {
+export const sendError = (res: Response, message: string = 'Internal Server Error', statusCode: number = 500, code?: string, details?: any) => {
     return res.status(statusCode).json({
         success: false,
         message,
-        error: process.env.NODE_ENV === 'development' ? error : undefined
+        code,
+        details,
+        // For legacy compatibility if any code uses .error
+        error: process.env.NODE_ENV === 'development' ? (details || code) : undefined
     });
 };

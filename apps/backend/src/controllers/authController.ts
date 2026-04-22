@@ -247,26 +247,27 @@ export const register = async (req: Request, res: Response) => {
         };
 
         if (emailSendError) {
-            return sendSuccess(res, "Registration successful, but verification email could not be sent. Please request a new verification link or contact support.", {
+            return sendSuccess(res, {
                 ...baseResponse,
                 emailSent: false,
                 emailError: emailSendError
-            }, 201);
+            }, "Registration successful, but verification email could not be sent. Please request a new verification link or contact support.", 201);
         }
 
-        return sendSuccess(res, roleUpper === 'COORDINATOR'
+        const successMessage = roleUpper === 'COORDINATOR'
             ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
             : roleUpper === 'HOD'
             ? "Registration submitted. Your University Coordinator will review your department credentials. You will be notified via email upon approval."
             : roleUpper === 'STUDENT'
             ? "Registration submitted. Your Head of Department will review your academic status. You will be notified via email once approved."
-            : "Registration successful. Please check your email to verify your account.", 
-        {
+            : "Registration successful. Please check your email to verify your account.";
+
+        return sendSuccess(res, {
             ...baseResponse,
             emailSent: true,
             pendingAdminReview: roleUpper === 'COORDINATOR',
             pendingCoordinatorReview: roleUpper === 'HOD',
-        }, 201);
+        }, successMessage, 201);
         
     } catch (error: any) {
         console.error('Registration error:', error);
@@ -420,7 +421,7 @@ export const login = async (req: Request, res: Response) => {
             void incrementActivityForUser(user.id);
         }
 
-        return sendSuccess(res, "Login successful", {
+        return sendSuccess(res, {
             token,
             user: {
                 id: user.id,
@@ -431,7 +432,7 @@ export const login = async (req: Request, res: Response) => {
                 institutionAccessApproval: user.institution_access_approval,
                 hodApprovalStatus: user.role === 'STUDENT' ? user.studentProfile?.hod_approval_status : undefined,
             }
-        });
+        }, "Login successful");
         
     } catch (error: any) {
         res.status(500).json({ 
@@ -476,7 +477,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
             }
         });
 
-        return sendSuccess(res, "Email verified successfully. You can now login.");
+        return sendSuccess(res, null, "Email verified successfully. You can now login.");
 
     } catch (error: any) {
         console.error('Verification error:', error);
@@ -530,7 +531,7 @@ export const resendVerification = async (req: Request, res: Response) => {
             return sendError(res, "Failed to resend verification email. Please check your email settings or contact support.", 500);
         }
 
-        return sendSuccess(res, "Verification email resent successfully");
+        return sendSuccess(res, null, "Verification email resent successfully");
 
     } catch (error: any) {
         console.error('Resend error:', error);
@@ -579,9 +580,9 @@ export const forgotPassword = async (req: Request, res: Response) => {
             console.log(`   http://localhost:3000/reset-password/${resetToken}\n`);
         }
 
-        return sendSuccess(res, "Password reset email sent", {
+        return sendSuccess(res, {
             token: process.env.NODE_ENV === 'development' ? resetToken : undefined
-        });
+        }, "Password reset email sent");
         
     } catch (error: any) {
         return sendError(res, error.message, 500);
@@ -624,7 +625,7 @@ export const resetPassword = async (req: Request, res: Response) => {
             }
         });
 
-        return sendSuccess(res, "Password has been reset successfully");
+        return sendSuccess(res, null, "Password has been reset successfully");
         
     } catch (error: any) {
         return sendError(res, error.message, 500);
@@ -664,7 +665,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
             return sendError(res, "User not found", 404);
         }
 
-        return sendSuccess(res, "User profile fetched", {
+        return sendSuccess(res, {
             id: user.id,
             email: user.email,
             fullName: user.full_name,
@@ -672,12 +673,9 @@ export const getCurrentUser = async (req: Request, res: Response) => {
             isVerified: user.verification_status === 'APPROVED',
             institutionAccessApproval: user.institution_access_approval,
             profile: user.studentProfile || user.coordinatorProfile || user.hodProfile || user.supervisorProfile
-        });
+        }, "User profile fetched");
 
     } catch (error: any) {
         return sendError(res, error.message, 500);
-    }
-};
-      });
     }
 };

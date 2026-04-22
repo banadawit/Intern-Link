@@ -19,11 +19,11 @@ router.get('/approved', async (_req, res) => {
             },
             orderBy: { name: 'asc' },
         });
-        return sendSuccess(res, "Universities fetched", universities.map((u) => ({
+        return sendSuccess(res, universities.map((u) => ({
             id: u.id,
             name: u.name,
             hasCoordinator: u.coordinators.length > 0,
-        })));
+        })), "Universities fetched");
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
@@ -43,7 +43,7 @@ router.get('/:universityId/departments', async (req, res) => {
             select: { id: true, department: true },
             orderBy: { department: 'asc' },
         });
-        return sendSuccess(res, "Departments fetched", hods); // [{ id, department }]
+        return sendSuccess(res, hods, "Departments fetched"); // [{ id, department }]
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }

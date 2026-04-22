@@ -48,10 +48,10 @@ export const registerStudent = async (req: AuthRequest, res: Response) => {
             include: { studentProfile: true }
         });
 
-        return sendSuccess(res, "Student registered successfully.", {
+        return sendSuccess(res, {
             tempPassword, // In production, send this via email
             student
-        }, 201);
+        }, "Student registered successfully.", 201);
     } catch (error: any) {
         if (error.code === 'P2002') return sendError(res, "Email already exists", 400);
         return sendError(res, error.message, 500);
@@ -94,7 +94,7 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
             ? getCurrentInternshipWeekFromStart(assignment.start_date)
             : 1;
 
-        return sendSuccess(res, "Student profile fetched", {
+        return sendSuccess(res, {
             ...profile,
             activeAssignment: assignment ?? null,
             supervisor: supervisor
@@ -104,7 +104,7 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
                   }
                 : null,
             currentInternshipWeek,
-        });
+        }, "Student profile fetched");
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }

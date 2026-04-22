@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
+import { ZodTypeAny, ZodError } from 'zod';
 import { sendError } from '../utils/responseHelper';
 
-export const validate = (schema: AnyZodObject) => {
+export const validate = (schema: ZodTypeAny) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
             await schema.parseAsync({
@@ -13,7 +13,7 @@ export const validate = (schema: AnyZodObject) => {
             return next();
         } catch (error) {
             if (error instanceof ZodError) {
-                const message = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+                const message = error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
                 return sendError(res, `Validation Error: ${message}`, 400);
             }
             return sendError(res, 'Internal Validation Error', 500);
