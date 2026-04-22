@@ -12,6 +12,7 @@ import '../../features/auth/presentation/screens/verify_email_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboards.dart';
 import '../../features/dashboard/presentation/screens/reports_screen.dart';
 import '../../features/dashboard/presentation/screens/evaluations_screen.dart';
+import '../../features/feed/presentation/common_feed_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/settings/presentation/screens/account_settings_screen.dart';
 import '../../features/support/presentation/screens/support_screen.dart';
