@@ -53,6 +53,7 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
     return Scaffold(
       key: _scaffoldKey,
       extendBody: true,
+      extendBodyBehindAppBar: true,
       drawer: _buildDrawer(context, isDark, currentIndex),
       floatingActionButton: Container(
         decoration: BoxDecoration(
@@ -342,17 +343,33 @@ class ModernSliverAppBar extends ConsumerWidget {
     return SliverAppBar(
       automaticallyImplyLeading: false,
       leading: Builder(
-        builder: (context) => IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(14),
+        builder: (context) {
+          final bool canPop = ModalRoute.of(context)?.canPop ?? false;
+          if (canPop) {
+            return IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            );
+          }
+          return IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.menu_rounded, color: Colors.white, size: 22),
             ),
-            child: const Icon(Icons.menu_rounded, color: Colors.white, size: 22),
-          ),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          );
+        },
       ),
       expandedHeight: 220,
       floating: false,
@@ -372,21 +389,9 @@ class ModernSliverAppBar extends ConsumerWidget {
           onTap: () => _showNotificationCenter(context),
         ),
         const SizedBox(width: 12),
-        IconButton(
-          onPressed: () => context.push(AppRoutes.accountSettings),
-          icon: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: CircleAvatar(
-              radius: 14,
-              backgroundColor: Colors.white.withOpacity(0.2),
-              child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?',
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
-          ),
+        ModernHeaderIcon(
+          icon: Icons.dynamic_feed_rounded,
+          onTap: () => context.push(AppRoutes.commonFeed),
         ),
         const SizedBox(width: 16),
       ],

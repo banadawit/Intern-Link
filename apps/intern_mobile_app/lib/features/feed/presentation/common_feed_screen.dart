@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../data/feed_repository.dart';
@@ -84,6 +85,7 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       backgroundColor: isDark ? const Color(0xFF0A1628) : const Color(0xFFF1F5F9),
       body: NestedScrollView(
         headerSliverBuilder: (ctx, inner) => [
@@ -187,7 +189,7 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -196,7 +198,7 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: const Color(0xFF0EA5E9).withValues(alpha: 0.15),
+                backgroundColor: const Color(0xFF0EA5E9).withOpacity(0.15),
                 child: const Icon(Icons.person_rounded, color: Color(0xFF0EA5E9), size: 22),
               ),
               const SizedBox(width: 12),
@@ -264,9 +266,9 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: post.isPinned
-            ? Border.all(color: const Color(0xFF0EA5E9).withValues(alpha: 0.4))
+            ? Border.all(color: const Color(0xFF0EA5E9).withOpacity(0.4))
             : null,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12)],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,13 +311,8 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
               child: Text(post.title!,
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text(post.content,
-                style: TextStyle(
-                    fontSize: 14, height: 1.55,
-                    color: isDark ? Colors.white70 : Colors.black87)),
-          ),
+          // Render HTML or plain text
+          _buildContent(post.content, isDark, theme),
           // Stats row
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -364,7 +361,7 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
               child: Row(children: [
                 CircleAvatar(
                     radius: 16,
-                    backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                    backgroundColor: const Color(0xFF6366F1).withOpacity(0.15),
                     child: const Icon(Icons.person_rounded, color: Color(0xFF6366F1), size: 16)),
                 const SizedBox(width: 10),
                 Expanded(
@@ -372,7 +369,7 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                     decoration: BoxDecoration(
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.05)
+                          ? Colors.white.withOpacity(0.05)
                           : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -412,7 +409,7 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
       height: 42,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-            colors: [color, color.withValues(alpha: 0.6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            colors: [color, color.withOpacity(0.6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -427,8 +424,8 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.06),
+            ? Colors.white.withOpacity(0.08)
+            : Colors.black.withOpacity(0.06),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -453,7 +450,7 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(label,
@@ -509,6 +506,42 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
           ]),
         ),
       );
+
+  Widget _buildContent(String content, bool isDark, ThemeData theme) {
+    // If content contains HTML tags, render with flutter_html, else plain Text
+    final trimmed = content.trim();
+    final isHtml = trimmed.contains('<') && trimmed.contains('>');
+    
+    if (isHtml) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Html(
+          data: content,
+          style: {
+            "body": Style(
+              fontSize: FontSize(14),
+              lineHeight: LineHeight.em(1.55),
+              color: isDark ? Colors.white70 : Colors.black87,
+              margin: Margins.zero,
+              padding: HtmlPaddings.zero,
+            ),
+          },
+        ),
+      );
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Text(
+        content,
+        style: TextStyle(
+          fontSize: 14,
+          height: 1.55,
+          color: isDark ? Colors.white70 : Colors.black87,
+        ),
+      ),
+    );
+  }
 
   Widget _buildEmpty() => const Center(
         child: Padding(
