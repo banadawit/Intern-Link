@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,13 +55,20 @@ class AppSessionService {
     }
   }
 
+  /// On Flutter Web, [FlutterSecureStorage] is unsupported and silently returns
+  /// null. We fall back to [SharedPreferences] (backed by window.localStorage).
   Future<String?> getToken() async {
     try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        final token = prefs.getString(StorageKeys.authToken);
+        final sanitized = token?.trim();
+        if (sanitized == null || sanitized.isEmpty) return null;
+        return sanitized;
+      }
       final token = await _secureStorage.read(key: StorageKeys.authToken);
       final sanitized = token?.trim();
-      if (sanitized == null || sanitized.isEmpty) {
-        return null;
-      }
+      if (sanitized == null || sanitized.isEmpty) return null;
       return sanitized;
     } catch (error, stackTrace) {
       throw AppSessionException(
@@ -82,6 +90,11 @@ class AppSessionService {
     }
 
     try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        await prefs.setString(StorageKeys.authToken, sanitized);
+        return;
+      }
       await _secureStorage.write(key: StorageKeys.authToken, value: sanitized);
     } catch (error, stackTrace) {
       throw AppSessionException(
@@ -95,7 +108,14 @@ class AppSessionService {
 
   Future<void> clearSession() async {
     try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        await prefs.remove(StorageKeys.authToken);
+        await prefs.remove(StorageKeys.userRole);
+        return;
+      }
       await _secureStorage.delete(key: StorageKeys.authToken);
+      await _secureStorage.delete(key: StorageKeys.userRole);
     } catch (error, stackTrace) {
       throw AppSessionException(
         operation: 'clearSession',
@@ -103,6 +123,31 @@ class AppSessionService {
         cause: error,
         stackTrace: stackTrace,
       );
+    }
+  }
+
+  Future<String?> getRole() async {
+    try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        return prefs.getString(StorageKeys.userRole);
+      }
+      return await _secureStorage.read(key: StorageKeys.userRole);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveRole(String role) async {
+    try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        await prefs.setString(StorageKeys.userRole, role);
+        return;
+      }
+      await _secureStorage.write(key: StorageKeys.userRole, value: role);
+    } catch (_) {
+      // Non-critical — role caching is best-effort.
     }
   }
 }

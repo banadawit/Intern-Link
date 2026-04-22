@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/session_service.dart';
+import '../../../../features/app_entry/domain/entities/app_role.dart';
 import '../../../../features/app_entry/presentation/providers/app_entry_providers.dart';
 import '../../../app_entry/domain/entities/app_start_decision.dart';
 import '../../data/datasources/auth_remote_service.dart';
@@ -19,6 +21,7 @@ class AuthUiState {
     this.errorCode,
     this.requiresVerification = false,
     this.emailForVerification,
+    this.loggedInRoute,
   });
 
   final AuthMode mode;
@@ -28,6 +31,8 @@ class AuthUiState {
   final String? errorCode;
   final bool requiresVerification;
   final String? emailForVerification;
+  /// Non-null after a successful login — the route to navigate to.
+  final String? loggedInRoute;
 
   AuthUiState copyWith({
     AuthMode? mode,
@@ -37,6 +42,7 @@ class AuthUiState {
     String? errorCode,
     bool? requiresVerification,
     String? emailForVerification,
+    String? loggedInRoute,
     bool clearError = false,
     bool clearInfo = false,
     bool clearAuthMeta = false,
@@ -53,6 +59,7 @@ class AuthUiState {
       emailForVerification: clearAuthMeta
           ? null
           : (emailForVerification ?? this.emailForVerification),
+      loggedInRoute: loggedInRoute ?? this.loggedInRoute,
     );
   }
 }
@@ -104,7 +111,8 @@ class AuthController extends Notifier<AuthUiState> {
     );
   }
 
-  Future<bool> login({required String email, required String password}) async {
+  /// Returns the dashboard route to navigate to on success, or null on failure.
+  Future<String?> login({required String email, required String password}) async {
     state = state.copyWith(
       isLoading: true,
       clearError: true,
@@ -117,14 +125,31 @@ class AuthController extends Notifier<AuthUiState> {
           .read(authRemoteServiceProvider)
           .login(email: email.trim(), password: password);
 
-      await ref.read(appSessionServiceProvider).saveToken(result.token);
-      ref.invalidate(appStartDecisionProvider);
+      final sessionService = ref.read(appSessionServiceProvider);
+      await sessionService.saveToken(result.token);
 
+      // Fetch the user role to determine the dashboard route.
+      String dashboardRoute = AppRoutes.studentDashboard; // safe default
+      try {
+        final authDs = ref.read(authRemoteDataSourceProvider);
+        final user = await authDs.fetchCurrentUser(result.token);
+        await sessionService.saveRole(user.role.name.toUpperCase());
+        dashboardRoute = _routeFromRole(user.role);
+      } catch (_) {
+        // If /auth/me fails, use cached role from previous login.
+        final cached = await sessionService.getRole();
+        if (cached != null) {
+          final role = appRoleFromBackend(cached);
+          if (role != null) dashboardRoute = _routeFromRole(role);
+        }
+      }
+
+      ref.invalidate(appStartDecisionProvider);
       state = state.copyWith(
         isLoading: false,
-        infoMessage: 'Login successful. Preparing your workspace...',
+        loggedInRoute: dashboardRoute,
       );
-      return true;
+      return dashboardRoute;
     } on AuthApiException catch (error) {
       final fallback = error.statusCode == 401
           ? 'Invalid email or password. Please try again.'
@@ -136,14 +161,29 @@ class AuthController extends Notifier<AuthUiState> {
         requiresVerification: error.requiresVerification,
         emailForVerification: error.email,
       );
-      return false;
+      return null;
     } catch (_) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Unexpected error occurred. Please try again.',
         clearAuthMeta: true,
       );
-      return false;
+      return null;
+    }
+  }
+
+  String _routeFromRole(AppRole role) {
+    switch (role) {
+      case AppRole.student:
+        return AppRoutes.studentDashboard;
+      case AppRole.supervisor:
+        return AppRoutes.supervisorDashboard;
+      case AppRole.coordinator:
+        return AppRoutes.coordinatorDashboard;
+      case AppRole.admin:
+        return AppRoutes.adminDashboard;
+      case AppRole.hod:
+        return AppRoutes.hodDashboard;
     }
   }
 
