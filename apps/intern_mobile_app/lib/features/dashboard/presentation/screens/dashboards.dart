@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 
@@ -204,10 +205,19 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                     Navigator.pop(context);
                     ref.read(dashboardIndexProvider.notifier).state = 1; // Plans
                   }, isSelected: currentIndex == 1),
-                  _buildDrawerItem(Icons.business_center_rounded, 'Placement Requests', () {
+                   _buildDrawerItem(Icons.business_center_rounded, 'Placement Requests', () {
                     Navigator.pop(context);
                     ref.read(dashboardIndexProvider.notifier).state = 2; // Jobs/Placement
                   }, isSelected: currentIndex == 2),
+                  const Divider(color: Colors.black12, indent: 24, endIndent: 24),
+                  _buildDrawerItem(Icons.description_rounded, 'Final Report', () {
+                    Navigator.pop(context);
+                    context.push(AppRoutes.reports);
+                  }),
+                  _buildDrawerItem(Icons.star_rounded, 'Final Evaluation', () {
+                    Navigator.pop(context);
+                    context.push(AppRoutes.evaluations);
+                  }),
                 ] else if (widget.roleLabel == 'SUPERVISOR') ...[
                   _buildDrawerItem(Icons.people_alt_rounded, 'Assigned Students', () {
                     Navigator.pop(context);
@@ -275,17 +285,19 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
   }
 
   Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false, bool isSelected = false}) {
-    return ListTile(
-      selected: isSelected,
-      selectedTileColor: isDestructive ? Colors.red.withOpacity(0.1) : Theme.of(context).colorScheme.primary.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      leading: Icon(icon, color: isDestructive ? Colors.red : (isSelected ? Theme.of(context).colorScheme.primary : null)),
-      title: Text(title, style: TextStyle(
-        color: isDestructive ? Colors.red : (isSelected ? Theme.of(context).colorScheme.primary : null), 
-        fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600
-      )),
-      onTap: onTap,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ListTile(
+        selected: isSelected,
+        selectedTileColor: isDestructive ? Colors.red.withOpacity(0.1) : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: Icon(icon, color: isDestructive ? Colors.red : (isSelected ? Theme.of(context).colorScheme.primary : null)),
+        title: Text(title, style: TextStyle(
+          color: isDestructive ? Colors.red : (isSelected ? Theme.of(context).colorScheme.primary : null), 
+          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600
+        )),
+        onTap: onTap,
+      ),
     );
   }
 }
@@ -1066,7 +1078,7 @@ class _StudentHomeTab extends ConsumerWidget {
           'Submit your weekly report',
           Icons.edit_note_rounded,
           Colors.blue,
-          () => ref.read(dashboardIndexProvider).value = 1, // Plans tab
+          () => ref.read(dashboardIndexProvider.notifier).state = 1, // Plans tab
         ),
         const SizedBox(height: 12),
         _buildActionRow(
@@ -1075,7 +1087,7 @@ class _StudentHomeTab extends ConsumerWidget {
           'View company details',
           Icons.business_rounded,
           Colors.green,
-          () => ref.read(dashboardIndexProvider).value = 2, // Jobs tab
+          () => ref.read(dashboardIndexProvider.notifier).state = 2, // Jobs tab
         ),
       ],
     );
@@ -1738,9 +1750,9 @@ class _StudentProfileTab extends ConsumerWidget {
                     const SizedBox(height: 16),
                     _buildProfileInfoCard(theme, isDark, 'Final Reports & Evaluations', [
                       _ProfileInfoRow(Icons.description_rounded, 'Final Report', 'Not Uploaded', 
-                        actionLabel: 'Upload', onAction: () {}),
+                        actionLabel: 'View', onAction: () => context.push(AppRoutes.reports)),
                       _ProfileInfoRow(Icons.assignment_turned_in_rounded, 'Final Evaluation', 'Pending', 
-                        actionLabel: 'View', onAction: () {}),
+                        actionLabel: 'View', onAction: () => context.push(AppRoutes.evaluations)),
                     ]),
                     const SizedBox(height: 16),
                     _buildProfileInfoCard(theme, isDark, 'Account Settings', [

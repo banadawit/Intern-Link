@@ -4,14 +4,18 @@ import '../../../../core/network/api_client.dart';
 class AdminStats {
   final int totalUsers;
   final int totalUniversities;
-  final int totalCompanies;
+   final int totalCompanies;
   final int pendingApprovals;
+  final int totalEvaluations;
+  final int totalReports;
 
   AdminStats({
     required this.totalUsers,
     required this.totalUniversities,
     required this.totalCompanies,
     required this.pendingApprovals,
+    required this.totalEvaluations,
+    required this.totalReports,
   });
 
   factory AdminStats.fromJson(Map<String, dynamic> json) {
@@ -27,6 +31,8 @@ class AdminStats {
       totalUniversities: toInt(json['totalUniversities']),
       totalCompanies: toInt(json['totalCompanies']),
       pendingApprovals: toInt(json['pendingApprovals']),
+      totalEvaluations: toInt(json['totalEvaluations']),
+      totalReports: toInt(json['totalReports']),
     );
   }
 }
@@ -47,6 +53,8 @@ class AdminRepository {
                          ((data['pendingCompanies'] as num?)?.toInt() ?? 0) + 
                          ((data['pendingCoordinators'] as num?)?.toInt() ?? 0) + 
                          ((data['pendingSupervisors'] as num?)?.toInt() ?? 0),
+        totalEvaluations: (data['totalEvaluations'] as num?)?.toInt() ?? 0,
+        totalReports: (data['totalReports'] as num?)?.toInt() ?? 0,
       );
     }
     throw Exception('Failed to fetch admin stats');

@@ -7,6 +7,7 @@ import {
 } from '../utils/internshipWeekDates';
 import { incrementActivityForUser } from '../services/activityLog.service';
 import { sendSuccess, sendError } from '../utils/responseHelper';
+import { notifyStudentPlanReview } from '../services/notification.service';
 
 /** List weekly plans for the logged-in student */
 export const getMyWeeklyPlans = async (req: AuthRequest, res: Response) => {
@@ -144,6 +145,7 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
             include: {
                 student: {
                     include: {
+                        user: { select: { id: true } },
                         assignments: {
                             where: { companyId: supervisor.companyId, status: 'ACTIVE' },
                         },
@@ -182,6 +184,9 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
                 },
             });
         }
+
+        // Trigger real-time notification
+        void notifyStudentPlanReview(existing.student.userId, existing.week_number, status);
 
         return sendSuccess(res, { updatedPlan }, `Plan ${status}`);
     } catch (error: any) {

@@ -10,6 +10,8 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/verify_email_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboards.dart';
+import '../../features/dashboard/presentation/screens/reports_screen.dart';
+import '../../features/dashboard/presentation/screens/evaluations_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/settings/presentation/screens/account_settings_screen.dart';
 import '../../features/support/presentation/screens/support_screen.dart';
@@ -28,6 +30,8 @@ const Set<String> _protectedRoutes = {
   AppRoutes.aiAssistant,
   AppRoutes.helpSupport,
   AppRoutes.accountSettings,
+  AppRoutes.reports,
+  AppRoutes.evaluations,
 };
 
 final GoRouter appRouter = GoRouter(
@@ -283,6 +287,26 @@ final GoRouter appRouter = GoRouter(
           },
         );
       },
+    ),
+    GoRoute(
+      path: AppRoutes.reports,
+      pageBuilder: (context, state) => CustomTransitionPage<void>(
+        key: state.pageKey,
+        child: const ReportsScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    ),
+    GoRoute(
+      path: AppRoutes.evaluations,
+      pageBuilder: (context, state) => CustomTransitionPage<void>(
+        key: state.pageKey,
+        child: const EvaluationsScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
     ),
   ],
 );
