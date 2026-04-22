@@ -11,7 +11,11 @@ class PlansApiService {
 
   Future<List<dynamic>> fetchMyPlans() async {
     final res = await _apiClient.dio.get('/progress/my-plans');
-    return (res.data as List);
+    final data = res.data;
+    if (data is Map && data['data'] is List) {
+      return (data['data'] as List);
+    }
+    return (res.data as List); // Fallback for legacy or if already list
   }
 
   Future<Map<String, dynamic>> submitPlan({
@@ -36,8 +40,14 @@ class PlansApiService {
     );
 
     final data = res.data;
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is Map<String, dynamic>) {
+      if (data.containsKey('data')) return Map<String, dynamic>.from(data['data']);
+      return data;
+    }
+    if (data is Map) {
+      if (data.containsKey('data')) return Map<String, dynamic>.from(data['data']);
+      return Map<String, dynamic>.from(data);
+    }
     throw Exception('Unexpected submit response');
   }
 
@@ -50,8 +60,14 @@ class PlansApiService {
       data: {'plan_description': planDescription},
     );
     final data = res.data;
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is Map<String, dynamic>) {
+      if (data.containsKey('data')) return Map<String, dynamic>.from(data['data']);
+      return data;
+    }
+    if (data is Map) {
+      if (data.containsKey('data')) return Map<String, dynamic>.from(data['data']);
+      return Map<String, dynamic>.from(data);
+    }
     throw Exception('Unexpected update response');
   }
 
@@ -69,8 +85,14 @@ class PlansApiService {
       },
     );
     final data = res.data;
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is Map<String, dynamic>) {
+      if (data.containsKey('data')) return Map<String, dynamic>.from(data['data']);
+      return data;
+    }
+    if (data is Map) {
+      if (data.containsKey('data')) return Map<String, dynamic>.from(data['data']);
+      return Map<String, dynamic>.from(data);
+    }
     throw Exception('Unexpected check-in response');
   }
 

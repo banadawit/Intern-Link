@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { ymdFromUtcMs } from '../utils/internshipWeekDates';
+import { sendSuccess, sendError } from '../utils/responseHelper';
 
 export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
     try {
@@ -13,7 +14,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
             },
         });
         if (!supervisor) {
-            return res.status(404).json({ message: 'Supervisor profile not found.' });
+            return sendError(res, 'Supervisor profile not found.', 404);
         }
 
         const companyId = supervisor.companyId;
@@ -31,7 +32,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
             prisma.internshipAssignment.count({ where: { companyId, status: 'ACTIVE' } }),
         ]);
 
-        res.json({
+        return sendSuccess(res, 'Supervisor profile fetched', {
             supervisor,
             stats: {
                 pendingProposalsCount,
@@ -41,7 +42,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
         });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
 
@@ -51,7 +52,7 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
             where: { userId: req.user!.userId },
         });
         if (!supervisor) {
-            return res.status(403).json({ message: 'Supervisor profile not found.' });
+            return sendError(res, 'Supervisor profile not found.', 403);
         }
 
         const assignments = await prisma.internshipAssignment.findMany({
@@ -88,10 +89,10 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
             },
         }));
 
-        res.json(payload);
+        return sendSuccess(res, 'Students fetched', payload);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
 
@@ -101,7 +102,7 @@ export const getCompanyWeeklyPlans = async (req: AuthRequest, res: Response) => 
             where: { userId: req.user!.userId },
         });
         if (!supervisor) {
-            return res.status(403).json({ message: 'Supervisor profile not found.' });
+            return sendError(res, 'Supervisor profile not found.', 403);
         }
 
         const active = await prisma.internshipAssignment.findMany({
@@ -110,7 +111,7 @@ export const getCompanyWeeklyPlans = async (req: AuthRequest, res: Response) => 
         });
         const studentIds = [...new Set(active.map((a) => a.studentId))];
         if (studentIds.length === 0) {
-            return res.json([]);
+            return sendSuccess(res, 'No students found', []);
         }
 
         const statusParam = typeof req.query.status === 'string' ? req.query.status.toUpperCase() : undefined;
@@ -136,10 +137,10 @@ export const getCompanyWeeklyPlans = async (req: AuthRequest, res: Response) => 
             orderBy: [{ submitted_at: 'desc' }],
         });
 
-        res.json(plans);
+        return sendSuccess(res, 'Weekly plans fetched', plans);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
 
@@ -150,7 +151,7 @@ export const listWeeklyAttendanceReports = async (req: AuthRequest, res: Respons
             where: { userId: req.user!.userId },
         });
         if (!supervisor) {
-            return res.status(403).json({ message: 'Supervisor profile not found.' });
+            return sendError(res, 'Supervisor profile not found.', 403);
         }
 
         const reports = await prisma.weeklyReport.findMany({
@@ -182,10 +183,10 @@ export const listWeeklyAttendanceReports = async (req: AuthRequest, res: Respons
             orderBy: { submitted_at: 'desc' },
         });
 
-        res.json(reports);
+        return sendSuccess(res, 'Attendance reports fetched', reports);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
 
@@ -193,14 +194,14 @@ export const patchWeeklyAttendanceReport = async (req: AuthRequest, res: Respons
     try {
         const id = parseInt(String(req.params.id), 10);
         if (Number.isNaN(id)) {
-            return res.status(400).json({ message: 'Invalid id.' });
+            return sendError(res, 'Invalid id.', 400);
         }
 
         const supervisor = await prisma.supervisor.findUnique({
             where: { userId: req.user!.userId },
         });
         if (!supervisor) {
-            return res.status(403).json({ message: 'Supervisor profile not found.' });
+            return sendError(res, 'Supervisor profile not found.', 403);
         }
 
         const report = await prisma.weeklyReport.findUnique({
@@ -217,7 +218,7 @@ export const patchWeeklyAttendanceReport = async (req: AuthRequest, res: Respons
         });
 
         if (!report || report.student.assignments.length === 0) {
-            return res.status(403).json({ message: 'Report not found or not in scope for your company.' });
+            return sendError(res, 'Report not found or not in scope for your company.', 403);
         }
 
         const { attendanceStatus, execution_status, remarks } = req.body as {
@@ -248,10 +249,10 @@ export const patchWeeklyAttendanceReport = async (req: AuthRequest, res: Respons
             data,
         });
 
-        res.json(updated);
+        return sendSuccess(res, 'Attendance report updated', updated);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
 
@@ -262,7 +263,7 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
             where: { userId: req.user!.userId },
         });
         if (!supervisor) {
-            return res.status(403).json({ message: 'Supervisor profile not found.' });
+            return sendError(res, 'Supervisor profile not found.', 403);
         }
 
         const today = new Date();
@@ -335,14 +336,14 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
             };
         });
 
-        res.json({
+        return sendSuccess(res, 'Attendance heatmap fetched', {
             rangeStart,
             rangeEnd,
             students: merged,
         });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
 
@@ -351,7 +352,7 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         const supervisor = await prisma.supervisor.findUnique({
             where: { userId: req.user!.userId },
         });
-        if (!supervisor) return res.status(403).json({ message: 'Supervisor profile not found.' });
+        if (!supervisor) return sendError(res, 'Supervisor profile not found.', 403);
 
         const { studentId, technical_score, soft_skill_score, comments } = req.body;
         const sid = parseInt(String(studentId), 10);
@@ -361,7 +362,7 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
             where: { studentId: sid, companyId: supervisor.companyId, status: 'ACTIVE' },
         });
         if (!assignment) {
-            return res.status(403).json({ message: 'Student not assigned to your company.' });
+            return sendError(res, 'Student not assigned to your company.', 403);
         }
 
         const evaluation = await prisma.finalEvaluation.upsert({
@@ -381,9 +382,9 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        res.json({ message: 'Evaluation submitted successfully.', evaluation });
+        return sendSuccess(res, 'Evaluation submitted successfully.', evaluation);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
