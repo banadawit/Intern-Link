@@ -4,14 +4,18 @@ import '../../../../core/network/api_client.dart';
 class AdminStats {
   final int totalUsers;
   final int totalUniversities;
-  final int totalCompanies;
+   final int totalCompanies;
   final int pendingApprovals;
+  final int totalEvaluations;
+  final int totalReports;
 
   AdminStats({
     required this.totalUsers,
     required this.totalUniversities,
     required this.totalCompanies,
     required this.pendingApprovals,
+    required this.totalEvaluations,
+    required this.totalReports,
   });
 
   factory AdminStats.fromJson(Map<String, dynamic> json) {
@@ -27,6 +31,8 @@ class AdminStats {
       totalUniversities: toInt(json['totalUniversities']),
       totalCompanies: toInt(json['totalCompanies']),
       pendingApprovals: toInt(json['pendingApprovals']),
+      totalEvaluations: toInt(json['totalEvaluations']),
+      totalReports: toInt(json['totalReports']),
     );
   }
 }
@@ -35,25 +41,9 @@ class AdminRepository {
   AdminRepository({required this.apiClient});
   final ApiClient apiClient;
 
-  dynamic _extractData(dynamic data) {
-    if (data == null) return null;
-    if (data is List) return data;
-    if (data is Map) {
-      if (data.containsKey('success')) {
-        final success = data['success'];
-        if (success == true || success == 'true' || success == 1) {
-          return data['data'];
-        }
-        return null;
-      }
-      return data;
-    }
-    return data;
-  }
-
   Future<AdminStats> getStats() async {
     final response = await apiClient.dio.get('/admin/stats');
-    final data = _extractData(response.data);
+    final data = response.data;
     if (data != null && data is Map) {
       return AdminStats(
         totalUsers: (data['totalUsers'] as num?)?.toInt() ?? 0,
@@ -63,6 +53,8 @@ class AdminRepository {
                          ((data['pendingCompanies'] as num?)?.toInt() ?? 0) + 
                          ((data['pendingCoordinators'] as num?)?.toInt() ?? 0) + 
                          ((data['pendingSupervisors'] as num?)?.toInt() ?? 0),
+        totalEvaluations: (data['totalEvaluations'] as num?)?.toInt() ?? 0,
+        totalReports: (data['totalReports'] as num?)?.toInt() ?? 0,
       );
     }
     throw Exception('Failed to fetch admin stats');
@@ -70,32 +62,32 @@ class AdminRepository {
 
   Future<List<dynamic>> getPendingUniversities() async {
     final response = await apiClient.dio.get('/admin/pending-universities');
-    return (_extractData(response.data) as List?) ?? [];
+    return (response.data as List?) ?? [];
   }
 
   Future<List<dynamic>> getPendingCompanies() async {
     final response = await apiClient.dio.get('/admin/pending-companies');
-    return (_extractData(response.data) as List?) ?? [];
+    return (response.data as List?) ?? [];
   }
 
   Future<List<dynamic>> getPendingCoordinators() async {
     final response = await apiClient.dio.get('/admin/pending-coordinators');
-    return (_extractData(response.data) as List?) ?? [];
+    return (response.data as List?) ?? [];
   }
 
   Future<List<dynamic>> getPendingSupervisors() async {
     final response = await apiClient.dio.get('/admin/pending-supervisors');
-    return (_extractData(response.data) as List?) ?? [];
+    return (response.data as List?) ?? [];
   }
 
   Future<List<dynamic>> getAllUsers() async {
     final response = await apiClient.dio.get('/admin/users');
-    return (_extractData(response.data) as List?) ?? [];
+    return (response.data as List?) ?? [];
   }
 
   Future<List<dynamic>> getAuditLogs() async {
     final response = await apiClient.dio.get('/admin/audit-logs');
-    return (_extractData(response.data) as List?) ?? [];
+    return (response.data as List?) ?? [];
   }
 
   Future<void> updateUniversityStatus(int id, String status) async {

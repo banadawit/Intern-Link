@@ -27,6 +27,25 @@ class ApiClient {
           }
           return handler.next(options);
         },
+        onResponse: (response, handler) {
+          final data = response.data;
+          if (data is Map && data.containsKey('success')) {
+            final success = data['success'];
+            // Handle varied success flag types (bool, string, int)
+            final isSuccess = success == true || success == 'true' || success == 1 || success == '1';
+            
+            if (isSuccess) {
+              // Extract the inner data if it exists, otherwise return the whole wrapper
+              // (This allows gradual migration of all endpoints)
+              if (data.containsKey('data')) {
+                response.data = data['data'];
+              }
+            } else {
+              // If success is false, we could reject here, but we'll let repositories handle messages
+            }
+          }
+          return handler.next(response);
+        },
         onError: (DioException e, handler) {
           // Handle global errors here if needed (e.g. 401 token expiry)
           return handler.next(e);

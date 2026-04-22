@@ -23,6 +23,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             activeInternships,
             pendingCoordinators,
             pendingSupervisors,
+            totalEvaluations,
+            totalReports,
         ] = await Promise.all([
             prisma.university.count({ where: { approval_status: 'PENDING' } }),
             prisma.company.count({ where: { approval_status: 'PENDING' } }),
@@ -33,6 +35,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             prisma.internshipAssignment.count({ where: { status: 'ACTIVE' } }),
             prisma.coordinator.count({ where: { universityId: { equals: null } } }),
             prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'PENDING' } }),
+            prisma.finalEvaluation.count(),
+            prisma.report.count(),
         ]);
 
         res.json({
@@ -45,6 +49,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             activeInternships,
             pendingCoordinators,
             pendingSupervisors,
+            totalEvaluations,
+            totalReports,
             rejectedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'REJECTED' } }),
             rejectedSupervisors: await prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'REJECTED' } }),
             suspendedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'SUSPENDED' } }),

@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 
@@ -19,7 +20,7 @@ import '../../../plans/presentation/screens/plans_screen.dart';
 // STATE MANAGEMENT (NAVIGATION)
 // ---------------------------------------------------------
 
-final dashboardIndexProvider = Provider((ref) => ValueNotifier<int>(0));
+final dashboardIndexProvider = StateProvider<int>((ref) => 0);
 
 // ---------------------------------------------------------
 // REUSABLE MODERN SCAFFOLD WITH BOTTOM NAVIGATION
@@ -47,105 +48,99 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final indexNotifier = ref.watch(dashboardIndexProvider);
-    
-    return ListenableBuilder(
-      listenable: indexNotifier,
-      builder: (context, _) {
-        final currentIndex = indexNotifier.value;
-        return Scaffold(
-          key: _scaffoldKey,
-          extendBody: true,
-          drawer: _buildDrawer(context, isDark),
-          floatingActionButton: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], // Deep vibrant purple to match modern AI aesthetics
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF4A00E0).withOpacity(0.4),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+    final currentIndex = ref.watch(dashboardIndexProvider);
+
+    return Scaffold(
+      key: _scaffoldKey,
+      extendBody: true,
+      drawer: _buildDrawer(context, isDark, currentIndex),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4A00E0).withOpacity(0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => context.push(AppRoutes.aiAssistant),
-                borderRadius: BorderRadius.circular(20),
-                child: const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
-                ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.push(AppRoutes.aiAssistant),
+            borderRadius: BorderRadius.circular(20),
+            child: const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+            ),
+          ),
+        ),
+      ),
+      body: IndexedStack(
+        index: currentIndex,
+        children: widget.tabs.map((t) => t.view).toList(),
+      ),
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B).withOpacity(0.8) : Colors.white.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: GNav(
+                rippleColor: theme.colorScheme.primary.withOpacity(0.1),
+                hoverColor: theme.colorScheme.primary.withOpacity(0.1),
+                gap: 4,
+                activeColor: theme.colorScheme.primary,
+                iconSize: 20,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                duration: const Duration(milliseconds: 500),
+                tabBackgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                color: isDark ? Colors.white.withOpacity(0.4) : Colors.black.withOpacity(0.3),
+                selectedIndex: currentIndex,
+                onTabChange: (index) => ref.read(dashboardIndexProvider.notifier).state = index,
+                tabs: widget.tabs.map((t) {
+                  final isSelected = currentIndex == widget.tabs.indexOf(t);
+                  return GButton(
+                    icon: t.icon,
+                    text: t.label,
+                    leading: Icon(
+                      isSelected ? t.activeIcon : t.icon,
+                      color: isSelected ? theme.colorScheme.primary : (isDark ? Colors.white.withOpacity(0.4) : Colors.black.withOpacity(0.3)),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ),
-          body: IndexedStack(
-            index: currentIndex,
-            children: widget.tabs.map((t) => t.view).toList(),
-          ),
-          bottomNavigationBar: Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B).withOpacity(0.8) : Colors.white.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: GNav(
-                    rippleColor: theme.colorScheme.primary.withOpacity(0.1),
-                    hoverColor: theme.colorScheme.primary.withOpacity(0.1),
-                    gap: 4,
-                    activeColor: theme.colorScheme.primary,
-                    iconSize: 20,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    duration: const Duration(milliseconds: 500),
-                    tabBackgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                    color: isDark ? Colors.white.withOpacity(0.4) : Colors.black.withOpacity(0.3),
-                    selectedIndex: currentIndex,
-                    onTabChange: (index) => indexNotifier.value = index,
-                    tabs: widget.tabs.map((t) {
-                      return GButton(
-                        icon: t.icon,
-                        text: t.label,
-                        leading: Icon(
-                          currentIndex == widget.tabs.indexOf(t) ? t.activeIcon : t.icon,
-                          color: currentIndex == widget.tabs.indexOf(t) ? theme.colorScheme.primary : (isDark ? Colors.white.withOpacity(0.4) : Colors.black.withOpacity(0.3)),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _buildDrawer(BuildContext context, bool isDark) {
+  Widget _buildDrawer(BuildContext context, bool isDark, int currentIndex) {
     final theme = Theme.of(context);
-    final indexNotifier = ref.read(dashboardIndexProvider);
     return Drawer(
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       child: Column(
@@ -171,7 +166,15 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildDrawerItem(Icons.dashboard_rounded, 'Main Dashboard', () => Navigator.pop(context)),
+                _buildDrawerItem(
+                  Icons.dashboard_rounded, 
+                  'Main Dashboard', 
+                  () {
+                    Navigator.pop(context);
+                    ref.read(dashboardIndexProvider.notifier).state = 0;
+                  },
+                  isSelected: currentIndex == 0,
+                ),
                 
                 // --- Universal Features (All Roles) ---
                 _buildDrawerItem(Icons.dynamic_feed_rounded, 'Common Feed', () {
@@ -196,59 +199,68 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                 if (widget.roleLabel == 'STUDENT') ...[
                   _buildDrawerItem(Icons.assignment_ind_rounded, 'My Internship', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 0; // Home
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 0; // Home
+                  }, isSelected: currentIndex == 0),
                   _buildDrawerItem(Icons.history_edu_rounded, 'Weekly Reports', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 1; // Plans
-                  }),
-                  _buildDrawerItem(Icons.business_center_rounded, 'Placement Requests', () {
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // Plans
+                  }, isSelected: currentIndex == 1),
+                   _buildDrawerItem(Icons.business_center_rounded, 'Placement Requests', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 2; // Jobs/Placement
+                    ref.read(dashboardIndexProvider.notifier).state = 2; // Jobs/Placement
+                  }, isSelected: currentIndex == 2),
+                  const Divider(color: Colors.black12, indent: 24, endIndent: 24),
+                  _buildDrawerItem(Icons.description_rounded, 'Final Report', () {
+                    Navigator.pop(context);
+                    context.push(AppRoutes.reports);
+                  }),
+                  _buildDrawerItem(Icons.star_rounded, 'Final Evaluation', () {
+                    Navigator.pop(context);
+                    context.push(AppRoutes.evaluations);
                   }),
                 ] else if (widget.roleLabel == 'SUPERVISOR') ...[
                   _buildDrawerItem(Icons.people_alt_rounded, 'Assigned Students', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 1; // Students
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // Students
+                  }, isSelected: currentIndex == 1),
                   _buildDrawerItem(Icons.group_work_rounded, 'Team Management', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 2; // Teams
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 2; // Teams
+                  }, isSelected: currentIndex == 2),
                 ] else if (widget.roleLabel == 'COORDINATOR') ...[
                   _buildDrawerItem(Icons.how_to_reg_rounded, 'HOD Approvals', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 1; // HODs Tab
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // HODs Tab
+                  }, isSelected: currentIndex == 1),
                   _buildDrawerItem(Icons.apartment_rounded, 'Company Directory', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 2; // Companies Tab
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 2; // Companies Tab
+                  }, isSelected: currentIndex == 2),
                 ] else if (widget.roleLabel == 'HEAD OF DEPARTMENT') ...[
                   _buildDrawerItem(Icons.groups_3_rounded, 'Department Students', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 0; // Home (assuming overview here)
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 0; // Home (assuming overview here)
+                  }, isSelected: currentIndex == 0),
                 ] else if (widget.roleLabel == 'ADMIN') ...[
                   _buildDrawerItem(Icons.manage_accounts_rounded, 'User Management', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 2; // Users Tab
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 2; // Users Tab
+                  }, isSelected: currentIndex == 2),
                   _buildDrawerItem(Icons.domain_verification_rounded, 'Institution Approvals', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 1; // Approvals Tab
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // Approvals Tab
+                  }, isSelected: currentIndex == 1),
                   _buildDrawerItem(Icons.analytics_rounded, 'System Logs', () {
                     Navigator.pop(context);
-                    indexNotifier.value = 3; // Logs Tab
-                  }),
+                    ref.read(dashboardIndexProvider.notifier).state = 3; // Logs Tab
+                  }, isSelected: currentIndex == 3),
                 ],
 
                 const Divider(color: Colors.black12, height: 32),
                 _buildDrawerItem(Icons.person_rounded, 'Account Settings', () {
                   Navigator.pop(context);
-                  indexNotifier.value = widget.tabs.length - 1; // Go to last tab (Settings/Profile)
-                }),
+                  ref.read(dashboardIndexProvider.notifier).state = widget.tabs.length - 1; // Go to last tab (Settings/Profile)
+                }, isSelected: currentIndex == widget.tabs.length - 1),
                 _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () {
                   Navigator.pop(context);
                   context.push(AppRoutes.helpSupport);
@@ -272,11 +284,20 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false}) {
-    return ListTile(
-      leading: Icon(icon, color: isDestructive ? Colors.red : null),
-      title: Text(title, style: TextStyle(color: isDestructive ? Colors.red : null, fontWeight: FontWeight.w600)),
-      onTap: onTap,
+  Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {bool isDestructive = false, bool isSelected = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ListTile(
+        selected: isSelected,
+        selectedTileColor: isDestructive ? Colors.red.withOpacity(0.1) : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: Icon(icon, color: isDestructive ? Colors.red : (isSelected ? Theme.of(context).colorScheme.primary : null)),
+        title: Text(title, style: TextStyle(
+          color: isDestructive ? Colors.red : (isSelected ? Theme.of(context).colorScheme.primary : null), 
+          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600
+        )),
+        onTap: onTap,
+      ),
     );
   }
 }
@@ -333,7 +354,7 @@ class ModernSliverAppBar extends ConsumerWidget {
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
       ),
-      expandedHeight: 240,
+      expandedHeight: 220,
       floating: false,
       pinned: true,
       stretch: true,
@@ -412,14 +433,14 @@ class ModernSliverAppBar extends ConsumerWidget {
                           children: [
                             Text(subtitle,
                                 style: TextStyle(
-                                    color: Colors.white.withOpacity(0.8),
-                                    fontSize: 14,
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.5)),
-                            const SizedBox(height: 6),
+                                    letterSpacing: 1.2)),
+                            const SizedBox(height: 4),
                             Text(title,
                                 style: const TextStyle(
-                                    color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: -1.2)),
+                                    color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0)),
                           ],
                         ),
                       ),
@@ -1057,7 +1078,7 @@ class _StudentHomeTab extends ConsumerWidget {
           'Submit your weekly report',
           Icons.edit_note_rounded,
           Colors.blue,
-          () => ref.read(dashboardIndexProvider).value = 1, // Plans tab
+          () => ref.read(dashboardIndexProvider.notifier).state = 1, // Plans tab
         ),
         const SizedBox(height: 12),
         _buildActionRow(
@@ -1066,7 +1087,7 @@ class _StudentHomeTab extends ConsumerWidget {
           'View company details',
           Icons.business_rounded,
           Colors.green,
-          () => ref.read(dashboardIndexProvider).value = 2, // Jobs tab
+          () => ref.read(dashboardIndexProvider.notifier).state = 2, // Jobs tab
         ),
       ],
     );
@@ -1729,9 +1750,9 @@ class _StudentProfileTab extends ConsumerWidget {
                     const SizedBox(height: 16),
                     _buildProfileInfoCard(theme, isDark, 'Final Reports & Evaluations', [
                       _ProfileInfoRow(Icons.description_rounded, 'Final Report', 'Not Uploaded', 
-                        actionLabel: 'Upload', onAction: () {}),
+                        actionLabel: 'View', onAction: () => context.push(AppRoutes.reports)),
                       _ProfileInfoRow(Icons.assignment_turned_in_rounded, 'Final Evaluation', 'Pending', 
-                        actionLabel: 'View', onAction: () {}),
+                        actionLabel: 'View', onAction: () => context.push(AppRoutes.evaluations)),
                     ]),
                     const SizedBox(height: 16),
                     _buildProfileInfoCard(theme, isDark, 'Account Settings', [

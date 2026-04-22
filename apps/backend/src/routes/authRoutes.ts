@@ -12,6 +12,9 @@ import {
 import { authenticate } from '../middlewares/authMiddleware';
 import { uploadVerificationDocument } from '../config/multer.config';
 
+import { validate } from '../middlewares/validationMiddleware';
+import { registerSchema, loginSchema } from '../validations/authValidation';
+
 const router = Router();
 
 // ============================================
@@ -19,10 +22,10 @@ const router = Router();
 // ============================================
 
 // Registration with file upload
-router.post('/register', uploadVerificationDocument, register);
+router.post('/register', uploadVerificationDocument, validate(registerSchema), register);
 
 // Login
-router.post('/login', login);
+router.post('/login', validate(loginSchema), login);
 
 // Email Verification
 router.post('/verify-email', verifyEmail);

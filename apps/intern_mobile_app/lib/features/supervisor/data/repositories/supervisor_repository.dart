@@ -14,12 +14,19 @@ class SupervisorRepository {
 
   Future<SupervisorStats> getStats() async {
     final res = await _api.dio.get('/supervisor/me');
+    final data = res.data;
+    if (data is Map && data.containsKey('data')) {
+      final innerData = data['data'];
+      return SupervisorStats.fromJson(innerData['stats'] ?? {});
+    }
     return SupervisorStats.fromJson(res.data['stats'] ?? {});
   }
 
   Future<List<SupervisorStudent>> getStudents() async {
     final res = await _api.dio.get('/supervisor/students');
-    final list = res.data as List;
+    final data = res.data;
+    final List list = (data is Map && data.containsKey('data')) ? data['data'] : (data as List);
+
     return list.map((item) {
       final s = item['student'];
       final a = item['assignment'];
@@ -38,7 +45,9 @@ class SupervisorRepository {
 
   Future<List<InternshipProposal>> getProposals() async {
     final res = await _api.dio.get('/placements/incoming');
-    final list = res.data as List;
+    final data = res.data;
+    final List list = (data is Map && data.containsKey('data')) ? data['data'] : (data as List);
+
     return list.map((item) => InternshipProposal(
       id: item['id'],
       studentId: item['studentId'],
@@ -61,7 +70,9 @@ class SupervisorRepository {
 
   Future<List<WeeklyPlan>> getPendingPlans() async {
     final res = await _api.dio.get('/supervisor/weekly-plans', queryParameters: {'status': 'PENDING'});
-    final list = res.data as List;
+    final data = res.data;
+    final List list = (data is Map && data.containsKey('data')) ? data['data'] : (data as List);
+
     return list.map((e) => PlansDtos.weeklyPlanFromApi(Map<String, dynamic>.from(e))).toList();
   }
 
@@ -88,7 +99,10 @@ class SupervisorRepository {
 
   Future<List<SupervisorTeam>> getTeams() async {
     final res = await _api.dio.get('/supervisor/teams');
-    final list = res.data['active'] as List;
+    final data = res.data;
+    final Map<String, dynamic> body = (data is Map && data.containsKey('data')) ? data['data'] : data;
+    final list = body['active'] as List;
+
     return list.map((t) => SupervisorTeam(
       id: t['id'],
       name: t['name'],

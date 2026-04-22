@@ -7,7 +7,7 @@ import '../providers/plans_providers.dart';
 import '../widgets/plan_card.dart';
 import 'plan_detail_screen.dart';
 import 'plan_editor_screen.dart';
-import '../../../dashboard/presentation/screens/dashboards.dart';
+import 'package:intern_mobile_app/features/dashboard/presentation/screens/dashboards.dart';
 
 class PlansScreen extends ConsumerStatefulWidget {
   const PlansScreen({super.key});

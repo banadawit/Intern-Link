@@ -3,6 +3,7 @@ import { setupUniversity, getPendingUniversities, updateUniversityStatus } from 
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
 import prisma from '../config/db';
+import { sendSuccess, sendError } from '../utils/responseHelper';
 
 const router = Router();
 
@@ -18,13 +19,13 @@ router.get('/approved', async (_req, res) => {
             },
             orderBy: { name: 'asc' },
         });
-        res.json(universities.map((u) => ({
+        return sendSuccess(res, universities.map((u) => ({
             id: u.id,
             name: u.name,
             hasCoordinator: u.coordinators.length > 0,
-        })));
+        })), "Universities fetched");
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 });
 
@@ -32,7 +33,7 @@ router.get('/approved', async (_req, res) => {
 router.get('/:universityId/departments', async (req, res) => {
     try {
         const universityId = parseInt(req.params.universityId, 10);
-        if (isNaN(universityId)) return res.status(400).json({ error: 'Invalid university id' });
+        if (isNaN(universityId)) return sendError(res, 'Invalid university id', 400);
 
         const hods = await prisma.hodProfile.findMany({
             where: {
@@ -42,9 +43,9 @@ router.get('/:universityId/departments', async (req, res) => {
             select: { id: true, department: true },
             orderBy: { department: 'asc' },
         });
-        res.json(hods); // [{ id, department }]
+        return sendSuccess(res, hods, "Departments fetched"); // [{ id, department }]
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 });
 

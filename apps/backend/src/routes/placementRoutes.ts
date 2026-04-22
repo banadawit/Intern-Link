@@ -6,8 +6,8 @@ import { Role } from '@prisma/client';
 const router = Router();
 router.use(authenticate);
 
-// Coordinators initiate
-router.post('/proposals', authorize([Role.COORDINATOR]), placementCtrl.sendPlacementProposal);
+// Coordinators or HoDs initiate
+router.post('/proposals', authorize([Role.COORDINATOR, Role.HOD]), placementCtrl.sendPlacementProposal);
 
 // Student: own proposals
 router.get('/my-proposals', authorize([Role.STUDENT]), placementCtrl.getMyProposals);

@@ -19,5 +19,7 @@ abstract final class AppRoutes {
   static const String aiAssistant = '/ai-assistant';
   static const String helpSupport = '/help-support';
   static const String accountSettings = '/account-settings';
+  static const String reports = '/reports';
+  static const String evaluations = '/evaluations';
 }
 
