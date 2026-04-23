@@ -340,6 +340,9 @@ class ModernSliverAppBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SliverAppBar(
       automaticallyImplyLeading: false,
       leading: Builder(
@@ -376,7 +379,7 @@ class ModernSliverAppBar extends ConsumerWidget {
       pinned: true,
       stretch: true,
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: gradient.first,
       actions: [
         if (actions != null) ...actions!,
         ModernHeaderIcon(
@@ -398,11 +401,15 @@ class ModernSliverAppBar extends ConsumerWidget {
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
           final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
-          final deltaExtent = settings!.maxExtent - settings.minExtent;
+          if (settings == null) return const SizedBox.shrink();
+
+          final deltaExtent = settings.maxExtent - settings.minExtent;
           final t = (1.0 - (settings.currentExtent - settings.minExtent) / deltaExtent).clamp(0.0, 1.0);
-          final fadeOpacity = (1.0 - t * 1.5).clamp(0.0, 1.0); // Fades out faster than it shrinks
+          final fadeOpacity = (1.0 - t * 1.5).clamp(0.0, 1.0);
 
           return FlexibleSpaceBar(
+            title: t > 0.5 ? Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)) : null,
+            centerTitle: true,
             stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
             background: Container(
               decoration: BoxDecoration(
@@ -423,7 +430,6 @@ class ModernSliverAppBar extends ConsumerWidget {
                       child: Icon(backgroundIcon, size: 240, color: Colors.white.withOpacity(0.15)),
                     ),
                   ),
-                   const SizedBox.shrink(),
                   Positioned(
                     bottom: 28,
                     left: 28,
@@ -431,7 +437,7 @@ class ModernSliverAppBar extends ConsumerWidget {
                     child: Opacity(
                       opacity: fadeOpacity,
                       child: Transform.translate(
-                        offset: Offset(0, 20 * t), // Subtle slide up as it fades
+                        offset: Offset(0, 20 * t),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
