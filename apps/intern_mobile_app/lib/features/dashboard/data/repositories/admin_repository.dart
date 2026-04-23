@@ -113,6 +113,15 @@ class AdminRepository {
   Future<void> rejectSupervisor(int userId) async {
     await apiClient.dio.post('/admin/supervisors/$userId/reject');
   }
+  Future<List<dynamic>> getAllUniversities({String? status}) async {
+    final response = await apiClient.dio.get('/admin/universities', queryParameters: status != null ? {'status': status} : null);
+    return (response.data as List?) ?? [];
+  }
+
+  Future<List<dynamic>> getAllCompanies({String? status}) async {
+    final response = await apiClient.dio.get('/admin/companies', queryParameters: status != null ? {'status': status} : null);
+    return (response.data as List?) ?? [];
+  }
 }
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
@@ -145,4 +154,20 @@ final allUsersProvider = FutureProvider<List<dynamic>>((ref) {
 
 final auditLogsProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getAuditLogs();
+});
+
+final allUniversitiesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getAllUniversities();
+});
+
+final allCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getAllCompanies();
+});
+
+final verifiedUniversitiesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getAllUniversities(status: 'APPROVED');
+});
+
+final verifiedCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getAllCompanies(status: 'APPROVED');
 });
