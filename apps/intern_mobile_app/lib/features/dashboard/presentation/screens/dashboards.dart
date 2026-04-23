@@ -848,11 +848,11 @@ class _StudentHomeTab extends ConsumerWidget {
         latestFeedbackValue: '—',
       ),
       data: (plans) {
-        final totalCheckins = plans.fold<int>(0, (sum, p) => sum + p.daySubmissions.length);
+        final totalCheckins = plans.fold<int>(0, (sum, p) => sum + p.checkins.length);
         final submitted = plans.length;
-        final approved = plans.where((p) => p.status.toUpperCase() == 'APPROVED').length;
+        final approved = plans.where((p) => p.status.name.toUpperCase() == 'APPROVED').length;
         final latestFeedbackPlan = plans.where((p) => (p.feedback ?? '').trim().isNotEmpty).toList()
-          ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
         final latestFeedbackValue = latestFeedbackPlan.isEmpty
             ? 'None'
@@ -933,16 +933,14 @@ class _StudentHomeTab extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (err, _) => const SizedBox.shrink(),
       data: (plans) {
-        // Simple map of date strings to "intensity" (check-in counts)
         final activityMap = <String, int>{};
         for (var p in plans) {
-          for (var d in p.daySubmissions) {
-            final key = '${d.workDate.year}-${d.workDate.month}-${d.workDate.day}';
+          for (var d in p.checkins) {
+            final key = '${d.date.year}-${d.date.month}-${d.date.day}';
             activityMap[key] = (activityMap[key] ?? 0) + 1;
           }
         }
 
-        // Generate last 14 weeks of days (simplified heatmap)
         final now = DateTime.now();
         final days = List.generate(70, (i) => now.subtract(Duration(days: 69 - i)));
 
@@ -1085,11 +1083,11 @@ class _StudentHomeTab extends ConsumerWidget {
     String? proposalLine;
 
     if (plans.isNotEmpty) {
-      final latestPlan = (List<WeeklyPlan>.from(plans)..sort((a, b) => b.submittedAt.compareTo(a.submittedAt))).first;
-      planStatusLine = 'Plan week ${latestPlan.weekNumber}: ${latestPlan.status}';
+      final latestPlan = (List<WeeklyPlan>.from(plans)..sort((a, b) => b.createdAt.compareTo(a.createdAt))).first;
+      planStatusLine = 'Plan week ${latestPlan.weekNumber}: ${latestPlan.status.name}';
 
       final feedbackPlans = plans.where((p) => (p.feedback ?? '').trim().isNotEmpty).toList()
-        ..sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       if (feedbackPlans.isNotEmpty) {
         feedbackLine = 'New feedback on week ${feedbackPlans.first.weekNumber}';
       }
@@ -1307,7 +1305,6 @@ class _StudentPlansTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Delegate to production-ready Plans module.
     return const PlansScreen();
   }
 
@@ -1400,7 +1397,7 @@ class _StudentPlansTab extends ConsumerWidget {
   }
 
   Widget _buildPlanCard(BuildContext context, WeeklyPlan plan, bool isDark, ThemeData theme, WidgetRef ref) {
-    final statusStr = plan.status.toUpperCase();
+    final statusStr = plan.status.name.toUpperCase();
     final statusColor = statusStr == 'APPROVED' ? const Color(0xFF067647) : (statusStr == 'REJECTED' ? const Color(0xFFB42318) : const Color(0xFFB54708));
     final statusIcon = statusStr == 'APPROVED' ? Icons.check_circle_rounded : (statusStr == 'REJECTED' ? Icons.cancel_rounded : Icons.pending_rounded);
 
@@ -1437,47 +1434,30 @@ class _StudentPlansTab extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Text(plan.planDescription, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5, color: theme.colorScheme.onSurface.withOpacity(0.7)), maxLines: 3, overflow: TextOverflow.ellipsis),
-          if ((plan.presentationFileUrl ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1)),
+          Text(plan.objectives, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5, color: theme.colorScheme.onSurface.withOpacity(0.7)), maxLines: 3, overflow: TextOverflow.ellipsis),
+          if (plan.files.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            InkWell(
+              onTap: () => showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Presentation file'),
+                  content: SelectableText(plan.files.first.fileUrl),
+                  actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+                ),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.upload_file_rounded, size: 20, color: theme.colorScheme.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Presentation uploaded', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-                        const SizedBox(height: 4),
-                        Text(
-                          plan.presentationFileUrl!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Presentation file'),
-                        content: SelectableText(plan.presentationFileUrl!),
-                        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-                      ),
-                    ),
-                    child: const Text('View'),
-                  ),
-                ],
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1))),
+                child: Row(
+                  children: [
+                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.picture_as_pdf_rounded, color: theme.colorScheme.primary, size: 16)),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text('Presentation File', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 13))),
+                    Icon(Icons.open_in_new_rounded, color: theme.colorScheme.primary, size: 16),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1505,18 +1485,28 @@ class _StudentPlansTab extends ConsumerWidget {
               ),
             ),
           ],
-          if (plan.daySubmissions.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text('Daily Check-ins', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface.withOpacity(0.4), letterSpacing: 1.2)),
+          if (plan.checkins.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Icon(Icons.calendar_today_rounded, size: 14, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('DAILY LOGS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: theme.colorScheme.primary, letterSpacing: 1.2)),
+              ],
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: plan.daySubmissions.map((d) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(8), border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1))),
-                child: Text('${d.workDate.day}/${d.workDate.month}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+              children: plan.checkins.map((d) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03), borderRadius: BorderRadius.circular(10)),
+                child: Text('${d.date.day}/${d.date.month}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               )).toList(),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Text('${plan.checkins.length} Logged Days', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.w600)),
             ),
           ],
           const SizedBox(height: 20),
@@ -1524,7 +1514,7 @@ class _StudentPlansTab extends ConsumerWidget {
             children: [
               Icon(Icons.event_available_rounded, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.4)),
               const SizedBox(width: 6),
-              Text('${plan.daySubmissions.length} Logged Days', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.w600)),
+              Text('${plan.checkins.length} Logged Days', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.w600)),
               const Spacer(),
               if (statusStr == 'APPROVED')
                 TextButton.icon(
@@ -5515,6 +5505,10 @@ final supervisorTeamsProvider = FutureProvider<List<SupervisorTeam>>((ref) {
 
 final supervisorMeProvider = FutureProvider<SupervisorMe>((ref) async {
   return ref.watch(supervisorRepositoryProvider).getMe();
+});
+
+final supervisorStudentsProvider = FutureProvider<List<SupervisorStudent>>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getStudents();
 });
 
 class _LineChartPainter extends CustomPainter {
