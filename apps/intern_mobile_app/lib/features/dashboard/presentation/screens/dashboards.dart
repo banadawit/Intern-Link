@@ -9,9 +9,8 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/session_service.dart';
 
 import '../../data/repositories/student_repository.dart';
-import '../../data/repositories/progress_repository.dart' hide WeeklyPlan;
+import '../../data/repositories/progress_repository.dart';
 import '../../data/repositories/placement_repository.dart';
-import '../../data/repositories/coordinator_repository.dart';
 import '../../data/repositories/admin_repository.dart';
 
 import '../../../supervisor/data/repositories/supervisor_repository.dart';
@@ -354,9 +353,6 @@ class ModernSliverAppBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return SliverAppBar(
       automaticallyImplyLeading: false,
       leading: Builder(
@@ -412,70 +408,114 @@ class ModernSliverAppBar extends ConsumerWidget {
         ),
         const SizedBox(width: 16),
       ],
-      flexibleSpace: LayoutBuilder(
-        builder: (context, constraints) {
-          final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
-          if (settings == null) return const SizedBox.shrink();
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white),
+      ),
+      centerTitle: false,
+      flexibleSpace: FlexibleSpaceBar(
 
-          final deltaExtent = settings.maxExtent - settings.minExtent;
-          final t = (1.0 - (settings.currentExtent - settings.minExtent) / deltaExtent).clamp(0.0, 1.0);
-          final fadeOpacity = (1.0 - t * 1.5).clamp(0.0, 1.0);
-
-          return FlexibleSpaceBar(
-            title: t > 0.5 ? Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)) : null,
-            centerTitle: true,
-            stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
-            background: Container(
+        stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Mesh Gradient Background
+            Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
+                  colors: gradient,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: gradient,
                 ),
               ),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Positioned(
-                    right: -50,
-                    bottom: -50,
-                    child: Opacity(
-                      opacity: fadeOpacity,
-                      child: Icon(backgroundIcon, size: 240, color: Colors.white.withOpacity(0.15)),
+            ),
+            // Floating Geometric Shapes (Custom Painter)
+            CustomPaint(painter: _MeshPainter(color: Colors.white.withOpacity(0.1))),
+            // Subsurface Blur
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            // Background Icon with extreme scale
+            Positioned(
+              right: -30,
+              bottom: -20,
+              child: Opacity(
+                opacity: 0.15,
+                child: Icon(backgroundIcon, size: 240, color: Colors.white),
+              ),
+            ),
+            // Content
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      ),
+                        child: Text(
+                          subtitle.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
+
                     ),
-                  ),
-                  Positioned(
-                    bottom: 28,
-                    left: 28,
-                    right: 28,
-                    child: Opacity(
-                      opacity: fadeOpacity,
-                      child: Transform.translate(
-                        offset: Offset(0, 20 * t),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(subtitle,
-                                style: TextStyle(
-                                    color: Colors.white.withOpacity(0.9),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.2)),
-                            const SizedBox(height: 4),
-                            Text(title,
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0)),
-                          ],
+                    const SizedBox(height: 12),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 42,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.5,
+                          height: 1,
                         ),
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          'Welcome back, ',
+                          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16),
+                        ),
+                        Text(
+                          profileName.split(' ')[0],
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -532,6 +572,34 @@ class ModernSliverAppBar extends ConsumerWidget {
     );
   }
 }
+
+class _MeshPainter extends CustomPainter {
+  final Color color;
+  _MeshPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final path = Path();
+    for (var i = 0; i < size.width; i += 40) {
+      path.moveTo(i.toDouble(), 0);
+      path.quadraticBezierTo(i + 20, size.height / 2, i.toDouble(), size.height);
+    }
+    for (var i = 0; i < size.height; i += 40) {
+      path.moveTo(0, i.toDouble());
+      path.quadraticBezierTo(size.width / 2, i + 20, size.width, i.toDouble());
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 
 class ModernHeaderIcon extends StatelessWidget {
   final IconData icon;
@@ -740,52 +808,178 @@ class _StudentHomeTab extends ConsumerWidget {
         child: profileAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
-          data: (profile) => CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              ModernSliverAppBar(
-                title: 'Welcome,',
-                subtitle: profile.fullName,
-                profileName: profile.fullName,
-                gradient: [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
-                backgroundIcon: Icons.rocket_launch_rounded,
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildInternshipStatusHeader(context, profile),
-                    const SizedBox(height: 20),
-                    _buildKeyCards(context, isDark, plansAsync),
-                    const SizedBox(height: 32),
-
-                    _buildSectionHeader(theme, 'Learning & Growth'),
-                    const SizedBox(height: 16),
-                    _buildPlatformAnalytics(context, isDark, 
-                      growthTitle: 'Skills Progress', growthTrend: '+15% this week',
-                      placementTitle: 'Tasks Completed', placementSub: '128 total',
-                      successTitle: 'Quiz Score', successRate: 0.92,
-                      submissionTitle: 'Attendance', submissionSub: '98% accuracy'
-                    ),
-                    const SizedBox(height: 32),
-
-                    _buildActivityHeatmap(context, isDark, plansAsync),
-                    const SizedBox(height: 24),
-                    _buildActiveInternshipInfo(context, isDark, profile),
-                    const SizedBox(height: 20),
-                    _buildRecentActivity(context, isDark, plansAsync, proposalsAsync),
-                    const SizedBox(height: 20),
-                    _buildCommonFeedPreview(context, isDark),
-                    const SizedBox(height: 24),
-                    _buildQuickActions(context, ref, theme, isDark),
-                    const SizedBox(height: 120),
-                  ]),
+          data: (profile) => Stack(
+            children: [
+              // Mesh Background for the whole tab
+              if (isDark)
+                CustomPaint(
+                  size: Size.infinite,
+                  painter: _MeshPainter(color: theme.colorScheme.primary.withOpacity(0.03)),
                 ),
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  ModernSliverAppBar(
+                    title: 'Welcome,',
+                    subtitle: profile.fullName.split(' ')[0],
+                    profileName: profile.fullName,
+                    gradient: [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
+                    backgroundIcon: Icons.rocket_launch_rounded,
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(24),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        _buildInternshipStatusHeader(context, profile),
+                        const SizedBox(height: 20),
+                        _buildKeyCards(context, isDark, plansAsync),
+                        const SizedBox(height: 32),
+
+                        _buildSectionHeader(theme, 'Learning & Growth'),
+                        const SizedBox(height: 16),
+                        _buildPlatformAnalytics(context, isDark, 
+                          growthTitle: 'Skills Progress', growthTrend: '+15% this week',
+                          placementTitle: 'Tasks Completed', placementSub: '128 total',
+                          successTitle: 'Quiz Score', successRate: 0.92,
+                          submissionTitle: 'Attendance', submissionSub: '98% accuracy'
+                        ),
+                        const SizedBox(height: 32),
+
+                        _buildAttendanceCheckin(context, isDark, plansAsync, ref),
+                        const SizedBox(height: 24),
+                        _buildActivityHeatmap(context, isDark, plansAsync),
+                        const SizedBox(height: 24),
+                        _buildActiveInternshipInfo(context, isDark, profile),
+                        const SizedBox(height: 20),
+                        _buildRecentActivity(context, isDark, plansAsync, proposalsAsync),
+                        const SizedBox(height: 20),
+                        _buildCommonFeedPreview(context, isDark),
+                        const SizedBox(height: 24),
+                        _buildQuickActions(context, ref, theme, isDark),
+                        const SizedBox(height: 120),
+                      ]),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+
+
+
+  Widget _buildAttendanceCheckin(BuildContext context, bool isDark, AsyncValue<List<WeeklyPlan>> plansAsync, WidgetRef ref) {
+    
+    return plansAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (plans) {
+        // Find if today is already checked in
+        final today = DateTime.now();
+        final todayKey = '${today.year}-${today.month}-${today.day}';
+        bool alreadyCheckedIn = false;
+        WeeklyPlan? currentPlan;
+
+        // Simple heuristic: latest plan is current
+        if (plans.isNotEmpty) {
+          currentPlan = plans.reduce((a, b) => a.weekNumber > b.weekNumber ? a : b);
+          alreadyCheckedIn = currentPlan.checkins.any((c) => 
+            '${c.date.year}-${c.date.month}-${c.date.day}' == todayKey);
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: alreadyCheckedIn 
+              ? LinearGradient(colors: [Colors.green.shade400, Colors.green.shade600])
+              : const LinearGradient(colors: [Color(0xFF6a11cb), Color(0xFF2575fc)]),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: (alreadyCheckedIn ? Colors.green : Colors.blue).withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      alreadyCheckedIn ? Icons.check_circle_rounded : Icons.location_on_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          alreadyCheckedIn ? 'Checked In Today' : 'Daily Attendance',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                        ),
+                        Text(
+                          alreadyCheckedIn 
+                            ? 'Great job! See you tomorrow.'
+                            : 'Don\'t forget to log your attendance.',
+                          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (!alreadyCheckedIn) ...[
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: currentPlan == null ? null : () async {
+                      try {
+                        await ref.read(progressRepositoryProvider).submitPlanDay(
+                          currentPlan!.id, 
+                          today.toIso8601String().split('T')[0],
+                        );
+                        ref.invalidate(myWeeklyPlansProvider);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Check-in successful!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF2575fc),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('CHECK IN NOW', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -886,7 +1080,7 @@ class _StudentHomeTab extends ConsumerWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      childAspectRatio: 1.2,
+      childAspectRatio: 1.1,
       children: [
         _buildStatCard(context, 'Check-ins', attendanceOrCheckinsValue, Icons.calendar_today_rounded, Colors.blue),
         _buildStatCard(context, 'Plans Progress', weeklyPlansProgressValue, Icons.assignment_turned_in_rounded, Colors.orange),
@@ -897,35 +1091,56 @@ class _StudentHomeTab extends ConsumerWidget {
   }
 
   Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-            boxShadow: [
-              if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color, size: 24),
-              const Spacer(),
-              Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-              Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
-            ],
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.03) : Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(icon, color: color, size: 18),
+                ),
+                const Spacer(),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                ),
+                Text(
+                  label, 
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
+
+
 
   Widget _buildActivityHeatmap(BuildContext context, bool isDark, AsyncValue<List<WeeklyPlan>> plansAsync) {
     final theme = Theme.of(context);
@@ -945,30 +1160,30 @@ class _StudentHomeTab extends ConsumerWidget {
         final days = List.generate(70, (i) => now.subtract(Duration(days: 69 - i)));
 
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+            color: isDark ? const Color(0xFF1E293B).withOpacity(0.5) : Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Text('Activity Tracking', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
+                  const Text('ACTIVITY HEATMAP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
                   const Spacer(),
-                  Icon(Icons.insights_rounded, size: 16, color: theme.colorScheme.primary.withOpacity(0.5)),
+                  Icon(Icons.bolt_rounded, size: 16, color: theme.colorScheme.primary),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 14,
-                  mainAxisSpacing: 4,
-                  crossAxisSpacing: 4,
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 6,
                 ),
                 itemCount: 70,
                 itemBuilder: (context, index) {
@@ -976,39 +1191,18 @@ class _StudentHomeTab extends ConsumerWidget {
                   final key = '${day.year}-${day.month}-${day.day}';
                   final count = activityMap[key] ?? 0;
                   
-                  Color color = isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05);
+                  Color color = isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03);
                   if (count > 0) {
-                    color = const Color(0xFF4facfe).withOpacity(0.4 + (count * 0.2).clamp(0.0, 0.6));
+                    color = theme.colorScheme.primary.withOpacity(0.3 + (count * 0.2).clamp(0.0, 0.7));
                   }
 
-                  return Tooltip(
-                    message: '${day.day}/${day.month}: $count check-ins',
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   );
                 },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text('Less', style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.4))),
-                  const SizedBox(width: 4),
-                  ...List.generate(4, (i) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 1),
-                    width: 8, height: 8,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4facfe).withOpacity(0.2 + (i * 0.2)),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  )),
-                  const SizedBox(width: 4),
-                  Text('More', style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.4))),
-                ],
               ),
             ],
           ),
@@ -1016,6 +1210,7 @@ class _StudentHomeTab extends ConsumerWidget {
       }
     );
   }
+
 
   Widget _buildActiveInternshipInfo(BuildContext context, bool isDark, StudentProfile profile) {
     final theme = Theme.of(context);
@@ -1308,230 +1503,7 @@ class _StudentPlansTab extends ConsumerWidget {
     return const PlansScreen();
   }
 
-  void _showSubmitPlanDialog(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final descController = TextEditingController();
-    int weekNum = 1;
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        title: const Text('Submit Weekly Plan', style: TextStyle(fontWeight: FontWeight.w900)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<int>(
-              value: weekNum,
-              decoration: const InputDecoration(labelText: 'Week Number'),
-              items: List.generate(12, (i) => i + 1).map((i) => DropdownMenuItem(value: i, child: Text('Week $i'))).toList(),
-              onChanged: (v) => weekNum = v ?? weekNum,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Plan Description',
-                hintText: 'What do you intend to achieve this week?',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () async {
-              if (descController.text.isEmpty) return;
-              try {
-                await ref.read(progressRepositoryProvider).submitWeeklyPlan(weekNum, descController.text);
-                if (context.mounted) {
-                  Navigator.pop(ctx);
-                  ref.invalidate(myWeeklyPlansProvider);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Plan submitted successfully!')));
-                }
-              } catch (e) {
-                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-              }
-            },
-            child: const Text('Submit'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDaySubmissionDialog(BuildContext context, WidgetRef ref, int planId) async {
-    final theme = Theme.of(context);
-    DateTime selectedDate = DateTime.now();
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-      builder: (context, child) => Theme(
-        data: theme.copyWith(
-          colorScheme: theme.colorScheme.copyWith(
-            primary: theme.colorScheme.primary,
-            onPrimary: Colors.white,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-
-    if (picked != null) {
-      try {
-        final dateStr = picked.toIso8601String().split('T')[0];
-        await ref.read(progressRepositoryProvider).submitPlanDay(planId, dateStr);
-        if (context.mounted) {
-          ref.invalidate(myWeeklyPlansProvider);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Logged check-in for $dateStr')));
-        }
-      } catch (e) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
-  Widget _buildPlanCard(BuildContext context, WeeklyPlan plan, bool isDark, ThemeData theme, WidgetRef ref) {
-    final statusStr = plan.status.name.toUpperCase();
-    final statusColor = statusStr == 'APPROVED' ? const Color(0xFF067647) : (statusStr == 'REJECTED' ? const Color(0xFFB42318) : const Color(0xFFB54708));
-    final statusIcon = statusStr == 'APPROVED' ? Icons.check_circle_rounded : (statusStr == 'REJECTED' ? Icons.cancel_rounded : Icons.pending_rounded);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-        boxShadow: [
-          if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, color: statusColor, size: 14),
-                    const SizedBox(width: 6),
-                    Text(statusStr, style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 10)),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              Text('Week ${plan.weekNumber}', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900, color: theme.colorScheme.primary)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(plan.objectives, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5, color: theme.colorScheme.onSurface.withOpacity(0.7)), maxLines: 3, overflow: TextOverflow.ellipsis),
-          if (plan.files.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            InkWell(
-              onTap: () => showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Presentation file'),
-                  content: SelectableText(plan.files.first.fileUrl),
-                  actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-                ),
-              ),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.primary.withOpacity(0.1))),
-                child: Row(
-                  children: [
-                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.picture_as_pdf_rounded, color: theme.colorScheme.primary, size: 16)),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text('Presentation File', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 13))),
-                    Icon(Icons.open_in_new_rounded, color: theme.colorScheme.primary, size: 16),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          if (plan.feedback != null && plan.feedback!.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1))),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.forum_rounded, size: 20, color: theme.colorScheme.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Feedback', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-                        const SizedBox(height: 4),
-                        Text(plan.feedback!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic, color: theme.colorScheme.onSurface.withOpacity(0.8))),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (plan.checkins.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Icon(Icons.calendar_today_rounded, size: 14, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text('DAILY LOGS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: theme.colorScheme.primary, letterSpacing: 1.2)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: plan.checkins.map((d) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03), borderRadius: BorderRadius.circular(10)),
-                child: Text('${d.date.day}/${d.date.month}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              )).toList(),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: Text('${plan.checkins.length} Logged Days', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.w600)),
-            ),
-          ],
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Icon(Icons.event_available_rounded, size: 16, color: theme.colorScheme.onSurface.withOpacity(0.4)),
-              const SizedBox(width: 6),
-              Text('${plan.checkins.length} Logged Days', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.w600)),
-              const Spacer(),
-              if (statusStr == 'APPROVED')
-                TextButton.icon(
-                  onPressed: () => _showDaySubmissionDialog(context, ref, plan.id),
-                  icon: const Icon(Icons.add_task_rounded, size: 16),
-                  label: const Text('Log Today', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  style: TextButton.styleFrom(
-                    foregroundColor: theme.colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StudentJobsTab extends ConsumerStatefulWidget {
@@ -1642,69 +1614,145 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
         : '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year}';
 
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Placed', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Icon(Icons.business_rounded, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(child: Text(company, style: const TextStyle(fontWeight: FontWeight.w800))),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.person_pin_rounded, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(child: Text(supervisor, style: const TextStyle(fontWeight: FontWeight.w800))),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.event_rounded, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(child: Text('Start: $startText', style: const TextStyle(fontWeight: FontWeight.w800))),
-            ],
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.15),
+            blurRadius: 40,
+            offset: const Offset(0, 20),
           ),
         ],
       ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(40),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(40),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('OFFICIAL STATUS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: Colors.grey)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                      child: const Text('ACTIVE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w900, fontSize: 10)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(company.toUpperCase(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1)),
+                ),
+
+                const SizedBox(height: 8),
+                Text('Senior Intern Program', style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 40),
+                _extremeInfoRow(Icons.person_pin_rounded, 'Supervisor', supervisor, theme),
+                const SizedBox(height: 24),
+                _extremeInfoRow(Icons.event_available_rounded, 'Started On', startText, theme),
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.stars_rounded, color: theme.colorScheme.primary),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text('You are performing in the top 10% of interns in this organization.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _extremeInfoRow(IconData icon, String label, String value, ThemeData theme) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+          child: Icon(icon, size: 20, color: theme.colorScheme.primary),
+        ),
+        const SizedBox(width: 20),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildRequestPlacementCard(BuildContext context, bool isDark, ThemeData theme) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      height: 320,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
+        borderRadius: BorderRadius.circular(40),
+        image: const DecorationImage(
+          image: NetworkImage('https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=1000'),
+          fit: BoxFit.cover,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Text('Not placed yet', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-          const SizedBox(height: 8),
-          Text(
-            'Request placement (Open Letter) and track its status here.',
-            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(40),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black.withOpacity(0.9)],
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => _showRequestPlacementBottomSheet(context),
-              icon: const Icon(Icons.edit_note_rounded),
-              label: const Text('Request placement'),
+          Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Text('ELEVATE YOUR CAREER', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 3)),
+                const SizedBox(height: 8),
+                const Text('Find Your\nPerfect Match', style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, height: 1)),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: FilledButton(
+                    onPressed: () => _showRequestPlacementBottomSheet(context),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                    child: const Text('EXPLORE OPPORTUNITIES', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1722,41 +1770,38 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
+        padding: EdgeInsets.fromLTRB(32, 32, 32, MediaQuery.of(ctx).viewInsets.bottom + 40),
         decoration: BoxDecoration(
           color: theme.scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(50)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 24),
-            const Text('Request Placement', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            const Text('Submit your preferred company and an open letter for consideration.', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 24),
-            TextField(
-              controller: companyController,
-              decoration: const InputDecoration(labelText: 'Company Name', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: letterController,
-              maxLines: 5,
-              decoration: const InputDecoration(labelText: 'Open Letter / Reason', border: OutlineInputBorder(), hintText: 'Why do you want to intern here?'),
-            ),
-            const SizedBox(height: 32),
+            Center(child: Container(width: 60, height: 6, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(10)))),
+            const SizedBox(height: 40),
+            const Text('NEW APPLICATION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.grey)),
+            const SizedBox(height: 12),
+            const Text('Where to next?', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
+            const SizedBox(height: 40),
+            _extremeTextField(companyController, 'Company Name', Icons.business_rounded, theme),
+            const SizedBox(height: 20),
+            _extremeTextField(letterController, 'Cover Letter', Icons.description_rounded, theme, maxLines: 5),
+            const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
-              height: 56,
+              height: 70,
               child: FilledButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Placement request submitted successfully!')));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Application Sent!')));
                 },
-                child: const Text('Submit Request'),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  backgroundColor: Colors.black,
+                ),
+                child: const Text('SUBMIT APPLICATION', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
               ),
             ),
           ],
@@ -1765,26 +1810,63 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
     );
   }
 
-  Widget _buildProposalCard(BuildContext context, PlacementProposal p, bool isDark, ThemeData theme) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _showProposalDetails(context, p),
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
-          child: Row(
-            children: [
-              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: theme.colorScheme.secondary.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.apartment_rounded, color: theme.colorScheme.secondary)),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p.companyName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), Text(p.status, style: TextStyle(color: theme.colorScheme.secondary, fontWeight: FontWeight.bold))])),
-            ],
-          ),
-        ),
+  Widget _extremeTextField(TextEditingController ctrl, String label, IconData icon, ThemeData theme, {int maxLines = 1}) {
+    return TextField(
+      controller: ctrl,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.15),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.all(24),
       ),
     );
   }
+
+  Widget _buildProposalCard(BuildContext context, PlacementProposal p, bool isDark, ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(Icons.apartment_rounded, color: Colors.white),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(p.companyName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                const SizedBox(height: 4),
+                Text(p.status.toUpperCase(), style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _showProposalDetails(context, p),
+            icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            style: IconButton.styleFrom(backgroundColor: theme.colorScheme.primary.withOpacity(0.1)),
+          ),
+        ],
+      ),
+    );
+  }
+
+
 
   void _showProposalDetails(BuildContext context, PlacementProposal p) {
     showModalBottomSheet(
@@ -1917,41 +1999,45 @@ class _StudentProfileTab extends ConsumerWidget {
 
   Widget _buildProfileInfoCard(ThemeData theme, bool isDark, String title, List<_ProfileInfoRow> rows) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.1)),
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
+        boxShadow: [
+          if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 30, offset: const Offset(0, 15)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-          const SizedBox(height: 20),
+          Text(title.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2, color: theme.colorScheme.primary)),
+          const SizedBox(height: 32),
           ...rows.map((row) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: 24),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                  child: Icon(row.icon, size: 18, color: theme.colorScheme.primary),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+                  child: Icon(row.icon, size: 20, color: theme.colorScheme.primary),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 20),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(row.label, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                      Text(row.value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(row.label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 2),
+                      Text(row.value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                     ],
                   ),
                 ),
                 if (row.onAction != null)
-                  TextButton(
+                  IconButton.filledTonal(
                     onPressed: row.onAction,
-                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                    child: Text(row.actionLabel ?? 'Edit', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                   ),
               ],
             ),
@@ -1961,27 +2047,50 @@ class _StudentProfileTab extends ConsumerWidget {
     );
   }
 
+
   void _showChangePasswordDialog(BuildContext context) {
-    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Change Password'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text('Security Update', style: TextStyle(fontWeight: FontWeight.w900)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const TextField(obscureText: true, decoration: InputDecoration(labelText: 'Current Password')),
-            const SizedBox(height: 12),
-            const TextField(obscureText: true, decoration: InputDecoration(labelText: 'New Password')),
+            const Text('Update your password to keep your account secure.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 24),
+            TextField(
+              obscureText: true, 
+              decoration: InputDecoration(
+                labelText: 'Current Password',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              obscureText: true, 
+              decoration: InputDecoration(
+                labelText: 'New Password',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Update')),
+          Padding(
+            padding: const EdgeInsets.only(right: 8, bottom: 8),
+            child: FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              child: const Text('UPDATE NOW'),
+            ),
+          ),
         ],
       ),
     );
   }
+
 }
 
 class _ProfileInfoRow {
@@ -2687,7 +2796,6 @@ class _SupervisorTrackingTabContent extends ConsumerWidget {
   }
 
   Widget _buildReportTrackingCard(BuildContext context, SupervisorAttendanceReport r, bool isDark) {
-    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -4884,7 +4992,6 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
   }
 
   Widget _buildTimelineItem(BuildContext context, dynamic log, bool isDark, {bool isFirst = false, bool isLast = false}) {
-    final theme = Theme.of(context);
     final actionColor = _getActionColor(log['action'].toString());
     
     return IntrinsicHeight(
@@ -5034,7 +5141,6 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
   bool _regComp = true;
   bool _maintenance = false;
   String _maintenanceMessage = '';
-  String _broadcastTarget = 'All Users';
   
   final _broadcastTitleCtrl = TextEditingController();
   final _broadcastContentCtrl = TextEditingController();

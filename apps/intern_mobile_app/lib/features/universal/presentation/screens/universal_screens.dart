@@ -105,103 +105,207 @@ class ChatScreen extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
+      extendBodyBehindAppBar: true,
+      backgroundColor: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      body: Stack(
+        children: [
+          // Background Elements
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF0EA5E9).withOpacity(0.15),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF6366F1).withOpacity(0.15),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Content
+          Column(
+            children: [
+              _buildChatHeader(context, isDark),
+              _buildSearchBar(context, isDark),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    _conversationItem(context, 'Abebe Bikila', 'Can you review my proposal?', '10:45 AM', 2, true, isDark),
+                    _conversationItem(context, 'Dr. Sarah Smith', 'Your internship has been approved.', 'Yesterday', 0, false, isDark),
+                    _conversationItem(context, 'Hana Worku', 'Meet you at the workshop.', 'Wed', 0, true, isDark),
+                    _conversationItem(context, 'Coordinator (Admin)', 'Please update your contact info.', '24 May', 1, false, isDark),
+                    _conversationItem(context, 'Supervisor Support', 'Evaluation results are ready.', '12 May', 0, false, isDark),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-        child: Column(
-          children: [
-            _buildChatHeader(context),
-            _buildSearchBar(context),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _conversationItem(context, 'Abebe Bikila', 'Can you review my proposal?', '10:45 AM', 2, true),
-                  _conversationItem(context, 'Dr. Sarah Smith', 'Your internship has been approved.', 'Yesterday', 0, false),
-                  _conversationItem(context, 'Hana Worku', 'Meet you at the workshop.', 'Wed', 0, true),
-                  _conversationItem(context, 'Coordinator (Admin)', 'Please update your contact info.', '24 May', 1, false),
-                  _conversationItem(context, 'Supervisor Support', 'Evaluation results are ready.', '12 May', 0, false),
-                ],
-              ),
+        ],
+      ),
+      floatingActionButton: Container(
+        height: 64,
+        width: 64,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6366F1).withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: theme.colorScheme.primary,
-        child: const Icon(Icons.edit_rounded, color: Colors.white),
+        child: FloatingActionButton(
+          onPressed: () {},
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: const Icon(Icons.edit_rounded, color: Colors.white, size: 28),
+        ),
       ),
     );
   }
 
-  Widget _buildChatHeader(BuildContext context) {
+  Widget _buildChatHeader(BuildContext context, bool isDark) {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 24, 24, 8),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
         child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded),
-              onPressed: () => Navigator.of(context).pop(),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
+                ),
+                child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+              ),
             ),
-            const SizedBox(width: 8),
-            const Text('Messages', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
+            const SizedBox(width: 16),
+            const Text(
+              'Messages',
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.5),
+            ),
             const Spacer(),
-            CircleAvatar(backgroundColor: Colors.blue.withOpacity(0.1), child: const Icon(Icons.add_rounded, color: Colors.blue)),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF0EA5E9).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
+                ],
+              ),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSearchBar(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildSearchBar(BuildContext context, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        height: 56,
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
+          boxShadow: [
+            if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
         ),
-        child: const TextField(
-          decoration: InputDecoration(hintText: 'Search conversations...', border: InputBorder.none, prefixIcon: Icon(Icons.search_rounded, size: 20)),
+        child: TextField(
+          decoration: InputDecoration(
+            hintText: 'Search conversations...',
+            hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 15, fontWeight: FontWeight.w500),
+            border: InputBorder.none,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Icon(Icons.search_rounded, size: 22, color: isDark ? Colors.white54 : Colors.black45),
+            ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 40),
+            contentPadding: const EdgeInsets.symmetric(vertical: 18),
+          ),
         ),
       ),
     );
   }
 
-  Widget _conversationItem(BuildContext context, String name, String lastMsg, String time, int unread, bool isOnline) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
+  Widget _conversationItem(BuildContext context, String name, String lastMsg, String time, int unread, bool isOnline, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.02) : Colors.black.withOpacity(0.02)),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [
+          if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
       ),
       child: Row(
         children: [
           Stack(
             children: [
-              CircleAvatar(radius: 28, child: Text(name[0])),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: Text(
+                    name[0].toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
               if (isOnline)
-                Positioned(right: 0, bottom: 0, child: Container(width: 14, height: 14, decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)))),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: isDark ? const Color(0xFF1E293B) : Colors.white, width: 3),
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(width: 16),
@@ -209,13 +313,57 @@ class ChatScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text(time, style: const TextStyle(color: Colors.grey, fontSize: 12))]),
-                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: -0.3),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      time,
+                      style: TextStyle(
+                        color: unread > 0 ? const Color(0xFF0EA5E9) : (isDark ? Colors.white54 : Colors.black45),
+                        fontSize: 12,
+                        fontWeight: unread > 0 ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 Row(
                   children: [
-                    Expanded(child: Text(lastMsg, style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6), fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    if (unread > 0)
-                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(12)), child: Text(unread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
+                    Expanded(
+                      child: Text(
+                        lastMsg,
+                        style: TextStyle(
+                          color: unread > 0 ? (isDark ? Colors.white : Colors.black87) : (isDark ? Colors.white60 : Colors.black54),
+                          fontSize: 14,
+                          fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (unread > 0) ...[
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          unread.toString(),
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],

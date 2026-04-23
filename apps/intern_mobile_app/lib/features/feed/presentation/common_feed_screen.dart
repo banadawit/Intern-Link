@@ -15,9 +15,9 @@ class CommonFeedScreen extends ConsumerStatefulWidget {
 class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final _postController = TextEditingController();
   final _commentControllers = <int, TextEditingController>{};
   final _expandedComments = <int>{};
+
 
   static const _tabs = ['All Posts', 'Announcement', 'Opportunity', 'Experience', 'General'];
   static const _tabTypes = [null, 'ANNOUNCEMENT', 'OPPORTUNITY', 'EXPERIENCE', 'GENERAL_UPDATE'];
@@ -35,31 +35,198 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
   @override
   void dispose() {
     _tabController.dispose();
-    _postController.dispose();
     for (final c in _commentControllers.values) c.dispose();
     super.dispose();
   }
 
-  Future<void> _submitPost() async {
-    final text = _postController.text.trim();
-    if (text.isEmpty) return;
-    try {
-      await ref.read(feedRepositoryProvider).createPost(content: text);
-      _postController.clear();
-      ref.invalidate(feedProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post shared!'), backgroundColor: Color(0xFF0EA5E9)),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
+
+
+  Future<void> _openCreatePostSheet() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    String selectedType = 'GENERAL_UPDATE';
+    bool isPosting = false;
+
+    const types = {
+      'GENERAL_UPDATE': 'General',
+      'ANNOUNCEMENT': 'Announcement',
+      'OPPORTUNITY': 'Opportunity',
+      'EXPERIENCE': 'Experience',
+    };
+    const typeColors = {
+      'GENERAL_UPDATE': Color(0xFF0EA5E9),
+      'ANNOUNCEMENT': Color(0xFFF59E0B),
+      'OPPORTUNITY': Color(0xFF10B981),
+      'EXPERIENCE': Color(0xFF8B5CF6),
+    };
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('Create Post', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // Post type chips
+                Text('Post Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.grey.shade500, letterSpacing: 1)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: types.entries.map((e) {
+                    final isSelected = selectedType == e.key;
+                    final color = typeColors[e.key]!;
+                    return GestureDetector(
+                      onTap: () => setModalState(() => selectedType = e.key),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? color : color.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: color.withOpacity(isSelected ? 1 : 0.3)),
+                        ),
+                        child: Text(
+                          e.value,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected ? Colors.white : color,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                // Title
+                TextField(
+                  controller: titleCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Title (optional)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // Content
+                TextField(
+                  controller: contentCtrl,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: 'What\'s on your mind?',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Submit
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: isPosting ? null : () async {
+                      final content = contentCtrl.text.trim();
+                      if (content.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please write something first!')),
+                        );
+                        return;
+                      }
+                      setModalState(() => isPosting = true);
+                      try {
+                        await ref.read(feedRepositoryProvider).createPost(
+                          content: content,
+                          title: titleCtrl.text.trim().isEmpty ? null : titleCtrl.text.trim(),
+                          postType: selectedType,
+                        );
+                        ref.invalidate(feedProvider);
+                        if (context.mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Post shared with the community! 🎉'),
+                              backgroundColor: Color(0xFF10B981),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setModalState(() => isPosting = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(
+                        child: isPosting
+                            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text('Share Post', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
+
 
   Future<void> _toggleLike(FeedPost post) async {
     try {
@@ -184,76 +351,55 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
   }
 
   Widget _buildCreatePost(bool isDark, ThemeData theme) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: const Color(0xFF0EA5E9).withOpacity(0.15),
-                child: const Icon(Icons.person_rounded, color: Color(0xFF0EA5E9), size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _postController,
-                  maxLines: null,
-                  decoration: InputDecoration(
-                    hintText: 'Share something with the community...',
-                    hintStyle: TextStyle(
-                        color: isDark ? Colors.white38 : Colors.black38, fontSize: 14),
-                    border: InputBorder.none,
+    return GestureDetector(
+      onTap: _openCreatePostSheet,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: const Color(0xFF0EA5E9).withOpacity(0.15),
+              child: const Icon(Icons.person_rounded, color: Color(0xFF0EA5E9), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Text(
+                  'Share something with the community...',
+                  style: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.black38,
+                    fontSize: 14,
                   ),
                 ),
               ),
-            ],
-          ),
-          const Divider(height: 20),
-          Row(
-            children: [
-              _postAction(Icons.image_outlined, 'Photo', Colors.green),
-              _postAction(Icons.videocam_outlined, 'Video', Colors.red),
-              _postAction(Icons.event_outlined, 'Event', Colors.orange),
-              const Spacer(),
-              GestureDetector(
-                onTap: _submitPost,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text('Post',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                borderRadius: BorderRadius.circular(14),
               ),
-            ],
-          ),
-        ],
+              child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _postAction(IconData icon, String label, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: Row(children: [
-        Icon(icon, color: color, size: 18),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
-      ]),
-    );
-  }
 
   Widget _buildPostCard(FeedPost post, bool isDark, ThemeData theme) {
     final commentCtrl =
@@ -287,14 +433,20 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
                       Text(post.author.fullName,
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                       const SizedBox(height: 2),
-                      Row(children: [
-                        _roleBadge(post.author.role, isDark),
-                        const SizedBox(width: 8),
-                        _typeBadge(post.postType),
-                        const SizedBox(width: 8),
-                        Text(timeago.format(post.createdAt),
-                            style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                      ]),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _roleBadge(post.author.role, isDark),
+                          _typeBadge(post.postType),
+                          Text(
+                            timeago.format(post.createdAt),
+                            style: const TextStyle(color: Colors.grey, fontSize: 11),
+                          ),
+                        ],
+                      ),
+
                     ],
                   ),
                 ),
