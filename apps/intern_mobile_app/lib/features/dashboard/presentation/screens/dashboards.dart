@@ -340,6 +340,9 @@ class ModernSliverAppBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SliverAppBar(
       automaticallyImplyLeading: false,
       leading: Builder(
@@ -376,7 +379,7 @@ class ModernSliverAppBar extends ConsumerWidget {
       pinned: true,
       stretch: true,
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: gradient.first,
       actions: [
         if (actions != null) ...actions!,
         ModernHeaderIcon(
@@ -398,11 +401,15 @@ class ModernSliverAppBar extends ConsumerWidget {
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
           final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
-          final deltaExtent = settings!.maxExtent - settings.minExtent;
+          if (settings == null) return const SizedBox.shrink();
+
+          final deltaExtent = settings.maxExtent - settings.minExtent;
           final t = (1.0 - (settings.currentExtent - settings.minExtent) / deltaExtent).clamp(0.0, 1.0);
-          final fadeOpacity = (1.0 - t * 1.5).clamp(0.0, 1.0); // Fades out faster than it shrinks
+          final fadeOpacity = (1.0 - t * 1.5).clamp(0.0, 1.0);
 
           return FlexibleSpaceBar(
+            title: t > 0.5 ? Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)) : null,
+            centerTitle: true,
             stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
             background: Container(
               decoration: BoxDecoration(
@@ -423,7 +430,6 @@ class ModernSliverAppBar extends ConsumerWidget {
                       child: Icon(backgroundIcon, size: 240, color: Colors.white.withOpacity(0.15)),
                     ),
                   ),
-                   const SizedBox.shrink(),
                   Positioned(
                     bottom: 28,
                     left: 28,
@@ -431,7 +437,7 @@ class ModernSliverAppBar extends ConsumerWidget {
                     child: Opacity(
                       opacity: fadeOpacity,
                       child: Transform.translate(
-                        offset: Offset(0, 20 * t), // Subtle slide up as it fades
+                        offset: Offset(0, 20 * t),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,6 +545,118 @@ class ModernHeaderIcon extends StatelessWidget {
   }
 }
 
+// --- SHARED ANALYTICS WIDGETS ---
+
+Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
+  String growthTitle = 'User Growth',
+  String growthTrend = '+12% this month',
+  String placementTitle = 'Placements',
+  String placementSub = '452 Active',
+  String successTitle = 'Proposal Success',
+  double successRate = 0.84,
+  String submissionTitle = 'Report Submissions',
+  String submissionSub = '95% Weekly Target'
+}) {
+  return Column(
+    children: [
+      Row(
+        children: [
+          Expanded(child: _buildChartCard(growthTitle, growthTrend, _buildLineChart(isDark), isDark)),
+          const SizedBox(width: 16),
+          Expanded(child: _buildChartCard(placementTitle, placementSub, _buildBarChart(isDark), isDark)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Expanded(child: _buildChartCard(successTitle, '${(successRate * 100).toInt()}% Rate', _buildCircularProgress(successRate, Colors.blue), isDark)),
+          const SizedBox(width: 16),
+          Expanded(child: _buildChartCard(submissionTitle, submissionSub, _buildBarChart(isDark, color: Colors.orange), isDark)),
+        ],
+      ),
+    ],
+  );
+}
+
+Widget _buildChartCard(String title, String subtitle, Widget chart, bool isDark) {
+  return Container(
+    height: 180,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+        Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+        const Spacer(),
+        SizedBox(height: 80, child: chart),
+      ],
+    ),
+  );
+}
+
+Widget _buildLineChart(bool isDark) {
+  return CustomPaint(
+    size: Size.infinite,
+    painter: _LineChartPainter(isDark: isDark),
+  );
+}
+
+Widget _buildBarChart(bool isDark, {Color color = Colors.green}) {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    crossAxisAlignment: CrossAxisAlignment.end,
+    children: List.generate(7, (index) {
+      final height = [40.0, 60.0, 30.0, 80.0, 50.0, 70.0, 45.0][index];
+      return Container(
+        width: 8,
+        height: height,
+        decoration: BoxDecoration(
+          color: color.withOpacity(index == 6 ? 1.0 : 0.3),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      );
+    }),
+  );
+}
+
+Widget _buildCircularProgress(double value, Color color) {
+  return Center(
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          width: 60,
+          height: 60,
+          child: CircularProgressIndicator(
+            value: value,
+            strokeWidth: 8,
+            backgroundColor: color.withOpacity(0.1),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            strokeCap: StrokeCap.round,
+          ),
+        ),
+        Text('${(value * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+      ],
+    ),
+  );
+}
+
+Widget _buildSectionHeader(ThemeData theme, String title) {
+  return Text(
+    title,
+    style: theme.textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.w900,
+      letterSpacing: 0.5,
+    ),
+  );
+}
+
+
 // ---------------------------------------------------------
 // STUDENT DASHBOARD
 // ---------------------------------------------------------
@@ -625,7 +743,18 @@ class _StudentHomeTab extends ConsumerWidget {
                     _buildInternshipStatusHeader(context, profile),
                     const SizedBox(height: 20),
                     _buildKeyCards(context, isDark, plansAsync),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
+
+                    _buildSectionHeader(theme, 'Learning & Growth'),
+                    const SizedBox(height: 16),
+                    _buildPlatformAnalytics(context, isDark, 
+                      growthTitle: 'Skills Progress', growthTrend: '+15% this week',
+                      placementTitle: 'Tasks Completed', placementSub: '128 total',
+                      successTitle: 'Quiz Score', successRate: 0.92,
+                      submissionTitle: 'Attendance', submissionSub: '98% accuracy'
+                    ),
+                    const SizedBox(height: 32),
+
                     _buildActivityHeatmap(context, isDark, plansAsync),
                     const SizedBox(height: 24),
                     _buildActiveInternshipInfo(context, isDark, profile),
@@ -1903,6 +2032,17 @@ class _SupervisorOverviewTab extends ConsumerWidget {
                     const SizedBox(height: 24),
                     _buildStatsGrid(context, stats),
                     const SizedBox(height: 32),
+
+                    _buildSectionHeader(theme, 'Student Performance'),
+                    const SizedBox(height: 16),
+                    _buildPlatformAnalytics(context, isDark,
+                      growthTitle: 'Evaluation Trend', growthTrend: 'Upward +5%',
+                      placementTitle: 'Student Activity', placementSub: '85% active',
+                      successTitle: 'Avg. Grade', successRate: 0.78,
+                      submissionTitle: 'Report Reviews', submissionSub: '92% completed'
+                    ),
+                    const SizedBox(height: 32),
+
                     Text('Critical Actions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     _buildActionCard(context, Icons.assignment_late_rounded, 'Pending Plan Reviews', '5 plans waiting for feedback', Colors.orange),
@@ -2401,6 +2541,15 @@ class _CoordinatorHomeTab extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 32),
+                  Text('University Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  _buildPlatformAnalytics(context, isDark,
+                    growthTitle: 'Enrollment', growthTrend: '+8% Annual',
+                    placementTitle: 'Industry Partners', placementSub: '45 Active',
+                    successTitle: 'Placement Rate', successRate: 0.68,
+                    submissionTitle: 'System Activity', submissionSub: 'High Load'
+                  ),
+                  const SizedBox(height: 32),
                   Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   _buildActivityItem(context, 'Weekly Report', 'CS Dept: 15 reports submitted', '10m ago', Colors.blue),
@@ -2753,6 +2902,15 @@ class _HodOverviewTab extends ConsumerWidget {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _buildStatGrid(context, isDark),
+                  const SizedBox(height: 32),
+                  Text('Department Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  _buildPlatformAnalytics(context, isDark,
+                    growthTitle: 'Dept. Growth', growthTrend: '+10% Students',
+                    placementTitle: 'Local Partners', placementSub: '12 Active',
+                    successTitle: 'Submission Rate', successRate: 0.85,
+                    submissionTitle: 'Avg. Attendance', submissionSub: '90%'
+                  ),
                   const SizedBox(height: 32),
                   Text('Recent Reports', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 16),
@@ -3122,16 +3280,17 @@ class _AdminOverviewTab extends ConsumerWidget {
                     const SizedBox(height: 32),
                     _buildSectionHeader(theme, 'Platform Analytics'),
                     const SizedBox(height: 16),
-                    _buildAnalyticsDashboard(context, isDark),
+                    _buildPlatformAnalytics(context, isDark,
+                      growthTitle: 'Users', growthTrend: '+12% Total',
+                      placementTitle: 'Institutions', placementSub: '88 Active',
+                      successTitle: 'Placement Rate', successRate: 0.72,
+                      submissionTitle: 'System Status', submissionSub: 'Healthy'
+                    ),
 
                     const SizedBox(height: 32),
                     _buildSectionHeader(theme, 'Pending Approvals'),
                     const SizedBox(height: 16),
                     _buildPendingApprovalsPreview(context, ref, isDark),
-
-                    const SizedBox(height: 32),
-                    const SizedBox(height: 16),
-                    _buildAnalyticsCharts(context, isDark),
 
                     const SizedBox(height: 32),
                     _buildSectionHeader(theme, 'Recent Audit Logs'),
@@ -3160,106 +3319,6 @@ class _AdminOverviewTab extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(ThemeData theme, String title) {
-    return Text(
-      title,
-      style: theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0.5,
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsDashboard(BuildContext context, bool isDark) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(child: _buildChartCard('User Growth', 'Trend: +12% this month', _buildLineChart(isDark), isDark)),
-            const SizedBox(width: 16),
-            Expanded(child: _buildChartCard('Placements', '452 Active', _buildBarChart(isDark), isDark)),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: _buildChartCard('Proposal Success', '84% Approval Rate', _buildCircularProgress(0.84, Colors.blue), isDark)),
-            const SizedBox(width: 16),
-            Expanded(child: _buildChartCard('Report Submissions', 'Weekly target: 95%', _buildBarChart(isDark, color: Colors.orange), isDark)),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildChartCard(String title, String subtitle, Widget chart, bool isDark) {
-    return Container(
-      height: 180,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-          Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-          const Spacer(),
-          SizedBox(height: 80, child: chart),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLineChart(bool isDark) {
-    return CustomPaint(
-      size: Size.infinite,
-      painter: _LineChartPainter(isDark: isDark),
-    );
-  }
-
-  Widget _buildBarChart(bool isDark, {Color color = Colors.green}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(7, (index) {
-        final height = [40.0, 60.0, 30.0, 80.0, 50.0, 70.0, 45.0][index];
-        return Container(
-          width: 8,
-          height: height,
-          decoration: BoxDecoration(
-            color: color.withOpacity(index == 6 ? 1.0 : 0.3),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildCircularProgress(double value, Color color) {
-    return Center(
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: CircularProgressIndicator(
-              value: value,
-              strokeWidth: 8,
-              backgroundColor: color.withOpacity(0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-          Text('${(value * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
-        ],
       ),
     );
   }
@@ -3412,69 +3471,6 @@ class _AdminOverviewTab extends ConsumerWidget {
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildAnalyticsCharts(BuildContext context, bool isDark) {
-    return Container(
-      height: 200,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Growth & Activity', style: TextStyle(fontWeight: FontWeight.bold)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: const Text('Weekly', style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _buildChartBar(0.4, 'Mon', Colors.blue),
-              _buildChartBar(0.6, 'Tue', Colors.blue),
-              _buildChartBar(0.9, 'Wed', Colors.blue),
-              _buildChartBar(0.7, 'Thu', Colors.blue),
-              _buildChartBar(0.8, 'Fri', Colors.blue),
-              _buildChartBar(0.3, 'Sat', Colors.grey),
-              _buildChartBar(0.2, 'Sun', Colors.grey),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChartBar(double heightFactor, String label, Color color) {
-    return Column(
-      children: [
-        Container(
-          height: 100 * heightFactor,
-          width: 24,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [color, color.withOpacity(0.6)],
-            ),
-            borderRadius: BorderRadius.circular(6),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
       ],
     );
   }
