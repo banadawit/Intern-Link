@@ -3141,7 +3141,9 @@ class CoordinatorDashboardScreen extends StatelessWidget {
         _DashboardTab(label: 'Overview', icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, view: _CoordinatorHomeTab()),
         _DashboardTab(label: 'HODs', icon: Icons.school_outlined, activeIcon: Icons.school_rounded, view: _CoordinatorHodsTab()),
         _DashboardTab(label: 'Students', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _CoordinatorStudentsTab()),
+        _DashboardTab(label: 'Placements', icon: Icons.business_center_outlined, activeIcon: Icons.business_center_rounded, view: _CoordinatorPlacementsTab()),
         _DashboardTab(label: 'Companies', icon: Icons.business_outlined, activeIcon: Icons.business_rounded, view: _CoordinatorCompaniesTab()),
+        _DashboardTab(label: 'Tools', icon: Icons.apps_rounded, activeIcon: Icons.apps_rounded, view: _CoordinatorToolsTab()),
       ],
     );
   }
@@ -3156,19 +3158,38 @@ class _CoordinatorHomeTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF1CB5E0).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: CustomScrollView(
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF000046).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
             ModernSliverAppBar(
@@ -3219,7 +3240,8 @@ class _CoordinatorHomeTab extends ConsumerWidget {
               ),
             ),
           ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -3228,19 +3250,28 @@ class _CoordinatorHomeTab extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+          boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 24),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+              ),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
             const SizedBox(height: 12),
-            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1)),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -3250,18 +3281,28 @@ class _CoordinatorHomeTab extends ConsumerWidget {
   Widget _buildActivityItem(BuildContext context, String title, String subtitle, String time, Color color) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.flash_on_rounded, color: color, size: 16)),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+            ),
+            child: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
+          ),
           const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
-          Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500))])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(time, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900))),
         ],
       ),
     );
@@ -3275,20 +3316,39 @@ class _CoordinatorHodsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF00F260).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: CustomScrollView(
-          slivers: [
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF0575E6).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          CustomScrollView(
+            slivers: [
             ModernSliverAppBar(
               title: 'Department Heads',
               subtitle: 'HOD Management',
@@ -3311,7 +3371,8 @@ class _CoordinatorHodsTab extends ConsumerWidget {
               ),
             ),
           ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -3321,21 +3382,36 @@ class _CoordinatorHodsTab extends ConsumerWidget {
   Widget _buildHodRequestCard(BuildContext context, String name, String dept, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.orange.withOpacity(0.3))),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: Colors.orange.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(radius: 24, child: Text(name[0])),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Colors.orangeAccent, Colors.deepOrange]),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+                ),
+                child: Text(name[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+              ),
               const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text(dept, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(dept, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text('Pending', style: TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w900))),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Row(
             children: [
               Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('Reject'))),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(child: FilledButton(onPressed: () {}, child: const Text('Approve'))),
             ],
           ),
@@ -3347,14 +3423,27 @@ class _CoordinatorHodsTab extends ConsumerWidget {
   Widget _buildHodItem(BuildContext context, String name, String dept, bool isVerified, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: Colors.blue.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
       child: Row(
         children: [
-          CircleAvatar(radius: 20, child: Text(name[0])),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF00F260), Color(0xFF0575E6)]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: const Color(0xFF0575E6).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+            ),
+            child: Text(name[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+          ),
           const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), Text(dept, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
-          if (isVerified) const Icon(Icons.verified_rounded, color: Colors.blue, size: 20),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(dept, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
+          if (isVerified) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.verified_rounded, color: Colors.blue, size: 14), SizedBox(width: 4), Text('Verified', style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w900))])),
         ],
       ),
     );
@@ -3368,20 +3457,39 @@ class _CoordinatorStudentsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFFF2994A).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: CustomScrollView(
-          slivers: [
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFFF2C94C).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          CustomScrollView(
+            slivers: [
             ModernSliverAppBar(
               title: 'Students',
               subtitle: 'University Enrollment',
@@ -3408,20 +3516,35 @@ class _CoordinatorStudentsTab extends ConsumerWidget {
             ),
           ],
         ),
+        ],
       ),
     );
   }
 
   Widget _buildStudentSummaryItem(BuildContext context, String label, String value, Color color, bool isDark) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+            ),
+            child: const Icon(Icons.analytics_rounded, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16))),
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: color, letterSpacing: -1)),
         ],
       ),
     );
@@ -3430,14 +3553,27 @@ class _CoordinatorStudentsTab extends ConsumerWidget {
   Widget _buildDeptItem(String name, String count, String placementRate, Color color, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
       child: Row(
         children: [
-          Container(width: 4, height: 40, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+            ),
+            child: const Icon(Icons.domain_rounded, color: Colors.white, size: 20),
+          ),
           const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), Text(count, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
-          Text(placementRate, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(count, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(placementRate, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900))),
         ],
       ),
     );
@@ -3451,19 +3587,38 @@ class _CoordinatorCompaniesTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFFDA22FF).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: CustomScrollView(
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF9733EE).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          CustomScrollView(
           slivers: [
             ModernSliverAppBar(
               title: 'Companies',
@@ -3485,7 +3640,8 @@ class _CoordinatorCompaniesTab extends ConsumerWidget {
               ),
             ),
           ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -3494,13 +3650,342 @@ class _CoordinatorCompaniesTab extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(24)),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: Colors.blue.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
       child: Row(
         children: [
-          const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.business_rounded, color: Colors.white, size: 20)),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFFDA22FF), Color(0xFF9733EE)]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: const Color(0xFF9733EE).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+            ),
+            child: const Icon(Icons.business_rounded, color: Colors.white, size: 20),
+          ),
           const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text(sector, style: const TextStyle(color: Colors.grey, fontSize: 12))])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(stats, style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold))),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(sector, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(stats, style: const TextStyle(color: Colors.purple, fontSize: 11, fontWeight: FontWeight.w900))),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoordinatorPlacementsTab extends ConsumerWidget {
+  const _CoordinatorPlacementsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFFFC466B).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF3F5EFB).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          CustomScrollView(
+            slivers: [
+              ModernSliverAppBar(
+                title: 'Placements',
+                subtitle: 'Assigned Students',
+                profileName: 'Coordinator',
+                gradient: const [Color(0xFFFC466B), Color(0xFF3F5EFB)],
+                backgroundIcon: Icons.business_center_rounded,
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(24),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    const Text('Recent Assignments', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 16),
+                    _buildPlacementItem(context, 'Abebe Kebede', 'Ethio Telecom', 'Computer Science', Colors.blue, isDark),
+                    _buildPlacementItem(context, 'Tadesse Haile', 'Safaricom', 'Electrical Engineering', Colors.green, isDark),
+                    _buildPlacementItem(context, 'Selamawit Yilma', 'Commercial Bank', 'Software Engineering', Colors.purple, isDark),
+                    const SizedBox(height: 120),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlacementItem(BuildContext context, String student, String company, String dept, Color color, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+            ),
+            child: const Icon(Icons.work_rounded, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(student, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text('$company • $dept', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text('Assigned', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900))),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoordinatorToolsTab extends ConsumerStatefulWidget {
+  const _CoordinatorToolsTab();
+
+  @override
+  ConsumerState<_CoordinatorToolsTab> createState() => _CoordinatorToolsTabState();
+}
+
+class _CoordinatorToolsTabState extends ConsumerState<_CoordinatorToolsTab> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF11998e).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF38ef7d).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              ModernSliverAppBar(
+                title: 'Tools & Insights',
+                subtitle: 'Reports, AI & Messages',
+                profileName: 'Coordinator',
+                gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
+                backgroundIcon: Icons.apps_rounded,
+              ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: SliverTabBarDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    labelColor: isDark ? Colors.white : Colors.black87,
+                    unselectedLabelColor: Colors.grey,
+                    indicator: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    tabs: const [
+                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Reports'))),
+                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Messages'))),
+                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('AI Assistant'))),
+                    ],
+                  ),
+                  isDark,
+                ),
+              ),
+            ],
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildReportsView(isDark),
+                _buildMessagesView(isDark),
+                _buildAiAssistantView(isDark),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReportsView(bool isDark) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const Text('University Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 16),
+        _buildReportCard('University Placement Overview', 'Generated today', Icons.pie_chart_rounded, Colors.teal, isDark),
+        _buildReportCard('Department Performance (Semester 2)', 'Generated last week', Icons.assessment_rounded, Colors.green, isDark),
+        _buildReportCard('Industry Partner Analytics', 'Generated 1 month ago', Icons.business_rounded, Colors.blue, isDark),
+        const SizedBox(height: 120),
+      ],
+    );
+  }
+
+  Widget _buildReportCard(String title, String subtitle, IconData icon, Color color, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(subtitle, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
+          IconButton(onPressed: () {}, icon: Icon(Icons.download_rounded, color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessagesView(bool isDark) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const Text('University Broadcasts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 16),
+        _buildMessageCard('Important Update: Placement Deadline', 'All departments must finalize placements...', 'System', Colors.red, isDark),
+        _buildMessageCard('New Corporate Partner Added', 'Ethio Telecom has updated their capacity...', 'Admin', Colors.blue, isDark),
+        const SizedBox(height: 24),
+        SizedBox(width: double.infinity, height: 56, child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.campaign_rounded), label: const Text('New Broadcast'))),
+        const SizedBox(height: 120),
+      ],
+    );
+  }
+
+  Widget _buildMessageCard(String title, String preview, String sender, Color color, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(sender, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10))),
+              const Spacer(),
+              Text('2h ago', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 4),
+          Text(preview, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiAssistantView(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF11998e), Color(0xFF38ef7d)]),
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: const Color(0xFF38ef7d).withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 10))],
+            ),
+            child: const Icon(Icons.smart_toy_rounded, size: 64, color: Colors.white),
+          ),
+          const SizedBox(height: 32),
+          const Text('Coordinator Smart Assistant', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 16),
+          const Text('Generate university-wide placement analytics, summarize HOD performance, and draft announcements.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 16)),
+          const SizedBox(height: 32),
+          SizedBox(width: double.infinity, height: 56, child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.chat_bubble_rounded), label: const Text('Start New Chat'))),
         ],
       ),
     );
@@ -4398,7 +4883,7 @@ class _AdminOverviewTab extends ConsumerWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      childAspectRatio: 1.5,
+      childAspectRatio: 1.05,
       children: [
         _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
         _buildStatCard(context, 'Institutions', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.account_balance_rounded, Colors.orange, isDark),
@@ -4410,22 +4895,28 @@ class _AdminOverviewTab extends ConsumerWidget {
 
   Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-        boxShadow: [
-          if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -1)),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
+          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1)),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       ),
     );
