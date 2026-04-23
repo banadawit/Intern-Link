@@ -129,6 +129,20 @@ class SupervisorRepository {
     await _api.dio.post('/supervisor/teams/$teamId/members', data: {'studentId': studentId});
   }
 
+  Future<List<SupervisorAttendanceReport>> getWeeklyReports() async {
+    final res = await _api.dio.get('/supervisor/weekly-reports');
+    final data = res.data;
+    final List list = (data is Map && data.containsKey('data')) ? data['data'] : (data as List);
+    return list.map((e) => SupervisorAttendanceReport.fromJson(e)).toList();
+  }
+
+  Future<AttendanceHeatmap> getAttendanceHeatmap() async {
+    final res = await _api.dio.get('/supervisor/attendance-heatmap');
+    final data = res.data;
+    final Map<String, dynamic> body = (data is Map && data.containsKey('data')) ? data['data'] : data;
+    return AttendanceHeatmap.fromJson(body);
+  }
+
   WeeklyPlanStatus _mapStatus(String s) {
     switch (s.toUpperCase()) {
       case 'APPROVED': return WeeklyPlanStatus.approved;
