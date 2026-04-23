@@ -112,10 +112,10 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
               child: GNav(
                 rippleColor: theme.colorScheme.primary.withOpacity(0.1),
                 hoverColor: theme.colorScheme.primary.withOpacity(0.1),
-                gap: 4,
+                gap: widget.tabs.length > 4 ? 4 : 8,
                 activeColor: theme.colorScheme.primary,
                 iconSize: 20,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: EdgeInsets.symmetric(horizontal: widget.tabs.length > 4 ? 8 : 12, vertical: 10),
                 duration: const Duration(milliseconds: 500),
                 tabBackgroundColor: theme.colorScheme.primary.withOpacity(0.1),
                 color: isDark ? Colors.white.withOpacity(0.4) : Colors.black.withOpacity(0.3),
@@ -3067,9 +3067,9 @@ class AdminDashboardScreen extends StatelessWidget {
       roleLabel: 'ADMIN',
       tabs: [
         _DashboardTab(label: 'Overview', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, view: _AdminOverviewTab()),
-        _DashboardTab(label: 'Organizations', icon: Icons.business_rounded, activeIcon: Icons.business_center_rounded, view: _AdminOrganizationsTab()),
+        _DashboardTab(label: 'Orgs', icon: Icons.business_rounded, activeIcon: Icons.business_center_rounded, view: _AdminOrganizationsTab()),
         _DashboardTab(label: 'Users', icon: Icons.group_outlined, activeIcon: Icons.group_rounded, view: _AdminUsersTab()),
-        _DashboardTab(label: 'Audit Log', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
+        _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
         _DashboardTab(label: 'Config', icon: Icons.settings_suggest_outlined, activeIcon: Icons.settings_suggest_rounded, view: _AdminSettingsTab()),
       ],
     );
@@ -3120,12 +3120,16 @@ class _AdminOverviewTab extends ConsumerWidget {
                     _buildOverviewGrid(context, stats, isDark),
 
                     const SizedBox(height: 32),
+                    _buildSectionHeader(theme, 'Platform Analytics'),
+                    const SizedBox(height: 16),
+                    _buildAnalyticsDashboard(context, isDark),
+
+                    const SizedBox(height: 32),
                     _buildSectionHeader(theme, 'Pending Approvals'),
                     const SizedBox(height: 16),
                     _buildPendingApprovalsPreview(context, ref, isDark),
 
                     const SizedBox(height: 32),
-                    _buildSectionHeader(theme, 'Platform Analytics'),
                     const SizedBox(height: 16),
                     _buildAnalyticsCharts(context, isDark),
 
@@ -3166,6 +3170,96 @@ class _AdminOverviewTab extends ConsumerWidget {
       style: theme.textTheme.titleMedium?.copyWith(
         fontWeight: FontWeight.w900,
         letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsDashboard(BuildContext context, bool isDark) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _buildChartCard('User Growth', 'Trend: +12% this month', _buildLineChart(isDark), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard('Placements', '452 Active', _buildBarChart(isDark), isDark)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _buildChartCard('Proposal Success', '84% Approval Rate', _buildCircularProgress(0.84, Colors.blue), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard('Report Submissions', 'Weekly target: 95%', _buildBarChart(isDark, color: Colors.orange), isDark)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartCard(String title, String subtitle, Widget chart, bool isDark) {
+    return Container(
+      height: 180,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+          Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+          const Spacer(),
+          SizedBox(height: 80, child: chart),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineChart(bool isDark) {
+    return CustomPaint(
+      size: Size.infinite,
+      painter: _LineChartPainter(isDark: isDark),
+    );
+  }
+
+  Widget _buildBarChart(bool isDark, {Color color = Colors.green}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(7, (index) {
+        final height = [40.0, 60.0, 30.0, 80.0, 50.0, 70.0, 45.0][index];
+        return Container(
+          width: 8,
+          height: height,
+          decoration: BoxDecoration(
+            color: color.withOpacity(index == 6 ? 1.0 : 0.3),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildCircularProgress(double value, Color color) {
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 60,
+            height: 60,
+            child: CircularProgressIndicator(
+              value: value,
+              strokeWidth: 8,
+              backgroundColor: color.withOpacity(0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              strokeCap: StrokeCap.round,
+            ),
+          ),
+          Text('${(value * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+        ],
       ),
     );
   }
@@ -4192,7 +4286,8 @@ class _AdminLogsTab extends ConsumerStatefulWidget {
 
 class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
   String _searchQuery = '';
-  String _filter = 'All';
+  String _typeFilter = 'All';
+  String _roleFilter = 'All';
 
   @override
   Widget build(BuildContext context) {
@@ -4207,7 +4302,10 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
           ),
         ),
         child: logsAsync.when(
@@ -4215,9 +4313,11 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
           error: (err, _) => Center(child: Text('Error: $err')),
           data: (logs) {
             final filteredLogs = logs.where((l) {
-              final matchesSearch = l['action'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
-              final matchesFilter = _filter == 'All' || l['type'] == _filter;
-              return matchesSearch && matchesFilter;
+              final action = l['action'].toString().toLowerCase();
+              final matchesSearch = action.contains(_searchQuery.toLowerCase()) || 
+                  l['details'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+              final matchesType = _typeFilter == 'All' || l['action'].toString().contains(_typeFilter.toUpperCase());
+              return matchesSearch && matchesType;
             }).toList();
 
             return CustomScrollView(
@@ -4225,82 +4325,50 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
               slivers: [
                 ModernSliverAppBar(
                   title: 'Audit Logs',
-                  subtitle: 'System Activity Trace',
+                  subtitle: 'System-wide activity trace',
                   profileName: 'Admin',
                   gradient: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
                   backgroundIcon: Icons.receipt_long_rounded,
                   actions: [
-                    IconButton(onPressed: () {}, icon: const Icon(Icons.file_download_rounded, color: Colors.white)),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+                      tooltip: 'Export PDF',
+                    ),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.file_download_rounded, color: Colors.white),
+                      tooltip: 'Export CSV',
+                    ),
                   ],
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TextField(
-                          onChanged: (v) => setState(() => _searchQuery = v),
-                          decoration: InputDecoration(
-                            hintText: 'Search actions...',
-                            prefixIcon: const Icon(Icons.search_rounded),
-                            filled: true,
-                            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                          ),
+                        _buildFilters(theme, isDark),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            const Icon(Icons.timeline_rounded, size: 20, color: Colors.grey),
+                            const SizedBox(width: 12),
+                            Text('Activity Timeline (${filteredLogs.length})', 
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                          ],
                         ),
                         const SizedBox(height: 16),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: ['All', 'Security', 'User', 'Content', 'System'].map((f) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(f),
-                                selected: _filter == f,
-                                onSelected: (s) => setState(() => _filter = f),
-                              ),
-                            )).toList(),
-                          ),
-                        ),
                       ],
                     ),
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final log = filteredLogs[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                                child: Icon(Icons.history_rounded, color: theme.colorScheme.primary, size: 20),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(log['action'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    Text('By: ${log['userId']} • ${log['timestamp']}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                      (context, index) => _buildTimelineItem(context, filteredLogs[index], isDark, 
+                        isFirst: index == 0, isLast: index == filteredLogs.length - 1),
                       childCount: filteredLogs.length,
                     ),
                   ),
@@ -4313,13 +4381,213 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
       ),
     );
   }
+
+  Widget _buildFilters(ThemeData theme, bool isDark) {
+    return Column(
+      children: [
+        TextField(
+          onChanged: (v) => setState(() => _searchQuery = v),
+          decoration: InputDecoration(
+            hintText: 'Search by action or detail...',
+            prefixIcon: const Icon(Icons.search_rounded),
+            filled: true,
+            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildFilterChip('Action: $_typeFilter', Icons.bolt_rounded, () => _showFilterDialog('Action')),
+              const SizedBox(width: 8),
+              _buildFilterChip('Role: $_roleFilter', Icons.badge_rounded, () => _showFilterDialog('Role')),
+              const SizedBox(width: 8),
+              _buildFilterChip('Date: Today', Icons.calendar_today_rounded, () {}),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip(String label, IconData icon, VoidCallback onTap) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down_rounded, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(BuildContext context, dynamic log, bool isDark, {bool isFirst = false, bool isLast = false}) {
+    final theme = Theme.of(context);
+    final actionColor = _getActionColor(log['action'].toString());
+    
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 2,
+                height: 20,
+                color: isFirst ? Colors.transparent : Colors.grey.withOpacity(0.2),
+              ),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: actionColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: actionColor.withOpacity(0.2), width: 4, strokeAlign: BorderSide.strokeAlignOutside),
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  width: 2,
+                  color: isLast ? Colors.transparent : Colors.grey.withOpacity(0.2),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(log['action'], style: TextStyle(fontWeight: FontWeight.w900, color: actionColor, fontSize: 13)),
+                      Text(_formatTime(log['timestamp']), style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(log['details'] ?? 'No details available', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      CircleAvatar(radius: 8, child: Text(log['admin']?['full_name']?[0] ?? '?', style: const TextStyle(fontSize: 8))),
+                      const SizedBox(width: 8),
+                      Text(log['admin']?['full_name'] ?? 'System', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      const Spacer(),
+                      const Icon(Icons.devices_rounded, size: 10, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text('Web/192.168.1.1', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getActionColor(String action) {
+    if (action.contains('APPROVE')) return Colors.green;
+    if (action.contains('REJECT')) return Colors.red;
+    if (action.contains('SUSPEND')) return Colors.orange;
+    if (action.contains('CREATE')) return Colors.blue;
+    if (action.contains('DELETE')) return Colors.redAccent;
+    return Colors.purple;
+  }
+
+  String _formatTime(String? timestamp) {
+    if (timestamp == null) return '--:--';
+    try {
+      final dt = DateTime.parse(timestamp);
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} ${dt.day}/${dt.month}';
+    } catch (_) {
+      return timestamp;
+    }
+  }
+
+  void _showFilterDialog(String type) {
+    final options = type == 'Role' 
+      ? ['All', 'ADMIN', 'COORDINATOR', 'SUPERVISOR', 'SYSTEM']
+      : ['All', 'APPROVE', 'REJECT', 'SUSPEND', 'CREATE', 'UPDATE'];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Select $type', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: options.map((opt) {
+                final isSelected = type == 'Role' ? _roleFilter == opt : _typeFilter == opt;
+                return ChoiceChip(
+                  label: Text(opt),
+                  selected: isSelected,
+                  onSelected: (s) {
+                    setState(() {
+                      if (type == 'Role') _roleFilter = opt;
+                      else _typeFilter = opt;
+                    });
+                    Navigator.pop(ctx);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _AdminSettingsTab extends ConsumerWidget {
+class _AdminSettingsTab extends ConsumerStatefulWidget {
   const _AdminSettingsTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AdminSettingsTab> createState() => _AdminSettingsTabState();
+}
+
+class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
+  bool _regUni = true;
+  bool _regComp = true;
+  bool _maintenance = false;
+  String _broadcastTarget = 'All Users';
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -4330,14 +4598,17 @@ class _AdminSettingsTab extends ConsumerWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
           ),
         ),
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
             ModernSliverAppBar(
-              title: 'Configuration',
+              title: 'Settings',
               subtitle: 'System Control Panel',
               profileName: 'Admin',
               gradient: const [Color(0xFF2C3E50), Color(0xFF000000)],
@@ -4347,45 +4618,88 @@ class _AdminSettingsTab extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildSettingSection(context, 'Registration Controls', [
-                    _buildSwitchTile(context, 'Open University Registration', true, isDark),
-                    _buildSwitchTile(context, 'Open Company Registration', true, isDark),
-                    _buildSwitchTile(context, 'Allow Student Self-Reg', false, isDark),
+                  _buildSection(context, 'System Configuration', [
+                    _buildSwitchTile('Registration: University', _regUni, (v) => setState(() => _regUni = v), isDark),
+                    _buildSwitchTile('Registration: Company', _regComp, (v) => setState(() => _regComp = v), isDark),
+                    _buildConfigItem('Internship Rules', 'Min 8 Weeks, Max 3 Proposals', Icons.rule_rounded, isDark),
+                    _buildSwitchTile('Auto-approve Orgs', false, (v) {}, isDark),
                   ]),
                   const SizedBox(height: 32),
-                  _buildSettingSection(context, 'Internship Rules', [
-                    _buildConfigItem(context, 'Minimum Duration (Weeks)', '8', Icons.timer_rounded, isDark),
-                    _buildConfigItem(context, 'Max Proposals per Student', '3', Icons.send_rounded, isDark),
+                  _buildSection(context, 'Maintenance Mode', [
+                    _buildSwitchTile('Enable Maintenance', _maintenance, (v) => setState(() => _maintenance = v), isDark),
+                    if (_maintenance)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Maintenance message...',
+                            filled: true,
+                            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
+                        ),
+                      ),
                   ]),
                   const SizedBox(height: 32),
-                  _buildSettingSection(context, 'Maintenance & Tools', [
-                    _buildSwitchTile(context, 'Maintenance Mode', false, isDark),
-                    ListTile(
-                      onTap: () {},
-                      leading: const Icon(Icons.mail_rounded, color: Colors.blue),
-                      title: const Text('Test SMTP Connection', style: TextStyle(fontWeight: FontWeight.bold)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                    ),
+                  _buildSection(context, 'Email / SMTP', [
+                    _buildActionTile('SMTP Configuration', Icons.mail_rounded, Colors.blue, isDark, () => _showSMTPDialog(context)),
+                    _buildActionTile('Send Test Email', Icons.send_rounded, Colors.green, isDark, () {}),
                   ]),
                   const SizedBox(height: 32),
-                  _buildSettingSection(context, 'Broadcast', [
+                  _buildSection(context, 'Notifications / Broadcast', [
                     Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                      ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const TextField(decoration: InputDecoration(hintText: 'System-wide announcement...', border: InputBorder.none)),
-                          const Divider(),
+                          const Text('Global Announcement', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                          const SizedBox(height: 16),
+                          TextField(
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              hintText: 'Type message here...',
+                              filled: true,
+                              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           Row(
                             children: [
-                              const Text('Target: ALL ROLES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                              const Spacer(),
-                              FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.campaign_rounded, size: 16), label: const Text('Broadcast')),
+                              Expanded(
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _broadcastTarget,
+                                    isExpanded: true,
+                                    items: ['All Users', 'Students Only', 'Supervisors Only', 'Coordinators Only']
+                                        .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))))
+                                        .toList(),
+                                    onChanged: (v) => setState(() => _broadcastTarget = v!),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              FilledButton.icon(
+                                onPressed: () {},
+                                icon: const Icon(Icons.campaign_rounded, size: 18),
+                                label: const Text('Broadcast'),
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
+                  ]),
+                  const SizedBox(height: 32),
+                  _buildSection(context, 'Security', [
+                    _buildActionTile('Password Policy', Icons.password_rounded, Colors.orange, isDark, () {}),
+                    _buildActionTile('Session Timeout', Icons.timer_rounded, Colors.purple, isDark, () {}),
+                    _buildActionTile('API Limits / Rate Limiting', Icons.speed_rounded, Colors.red, isDark, () {}),
                   ]),
                   const SizedBox(height: 120),
                 ]),
@@ -4397,41 +4711,71 @@ class _AdminSettingsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildSettingSection(BuildContext context, String title, List<Widget> children) {
+  Widget _buildSection(BuildContext context, String title, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         const SizedBox(height: 16),
         ...children,
       ],
     );
   }
 
-  Widget _buildSwitchTile(BuildContext context, String title, bool value, bool isDark) {
+  Widget _buildSwitchTile(String title, bool value, ValueChanged<bool> onChanged, bool isDark) {
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: Switch(value: value, onChanged: (v) {}),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      trailing: Switch.adaptive(value: value, onChanged: onChanged),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
     );
   }
 
-  Widget _buildConfigItem(BuildContext context, String title, String value, IconData icon, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey),
-          const SizedBox(width: 16),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w500))),
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+  Widget _buildConfigItem(String title, String value, IconData icon, bool isDark) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.grey, size: 20),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      subtitle: Text(value, style: const TextStyle(fontSize: 12)),
+      trailing: const Icon(Icons.edit_rounded, size: 18),
+      onTap: () {},
+    );
+  }
+
+  Widget _buildActionTile(String title, IconData icon, Color color, bool isDark, VoidCallback onTap) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    );
+  }
+
+  void _showSMTPDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('SMTP Configuration'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(decoration: InputDecoration(labelText: 'Host')),
+            TextField(decoration: InputDecoration(labelText: 'Port')),
+            TextField(decoration: InputDecoration(labelText: 'Username')),
+            TextField(decoration: InputDecoration(labelText: 'Password'), obscureText: true),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Save Settings')),
         ],
       ),
     );
   }
 }
+
 
 // ---------------------------------------------------------
 // TOP-LEVEL HELPERS & DELEGATES
@@ -4558,3 +4902,50 @@ final supervisorStatsProvider = FutureProvider.autoDispose<Map<String, int>>((re
     'pendingPlans': plans.where((p) => p.status.toUpperCase() == 'PENDING').length,
   };
 });
+
+class _LineChartPainter extends CustomPainter {
+  final bool isDark;
+  _LineChartPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.blue
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    path.moveTo(0, size.height * 0.8);
+    path.cubicTo(
+      size.width * 0.2, size.height * 0.8,
+      size.width * 0.3, size.height * 0.2,
+      size.width * 0.5, size.height * 0.4,
+    );
+    path.cubicTo(
+      size.width * 0.7, size.height * 0.6,
+      size.width * 0.8, size.height * 0.1,
+      size.width, size.height * 0.3,
+    );
+
+    canvas.drawPath(path, paint);
+
+    // Gradient fill
+    final fillPath = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.blue.withOpacity(0.3), Colors.blue.withOpacity(0)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawPath(fillPath, fillPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
