@@ -2112,19 +2112,38 @@ class _SupervisorOverviewTab extends ConsumerWidget {
     final statsAsync = ref.watch(supervisorStatsProvider);
 
     return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFFF2994A).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: statsAsync.when(
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFFF2C94C).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          statsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
           data: (stats) => CustomScrollView(
@@ -2168,6 +2187,7 @@ class _SupervisorOverviewTab extends ConsumerWidget {
             ],
           ),
         ),
+        ],
       ),
     );
   }
@@ -2176,18 +2196,40 @@ class _SupervisorOverviewTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.2)),
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color)),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), Text(subtitle, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5)))])),
-          const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03), shape: BoxShape.circle),
+            child: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+          ),
         ],
       ),
     );
@@ -2200,7 +2242,7 @@ class _SupervisorOverviewTab extends ConsumerWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      childAspectRatio: 1.2,
+      childAspectRatio: 1.05,
       children: [
         _buildStatCard(context, 'Assigned Students', stats.totalStudents.toString(), Icons.people_rounded, Colors.blue),
         _buildStatCard(context, 'Pending Proposals', stats.pendingProposals.toString(), Icons.assignment_ind_rounded, Colors.purple),
@@ -2215,21 +2257,38 @@ class _SupervisorOverviewTab extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, 
-        borderRadius: BorderRadius.circular(24), 
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white, 
+        borderRadius: BorderRadius.circular(28), 
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, 
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: color, size: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+                ),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const Icon(Icons.trending_up_rounded, color: Colors.green, size: 16),
+            ],
           ),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-          Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1)),
+              const SizedBox(height: 2),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
+            ],
+          ),
         ],
       ),
     );
@@ -2247,19 +2306,38 @@ class _SupervisorStudentsTab extends ConsumerWidget {
     return DefaultTabController(
       length: 2,
       child: Material(
-        color: Colors.transparent,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                isDark ? const Color(0xFF0F172A) : Colors.white,
-              ],
+        color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -100,
+              left: -50,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [const Color(0xFF11998e).withOpacity(0.15), Colors.transparent],
+                  ),
+                ),
+              ),
             ),
-          ),
-          child: NestedScrollView(
+            Positioned(
+              bottom: -50,
+              right: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [const Color(0xFF38ef7d).withOpacity(0.15), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+            NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               ModernSliverAppBar(
                 title: 'Interns',
@@ -2289,7 +2367,8 @@ class _SupervisorStudentsTab extends ConsumerWidget {
                 const _SupervisorTeamsTab(),
               ],
             ),
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -2517,19 +2596,38 @@ class _SupervisorManagementTab extends ConsumerWidget {
     return DefaultTabController(
       length: 2,
       child: Material(
-        color: Colors.transparent,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                isDark ? const Color(0xFF0F172A) : Colors.white,
-              ],
+        color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -100,
+              left: -50,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [const Color(0xFF6a11cb).withOpacity(0.15), Colors.transparent],
+                  ),
+                ),
+              ),
             ),
-          ),
-          child: NestedScrollView(
+            Positioned(
+              bottom: -50,
+              right: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [const Color(0xFF2575fc).withOpacity(0.15), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+            NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               ModernSliverAppBar(
                 title: 'Management',
@@ -2559,7 +2657,8 @@ class _SupervisorManagementTab extends ConsumerWidget {
                 _SupervisorTrackingTabContent(),
               ],
             ),
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -2930,19 +3029,38 @@ class _SupervisorSettingsTab extends ConsumerWidget {
     final meAsync = ref.watch(supervisorMeProvider);
 
     return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFF8A2387).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: meAsync.when(
+          Positioned(
+            bottom: -50,
+            right: -50,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [const Color(0xFFE94057).withOpacity(0.15), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          meAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
           data: (me) => CustomScrollView(
@@ -2986,7 +3104,8 @@ class _SupervisorSettingsTab extends ConsumerWidget {
               ),
             ],
           ),
-        ),
+          ),
+        ],
       ),
     );
   }
