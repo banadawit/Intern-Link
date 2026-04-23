@@ -234,12 +234,12 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                 ] else if (widget.roleLabel == 'SUPERVISOR') ...[
                   _buildDrawerItem(Icons.people_alt_rounded, 'Assigned Students', () {
                     Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 1; // Students
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // Students & Teams
                   }, isSelected: currentIndex == 1),
-                  _buildDrawerItem(Icons.group_work_rounded, 'Team Management', () {
+                  _buildDrawerItem(Icons.group_work_rounded, 'Group Teams', () {
                     Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 2; // Teams
-                  }, isSelected: currentIndex == 2),
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // Students & Teams (Group Tab)
+                  }, isSelected: currentIndex == 1),
                 ] else if (widget.roleLabel == 'COORDINATOR') ...[
                   _buildDrawerItem(Icons.how_to_reg_rounded, 'HOD Approvals', () {
                     Navigator.pop(context);
@@ -272,8 +272,8 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                 const Divider(color: Colors.black12, height: 32),
                 _buildDrawerItem(Icons.person_rounded, 'Account Settings', () {
                   Navigator.pop(context);
-                  ref.read(dashboardIndexProvider.notifier).state = widget.tabs.length - 1; // Go to last tab (Settings/Profile)
-                }, isSelected: currentIndex == widget.tabs.length - 1),
+                  context.push(AppRoutes.accountSettings);
+                }),
                 _buildDrawerItem(Icons.help_outline_rounded, 'Help & Support', () {
                   Navigator.pop(context);
                   context.push(AppRoutes.helpSupport);
@@ -2134,46 +2134,77 @@ class _SupervisorStudentsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final studentsAsync = ref.watch(supervisorStudentsProvider);
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+    return DefaultTabController(
+      length: 2,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                isDark ? const Color(0xFF0F172A) : Colors.white,
+              ],
+            ),
           ),
-        ),
-        child: studentsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
-          data: (students) => CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
               ModernSliverAppBar(
-                title: 'Students',
-                subtitle: 'Assigned List',
+                title: 'Interns',
+                subtitle: 'Manage Assigned List',
                 profileName: 'Supervisor',
                 gradient: [const Color(0xFF11998e), const Color(0xFF38ef7d)],
                 backgroundIcon: Icons.people_rounded,
               ),
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildStudentCard(context, students[index], isDark, theme, ref),
-                    childCount: students.length,
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: SliverTabBarDelegate(
+                  TabBar(
+                    tabs: const [Tab(text: 'Individual List'), Tab(text: 'Group Teams')],
+                    labelColor: theme.colorScheme.primary,
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: theme.colorScheme.primary,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    dividerColor: Colors.transparent,
                   ),
+                  isDark,
                 ),
               ),
             ],
+            body: TabBarView(
+              children: [
+                _buildStudentsList(context, ref, isDark, theme),
+                const _SupervisorTeamsTab(),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStudentsList(BuildContext context, WidgetRef ref, bool isDark, ThemeData theme) {
+    final studentsAsync = ref.watch(supervisorStudentsProvider);
+    return studentsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(child: Text('Error: $err')),
+      data: (students) => CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(24),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildStudentCard(context, students[index], isDark, theme, ref),
+                childCount: students.length,
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
       ),
     );
   }
@@ -2366,9 +2397,68 @@ class _SupervisorStudentsTab extends ConsumerWidget {
   }
 }
 
-class _SupervisorWorkflowTab extends ConsumerWidget {
-  const _SupervisorWorkflowTab();
+class _SupervisorManagementTab extends ConsumerWidget {
+  const _SupervisorManagementTab();
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return DefaultTabController(
+      length: 2,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                isDark ? const Color(0xFF0F172A) : Colors.white,
+              ],
+            ),
+          ),
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              ModernSliverAppBar(
+                title: 'Management',
+                subtitle: 'Approvals & Tracking',
+                profileName: 'Supervisor',
+                gradient: [const Color(0xFF6a11cb), const Color(0xFF2575fc)],
+                backgroundIcon: Icons.fact_check_rounded,
+              ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: SliverTabBarDelegate(
+                  TabBar(
+                    tabs: const [Tab(text: 'Workflows'), Tab(text: 'Tracking')],
+                    labelColor: theme.colorScheme.primary,
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: theme.colorScheme.primary,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    dividerColor: Colors.transparent,
+                  ),
+                  isDark,
+                ),
+              ),
+            ],
+            body: const TabBarView(
+              children: [
+                _SupervisorWorkflowTabContent(),
+                _SupervisorTrackingTabContent(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SupervisorWorkflowTabContent extends ConsumerWidget {
+  const _SupervisorWorkflowTabContent();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -2376,59 +2466,37 @@ class _SupervisorWorkflowTab extends ConsumerWidget {
     final proposalsAsync = ref.watch(supervisorIncomingProposalsProvider);
     final plansAsync = ref.watch(supervisorPendingPlansProvider);
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.all(24),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _buildSectionHeader(theme, 'Placement Proposals'),
+              const SizedBox(height: 16),
+              proposalsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, _) => Text('Error: $err'),
+                data: (proposals) => proposals.isEmpty 
+                  ? const Center(child: Text('No pending proposals'))
+                  : Column(children: proposals.map<Widget>((p) => _buildProposalWorkflowCard(context, p, ref, isDark)).toList()),
+              ),
+              const SizedBox(height: 32),
+              _buildSectionHeader(theme, 'Weekly Plan Reviews'),
+              const SizedBox(height: 16),
+              plansAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, _) => Text('Error: $err'),
+                data: (plans) => plans.isEmpty 
+                  ? const Center(child: Text('No pending plans'))
+                  : Column(children: plans.map<Widget>((p) => _buildPlanWorkflowCard(context, p, ref, isDark)).toList()),
+              ),
+              const SizedBox(height: 120),
+            ]),
           ),
         ),
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            ModernSliverAppBar(
-              title: 'Workflow',
-              subtitle: 'Approvals & Reviews',
-              profileName: 'Supervisor',
-              gradient: [const Color(0xFF8e2de2), const Color(0xFF4a00e0)],
-              backgroundIcon: Icons.fact_check_rounded,
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.all(24),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildSectionHeader(theme, 'Placement Proposals'),
-                  const SizedBox(height: 16),
-                  proposalsAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Text('Error: $err'),
-                    data: (proposals) => proposals.isEmpty 
-                      ? const Center(child: Text('No pending proposals'))
-                      : Column(children: proposals.map<Widget>((p) => _buildProposalWorkflowCard(context, p, ref, isDark)).toList()),
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSectionHeader(theme, 'Weekly Plan Reviews'),
-                  const SizedBox(height: 16),
-                  plansAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Text('Error: $err'),
-                    data: (plans) => plans.isEmpty 
-                      ? const Center(child: Text('No pending plans'))
-                      : Column(children: plans.map<Widget>((p) => _buildPlanWorkflowCard(context, p, ref, isDark)).toList()),
-                  ),
-                  const SizedBox(height: 120),
-                ]),
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -2508,9 +2576,8 @@ class _SupervisorWorkflowTab extends ConsumerWidget {
   }
 }
 
-class _SupervisorTrackingTab extends ConsumerWidget {
-  const _SupervisorTrackingTab();
-
+class _SupervisorTrackingTabContent extends ConsumerWidget {
+  const _SupervisorTrackingTabContent();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -2518,59 +2585,38 @@ class _SupervisorTrackingTab extends ConsumerWidget {
     final heatmapAsync = ref.watch(supervisorAttendanceHeatmapProvider);
     final reportsAsync = ref.watch(supervisorWeeklyReportsProvider);
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.all(24),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _buildSectionHeader(theme, 'Daily Check-ins'),
+              const SizedBox(height: 16),
+              heatmapAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, _) => Text('Error: $err'),
+                data: (heatmap) => _buildAttendanceHeatmap(context, heatmap, isDark),
+              ),
+              const SizedBox(height: 32),
+              _buildSectionHeader(theme, 'Weekly Execution Reports'),
+              const SizedBox(height: 16),
+              reportsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, _) => Text('Error: $err'),
+                data: (reports) => reports.isEmpty 
+                  ? const Center(child: Text('No reports submitted yet.'))
+                  : Column(children: reports.map<Widget>((r) => _buildReportTrackingCard(context, r, isDark)).toList()),
+              ),
+              const SizedBox(height: 120),
+            ]),
           ),
         ),
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            ModernSliverAppBar(
-              title: 'Tracking',
-              subtitle: 'Attendance & Performance',
-              profileName: 'Supervisor',
-              gradient: [const Color(0xFF11998e), const Color(0xFF38ef7d)],
-              backgroundIcon: Icons.analytics_rounded,
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.all(24),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildSectionHeader(theme, 'Daily Check-ins'),
-                  const SizedBox(height: 16),
-                  heatmapAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Text('Error: $err'),
-                    data: (heatmap) => _buildAttendanceHeatmap(context, heatmap, isDark),
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSectionHeader(theme, 'Weekly Execution Reports'),
-                  const SizedBox(height: 16),
-                  reportsAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Text('Error: $err'),
-                    data: (reports) => reports.isEmpty 
-                      ? const Center(child: Text('No reports submitted yet.'))
-                      : Column(children: reports.map<Widget>((r) => _buildReportTrackingCard(context, r, isDark)).toList()),
-                  ),
-                  const SizedBox(height: 120),
-                ]),
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
+
 
   Widget _buildAttendanceHeatmap(BuildContext context, AttendanceHeatmap heatmap, bool isDark) {
     return Container(
@@ -2693,47 +2739,25 @@ class _SupervisorTeamsTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.all(24),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              _buildCreateTeamCard(context, isDark, theme),
+              const SizedBox(height: 32),
+              Text('Active Teams', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 16),
+              _buildTeamCard(context, 'AI Integration', '3 Students', 'Module A Optimization', Colors.blue, isDark, theme),
+              const SizedBox(height: 16),
+              _buildTeamCard(context, 'Backend Scalability', '2 Students', 'Database Sharding', Colors.purple, isDark, theme),
+            ]),
           ),
         ),
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            ModernSliverAppBar(
-              title: 'Teams',
-              subtitle: 'Projects & Groups',
-              profileName: 'Supervisor',
-              gradient: [const Color(0xFF4568dc), const Color(0xFFb06ab3)],
-              backgroundIcon: Icons.group_work_rounded,
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.all(24),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildCreateTeamCard(context, isDark, theme),
-                  const SizedBox(height: 32),
-                  Text('Active Teams', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 16),
-                  _buildTeamCard(context, 'AI Integration', '3 Students', 'Module A Optimization', Colors.blue, isDark, theme),
-                  const SizedBox(height: 16),
-                  _buildTeamCard(context, 'Backend Scalability', '2 Students', 'Database Sharding', Colors.purple, isDark, theme),
-                  const SizedBox(height: 120),
-                ]),
-              ),
-            ),
-          ],
-        ),
-      ),
+        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+      ],
     );
   }
 
@@ -2870,11 +2894,9 @@ class SupervisorDashboardScreen extends StatelessWidget {
       roleLabel: 'SUPERVISOR',
       tabs: [
         _DashboardTab(label: 'Home', icon: Icons.home_outlined, activeIcon: Icons.home_rounded, view: _SupervisorOverviewTab()),
-        _DashboardTab(label: 'Students', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _SupervisorStudentsTab()),
-        _DashboardTab(label: 'Workflow', icon: Icons.fact_check_outlined, activeIcon: Icons.fact_check_rounded, view: _SupervisorWorkflowTab()),
-        _DashboardTab(label: 'Tracking', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, view: _SupervisorTrackingTab()),
-        _DashboardTab(label: 'Teams', icon: Icons.group_work_outlined, activeIcon: Icons.group_work_rounded, view: _SupervisorTeamsTab()),
-        _DashboardTab(label: 'Settings', icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, view: _SupervisorSettingsTab()),
+        _DashboardTab(label: 'Interns', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _SupervisorStudentsTab()),
+        _DashboardTab(label: 'Management', icon: Icons.assignment_outlined, activeIcon: Icons.assignment_rounded, view: _SupervisorManagementTab()),
+        _DashboardTab(label: 'Profile', icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, view: _SupervisorSettingsTab()),
       ],
     );
   }
