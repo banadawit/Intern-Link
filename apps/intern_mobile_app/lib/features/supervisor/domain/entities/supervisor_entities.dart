@@ -1,6 +1,33 @@
 import '../../../plans/domain/entities/plan_enums.dart';
 import '../../../plans/domain/entities/weekly_plan.dart';
 
+class SupervisorMe {
+  final int id;
+  final String fullName;
+  final String email;
+  final String phone;
+  final String companyName;
+
+  SupervisorMe({
+    required this.id,
+    required this.fullName,
+    required this.email,
+    required this.phone,
+    required this.companyName,
+  });
+
+  factory SupervisorMe.fromJson(Map<String, dynamic> json) {
+    final s = json['supervisor'] ?? json;
+    return SupervisorMe(
+      id: s['id'] ?? 0,
+      fullName: s['user']?['full_name'] ?? 'Supervisor',
+      email: s['user']?['email'] ?? '',
+      phone: s['phone_number'] ?? '',
+      companyName: s['company']?['name'] ?? 'Company',
+    );
+  }
+}
+
 class SupervisorStats {
   final int pendingProposals;
   final int pendingPlans;

@@ -9,7 +9,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/session_service.dart';
 
 import '../../data/repositories/student_repository.dart';
-import '../../data/repositories/progress_repository.dart';
+import '../../data/repositories/progress_repository.dart' hide WeeklyPlan;
 import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/coordinator_repository.dart';
 import '../../data/repositories/admin_repository.dart';
@@ -2420,7 +2420,7 @@ class _SupervisorWorkflowTab extends ConsumerWidget {
                     error: (err, _) => Text('Error: $err'),
                     data: (proposals) => proposals.isEmpty 
                       ? const Center(child: Text('No pending proposals'))
-                      : Column(children: proposals.map((p) => _buildProposalWorkflowCard(context, p, ref, isDark)).toList()),
+                      : Column(children: proposals.map<Widget>((p) => _buildProposalWorkflowCard(context, p, ref, isDark)).toList()),
                   ),
                   const SizedBox(height: 32),
                   _buildSectionHeader(theme, 'Weekly Plan Reviews'),
@@ -2430,7 +2430,7 @@ class _SupervisorWorkflowTab extends ConsumerWidget {
                     error: (err, _) => Text('Error: $err'),
                     data: (plans) => plans.isEmpty 
                       ? const Center(child: Text('No pending plans'))
-                      : Column(children: plans.map((p) => _buildPlanWorkflowCard(context, p, ref, isDark)).toList()),
+                      : Column(children: plans.map<Widget>((p) => _buildPlanWorkflowCard(context, p, ref, isDark)).toList()),
                   ),
                   const SizedBox(height: 120),
                 ]),
@@ -2570,7 +2570,7 @@ class _SupervisorTrackingTab extends ConsumerWidget {
                     error: (err, _) => Text('Error: $err'),
                     data: (reports) => reports.isEmpty 
                       ? const Center(child: Text('No reports submitted yet.'))
-                      : Column(children: reports.map((r) => _buildReportTrackingCard(context, r, isDark)).toList()),
+                      : Column(children: reports.map<Widget>((r) => _buildReportTrackingCard(context, r, isDark)).toList()),
                   ),
                   const SizedBox(height: 120),
                 ]),
@@ -5507,6 +5507,14 @@ final supervisorAttendanceHeatmapProvider = FutureProvider<AttendanceHeatmap>((r
 
 final supervisorStatsProvider = FutureProvider<SupervisorStats>((ref) {
   return ref.watch(supervisorRepositoryProvider).getStats();
+});
+
+final supervisorTeamsProvider = FutureProvider<List<SupervisorTeam>>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getTeams();
+});
+
+final supervisorMeProvider = FutureProvider<SupervisorMe>((ref) async {
+  return ref.watch(supervisorRepositoryProvider).getMe();
 });
 
 class _LineChartPainter extends CustomPainter {

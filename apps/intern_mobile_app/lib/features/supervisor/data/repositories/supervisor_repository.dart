@@ -11,6 +11,11 @@ class SupervisorRepository {
   final ApiClient _api;
 
   SupervisorRepository(this._api);
+  
+  Future<SupervisorMe> getMe() async {
+    final res = await _api.dio.get('/supervisor/me');
+    return SupervisorMe.fromJson(res.data['data'] ?? res.data);
+  }
 
   Future<SupervisorStats> getStats() async {
     final res = await _api.dio.get('/supervisor/me');
