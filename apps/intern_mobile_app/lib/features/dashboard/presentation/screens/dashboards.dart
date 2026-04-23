@@ -53,6 +53,7 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
     return Scaffold(
       key: _scaffoldKey,
       extendBody: true,
+      extendBodyBehindAppBar: true,
       drawer: _buildDrawer(context, isDark, currentIndex),
       floatingActionButton: Container(
         decoration: BoxDecoration(
@@ -111,10 +112,10 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
               child: GNav(
                 rippleColor: theme.colorScheme.primary.withOpacity(0.1),
                 hoverColor: theme.colorScheme.primary.withOpacity(0.1),
-                gap: 4,
+                gap: widget.tabs.length > 4 ? 4 : 8,
                 activeColor: theme.colorScheme.primary,
                 iconSize: 20,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: EdgeInsets.symmetric(horizontal: widget.tabs.length > 4 ? 8 : 12, vertical: 10),
                 duration: const Duration(milliseconds: 500),
                 tabBackgroundColor: theme.colorScheme.primary.withOpacity(0.1),
                 color: isDark ? Colors.white.withOpacity(0.4) : Colors.black.withOpacity(0.3),
@@ -342,17 +343,33 @@ class ModernSliverAppBar extends ConsumerWidget {
     return SliverAppBar(
       automaticallyImplyLeading: false,
       leading: Builder(
-        builder: (context) => IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(14),
+        builder: (context) {
+          final bool canPop = ModalRoute.of(context)?.canPop ?? false;
+          if (canPop) {
+            return IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            );
+          }
+          return IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.menu_rounded, color: Colors.white, size: 22),
             ),
-            child: const Icon(Icons.menu_rounded, color: Colors.white, size: 22),
-          ),
-          onPressed: () => Scaffold.of(context).openDrawer(),
-        ),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          );
+        },
       ),
       expandedHeight: 220,
       floating: false,
@@ -372,21 +389,9 @@ class ModernSliverAppBar extends ConsumerWidget {
           onTap: () => _showNotificationCenter(context),
         ),
         const SizedBox(width: 12),
-        IconButton(
-          onPressed: () => context.push(AppRoutes.accountSettings),
-          icon: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: CircleAvatar(
-              radius: 14,
-              backgroundColor: Colors.white.withOpacity(0.2),
-              child: Text(profileName.isNotEmpty ? profileName[0].toUpperCase() : '?',
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
-          ),
+        ModernHeaderIcon(
+          icon: Icons.dynamic_feed_rounded,
+          onTap: () => context.push(AppRoutes.commonFeed),
         ),
         const SizedBox(width: 16),
       ],
@@ -3062,9 +3067,9 @@ class AdminDashboardScreen extends StatelessWidget {
       roleLabel: 'ADMIN',
       tabs: [
         _DashboardTab(label: 'Overview', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, view: _AdminOverviewTab()),
-        _DashboardTab(label: 'Approvals', icon: Icons.verified_user_outlined, activeIcon: Icons.verified_user_rounded, view: _AdminApprovalsTab()),
+        _DashboardTab(label: 'Orgs', icon: Icons.business_rounded, activeIcon: Icons.business_center_rounded, view: _AdminOrganizationsTab()),
         _DashboardTab(label: 'Users', icon: Icons.group_outlined, activeIcon: Icons.group_rounded, view: _AdminUsersTab()),
-        _DashboardTab(label: 'Audit Log', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
+        _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
         _DashboardTab(label: 'Config', icon: Icons.settings_suggest_outlined, activeIcon: Icons.settings_suggest_rounded, view: _AdminSettingsTab()),
       ],
     );
@@ -3087,7 +3092,10 @@ class _AdminOverviewTab extends ConsumerWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
           ),
         ),
         child: statsAsync.when(
@@ -3097,33 +3105,54 @@ class _AdminOverviewTab extends ConsumerWidget {
             physics: const BouncingScrollPhysics(),
             slivers: [
               ModernSliverAppBar(
-                title: 'Overview',
-                subtitle: 'System Statistics',
-                profileName: 'Admin',
-                gradient: const [Color(0xFF373B44), Color(0xFF4286F4)],
-                backgroundIcon: Icons.analytics_rounded,
+                title: 'Admin Dashboard',
+                subtitle: 'Platform Management',
+                profileName: 'Main Admin',
+                gradient: const [Color(0xFF0F2027), Color(0xFF2C5364)],
+                backgroundIcon: Icons.shield_rounded,
               ),
               SliverPadding(
                 padding: const EdgeInsets.all(24),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    Text('System Health', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 24),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      children: [
-                        _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
-                        _buildStatCard(context, 'Universities', stats.totalUniversities.toString(), Icons.school_rounded, Colors.orange, isDark),
-                        _buildStatCard(context, 'Companies', stats.totalCompanies.toString(), Icons.business_rounded, Colors.green, isDark),
-                        _buildStatCard(context, 'Active Interns', '452', Icons.work_rounded, Colors.purple, isDark),
-                        _buildStatCard(context, 'Pending Apprs.', stats.pendingApprovals.toString(), Icons.pending_actions_rounded, Colors.red, isDark),
-                        _buildStatCard(context, 'Sys Health', '99.9%', Icons.speed_rounded, Colors.teal, isDark),
-                      ],
-                    ),
+                    _buildSectionHeader(theme, 'Platform Overview'),
+                    const SizedBox(height: 16),
+                    _buildOverviewGrid(context, stats, isDark),
+
+                    const SizedBox(height: 32),
+                    _buildSectionHeader(theme, 'Platform Analytics'),
+                    const SizedBox(height: 16),
+                    _buildAnalyticsDashboard(context, isDark),
+
+                    const SizedBox(height: 32),
+                    _buildSectionHeader(theme, 'Pending Approvals'),
+                    const SizedBox(height: 16),
+                    _buildPendingApprovalsPreview(context, ref, isDark),
+
+                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
+                    _buildAnalyticsCharts(context, isDark),
+
+                    const SizedBox(height: 32),
+                    _buildSectionHeader(theme, 'Recent Audit Logs'),
+                    const SizedBox(height: 16),
+                    _buildRecentActivitiesPreview(context, ref, isDark),
+
+                    const SizedBox(height: 32),
+                    _buildSectionHeader(theme, 'Broadcast Announcement'),
+                    const SizedBox(height: 16),
+                    _buildQuickBroadcastBox(context, theme, isDark),
+
+                    const SizedBox(height: 32),
+                    _buildSectionHeader(theme, 'System Health'),
+                    const SizedBox(height: 16),
+                    _buildSystemHealthWidget(context, isDark),
+
+                    const SizedBox(height: 32),
+                    _buildSectionHeader(theme, 'Quick Navigation'),
+                    const SizedBox(height: 16),
+                    _buildQuickNavigation(context, isDark),
+
                     const SizedBox(height: 120),
                   ]),
                 ),
@@ -3135,9 +3164,42 @@ class _AdminOverviewTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, bool isDark) {
+  Widget _buildSectionHeader(ThemeData theme, String title) {
+    return Text(
+      title,
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsDashboard(BuildContext context, bool isDark) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _buildChartCard('User Growth', 'Trend: +12% this month', _buildLineChart(isDark), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard('Placements', '452 Active', _buildBarChart(isDark), isDark)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _buildChartCard('Proposal Success', '84% Approval Rate', _buildCircularProgress(0.84, Colors.blue), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard('Report Submissions', 'Weekly target: 95%', _buildBarChart(isDark, color: Colors.orange), isDark)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartCard(String title, String subtitle, Widget chart, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 180,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -3146,389 +3208,443 @@ class _AdminOverviewTab extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 24),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+          Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+          SizedBox(height: 80, child: chart),
         ],
       ),
     );
   }
-}
 
-class _AdminApprovalsTab extends ConsumerWidget {
-  const _AdminApprovalsTab();
+  Widget _buildLineChart(bool isDark) {
+    return CustomPaint(
+      size: Size.infinite,
+      painter: _LineChartPainter(isDark: isDark),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final unisAsync = ref.watch(pendingUniversitiesProvider);
-    final compsAsync = ref.watch(pendingCompaniesProvider);
-    final coordsAsync = ref.watch(pendingCoordinatorsProvider);
-    final supersAsync = ref.watch(pendingSupervisorsProvider);
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              isDark ? const Color(0xFF0F172A) : Colors.white,
-            ],
+  Widget _buildBarChart(bool isDark, {Color color = Colors.green}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(7, (index) {
+        final height = [40.0, 60.0, 30.0, 80.0, 50.0, 70.0, 45.0][index];
+        return Container(
+          width: 8,
+          height: height,
+          decoration: BoxDecoration(
+            color: color.withOpacity(index == 6 ? 1.0 : 0.3),
+            borderRadius: BorderRadius.circular(4),
           ),
-        ),
-        child: DefaultTabController(
-          length: 4,
-          child: NestedScrollView(
-            headerSliverBuilder: (context, _) => [
-              ModernSliverAppBar(
-                title: 'Approvals',
-                subtitle: 'Platform Verification',
-                profileName: 'Admin',
-                gradient: [const Color(0xFF373B44), const Color(0xFF4286F4)],
-                backgroundIcon: Icons.verified_user_rounded,
-              ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: SliverTabBarDelegate(
-                  TabBar(
-                    isScrollable: true,
-                    tabs: const [Tab(text: 'Universities'), Tab(text: 'Companies'), Tab(text: 'Coordinators'), Tab(text: 'Supervisors')],
-                    labelColor: theme.colorScheme.primary,
-                    unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                  isDark,
-                ),
-              ),
-            ],
-            body: TabBarView(
-              children: [
-                _buildApprovalList(context, ref, unisAsync, type: 'university'),
-                _buildApprovalList(context, ref, compsAsync, type: 'company'),
-                _buildApprovalList(context, ref, coordsAsync, type: 'coordinator'),
-                _buildApprovalList(context, ref, supersAsync, type: 'supervisor'),
-              ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildCircularProgress(double value, Color color) {
+    return Center(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 60,
+            height: 60,
+            child: CircularProgressIndicator(
+              value: value,
+              strokeWidth: 8,
+              backgroundColor: color.withOpacity(0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              strokeCap: StrokeCap.round,
             ),
           ),
-        ),
+          Text('${(value * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+        ],
       ),
     );
   }
 
-  Widget _buildApprovalList(BuildContext context, WidgetRef ref, AsyncValue<List<dynamic>> asyncData, {required String type}) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+  Widget _buildOverviewGrid(BuildContext context, dynamic stats, bool isDark) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
+      childAspectRatio: 1.5,
+      children: [
+        _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
+        _buildStatCard(context, 'Institutions', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.account_balance_rounded, Colors.orange, isDark),
+        _buildStatCard(context, 'Active Internships', '452', Icons.work_rounded, Colors.green, isDark),
+        _buildStatCard(context, 'Pending Review', stats.pendingApprovals.toString(), Icons.pending_actions_rounded, Colors.red, isDark),
+      ],
+    );
+  }
 
-    return asyncData.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('Error: $err')),
-      data: (items) {
-        if (items.isEmpty) return const Center(child: Text('No pending approvals'));
-        return ListView.builder(
-          padding: const EdgeInsets.all(24),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            final name = type == 'university' || type == 'company' ? item['name'] : item['user']['full_name'];
-            final email = type == 'university' || type == 'company' ? item['email'] : item['user']['email'];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        boxShadow: [
+          if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -1)),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingApprovalsPreview(BuildContext context, WidgetRef ref, bool isDark) {
+    final unis = ref.watch(pendingUniversitiesProvider).asData?.value ?? [];
+    final comps = ref.watch(pendingCompaniesProvider).asData?.value ?? [];
+    final coords = ref.watch(pendingCoordinatorsProvider).asData?.value ?? [];
+    
+    final allPending = [
+      ...unis.map((u) => {'id': u['id'], 'title': u['name'], 'subtitle': 'University Reg.', 'type': 'UNI'}),
+      ...comps.map((c) => {'id': c['id'], 'title': c['name'], 'subtitle': 'Company Reg.', 'type': 'COMP'}),
+      ...coords.map((co) => {'id': co['userId'], 'title': co['user']['full_name'], 'subtitle': 'Coordinator Acc.', 'type': 'COORD'}),
+    ].take(3).toList();
+
+    if (allPending.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        ),
+        child: const Center(child: Text('All caught up! No pending approvals.', style: TextStyle(color: Colors.grey))),
+      );
+    }
+
+    return Column(
+      children: [
+        ...allPending.map((item) => Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: (item['type'] == 'UNI' || item['type'] == 'COMP' ? Colors.blue : Colors.purple).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(item['type'] == 'UNI' ? Icons.school_rounded : (item['type'] == 'COMP' ? Icons.business_rounded : Icons.person_rounded), 
+                  color: item['type'] == 'UNI' || item['type'] == 'COMP' ? Colors.blue : Colors.purple, size: 20),
               ),
-              child: Column(
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item['title']! as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(item['subtitle']! as String, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  ],
+                ),
+              ),
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                        child: Icon(Icons.account_balance_rounded, color: theme.colorScheme.primary),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                            Text(email ?? 'No email', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                          ],
-                        ),
-                      ),
-                    ],
+                  IconButton(
+                    onPressed: () async {
+                      try {
+                        final adminRepo = ref.read(adminRepositoryProvider);
+                        final id = item['id'] as int;
+                        final type = item['type'] as String;
+                        if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'REJECTED');
+                        else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'REJECTED');
+                        else if (type == 'COORD') await adminRepo.rejectCoordinator(id);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected')));
+                        ref.invalidate(adminStatsProvider);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      }
+                    },
+                    icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 20),
+                    style: IconButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.1)),
                   ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            try {
-                               final adminRepo = ref.read(adminRepositoryProvider);
-                               if (type == 'university') await adminRepo.updateUniversityStatus(item['id'], 'REJECTED');
-                               if (type == 'company') await adminRepo.updateCompanyStatus(item['id'], 'REJECTED');
-                               if (type == 'coordinator') await adminRepo.rejectCoordinator(item['userId']);
-                               if (type == 'supervisor') await adminRepo.rejectSupervisor(item['userId']);
-                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected')));
-                            } catch (e) {
-                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.redAccent,
-                            side: const BorderSide(color: Colors.redAccent),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          child: const Text('Reject'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () async {
-                            try {
-                               final adminRepo = ref.read(adminRepositoryProvider);
-                               if (type == 'university') await adminRepo.updateUniversityStatus(item['id'], 'APPROVED');
-                               if (type == 'company') await adminRepo.updateCompanyStatus(item['id'], 'APPROVED');
-                               if (type == 'coordinator') await adminRepo.approveCoordinator(item['userId']);
-                               if (type == 'supervisor') await adminRepo.approveSupervisor(item['userId']);
-                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!')));
-                            } catch (e) {
-                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                            }
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          child: const Text('Approve'),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () async {
+                      try {
+                        final adminRepo = ref.read(adminRepositoryProvider);
+                        final id = item['id'] as int;
+                        final type = item['type'] as String;
+                        if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'APPROVED');
+                        else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'APPROVED');
+                        else if (type == 'COORD') await adminRepo.approveCoordinator(id);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!')));
+                        ref.invalidate(adminStatsProvider);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      }
+                    },
+                    icon: const Icon(Icons.check_rounded, color: Colors.green, size: 20),
+                    style: IconButton.styleFrom(backgroundColor: Colors.green.withOpacity(0.1)),
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _AdminUsersTab extends ConsumerWidget {
-  const _AdminUsersTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final usersAsync = ref.watch(allUsersProvider);
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+            ],
+          ),
+        )),
+        TextButton(
+          onPressed: () {}, // Tab switching handled by user manually or through complex logic
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('View All Approvals'),
+              Icon(Icons.chevron_right_rounded, size: 16),
+            ],
           ),
         ),
-        child: usersAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
-          data: (users) => CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              ModernSliverAppBar(
-                title: 'Users',
-                subtitle: 'All Registered Users',
-                profileName: 'Admin',
-                gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
-                backgroundIcon: Icons.people_rounded,
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final user = users[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-                        ),
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(child: Text(user['full_name']?[0] ?? '?')),
-                          title: Text(user['full_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${user['role']} • ${user['email']}'),
-                          trailing: const Icon(Icons.more_vert_rounded),
-                        ),
-                      );
-                    },
-                    childCount: users.length,
-                  ),
-                ),
+      ],
+    );
+  }
+
+  Widget _buildAnalyticsCharts(BuildContext context, bool isDark) {
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Growth & Activity', style: TextStyle(fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: const Text('Weekly', style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
+          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildChartBar(0.4, 'Mon', Colors.blue),
+              _buildChartBar(0.6, 'Tue', Colors.blue),
+              _buildChartBar(0.9, 'Wed', Colors.blue),
+              _buildChartBar(0.7, 'Thu', Colors.blue),
+              _buildChartBar(0.8, 'Fri', Colors.blue),
+              _buildChartBar(0.3, 'Sat', Colors.grey),
+              _buildChartBar(0.2, 'Sun', Colors.grey),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartBar(double heightFactor, String label, Color color) {
+    return Column(
+      children: [
+        Container(
+          height: 100 * heightFactor,
+          width: 24,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [color, color.withOpacity(0.6)],
+            ),
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildRecentActivitiesPreview(BuildContext context, WidgetRef ref, bool isDark) {
+    final logs = ref.watch(auditLogsProvider).asData?.value ?? [];
+    final recent = logs.take(3).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        children: [
+          ...recent.map((log) => ListTile(
+            dense: true,
+            leading: const CircleAvatar(radius: 14, child: Icon(Icons.history_rounded, size: 14)),
+            title: Text(log['action'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            subtitle: Text(log['timestamp'], style: const TextStyle(fontSize: 10)),
+          )),
+          if (recent.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No recent logs', style: TextStyle(color: Colors.grey))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickBroadcastBox(BuildContext context, ThemeData theme, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [theme.colorScheme.primary, theme.colorScheme.secondary]),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.campaign_rounded, color: Colors.white),
+              SizedBox(width: 12),
+              Text('Broadcast Announcement', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Type message to all users...',
+              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.1),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () {},
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: theme.colorScheme.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Send to Everyone'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSystemHealthWidget(BuildContext context, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        children: [
+          _buildHealthRow('Backend API', 'Online', Colors.green),
+          const Divider(height: 24),
+          _buildHealthRow('Database', 'Connected', Colors.green),
+          const Divider(height: 24),
+          _buildHealthRow('Email Server', 'Standby', Colors.orange),
+          const Divider(height: 24),
+          _buildHealthRow('Storage (S3)', 'Operational', Colors.green),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHealthRow(String service, String status, Color color) {
+    return Row(
+      children: [
+        Text(service, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const Spacer(),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text(status, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _buildQuickNavigation(BuildContext context, bool isDark) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _buildNavChip(context, 'Users', Icons.group_rounded, isDark),
+        _buildNavChip(context, 'Companies', Icons.business_rounded, isDark),
+        _buildNavChip(context, 'Audit Logs', Icons.receipt_long_rounded, isDark),
+        _buildNavChip(context, 'Settings', Icons.settings_rounded, isDark),
+      ],
+    );
+  }
+
+  Widget _buildNavChip(BuildContext context, String label, IconData icon, bool isDark) {
+    return InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
         ),
       ),
     );
   }
 }
 
-class _AdminLogsTab extends ConsumerStatefulWidget {
-  const _AdminLogsTab();
+class _AdminOrganizationsTab extends ConsumerStatefulWidget {
+  const _AdminOrganizationsTab();
 
   @override
-  ConsumerState<_AdminLogsTab> createState() => _AdminLogsTabState();
+  ConsumerState<_AdminOrganizationsTab> createState() => _AdminOrganizationsTabState();
 }
 
-class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
+class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> {
   String _searchQuery = '';
-  String _filter = 'All';
+  String _orgTypeFilter = 'All'; // 'All', 'University', 'Company'
+  String _orgStatusFilter = 'PENDING'; // 'PENDING', 'APPROVED', 'SUSPENDED'
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final logsAsync = ref.watch(auditLogsProvider);
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
-          ),
-        ),
-        child: logsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
-          data: (logs) {
-            final filteredLogs = logs.where((l) {
-              final matchesSearch = l['action'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
-              final matchesFilter = _filter == 'All' || l['type'] == _filter;
-              return matchesSearch && matchesFilter;
-            }).toList();
-
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                ModernSliverAppBar(
-                  title: 'Audit Logs',
-                  subtitle: 'System Activity Trace',
-                  profileName: 'Admin',
-                  gradient: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
-                  backgroundIcon: Icons.receipt_long_rounded,
-                  actions: [
-                    IconButton(onPressed: () {}, icon: const Icon(Icons.file_download_rounded, color: Colors.white)),
-                  ],
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                    child: Column(
-                      children: [
-                        TextField(
-                          onChanged: (v) => setState(() => _searchQuery = v),
-                          decoration: InputDecoration(
-                            hintText: 'Search actions...',
-                            prefixIcon: const Icon(Icons.search_rounded),
-                            filled: true,
-                            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: ['All', 'Security', 'User', 'Content', 'System'].map((f) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(f),
-                                selected: _filter == f,
-                                onSelected: (s) => setState(() => _filter = f),
-                              ),
-                            )).toList(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.all(24),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final log = filteredLogs[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                                child: Icon(Icons.history_rounded, color: theme.colorScheme.primary, size: 20),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(log['action'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    Text('By: ${log['userId']} • ${log['timestamp']}', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      childCount: filteredLogs.length,
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _AdminSettingsTab extends ConsumerWidget {
-  const _AdminSettingsTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    
+    final statsAsync = ref.watch(adminStatsProvider);
+    final unisAsync = ref.watch(allUniversitiesProvider);
+    final compsAsync = ref.watch(allCompaniesProvider);
 
     return Material(
       color: Colors.transparent,
@@ -3544,7 +3660,955 @@ class _AdminSettingsTab extends ConsumerWidget {
           physics: const BouncingScrollPhysics(),
           slivers: [
             ModernSliverAppBar(
-              title: 'Configuration',
+              title: 'Organizations',
+              subtitle: 'Manage Universities & Companies',
+              profileName: 'Admin',
+              gradient: [const Color(0xFF373B44), const Color(0xFF4286F4)],
+              backgroundIcon: Icons.business_rounded,
+              actions: [
+                IconButton(
+                  onPressed: () => _showInviteDialog(context),
+                  icon: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white),
+                  tooltip: 'Invite Organization',
+                ),
+              ],
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.all(24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildOrgStatsRow(statsAsync, isDark),
+                  const SizedBox(height: 32),
+                  _buildFilterRow(isDark),
+                  const SizedBox(height: 24),
+                  Text('Results', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                  const SizedBox(height: 16),
+                ]),
+              ),
+            ),
+            _buildOrgList(ref, unisAsync, compsAsync, isDark),
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrgStatsRow(AsyncValue<AdminStats> statsAsync, bool isDark) {
+    return statsAsync.when(
+      loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (stats) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildMiniStat('Pending Unis', stats.pendingApprovals.toString(), Icons.school_rounded, Colors.orange, isDark),
+            const SizedBox(width: 12),
+            _buildMiniStat('Verified', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.verified_rounded, Colors.green, isDark),
+            const SizedBox(width: 12),
+            _buildMiniStat('Suspended', '3', Icons.block_rounded, Colors.red, isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value, IconData icon, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterRow(bool isDark) {
+    return Column(
+      children: [
+        TextField(
+          onChanged: (v) => setState(() => _searchQuery = v),
+          decoration: InputDecoration(
+            hintText: 'Search organization name...',
+            prefixIcon: const Icon(Icons.search_rounded),
+            filled: true,
+            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildDropdownFilter('Type: $_orgTypeFilter', ['All', 'University', 'Company'], (v) => setState(() => _orgTypeFilter = v!)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildDropdownFilter('Status: $_orgStatusFilter', ['PENDING', 'APPROVED', 'SUSPENDED', 'REJECTED'], (v) => setState(() => _orgStatusFilter = v!)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownFilter(String label, List<String> options, ValueChanged<String?> onChanged) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: label.split(': ').last,
+          isExpanded: true,
+          icon: const Icon(Icons.arrow_drop_down_rounded),
+          items: options.map((o) => DropdownMenuItem(value: o, child: Text(o, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)))).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrgList(WidgetRef ref, AsyncValue<List<dynamic>> unisAsync, AsyncValue<List<dynamic>> compsAsync, bool isDark) {
+    return unisAsync.when(
+      loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
+      data: (unis) => compsAsync.when(
+        loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+        error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
+        data: (comps) {
+          final all = [
+            ...unis.map((u) => {...Map<String, dynamic>.from(u), 'type': 'University'}),
+            ...comps.map((c) => {...Map<String, dynamic>.from(c), 'type': 'Company'}),
+          ].where((o) {
+            final matchesSearch = o['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+            final matchesType = _orgTypeFilter == 'All' || o['type'] == _orgTypeFilter;
+            final matchesStatus = o['approval_status'] == _orgStatusFilter;
+            return matchesSearch && matchesType && matchesStatus;
+          }).toList();
+
+          if (all.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No organizations found'))));
+
+          return SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildOrgCard(context, ref, all[index], isDark),
+                childCount: all.length,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOrgCard(BuildContext context, WidgetRef ref, Map<String, dynamic> org, bool isDark) {
+    final theme = Theme.of(context);
+    final status = org['approval_status'] as String;
+    final isPending = status == 'PENDING';
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(org['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16), overflow: TextOverflow.ellipsis),
+                    Text(
+                      '${org['type']} • ${org['official_email'] ?? 'No email'}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    ),
+                    if (org['created_at'] != null)
+                      Text(
+                        'Submitted: ${org['created_at'].toString().split('T')[0]}',
+                        style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              if (isPending) ...[
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _updateStatus(ref, org, 'REJECTED'),
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent)),
+                    child: const Text('Reject'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => _updateStatus(ref, org, 'APPROVED'),
+                    style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                    child: const Text('Approve'),
+                  ),
+                ),
+              ] else ...[
+                 Expanded(
+                   child: OutlinedButton(
+                     onPressed: () {},
+                     child: const Text('View Details'),
+                   ),
+                 ),
+                 const SizedBox(width: 12),
+                 if (status == 'APPROVED')
+                   Expanded(
+                     child: FilledButton(
+                       onPressed: () => _updateStatus(ref, org, 'SUSPENDED'),
+                       style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+                       child: const Text('Suspend'),
+                     ),
+                   )
+                 else if (status == 'SUSPENDED')
+                   Expanded(
+                     child: FilledButton(
+                       onPressed: () => _updateStatus(ref, org, 'APPROVED'),
+                       style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                       child: const Text('Activate'),
+                     ),
+                   ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateStatus(WidgetRef ref, Map<String, dynamic> org, String status) async {
+    try {
+      final repo = ref.read(adminRepositoryProvider);
+      if (org['type'] == 'University') {
+        await repo.updateUniversityStatus(org['id'], status);
+      } else {
+        await repo.updateCompanyStatus(org['id'], status);
+      }
+      ref.invalidate(allUniversitiesProvider);
+      ref.invalidate(allCompaniesProvider);
+      ref.invalidate(adminStatsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Status updated to $status')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _showInviteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Invite Organization'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const TextField(decoration: InputDecoration(labelText: 'Official Email')),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: 'University',
+              items: ['University', 'Company'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+              onChanged: (v) {},
+              decoration: const InputDecoration(labelText: 'Type'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Send Invitation')),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminUsersTab extends ConsumerStatefulWidget {
+  const _AdminUsersTab();
+
+  @override
+  ConsumerState<_AdminUsersTab> createState() => _AdminUsersTabState();
+}
+
+class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
+  String _searchQuery = '';
+  String _selectedRole = 'All';
+  String _selectedStatus = 'All';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final usersAsync = ref.watch(allUsersProvider);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: usersAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (users) {
+            final filteredUsers = users.where((u) {
+              final matchesSearch = (u['full_name'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                  (u['email'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase());
+              final matchesRole = _selectedRole == 'All' || u['role'] == _selectedRole;
+              final matchesStatus = _selectedStatus == 'All' || 
+                  (_selectedStatus == 'Active' && u['isApproved'] == true) ||
+                  (_selectedStatus == 'Suspended' && u['isApproved'] == false);
+              return matchesSearch && matchesRole && matchesStatus;
+            }).toList();
+
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                ModernSliverAppBar(
+                  title: 'User Management',
+                  subtitle: 'Control platform access',
+                  profileName: 'Admin',
+                  gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
+                  backgroundIcon: Icons.people_rounded,
+                  actions: [
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.file_download_rounded, color: Colors.white),
+                      tooltip: 'Export CSV',
+                    ),
+                  ],
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildOverviewRow(users, isDark),
+                      const SizedBox(height: 32),
+                      _buildSearchAndFilters(theme, isDark),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Directory (${filteredUsers.length})', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                          TextButton.icon(
+                            onPressed: () {},
+                            icon: const Icon(Icons.bolt_rounded, size: 16),
+                            label: const Text('Bulk Actions'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ]),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildUserCard(context, filteredUsers[index], isDark),
+                      childCount: filteredUsers.length,
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverviewRow(List<dynamic> users, bool isDark) {
+    final total = users.length;
+    final active = users.where((u) => u['isApproved'] == true).length;
+    final suspended = users.where((u) => u['isApproved'] == false).length;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildMiniStat('Total', total.toString(), Icons.group_rounded, Colors.blue, isDark),
+          const SizedBox(width: 12),
+          _buildMiniStat('Active', active.toString(), Icons.check_circle_rounded, Colors.green, isDark),
+          const SizedBox(width: 12),
+          _buildMiniStat('Suspended', suspended.toString(), Icons.block_rounded, Colors.red, isDark),
+          const SizedBox(width: 12),
+          _buildMiniStat('New Today', '12', Icons.fiber_new_rounded, Colors.orange, isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value, IconData icon, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchAndFilters(ThemeData theme, bool isDark) {
+    return Column(
+      children: [
+        TextField(
+          onChanged: (v) => setState(() => _searchQuery = v),
+          decoration: InputDecoration(
+            hintText: 'Search by name or email...',
+            prefixIcon: const Icon(Icons.search_rounded),
+            filled: true,
+            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildFilterChip('Role: $_selectedRole', Icons.badge_rounded, () => _showFilterDialog('Role')),
+              const SizedBox(width: 8),
+              _buildFilterChip('Status: $_selectedStatus', Icons.verified_user_rounded, () => _showFilterDialog('Status')),
+              const SizedBox(width: 8),
+              _buildFilterChip('Joined: All Time', Icons.calendar_today_rounded, () {}),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip(String label, IconData icon, VoidCallback onTap) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down_rounded, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserCard(BuildContext context, dynamic user, bool isDark) {
+    final theme = Theme.of(context);
+    final statusColor = user['isApproved'] == true ? Colors.green : Colors.red;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+            child: Text(user['full_name']?[0].toUpperCase() ?? '?', 
+              style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        user['full_name'] ?? 'Unknown',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                      child: Text(user['isApproved'] == true ? 'ACTIVE' : 'SUSPENDED', 
+                        style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.w900)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${user['role']} • ${user['email']}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert_rounded, size: 20, color: Colors.grey),
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(value: 'view', child: Row(children: [Icon(Icons.visibility_rounded, size: 18), SizedBox(width: 12), Text('View Details')])),
+              PopupMenuItem(
+                value: user['isApproved'] == true ? 'suspend' : 'activate', 
+                child: Row(children: [
+                  Icon(user['isApproved'] == true ? Icons.block_rounded : Icons.check_circle_rounded, size: 18), 
+                  const SizedBox(width: 12), 
+                  Text(user['isApproved'] == true ? 'Suspend' : 'Activate')
+                ])
+              ),
+              const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_forever_rounded, size: 18, color: Colors.redAccent), SizedBox(width: 12), Text('Delete User', style: TextStyle(color: Colors.redAccent))])),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterDialog(String type) {
+    final options = type == 'Role' 
+      ? ['All', 'STUDENT', 'SUPERVISOR', 'COORDINATOR', 'ADMIN', 'HOD']
+      : ['All', 'Active', 'Suspended'];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Select $type', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: options.map((opt) {
+                final isSelected = type == 'Role' ? _selectedRole == opt : _selectedStatus == opt;
+                return ChoiceChip(
+                  label: Text(opt),
+                  selected: isSelected,
+                  onSelected: (s) {
+                    setState(() {
+                      if (type == 'Role') _selectedRole = opt;
+                      else _selectedStatus = opt;
+                    });
+                    Navigator.pop(ctx);
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminLogsTab extends ConsumerStatefulWidget {
+  const _AdminLogsTab();
+
+  @override
+  ConsumerState<_AdminLogsTab> createState() => _AdminLogsTabState();
+}
+
+class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
+  String _searchQuery = '';
+  String _typeFilter = 'All';
+  String _roleFilter = 'All';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final logsAsync = ref.watch(auditLogsProvider);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: logsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (logs) {
+            final filteredLogs = logs.where((l) {
+              final action = l['action'].toString().toLowerCase();
+              final matchesSearch = action.contains(_searchQuery.toLowerCase()) || 
+                  l['details'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
+              final matchesType = _typeFilter == 'All' || l['action'].toString().contains(_typeFilter.toUpperCase());
+              return matchesSearch && matchesType;
+            }).toList();
+
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                ModernSliverAppBar(
+                  title: 'Audit Logs',
+                  subtitle: 'System-wide activity trace',
+                  profileName: 'Admin',
+                  gradient: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
+                  backgroundIcon: Icons.receipt_long_rounded,
+                  actions: [
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+                      tooltip: 'Export PDF',
+                    ),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.file_download_rounded, color: Colors.white),
+                      tooltip: 'Export CSV',
+                    ),
+                  ],
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFilters(theme, isDark),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            const Icon(Icons.timeline_rounded, size: 20, color: Colors.grey),
+                            const SizedBox(width: 12),
+                            Text('Activity Timeline (${filteredLogs.length})', 
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildTimelineItem(context, filteredLogs[index], isDark, 
+                        isFirst: index == 0, isLast: index == filteredLogs.length - 1),
+                      childCount: filteredLogs.length,
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilters(ThemeData theme, bool isDark) {
+    return Column(
+      children: [
+        TextField(
+          onChanged: (v) => setState(() => _searchQuery = v),
+          decoration: InputDecoration(
+            hintText: 'Search by action or detail...',
+            prefixIcon: const Icon(Icons.search_rounded),
+            filled: true,
+            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildFilterChip('Action: $_typeFilter', Icons.bolt_rounded, () => _showFilterDialog('Action')),
+              const SizedBox(width: 8),
+              _buildFilterChip('Role: $_roleFilter', Icons.badge_rounded, () => _showFilterDialog('Role')),
+              const SizedBox(width: 8),
+              _buildFilterChip('Date: Today', Icons.calendar_today_rounded, () {}),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip(String label, IconData icon, VoidCallback onTap) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down_rounded, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(BuildContext context, dynamic log, bool isDark, {bool isFirst = false, bool isLast = false}) {
+    final theme = Theme.of(context);
+    final actionColor = _getActionColor(log['action'].toString());
+    
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 2,
+                height: 20,
+                color: isFirst ? Colors.transparent : Colors.grey.withOpacity(0.2),
+              ),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: actionColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: actionColor.withOpacity(0.2), width: 4, strokeAlign: BorderSide.strokeAlignOutside),
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  width: 2,
+                  color: isLast ? Colors.transparent : Colors.grey.withOpacity(0.2),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(log['action'], style: TextStyle(fontWeight: FontWeight.w900, color: actionColor, fontSize: 13)),
+                      Text(_formatTime(log['timestamp']), style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(log['details'] ?? 'No details available', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      CircleAvatar(radius: 8, child: Text(log['admin']?['full_name']?[0] ?? '?', style: const TextStyle(fontSize: 8))),
+                      const SizedBox(width: 8),
+                      Text(log['admin']?['full_name'] ?? 'System', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      const Spacer(),
+                      const Icon(Icons.devices_rounded, size: 10, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text('Web/192.168.1.1', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getActionColor(String action) {
+    if (action.contains('APPROVE')) return Colors.green;
+    if (action.contains('REJECT')) return Colors.red;
+    if (action.contains('SUSPEND')) return Colors.orange;
+    if (action.contains('CREATE')) return Colors.blue;
+    if (action.contains('DELETE')) return Colors.redAccent;
+    return Colors.purple;
+  }
+
+  String _formatTime(String? timestamp) {
+    if (timestamp == null) return '--:--';
+    try {
+      final dt = DateTime.parse(timestamp);
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} ${dt.day}/${dt.month}';
+    } catch (_) {
+      return timestamp;
+    }
+  }
+
+  void _showFilterDialog(String type) {
+    final options = type == 'Role' 
+      ? ['All', 'ADMIN', 'COORDINATOR', 'SUPERVISOR', 'SYSTEM']
+      : ['All', 'APPROVE', 'REJECT', 'SUSPEND', 'CREATE', 'UPDATE'];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Select $type', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: options.map((opt) {
+                final isSelected = type == 'Role' ? _roleFilter == opt : _typeFilter == opt;
+                return ChoiceChip(
+                  label: Text(opt),
+                  selected: isSelected,
+                  onSelected: (s) {
+                    setState(() {
+                      if (type == 'Role') _roleFilter = opt;
+                      else _typeFilter = opt;
+                    });
+                    Navigator.pop(ctx);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminSettingsTab extends ConsumerStatefulWidget {
+  const _AdminSettingsTab();
+
+  @override
+  ConsumerState<_AdminSettingsTab> createState() => _AdminSettingsTabState();
+}
+
+class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
+  bool _regUni = true;
+  bool _regComp = true;
+  bool _maintenance = false;
+  String _broadcastTarget = 'All Users';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              isDark ? const Color(0xFF0F172A) : Colors.white,
+            ],
+          ),
+        ),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            ModernSliverAppBar(
+              title: 'Settings',
               subtitle: 'System Control Panel',
               profileName: 'Admin',
               gradient: const [Color(0xFF2C3E50), Color(0xFF000000)],
@@ -3554,45 +4618,88 @@ class _AdminSettingsTab extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildSettingSection(context, 'Registration Controls', [
-                    _buildSwitchTile(context, 'Open University Registration', true, isDark),
-                    _buildSwitchTile(context, 'Open Company Registration', true, isDark),
-                    _buildSwitchTile(context, 'Allow Student Self-Reg', false, isDark),
+                  _buildSection(context, 'System Configuration', [
+                    _buildSwitchTile('Registration: University', _regUni, (v) => setState(() => _regUni = v), isDark),
+                    _buildSwitchTile('Registration: Company', _regComp, (v) => setState(() => _regComp = v), isDark),
+                    _buildConfigItem('Internship Rules', 'Min 8 Weeks, Max 3 Proposals', Icons.rule_rounded, isDark),
+                    _buildSwitchTile('Auto-approve Orgs', false, (v) {}, isDark),
                   ]),
                   const SizedBox(height: 32),
-                  _buildSettingSection(context, 'Internship Rules', [
-                    _buildConfigItem(context, 'Minimum Duration (Weeks)', '8', Icons.timer_rounded, isDark),
-                    _buildConfigItem(context, 'Max Proposals per Student', '3', Icons.send_rounded, isDark),
+                  _buildSection(context, 'Maintenance Mode', [
+                    _buildSwitchTile('Enable Maintenance', _maintenance, (v) => setState(() => _maintenance = v), isDark),
+                    if (_maintenance)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Maintenance message...',
+                            filled: true,
+                            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
+                        ),
+                      ),
                   ]),
                   const SizedBox(height: 32),
-                  _buildSettingSection(context, 'Maintenance & Tools', [
-                    _buildSwitchTile(context, 'Maintenance Mode', false, isDark),
-                    ListTile(
-                      onTap: () {},
-                      leading: const Icon(Icons.mail_rounded, color: Colors.blue),
-                      title: const Text('Test SMTP Connection', style: TextStyle(fontWeight: FontWeight.bold)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                    ),
+                  _buildSection(context, 'Email / SMTP', [
+                    _buildActionTile('SMTP Configuration', Icons.mail_rounded, Colors.blue, isDark, () => _showSMTPDialog(context)),
+                    _buildActionTile('Send Test Email', Icons.send_rounded, Colors.green, isDark, () {}),
                   ]),
                   const SizedBox(height: 32),
-                  _buildSettingSection(context, 'Broadcast', [
+                  _buildSection(context, 'Notifications / Broadcast', [
                     Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                      ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const TextField(decoration: InputDecoration(hintText: 'System-wide announcement...', border: InputBorder.none)),
-                          const Divider(),
+                          const Text('Global Announcement', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                          const SizedBox(height: 16),
+                          TextField(
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              hintText: 'Type message here...',
+                              filled: true,
+                              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           Row(
                             children: [
-                              const Text('Target: ALL ROLES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                              const Spacer(),
-                              FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.campaign_rounded, size: 16), label: const Text('Broadcast')),
+                              Expanded(
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _broadcastTarget,
+                                    isExpanded: true,
+                                    items: ['All Users', 'Students Only', 'Supervisors Only', 'Coordinators Only']
+                                        .map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))))
+                                        .toList(),
+                                    onChanged: (v) => setState(() => _broadcastTarget = v!),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              FilledButton.icon(
+                                onPressed: () {},
+                                icon: const Icon(Icons.campaign_rounded, size: 18),
+                                label: const Text('Broadcast'),
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
+                  ]),
+                  const SizedBox(height: 32),
+                  _buildSection(context, 'Security', [
+                    _buildActionTile('Password Policy', Icons.password_rounded, Colors.orange, isDark, () {}),
+                    _buildActionTile('Session Timeout', Icons.timer_rounded, Colors.purple, isDark, () {}),
+                    _buildActionTile('API Limits / Rate Limiting', Icons.speed_rounded, Colors.red, isDark, () {}),
                   ]),
                   const SizedBox(height: 120),
                 ]),
@@ -3604,41 +4711,71 @@ class _AdminSettingsTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildSettingSection(BuildContext context, String title, List<Widget> children) {
+  Widget _buildSection(BuildContext context, String title, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         const SizedBox(height: 16),
         ...children,
       ],
     );
   }
 
-  Widget _buildSwitchTile(BuildContext context, String title, bool value, bool isDark) {
+  Widget _buildSwitchTile(String title, bool value, ValueChanged<bool> onChanged, bool isDark) {
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      trailing: Switch(value: value, onChanged: (v) {}),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      trailing: Switch.adaptive(value: value, onChanged: onChanged),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
     );
   }
 
-  Widget _buildConfigItem(BuildContext context, String title, String value, IconData icon, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.grey),
-          const SizedBox(width: 16),
-          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w500))),
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+  Widget _buildConfigItem(String title, String value, IconData icon, bool isDark) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.grey, size: 20),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      subtitle: Text(value, style: const TextStyle(fontSize: 12)),
+      trailing: const Icon(Icons.edit_rounded, size: 18),
+      onTap: () {},
+    );
+  }
+
+  Widget _buildActionTile(String title, IconData icon, Color color, bool isDark, VoidCallback onTap) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    );
+  }
+
+  void _showSMTPDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('SMTP Configuration'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(decoration: InputDecoration(labelText: 'Host')),
+            TextField(decoration: InputDecoration(labelText: 'Port')),
+            TextField(decoration: InputDecoration(labelText: 'Username')),
+            TextField(decoration: InputDecoration(labelText: 'Password'), obscureText: true),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Save Settings')),
         ],
       ),
     );
   }
 }
+
 
 // ---------------------------------------------------------
 // TOP-LEVEL HELPERS & DELEGATES
@@ -3765,3 +4902,50 @@ final supervisorStatsProvider = FutureProvider.autoDispose<Map<String, int>>((re
     'pendingPlans': plans.where((p) => p.status.toUpperCase() == 'PENDING').length,
   };
 });
+
+class _LineChartPainter extends CustomPainter {
+  final bool isDark;
+  _LineChartPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.blue
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    path.moveTo(0, size.height * 0.8);
+    path.cubicTo(
+      size.width * 0.2, size.height * 0.8,
+      size.width * 0.3, size.height * 0.2,
+      size.width * 0.5, size.height * 0.4,
+    );
+    path.cubicTo(
+      size.width * 0.7, size.height * 0.6,
+      size.width * 0.8, size.height * 0.1,
+      size.width, size.height * 0.3,
+    );
+
+    canvas.drawPath(path, paint);
+
+    // Gradient fill
+    final fillPath = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.blue.withOpacity(0.3), Colors.blue.withOpacity(0)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawPath(fillPath, fillPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}

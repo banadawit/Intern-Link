@@ -115,18 +115,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       return;
     }
 
-    final ok = await ref
+    final dashboardRoute = await ref
         .read(authControllerProvider.notifier)
         .login(
           email: _emailController.text,
           password: _passwordController.text,
         );
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
-    if (!ok) {
+    if (dashboardRoute == null) {
+      // Login failed — check for special redirect cases.
       final state = ref.read(authControllerProvider);
 
       if (state.requiresVerification) {
@@ -157,8 +156,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       return;
     }
 
+    // Login succeeded — go DIRECTLY to the dashboard. Do NOT go through
+    // splash again; that re-runs /auth/me which may fail and kick back to login.
     HapticFeedback.selectionClick();
-    context.go(AppRoutes.splash);
+    context.go(dashboardRoute);
   }
 
   @override

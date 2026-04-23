@@ -15,18 +15,12 @@ class AppInitializationService {
   final AuthRemoteDataSource _authRemoteDataSource;
 
   Future<AppStartDecision> resolveStartDestination() async {
-    final firstLaunchFuture = _appSessionService.isFirstLaunch();
-    final authTokenFuture = _appSessionService.getToken();
-
-    final isFirstLaunch = await firstLaunchFuture;
-    final authToken = await authTokenFuture;
-
+    final isFirstLaunch = await _appSessionService.isFirstLaunch();
     if (isFirstLaunch) {
-      return const AppStartDecision(
-        destination: AppStartDestination.onboarding,
-      );
+      return const AppStartDecision(destination: AppStartDestination.onboarding);
     }
 
+    final authToken = await _appSessionService.getToken();
     if (authToken == null || authToken.isEmpty) {
       return const AppStartDecision(destination: AppStartDestination.auth);
     }
@@ -35,11 +29,33 @@ class AppInitializationService {
       final user = await _authRemoteDataSource.fetchCurrentUser(authToken);
       return AppStartDecision(destination: _destinationFromRole(user.role));
     } on SessionInvalidException {
+      // Token was rejected by the server (HTTP 401) — it's genuinely expired.
       await _safeClearSession();
       return const AppStartDecision(destination: AppStartDestination.auth);
+    } on SessionValidationException {
+      // Network error / server unreachable / CORS issue during startup.
+      // DO NOT clear the session — keep the token and send the user to their
+      // dashboard anyway. The dashboard will show an appropriate error if the
+      // API is still unreachable.
+      final role = await _roleFromStoredSession();
+      if (role != null) {
+        return AppStartDecision(destination: _destinationFromRole(role));
+      }
+      // We have a token but no cached role — go to login so the user can
+      // re-authenticate once the network is back.
+      return const AppStartDecision(destination: AppStartDestination.auth);
+    }
+  }
+
+  /// Reads the cached role from storage so we can route offline users
+  /// to the correct dashboard without hitting the API.
+  Future<AppRole?> _roleFromStoredSession() async {
+    try {
+      final roleStr = await _appSessionService.getRole();
+      if (roleStr == null) return null;
+      return _roleFromString(roleStr);
     } catch (_) {
-      await _safeClearSession();
-      return const AppStartDecision(destination: AppStartDestination.auth);
+      return null;
     }
   }
 
@@ -63,6 +79,23 @@ class AppInitializationService {
         return AppStartDestination.adminDashboard;
       case AppRole.hod:
         return AppStartDestination.hodDashboard;
+    }
+  }
+
+  AppRole? _roleFromString(String role) {
+    switch (role.toUpperCase()) {
+      case 'STUDENT':
+        return AppRole.student;
+      case 'SUPERVISOR':
+        return AppRole.supervisor;
+      case 'COORDINATOR':
+        return AppRole.coordinator;
+      case 'ADMIN':
+        return AppRole.admin;
+      case 'HOD':
+        return AppRole.hod;
+      default:
+        return null;
     }
   }
 }

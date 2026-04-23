@@ -20,7 +20,7 @@ class AuthRemoteDataSource {
         ),
       );
 
-      final data = response.data['data'];
+      final data = response.data;
       if (data == null) {
         throw const SessionValidationException('Malformed /auth/me response.');
       }

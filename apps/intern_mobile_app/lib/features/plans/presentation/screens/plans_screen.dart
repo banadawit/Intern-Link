@@ -36,10 +36,9 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
 
     return Container(
       decoration: BoxDecoration(gradient: bg),
-      child: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => ref.read(plansProvider.notifier).refresh(),
-          child: CustomScrollView(
+      child: RefreshIndicator(
+        onRefresh: () => ref.read(plansProvider.notifier).refresh(),
+        child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               ModernSliverAppBar(
@@ -106,7 +105,6 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                 },
               ),
             ],
-          ),
         ),
       ),
     );
