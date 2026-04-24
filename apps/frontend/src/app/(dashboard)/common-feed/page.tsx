@@ -193,7 +193,17 @@ export default function CommonFeedPage() {
 
       setNewPostContent('');
       setShowCreatePost(false);
+      
+      // Refresh the main feed
       fetchPosts(currentPage, filter !== 'ALL' ? filter : undefined);
+      
+      // If user profile is open, refresh it too
+      if (showUserProfile && selectedUserId) {
+        const response = await axios.get(`${API_BASE}/common-feed/user/${selectedUserId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUserPosts(response.data.data.posts);
+      }
     } catch (error) {
       console.error('Error creating post:', error);
       alert('Failed to create post');
@@ -801,23 +811,39 @@ export default function CommonFeedPage() {
 
                   {/* Stats Bar */}
                   <div className="px-6 py-4 bg-white border-b border-slate-200">
-                    <div className="flex items-center gap-8">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-slate-900">{userPosts.length}</div>
-                        <div className="text-sm text-slate-600">Posts</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-slate-900">
-                          {userPosts.reduce((sum, post) => sum + post.likeCount, 0)}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-8">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-slate-900">{userPosts.length}</div>
+                          <div className="text-sm text-slate-600">Posts</div>
                         </div>
-                        <div className="text-sm text-slate-600">Likes</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-slate-900">
-                          {userPosts.reduce((sum, post) => sum + post.commentCount, 0)}
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-slate-900">
+                            {userPosts.reduce((sum, post) => sum + post.likeCount, 0)}
+                          </div>
+                          <div className="text-sm text-slate-600">Likes</div>
                         </div>
-                        <div className="text-sm text-slate-600">Comments</div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-slate-900">
+                            {userPosts.reduce((sum, post) => sum + post.commentCount, 0)}
+                          </div>
+                          <div className="text-sm text-slate-600">Comments</div>
+                        </div>
                       </div>
+                      
+                      {/* Show Create Post button only for own profile */}
+                      {currentUser && userProfileData && (currentUser.userId === userProfileData.id || currentUser.id === userProfileData.id) && (
+                        <button
+                          onClick={() => {
+                            setShowUserProfile(false);
+                            setShowCreatePost(true);
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
+                        >
+                          <Send className="w-4 h-4" />
+                          Create Post
+                        </button>
+                      )}
                     </div>
                   </div>
 
