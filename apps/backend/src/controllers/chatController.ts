@@ -219,3 +219,24 @@ export const getUnreadCount = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: e.message });
     }
 };
+
+// DELETE /chat/:userId — delete all messages between me and userId (only for the requester's view)
+export const deleteConversation = async (req: AuthRequest, res: Response) => {
+    try {
+        const me = ME(req);
+        const other = parseInt(String(req.params.userId), 10);
+
+        await prisma.chatMessage.deleteMany({
+            where: {
+                OR: [
+                    { senderId: me, receiverId: other },
+                    { senderId: other, receiverId: me },
+                ],
+            },
+        });
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+};

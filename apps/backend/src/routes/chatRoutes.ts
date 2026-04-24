@@ -8,6 +8,7 @@ router.use(authenticate);
 router.get('/contacts', chat.getContacts);
 router.get('/conversations', chat.getConversations);
 router.get('/unread-count', chat.getUnreadCount);
+router.delete('/history/:userId', chat.deleteConversation);
 router.get('/:userId', chat.getMessages);
 router.post('/:userId', chat.sendMessage);
 
