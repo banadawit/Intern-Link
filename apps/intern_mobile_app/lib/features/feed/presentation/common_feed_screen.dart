@@ -520,9 +520,25 @@ class _CommonFeedScreenState extends ConsumerState<CommonFeedScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Pinned/Broadcast Indicator
+          if (post.isPinned)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0EA5E9).withOpacity(0.1),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.push_pin_rounded, size: 14, color: Color(0xFF0EA5E9)),
+                  SizedBox(width: 8),
+                  Text('BROADCAST ANNOUNCEMENT', style: TextStyle(color: Color(0xFF0EA5E9), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                ],
+              ),
+            ),
           // Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 12, 0),
+            padding: EdgeInsets.fromLTRB(16, post.isPinned ? 12 : 16, 12, 0),
             child: Row(
               children: [
                 _avatar(post.author.fullName, post.postType),

@@ -23,6 +23,7 @@ import '../../../supervisor/domain/entities/supervisor_entities.dart';
 import '../../../plans/domain/entities/weekly_plan.dart';
 import '../../../plans/presentation/screens/plans_screen.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../feed/data/feed_repository.dart';
 
 // ---------------------------------------------------------
 // STATE MANAGEMENT (NAVIGATION)
@@ -978,7 +979,7 @@ class _StudentHomeTab extends ConsumerWidget {
                         const SizedBox(height: 20),
                         _buildRecentActivity(context, isDark, plansAsync, proposalsAsync),
                         const SizedBox(height: 20),
-                        _buildCommonFeedPreview(context, isDark),
+                        FeedPreviewSection(),
                         const SizedBox(height: 24),
                         _buildQuickActions(context, ref, theme, isDark),
                         const SizedBox(height: 120),
@@ -1469,72 +1470,6 @@ class _StudentHomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildCommonFeedPreview(BuildContext context, bool isDark) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Common Feed',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              TextButton(
-                onPressed: () => context.push(AppRoutes.commonFeed),
-                child: const Text('See all'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Announcements, opportunities, and updates.',
-            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
-          ),
-          const SizedBox(height: 14),
-          _feedPreviewRow(context, Icons.campaign_rounded, 'New announcement posted'),
-          const SizedBox(height: 10),
-          _feedPreviewRow(context, Icons.work_outline_rounded, 'Opportunity shared by a company'),
-          const SizedBox(height: 10),
-          _feedPreviewRow(context, Icons.lightbulb_outline_rounded, 'Experience tip from a student'),
-        ],
-      ),
-    );
-  }
-
-  Widget _feedPreviewRow(BuildContext context, IconData icon, String text) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, size: 18, color: theme.colorScheme.primary),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-        const Icon(Icons.chevron_right_rounded, size: 18),
-      ],
-    );
-  }
-
   Widget _buildQuickActions(BuildContext context, WidgetRef ref, ThemeData theme, bool isDark) {
     return Column(
       children: [
@@ -1599,7 +1534,6 @@ class _StudentHomeTab extends ConsumerWidget {
       ),
     );
   }
-}
 
   _InternshipStatus _deriveInternshipStatusLabel(StudentProfile profile) {
     if ((profile.internshipStatus).toUpperCase() == 'PLACED' || profile.companyName != null) {
@@ -1610,6 +1544,7 @@ class _StudentHomeTab extends ConsumerWidget {
     }
     return _InternshipStatus.notPlaced;
   }
+}
 
 class _ActivityItem {
   final IconData icon;
@@ -3340,6 +3275,7 @@ class _CoordinatorHomeTab extends ConsumerWidget {
                           successTitle: 'Placement Rate', successRate: stats.totalStudents > 0 ? (stats.activePlacements / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
                           submissionTitle: 'System Activity', submissionSub: 'Healthy'
                         ),
+                        FeedPreviewSection(),
                         const SizedBox(height: 32),
                         Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
@@ -4196,6 +4132,7 @@ class _HodOverviewTab extends ConsumerWidget {
                           successTitle: 'Submission Rate', successRate: stats.totalStudents > 0 ? (stats.totalReports / (stats.totalStudents * 4)).clamp(0.0, 1.0) : 0.0,
                           submissionTitle: 'Pending Approvals', submissionSub: '${stats.pendingApprovals} Pending'
                         ),
+                        FeedPreviewSection(),
                         const SizedBox(height: 32),
                         Text('Recent Reports', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
                         const SizedBox(height: 16),
@@ -4880,11 +4817,24 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 }
 
-class _AdminOverviewTab extends ConsumerWidget {
+class _AdminOverviewTab extends ConsumerStatefulWidget {
   const _AdminOverviewTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AdminOverviewTab> createState() => _AdminOverviewTabState();
+}
+
+class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
+  final _broadcastController = TextEditingController();
+
+  @override
+  void dispose() {
+    _broadcastController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final statsAsync = ref.watch(adminStatsProvider);
@@ -4930,10 +4880,9 @@ class _AdminOverviewTab extends ConsumerWidget {
                       _buildPendingApprovalsPreview(context, ref, isDark),
 
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Recent Audit Logs'),
-                      const SizedBox(height: 16),
                       _buildRecentActivitiesPreview(context, ref, isDark),
 
+                      FeedPreviewSection(),
                       const SizedBox(height: 32),
                       _buildSectionHeader(theme, 'Broadcast Announcement'),
                       const SizedBox(height: 16),
@@ -4947,7 +4896,7 @@ class _AdminOverviewTab extends ConsumerWidget {
                       const SizedBox(height: 32),
                       _buildSectionHeader(theme, 'Quick Navigation'),
                       const SizedBox(height: 16),
-                      _buildQuickNavigation(context, isDark),
+                      _buildQuickNavigation(context, ref, isDark),
 
                       const SizedBox(height: 120),
                     ]),
@@ -5163,7 +5112,9 @@ class _AdminOverviewTab extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           TextField(
+            controller: _broadcastController,
             style: const TextStyle(color: Colors.white),
+            maxLines: 2,
             decoration: InputDecoration(
               hintText: 'Type message to all users...',
               hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
@@ -5176,7 +5127,20 @@ class _AdminOverviewTab extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () {},
+              onPressed: () async {
+                final content = _broadcastController.text.trim();
+                if (content.isEmpty) return;
+                try {
+                  await ref.read(adminRepositoryProvider).broadcast('System Broadcast', content);
+                  _broadcastController.clear();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Broadcast sent successfully!')));
+                    ref.invalidate(feedProvider);
+                  }
+                } catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              },
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: theme.colorScheme.primary,
@@ -5228,22 +5192,22 @@ class _AdminOverviewTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickNavigation(BuildContext context, bool isDark) {
+  Widget _buildQuickNavigation(BuildContext context, WidgetRef ref, bool isDark) {
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        _buildNavChip(context, 'Users', Icons.group_rounded, isDark),
-        _buildNavChip(context, 'Companies', Icons.business_rounded, isDark),
-        _buildNavChip(context, 'Audit Logs', Icons.receipt_long_rounded, isDark),
-        _buildNavChip(context, 'Settings', Icons.settings_rounded, isDark),
+        _buildNavChip(context, ref, 'Orgs', Icons.business_rounded, isDark, 1),
+        _buildNavChip(context, ref, 'Users', Icons.group_rounded, isDark, 2),
+        _buildNavChip(context, ref, 'Audit Logs', Icons.receipt_long_rounded, isDark, 3),
+        _buildNavChip(context, ref, 'Config', Icons.settings_rounded, isDark, 4),
       ],
     );
   }
 
-  Widget _buildNavChip(BuildContext context, String label, IconData icon, bool isDark) {
+  Widget _buildNavChip(BuildContext context, WidgetRef ref, String label, IconData icon, bool isDark, int targetIndex) {
     return InkWell(
-      onTap: () {},
+      onTap: () => ref.read(dashboardIndexProvider.notifier).state = targetIndex,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -6788,4 +6752,116 @@ class _LineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// --- COMMON FEED PREVIEW SECTION ---
+
+class FeedPreviewSection extends ConsumerWidget {
+  const FeedPreviewSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final feedAsync = ref.watch(feedProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Common Feed',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Latest community updates',
+                      style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push(AppRoutes.commonFeed),
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                child: const Text('See all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          feedAsync.when(
+            loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
+            error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(fontSize: 12))),
+            data: (posts) {
+              if (posts.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: Text('No updates yet', style: TextStyle(color: Colors.grey))),
+                );
+              }
+              final previewPosts = posts.take(3).toList();
+              return Column(
+                children: previewPosts.map((post) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () => context.push(AppRoutes.commonFeed),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (post.isPinned ? Colors.blue : Colors.grey).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              post.isPinned ? Icons.campaign_rounded : Icons.dynamic_feed_rounded,
+                              size: 16,
+                              color: post.isPinned ? Colors.blue : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  post.title ?? (post.content.length > 30 ? '${post.content.substring(0, 30)}...' : post.content),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                Text(
+                                  '${post.author.fullName} • ${timeago.format(post.createdAt)}',
+                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }
