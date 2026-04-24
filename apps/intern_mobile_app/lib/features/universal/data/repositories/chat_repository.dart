@@ -89,8 +89,25 @@ class ChatRepository {
     return [];
   }
 
+  Future<List<ChatPartner>> getContacts() async {
+    final response = await apiClient.dio.get('/chat/contacts');
+    final data = response.data;
+    if (data is List) {
+      return data.map((e) => ChatPartner.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
   Future<void> sendMessage(int partnerId, String content) async {
     await apiClient.dio.post('/chat/$partnerId', data: {'content': content});
+  }
+
+  Future<void> editMessage(int messageId, String content) async {
+    await apiClient.dio.patch('/chat/message/$messageId', data: {'content': content});
+  }
+
+  Future<void> deleteMessage(int messageId) async {
+    await apiClient.dio.delete('/chat/message/$messageId');
   }
 }
 
@@ -100,4 +117,12 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
 
 final conversationsProvider = FutureProvider.autoDispose<List<ConversationModel>>((ref) async {
   return ref.watch(chatRepositoryProvider).getConversations();
+});
+
+final contactsProvider = FutureProvider.autoDispose<List<ChatPartner>>((ref) async {
+  return ref.watch(chatRepositoryProvider).getContacts();
+});
+
+final chatMessagesProvider = FutureProvider.autoDispose.family<List<ChatMessageModel>, int>((ref, partnerId) async {
+  return ref.watch(chatRepositoryProvider).getMessages(partnerId);
 });

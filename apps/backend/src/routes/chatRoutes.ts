@@ -11,5 +11,7 @@ router.get('/unread-count', chat.getUnreadCount);
 router.delete('/history/:userId', chat.deleteConversation);
 router.get('/:userId', chat.getMessages);
 router.post('/:userId', chat.sendMessage);
+router.patch('/message/:messageId', chat.editMessage);
+router.delete('/message/:messageId', chat.deleteMessage);
 
 export default router;

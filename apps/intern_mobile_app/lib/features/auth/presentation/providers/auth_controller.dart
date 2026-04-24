@@ -9,6 +9,8 @@ import '../../../../features/app_entry/presentation/providers/app_entry_provider
 import '../../../app_entry/domain/entities/app_start_decision.dart';
 import '../../data/datasources/auth_remote_service.dart';
 import '../../data/models/auth_models.dart';
+import '../../../app_entry/data/models/current_user_model.dart';
+import '../../../app_entry/presentation/providers/app_entry_providers.dart';
 
 enum AuthMode { login, register }
 
@@ -85,6 +87,15 @@ final authDioProvider = Provider<Dio>((ref) {
 final authRemoteServiceProvider = Provider<AuthRemoteService>(
   (ref) => AuthRemoteService(dio: ref.watch(authDioProvider)),
 );
+
+final userProfileProvider = FutureProvider<CurrentUserModel>((ref) async {
+  final session = ref.watch(appSessionServiceProvider);
+  final token = await session.getToken();
+  if (token == null) throw Exception('No session token found');
+  
+  final ds = ref.watch(authRemoteDataSourceProvider);
+  return ds.fetchCurrentUser(token);
+});
 
 final authControllerProvider = NotifierProvider<AuthController, AuthUiState>(
   AuthController.new,

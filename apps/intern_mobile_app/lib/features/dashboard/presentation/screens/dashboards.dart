@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/session_service.dart';
@@ -14,11 +15,14 @@ import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../../data/repositories/coordinator_repository.dart';
 import '../../data/repositories/hod_repository.dart';
+import '../../../universal/data/repositories/notifications_repository.dart';
+import '../../../universal/data/repositories/chat_repository.dart';
 
 import '../../../supervisor/data/repositories/supervisor_repository.dart';
 import '../../../supervisor/domain/entities/supervisor_entities.dart';
 import '../../../plans/domain/entities/weekly_plan.dart';
 import '../../../plans/presentation/screens/plans_screen.dart';
+import '../../../auth/presentation/providers/auth_controller.dart';
 
 // ---------------------------------------------------------
 // STATE MANAGEMENT (NAVIGATION)
@@ -337,7 +341,7 @@ class _DashboardTab {
 // ---------------------------------------------------------
 
 class ModernSliverAppBar extends ConsumerWidget {
-  const ModernSliverAppBar({
+  ModernSliverAppBar({
     required this.title,
     required this.subtitle,
     required this.profileName,
@@ -394,14 +398,32 @@ class ModernSliverAppBar extends ConsumerWidget {
       backgroundColor: gradient.first,
       actions: [
         if (actions != null) ...actions!,
-        ModernHeaderIcon(
-          icon: Icons.chat_bubble_outline_rounded,
-          onTap: () => context.push(AppRoutes.chat),
+        Consumer(
+          builder: (context, ref, child) {
+            final unreadMessages = ref.watch(conversationsProvider).maybeWhen(
+              data: (convs) => convs.fold<int>(0, (sum, c) => sum + c.unreadCount),
+              orElse: () => 0,
+            );
+            return ModernHeaderIcon(
+              icon: Icons.chat_bubble_outline_rounded,
+              onTap: () => context.push(AppRoutes.chat),
+              hasBadge: unreadMessages > 0,
+            );
+          },
         ),
         const SizedBox(width: 12),
-        ModernHeaderIcon(
-          icon: Icons.notifications_none_rounded,
-          onTap: () => _showNotificationCenter(context),
+        Consumer(
+          builder: (context, ref, child) {
+            final unreadCount = ref.watch(notificationsProvider).maybeWhen(
+              data: (notifs) => notifs.where((n) => !n.isRead).length,
+              orElse: () => 0,
+            );
+            return ModernHeaderIcon(
+              icon: Icons.notifications_none_rounded,
+              onTap: () => _showNotificationCenter(context, ref),
+              hasBadge: unreadCount > 0,
+            );
+          },
         ),
         const SizedBox(width: 12),
         ModernHeaderIcon(
@@ -522,53 +544,134 @@ class ModernSliverAppBar extends ConsumerWidget {
     );
   }
 
-  void _showNotificationCenter(BuildContext context) {
+  void _showNotificationCenter(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
-            const SizedBox(height: 24),
-            const Text('Notifications', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView(
-                children: [
-                  _buildNotificationItem(context, 'System', 'Welcome to the new dashboard!', '2m ago', Icons.info_outline_rounded),
-                  _buildNotificationItem(context, 'Placement', 'Your proposal was reviewed.', '1h ago', Icons.work_outline_rounded),
-                  _buildNotificationItem(context, 'Admin', 'Please update your phone number.', '3h ago', Icons.warning_amber_rounded),
-                ],
-              ),
+      builder: (ctx) => Consumer(
+        builder: (context, ref, child) {
+          final notificationsAsync = ref.watch(notificationsProvider);
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             ),
-          ],
-        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Notifications', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                    if (notificationsAsync.value?.any((n) => !n.isRead) ?? false)
+                      TextButton(
+                        onPressed: () => ref.read(notificationsRepositoryProvider).markAllAsRead(),
+                        child: const Text('Mark all read'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: notificationsAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(child: Text('Error: $err')),
+                    data: (notifications) {
+                      if (notifications.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.notifications_none_rounded, size: 64, color: Colors.grey.shade300),
+                              const SizedBox(height: 16),
+                              Text('All caught up!', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        itemCount: notifications.length,
+                        itemBuilder: (context, index) {
+                          final n = notifications[index];
+                          return _buildNotificationItem(
+                            context, 
+                            'Update', 
+                            n.message, 
+                            timeago.format(n.createdAt), 
+                            Icons.notifications_rounded,
+                            n.isRead,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildNotificationItem(BuildContext context, String category, String text, String time, IconData icon) {
+  Widget _buildNotificationItem(BuildContext context, String category, String text, String time, IconData icon, bool isRead) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        color: isRead 
+          ? (isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02))
+          : (isDark ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.05)),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isRead ? Colors.transparent : Colors.blue.withOpacity(0.3),
+        ),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isRead ? Colors.grey.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 18, color: isRead ? Colors.grey : Colors.blue),
+          ),
           const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(text, style: const TextStyle(fontWeight: FontWeight.w600)), Text('$category • $time', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)))])),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start, 
+              children: [
+                Text(
+                  text, 
+                  style: TextStyle(
+                    fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$category • $time', 
+                  style: TextStyle(
+                    fontSize: 11, 
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!isRead)
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+            ),
         ],
       ),
     );
@@ -606,25 +709,45 @@ class _MeshPainter extends CustomPainter {
 class ModernHeaderIcon extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final bool hasBadge;
 
-  const ModernHeaderIcon({super.key, required this.icon, required this.onTap});
+  const ModernHeaderIcon({super.key, required this.icon, required this.onTap, this.hasBadge = false});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
           ),
-          child: Icon(icon, color: Colors.white, size: 22),
         ),
-      ),
+        if (hasBadge)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -2112,84 +2235,76 @@ class _SupervisorOverviewTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final statsAsync = ref.watch(supervisorStatsProvider);
+    final profileAsync = ref.watch(userProfileProvider);
 
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFF2994A).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFF2C94C).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          statsAsync.when(
+      child: profileAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (profile) => statsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
-          data: (stats) => CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              ModernSliverAppBar(
-                title: 'Overview',
-                subtitle: 'Management Dashboard',
-                profileName: 'Supervisor',
-                gradient: [const Color(0xFFF2994A), const Color(0xFFF2C94C)],
-                backgroundIcon: Icons.dashboard_rounded,
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    Text('Quick Overview', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 24),
-                    _buildStatsGrid(context, stats),
-                    const SizedBox(height: 32),
-
-                    _buildSectionHeader(theme, 'Student Performance'),
-                    const SizedBox(height: 16),
-                    _buildPlatformAnalytics(context, isDark,
-                      growthTitle: 'Students', growthTrend: '${stats.totalStudents} Assigned',
-                      placementTitle: 'Pending Plans', placementSub: '${stats.pendingPlans} to Review',
-                      successTitle: 'Proposals', successRate: stats.totalStudents > 0 ? (stats.pendingProposals / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
-                      submissionTitle: 'Reports Due', submissionSub: '${stats.reportsDue} Pending'
+          data: (stats) => Stack(
+            children: [
+              Positioned(
+                top: -100,
+                left: -50,
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [const Color(0xFF0EA5E9).withOpacity(0.12), Colors.transparent],
                     ),
-                    const SizedBox(height: 32),
-
-                    Text('Critical Actions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    _buildActionCard(context, Icons.assignment_late_rounded, 'Pending Plan Reviews', '${stats.pendingPlans} plans waiting for feedback', Colors.orange),
-                    const SizedBox(height: 12),
-                    _buildActionCard(context, Icons.rate_review_rounded, 'Final Evaluations', '${stats.reportsDue} reports to verify', Colors.purple),
-                    const SizedBox(height: 120),
-                  ]),
+                  ),
                 ),
+              ),
+              Positioned(
+                bottom: -50,
+                right: -50,
+                child: Container(
+                  width: 250,
+                  height: 250,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [const Color(0xFFF2C94C).withOpacity(0.15), Colors.transparent],
+                    ),
+                  ),
+                ),
+              ),
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  ModernSliverAppBar(
+                    title: 'Overview',
+                    subtitle: 'Management Dashboard',
+                    profileName: profile.fullName,
+                    gradient: [const Color(0xFFF2994A), const Color(0xFFF2C94C)],
+                    backgroundIcon: Icons.dashboard_rounded,
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(24),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        _buildStatGrid(context, stats, isDark),
+                        const SizedBox(height: 32),
+                        Text('Critical Actions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
+                        _buildActionCard(context, Icons.assignment_late_rounded, 'Pending Plan Reviews', '${stats.pendingPlans} plans waiting for feedback', Colors.orange),
+                        const SizedBox(height: 12),
+                        _buildActionCard(context, Icons.rate_review_rounded, 'Final Evaluations', '${stats.reportsDue} reports to verify', Colors.purple),
+                        const SizedBox(height: 120),
+                      ]),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        ],
       ),
     );
   }
@@ -2237,7 +2352,7 @@ class _SupervisorOverviewTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsGrid(BuildContext context, SupervisorStats stats) {
+  Widget _buildStatGrid(BuildContext context, SupervisorStats stats, bool isDark) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -2344,7 +2459,7 @@ class _SupervisorStudentsTab extends ConsumerWidget {
               ModernSliverAppBar(
                 title: 'Interns',
                 subtitle: 'Manage Assigned List',
-                profileName: 'Supervisor',
+                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Supervisor',
                 gradient: [const Color(0xFF11998e), const Color(0xFF38ef7d)],
                 backgroundIcon: Icons.people_rounded,
               ),
@@ -2474,7 +2589,7 @@ class _SupervisorStudentsTab extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(2)))),
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(2))),),
             const SizedBox(height: 24),
             Text(student.fullName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
             Text(student.universityName, style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
@@ -2634,7 +2749,7 @@ class _SupervisorManagementTab extends ConsumerWidget {
               ModernSliverAppBar(
                 title: 'Management',
                 subtitle: 'Approvals & Tracking',
-                profileName: 'Supervisor',
+                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Supervisor',
                 gradient: [const Color(0xFF6a11cb), const Color(0xFF2575fc)],
                 backgroundIcon: Icons.fact_check_rounded,
               ),
@@ -3158,98 +3273,88 @@ class _CoordinatorHomeTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
     final statsAsync = ref.watch(coordinatorStatsProvider);
+    final profileAsync = ref.watch(userProfileProvider);
 
     return Material(
-      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: statsAsync.when(
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF1F5F9),
+      child: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
-        data: (stats) => Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF1CB5E0).withOpacity(0.15), Colors.transparent],
+        data: (profile) => statsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (stats) => Stack(
+            children: [
+              Positioned(
+                top: -100,
+                right: -50,
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [const Color(0xFF1CB5E0).withOpacity(0.12), Colors.transparent],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF000046).withOpacity(0.15), Colors.transparent],
-                ),
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  ModernSliverAppBar(
+                    title: 'Coordinator',
+                    subtitle: stats.universityName,
+                    profileName: profile.fullName,
+                    gradient: [const Color(0xFF1CB5E0), const Color(0xFF000046)],
+                    backgroundIcon: Icons.assessment_rounded,
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(24),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        Text('Quick Stats', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            _buildStatCard(context, stats.totalStudents.toString(), 'Students', Icons.people_rounded, Colors.blue),
+                            const SizedBox(width: 16),
+                            _buildStatCard(context, stats.activePlacements.toString(), 'Placed', Icons.check_circle_rounded, Colors.green),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            _buildStatCard(context, stats.totalCompanies.toString(), 'Companies', Icons.business_rounded, Colors.purple),
+                            const SizedBox(width: 16),
+                            _buildStatCard(context, stats.pendingProposals.toString(), 'Proposals', Icons.description_rounded, Colors.orange),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        Text('University Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
+                        _buildPlatformAnalytics(context, isDark,
+                          growthTitle: 'Enrollment', growthTrend: '${stats.totalStudents} Total',
+                          placementTitle: 'Industry Partners', placementSub: '${stats.totalCompanies} Active',
+                          successTitle: 'Placement Rate', successRate: stats.totalStudents > 0 ? (stats.activePlacements / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
+                          submissionTitle: 'System Activity', submissionSub: 'Healthy'
+                        ),
+                        const SizedBox(height: 32),
+                        Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
+                        _buildActivityItem(context, 'Weekly Report', 'Reviewing current submissions', 'Just now', Colors.blue),
+                        _buildActivityItem(context, 'Placement', 'New assignment processed', '2h ago', Colors.green),
+                        _buildActivityItem(context, 'New Proposal', 'System updated with new requests', '5h ago', Colors.orange),
+                        const SizedBox(height: 120),
+                      ]),
+                    ),
+                  ),
+                ],
               ),
-            ),
+            ],
           ),
-          CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            ModernSliverAppBar(
-              title: 'Coordinator',
-              subtitle: stats.universityName,
-              profileName: 'Coordinator',
-              gradient: [const Color(0xFF1CB5E0), const Color(0xFF000046)],
-              backgroundIcon: Icons.assessment_rounded,
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.all(24),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  Text('Quick Stats', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _buildStatCard(context, stats.totalStudents.toString(), 'Students', Icons.people_rounded, Colors.blue),
-                      const SizedBox(width: 16),
-                      _buildStatCard(context, stats.activePlacements.toString(), 'Placed', Icons.check_circle_rounded, Colors.green),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _buildStatCard(context, stats.totalCompanies.toString(), 'Companies', Icons.business_rounded, Colors.purple),
-                      const SizedBox(width: 16),
-                      _buildStatCard(context, stats.pendingProposals.toString(), 'Proposals', Icons.description_rounded, Colors.orange),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  Text('University Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  _buildPlatformAnalytics(context, isDark,
-                    growthTitle: 'Enrollment', growthTrend: '${stats.totalStudents} Total',
-                    placementTitle: 'Industry Partners', placementSub: '${stats.totalCompanies} Active',
-                    successTitle: 'Placement Rate', successRate: stats.totalStudents > 0 ? (stats.activePlacements / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
-                    submissionTitle: 'System Activity', submissionSub: 'Healthy'
-                  ),
-                  const SizedBox(height: 32),
-                  Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  _buildActivityItem(context, 'Weekly Report', 'Reviewing current submissions', 'Just now', Colors.blue),
-                  _buildActivityItem(context, 'Placement', 'New assignment processed', '2h ago', Colors.green),
-                  _buildActivityItem(context, 'New Proposal', 'System updated with new requests', '5h ago', Colors.orange),
-                  const SizedBox(height: 120),
-                ]),
-              ),
-            ),
-          ],
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -3285,7 +3390,6 @@ class _CoordinatorHomeTab extends ConsumerWidget {
       ),
     );
   }
-
 }
 
 Widget _buildActivityItem(BuildContext context, String title, String subtitle, String time, Color color) {
@@ -3361,7 +3465,7 @@ class _CoordinatorHodsTab extends ConsumerWidget {
             ModernSliverAppBar(
               title: 'Department Heads',
               subtitle: 'HOD Management',
-              profileName: 'Coordinator',
+              profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
               gradient: [const Color(0xFF00F260), const Color(0xFF0575E6)],
               backgroundIcon: Icons.school_rounded,
             ),
@@ -3502,7 +3606,7 @@ class _CoordinatorStudentsTab extends ConsumerWidget {
             ModernSliverAppBar(
               title: 'Students',
               subtitle: 'University Enrollment',
-              profileName: 'Coordinator',
+              profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
               gradient: [const Color(0xFFF2994A), const Color(0xFFF2C94C)],
               backgroundIcon: Icons.group_rounded,
             ),
@@ -3632,7 +3736,7 @@ class _CoordinatorCompaniesTab extends ConsumerWidget {
             ModernSliverAppBar(
               title: 'Companies',
               subtitle: 'Industry Partners',
-              profileName: 'Coordinator',
+              profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
               gradient: [const Color(0xFFDA22FF), const Color(0xFF9733EE)],
               backgroundIcon: Icons.business_rounded,
             ),
@@ -3728,7 +3832,7 @@ class _CoordinatorPlacementsTab extends ConsumerWidget {
               ModernSliverAppBar(
                 title: 'Placements',
                 subtitle: 'Assigned Students',
-                profileName: 'Coordinator',
+                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
                 gradient: const [Color(0xFFFC466B), Color(0xFF3F5EFB)],
                 backgroundIcon: Icons.business_center_rounded,
               ),
@@ -3846,7 +3950,7 @@ class _CoordinatorToolsTabState extends ConsumerState<_CoordinatorToolsTab> with
               ModernSliverAppBar(
                 title: 'Tools & Insights',
                 subtitle: 'Reports, AI & Messages',
-                profileName: 'Coordinator',
+                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
                 gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
                 backgroundIcon: Icons.apps_rounded,
               ),
@@ -4027,81 +4131,85 @@ class _HodOverviewTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
     final statsAsync = ref.watch(hodStatsProvider);
+    final profileAsync = ref.watch(userProfileProvider);
 
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: statsAsync.when(
+      child: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
-        data: (stats) => Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF8E2DE2).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF4A00E0).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            ModernSliverAppBar(
-              title: 'Dashboard',
-              subtitle: 'Department Level Insights',
-              profileName: 'HOD',
-              gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-              backgroundIcon: Icons.analytics_rounded,
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.all(24),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildStatGrid(context, stats, isDark),
-                  const SizedBox(height: 32),
-                  Text('Department Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  _buildPlatformAnalytics(context, isDark,
-                    growthTitle: 'Students', growthTrend: '${stats.totalStudents} Enrolled',
-                    placementTitle: 'Placements', placementSub: '${stats.placedStudents} Placed',
-                    successTitle: 'Submission Rate', successRate: stats.totalStudents > 0 ? (stats.totalReports / (stats.totalStudents * 4)).clamp(0.0, 1.0) : 0.0,
-                    submissionTitle: 'Pending Approvals', submissionSub: '${stats.pendingApprovals} Pending'
+        data: (profile) => statsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('Error: $err')),
+          data: (stats) => Stack(
+            children: [
+              Positioned(
+                top: -100,
+                left: -50,
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [const Color(0xFF8E2DE2).withOpacity(0.15), Colors.transparent],
+                    ),
                   ),
-                  const SizedBox(height: 32),
-                  Text('Recent Reports', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 16),
-                  _buildActivityItem(context, 'Student Activity', 'Monitoring department progress', 'Just now', Colors.blue),
-                  _buildActivityItem(context, 'Reports', 'Processing weekly submissions', '2h ago', Colors.green),
-                  const SizedBox(height: 120),
-                ]),
+                ),
               ),
-            ),
-          ],
+              Positioned(
+                bottom: -50,
+                right: -50,
+                child: Container(
+                  width: 250,
+                  height: 250,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [const Color(0xFF4A00E0).withOpacity(0.15), Colors.transparent],
+                    ),
+                  ),
+                ),
+              ),
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  ModernSliverAppBar(
+                    title: 'Dashboard',
+                    subtitle: 'Department Level Insights',
+                    profileName: profile.fullName,
+                    gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                    backgroundIcon: Icons.analytics_rounded,
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.all(24),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        _buildStatGrid(context, stats, isDark),
+                        const SizedBox(height: 32),
+                        Text('Department Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
+                        _buildPlatformAnalytics(context, isDark,
+                          growthTitle: 'Students', growthTrend: '${stats.totalStudents} Enrolled',
+                          placementTitle: 'Placements', placementSub: '${stats.placedStudents} Placed',
+                          successTitle: 'Submission Rate', successRate: stats.totalStudents > 0 ? (stats.totalReports / (stats.totalStudents * 4)).clamp(0.0, 1.0) : 0.0,
+                          submissionTitle: 'Pending Approvals', submissionSub: '${stats.pendingApprovals} Pending'
+                        ),
+                        const SizedBox(height: 32),
+                        Text('Recent Reports', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 16),
+                        _buildActivityItem(context, 'Student Activity', 'Monitoring department progress', 'Just now', Colors.blue),
+                        _buildActivityItem(context, 'Reports', 'Processing weekly submissions', '2h ago', Colors.green),
+                        const SizedBox(height: 120),
+                      ]),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        ],
-      ),
       ),
     );
   }
@@ -4151,36 +4259,6 @@ class _HodOverviewTab extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _buildReportItem(BuildContext context, String student, String title, String status, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
-            ),
-            child: Text(student[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(student, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500))])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Text(status, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900))),
-        ],
-      ),
-    );
-  }
 }
 
 class _HodStudentsTab extends ConsumerWidget {
@@ -4223,11 +4301,11 @@ class _HodStudentsTab extends ConsumerWidget {
           ),
           CustomScrollView(
             slivers: [
-          const ModernSliverAppBar(
+          ModernSliverAppBar(
             title: 'Students',
             subtitle: 'Department Enrollment',
-            profileName: 'HOD',
-            gradient: [Color(0xFF00b09b), Color(0xFF96c93d)],
+            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
+            gradient: const [Color(0xFF00b09b), Color(0xFF96c93d)],
             backgroundIcon: Icons.person_search_rounded,
           ),
           SliverPadding(
@@ -4370,7 +4448,7 @@ class _HodPlacementTab extends ConsumerWidget {
           ModernSliverAppBar(
             title: 'Placements',
             subtitle: 'Proposals & Open Letters',
-            profileName: 'HOD',
+            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
             gradient: const [Color(0xFFf857a6), Color(0xFFff5858)],
             backgroundIcon: Icons.business_center_rounded,
           ),
@@ -4510,7 +4588,7 @@ class _HodDirectoryTab extends ConsumerWidget {
           ModernSliverAppBar(
             title: 'Directory',
             subtitle: 'Company Partners',
-            profileName: 'HOD',
+            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
             gradient: const [Color(0xFF1fa2ff), Color(0xFF12d8fa)],
             backgroundIcon: Icons.corporate_fare_rounded,
           ),
@@ -4628,7 +4706,7 @@ class _HodToolsTabState extends ConsumerState<_HodToolsTab> with SingleTickerPro
               ModernSliverAppBar(
                 title: 'Tools & Insights',
                 subtitle: 'Reports, AI & Messages',
-                profileName: 'HOD',
+                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
                 gradient: const [Color(0xFFa18cd1), Color(0xFFfbc2eb)],
                 backgroundIcon: Icons.apps_rounded,
               ),
@@ -4810,6 +4888,7 @@ class _AdminOverviewTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final statsAsync = ref.watch(adminStatsProvider);
+    final profileAsync = ref.watch(userProfileProvider);
 
     return Material(
       color: Colors.transparent,
@@ -4824,67 +4903,58 @@ class _AdminOverviewTab extends ConsumerWidget {
             ],
           ),
         ),
-        child: statsAsync.when(
+        child: profileAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
-          data: (stats) => CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              ModernSliverAppBar(
-                title: 'Admin Dashboard',
-                subtitle: 'Platform Management',
-                profileName: 'Main Admin',
-                gradient: const [Color(0xFF0F2027), Color(0xFF2C5364)],
-                backgroundIcon: Icons.shield_rounded,
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildSectionHeader(theme, 'Platform Overview'),
-                    const SizedBox(height: 16),
-                    _buildOverviewGrid(context, stats, isDark),
-
-                    const SizedBox(height: 32),
-                    _buildSectionHeader(theme, 'Platform Analytics'),
-                    const SizedBox(height: 16),
-                    _buildPlatformAnalytics(context, isDark,
-                      growthTitle: 'Total Users', growthTrend: '${stats.totalUsers} Registered',
-                      placementTitle: 'Institutions', placementSub: '${stats.totalUniversities + stats.totalCompanies} Active',
-                      successTitle: 'Evaluations', successRate: stats.totalEvaluations > 0 ? 1.0 : 0.0,
-                      submissionTitle: 'System Status', submissionSub: 'Healthy'
-                    ),
-
-                    const SizedBox(height: 32),
-                    _buildSectionHeader(theme, 'Pending Approvals'),
-                    const SizedBox(height: 16),
-                    _buildPendingApprovalsPreview(context, ref, isDark),
-
-                    const SizedBox(height: 32),
-                    _buildSectionHeader(theme, 'Recent Audit Logs'),
-                    const SizedBox(height: 16),
-                    _buildRecentActivitiesPreview(context, ref, isDark),
-
-                    const SizedBox(height: 32),
-                    _buildSectionHeader(theme, 'Broadcast Announcement'),
-                    const SizedBox(height: 16),
-                    _buildQuickBroadcastBox(context, theme, isDark),
-
-                    const SizedBox(height: 32),
-                    _buildSectionHeader(theme, 'System Health'),
-                    const SizedBox(height: 16),
-                    _buildSystemHealthWidget(context, isDark),
-
-                    const SizedBox(height: 32),
-                    _buildSectionHeader(theme, 'Quick Navigation'),
-                    const SizedBox(height: 16),
-                    _buildQuickNavigation(context, isDark),
-
-                    const SizedBox(height: 120),
-                  ]),
+          data: (profile) => statsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, _) => Center(child: Text('Error: $err')),
+            data: (stats) => CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                ModernSliverAppBar(
+                  title: 'Admin Dashboard',
+                  subtitle: 'Platform Management',
+                  profileName: profile.fullName,
+                  gradient: const [Color(0xFF0F2027), Color(0xFF2C5364)],
+                  backgroundIcon: Icons.shield_rounded,
                 ),
-              ),
-            ],
+                SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildOverviewGrid(context, stats, isDark),
+                      const SizedBox(height: 32),
+                      _buildSectionHeader(theme, 'Pending Approvals'),
+                      const SizedBox(height: 16),
+                      _buildPendingApprovalsPreview(context, ref, isDark),
+
+                      const SizedBox(height: 32),
+                      _buildSectionHeader(theme, 'Recent Audit Logs'),
+                      const SizedBox(height: 16),
+                      _buildRecentActivitiesPreview(context, ref, isDark),
+
+                      const SizedBox(height: 32),
+                      _buildSectionHeader(theme, 'Broadcast Announcement'),
+                      const SizedBox(height: 16),
+                      _buildQuickBroadcastBox(context, theme, isDark),
+
+                      const SizedBox(height: 32),
+                      _buildSectionHeader(theme, 'System Health'),
+                      const SizedBox(height: 16),
+                      _buildSystemHealthWidget(context, isDark),
+
+                      const SizedBox(height: 32),
+                      _buildSectionHeader(theme, 'Quick Navigation'),
+                      const SizedBox(height: 16),
+                      _buildQuickNavigation(context, isDark),
+
+                      const SizedBox(height: 120),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -5232,7 +5302,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             ModernSliverAppBar(
               title: 'Organizations',
               subtitle: 'Manage Universities & Companies',
-              profileName: 'Admin',
+              profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
               gradient: [const Color(0xFF373B44), const Color(0xFF4286F4)],
               backgroundIcon: Icons.business_rounded,
               actions: [
@@ -5579,7 +5649,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
                 ModernSliverAppBar(
                   title: 'User Management',
                   subtitle: 'Control platform access',
-                  profileName: 'Admin',
+                  profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
                   gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
                   backgroundIcon: Icons.people_rounded,
                   actions: [
@@ -5896,7 +5966,7 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
                 ModernSliverAppBar(
                   title: 'Audit Logs',
                   subtitle: 'System-wide activity trace',
-                  profileName: 'Admin',
+                  profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
                   gradient: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
                   backgroundIcon: Icons.receipt_long_rounded,
                   actions: [
@@ -6245,7 +6315,7 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                     ModernSliverAppBar(
                       title: 'Settings',
                       subtitle: 'System Control Panel',
-                      profileName: 'Admin',
+                      profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
                       gradient: const [Color(0xFF2C3E50), Color(0xFF000000)],
                       backgroundIcon: Icons.settings_suggest_rounded,
                     ),

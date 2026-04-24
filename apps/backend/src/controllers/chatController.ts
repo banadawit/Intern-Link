@@ -156,45 +156,38 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
             student?.assignments.forEach((a) =>
                 a.company.supervisors.forEach((s) => contacts.push({ ...s.user, role: 'SUPERVISOR' }))
             );
-        } else if (user.role === 'SUPERVISOR') {
-            // Supervisor can chat with their placed students
-            const sup = await prisma.supervisor.findUnique({ where: { userId: me } });
-            if (sup) {
-                const assignments = await prisma.internshipAssignment.findMany({
-                    where: { companyId: sup.companyId, status: 'ACTIVE' },
-                    include: { student: { include: { user: { select: { id: true, full_name: true } } } } },
-                });
-                contacts = assignments.map((a) => ({ ...a.student.user, role: 'STUDENT' }));
-            }
-        } else if (user.role === 'HOD') {
-            // HOD can chat with their approved students AND the coordinator of their university
-            const hod = await prisma.hodProfile.findUnique({ where: { userId: me } });
-            if (hod) {
-                const students = await prisma.student.findMany({
-                    where: { hodId: hod.id, hod_approval_status: 'APPROVED' },
-                    include: { user: { select: { id: true, full_name: true } } },
-                });
-                contacts = students.map((s) => ({ ...s.user, role: 'STUDENT' }));
+        } else {
+            // Staff/Admin roles: See all other staff/admin roles
+            const staff = await prisma.user.findMany({
+                where: { 
+                    role: { in: ['ADMIN', 'HOD', 'COORDINATOR', 'SUPERVISOR'] },
+                    id: { not: me } 
+                },
+                select: { id: true, full_name: true, role: true }
+            });
+            contacts = [...staff];
 
-                // Add the coordinator of the same university
-                const coordinator = await prisma.coordinator.findUnique({
-                    where: { universityId: hod.universityId },
-                    include: { user: { select: { id: true, full_name: true } } },
-                });
-                if (coordinator) contacts.push({ ...coordinator.user, role: 'COORDINATOR' });
-            }
-        } else if (user.role === 'COORDINATOR') {
-            // Coordinator can chat with all HODs at their university
-            const coordinator = await prisma.coordinator.findUnique({ where: { userId: me } });
-            if (coordinator?.universityId) {
-                const hods = await prisma.hodProfile.findMany({
-                    where: {
-                        universityId: coordinator.universityId,
-                        user: { institution_access_approval: 'APPROVED' },
-                    },
-                    include: { user: { select: { id: true, full_name: true } } },
-                });
-                contacts = hods.map((h) => ({ ...h.user, role: 'HOD' }));
+            // PLUS: If HOD, see their students
+            if (user.role === 'HOD') {
+                const hod = await prisma.hodProfile.findUnique({ where: { userId: me } });
+                if (hod) {
+                    const students = await prisma.student.findMany({
+                        where: { hodId: hod.id, hod_approval_status: 'APPROVED' },
+                        include: { user: { select: { id: true, full_name: true } } },
+                    });
+                    contacts.push(...students.map((s) => ({ ...s.user, role: 'STUDENT' })));
+                }
+            } 
+            // PLUS: If SUPERVISOR, see their students
+            else if (user.role === 'SUPERVISOR') {
+                const sup = await prisma.supervisor.findUnique({ where: { userId: me } });
+                if (sup) {
+                    const assignments = await prisma.internshipAssignment.findMany({
+                        where: { companyId: sup.companyId, status: 'ACTIVE' },
+                        include: { student: { include: { user: { select: { id: true, full_name: true } } } } },
+                    });
+                    contacts.push(...assignments.map((a) => ({ ...a.student.user, role: 'STUDENT' })));
+                }
             }
         }
 
@@ -234,6 +227,49 @@ export const deleteConversation = async (req: AuthRequest, res: Response) => {
                 ],
             },
         });
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// PATCH /chat/message/:messageId — edit a message
+export const editMessage = async (req: AuthRequest, res: Response) => {
+    try {
+        const me = ME(req);
+        const messageId = parseInt(String(req.params.messageId), 10);
+        const content = typeof req.body?.content === 'string' ? req.body.content.trim() : '';
+
+        if (!content) return res.status(400).json({ error: 'Message content is required.' });
+
+        const message = await prisma.chatMessage.findUnique({ where: { id: messageId } });
+        if (!message) return res.status(404).json({ error: 'Message not found.' });
+        if (message.senderId !== me) return res.status(403).json({ error: 'You can only edit your own messages.' });
+
+        const updated = await prisma.chatMessage.update({
+            where: { id: messageId },
+            data: { content },
+            select: { id: true, content: true, created_at: true, senderId: true, receiverId: true, is_read: true },
+        });
+
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// DELETE /chat/message/:messageId — delete a single message
+export const deleteMessage = async (req: AuthRequest, res: Response) => {
+    try {
+        const me = ME(req);
+        const messageId = parseInt(String(req.params.messageId), 10);
+
+        const message = await prisma.chatMessage.findUnique({ where: { id: messageId } });
+        if (!message) return res.status(404).json({ error: 'Message not found.' });
+        if (message.senderId !== me) return res.status(403).json({ error: 'You can only delete your own messages.' });
+
+        await prisma.chatMessage.delete({ where: { id: messageId } });
 
         res.json({ success: true });
     } catch (e: any) {
