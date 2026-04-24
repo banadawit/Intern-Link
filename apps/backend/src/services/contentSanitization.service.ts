@@ -59,12 +59,27 @@ export class ContentSanitizationService {
       return { valid: false, error: 'Content is required' };
     }
     
-    if (content.length < 10) {
-      return { valid: false, error: 'Content must be at least 10 characters' };
+    if (content.length < 5) {
+      return { valid: false, error: 'Post content must be at least 5 characters' };
     }
     
     if (content.length > 10000) {
       return { valid: false, error: 'Content must not exceed 10,000 characters' };
+    }
+    
+    return { valid: true };
+  }
+
+  /**
+   * Validate comment content
+   */
+  static validateComment(content: string): { valid: boolean; error?: string } {
+    if (!content || content.trim().length === 0) {
+      return { valid: false, error: 'Comment cannot be empty' };
+    }
+    
+    if (content.length > 2000) {
+      return { valid: false, error: 'Comment must not exceed 2000 characters' };
     }
     
     return { valid: true };

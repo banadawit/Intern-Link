@@ -60,13 +60,42 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final notif = notifications[index];
+                        final msg = notif.message;
+                        
+                        IconData icon = Icons.notifications_rounded;
+                        Color color = Colors.blue;
+                        String title = 'Notification';
+                        
+                        if (msg.contains('[ADMIN_ALERT]')) {
+                          icon = Icons.admin_panel_settings_rounded;
+                          color = Colors.orange;
+                          title = 'Admin Alert';
+                        } else if (msg.contains('[SECURITY_ALERT]')) {
+                          icon = Icons.security_rounded;
+                          color = Colors.red;
+                          title = 'Security Alert';
+                        } else if (msg.contains('[SYSTEM_ALERT]')) {
+                          icon = Icons.settings_suggest_rounded;
+                          color = Colors.purple;
+                          title = 'System Alert';
+                        } else if (msg.contains('📢')) {
+                          icon = Icons.campaign_rounded;
+                          color = Colors.indigo;
+                          title = 'Announcement';
+                        }
+                        
+                        final cleanMsg = msg
+                            .replaceFirst('[ADMIN_ALERT] ', '')
+                            .replaceFirst('[SECURITY_ALERT] ', '')
+                            .replaceFirst('[SYSTEM_ALERT] ', '');
+
                         return _notificationItem(
                           context,
-                          'Notification',
-                          notif.message,
+                          title,
+                          cleanMsg,
                           timeago.format(notif.createdAt),
-                          Icons.notifications_rounded,
-                          Colors.blue,
+                          icon,
+                          color,
                           notif.isRead,
                         );
                       },
