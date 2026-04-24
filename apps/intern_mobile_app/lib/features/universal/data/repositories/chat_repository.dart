@@ -101,6 +101,14 @@ class ChatRepository {
   Future<void> sendMessage(int partnerId, String content) async {
     await apiClient.dio.post('/chat/$partnerId', data: {'content': content});
   }
+
+  Future<void> editMessage(int messageId, String content) async {
+    await apiClient.dio.patch('/chat/message/$messageId', data: {'content': content});
+  }
+
+  Future<void> deleteMessage(int messageId) async {
+    await apiClient.dio.delete('/chat/message/$messageId');
+  }
 }
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {

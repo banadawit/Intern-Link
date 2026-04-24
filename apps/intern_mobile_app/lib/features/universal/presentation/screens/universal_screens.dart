@@ -500,6 +500,8 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
 class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  int? _editingMessageId;
+  bool get _isEditing => _editingMessageId != null;
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
@@ -576,7 +578,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   itemBuilder: (ctx, i) {
                     final m = messages[i];
                     final isMe = m.senderId != widget.partner.id;
-                    return _chatBubble(m.content, isMe, isDark, timeago.format(m.createdAt));
+                    return _chatBubble(m, isMe, isDark);
                   },
                 );
               },
@@ -590,41 +592,120 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     );
   }
 
-  Widget _chatBubble(String text, bool isMe, bool isDark, String time) {
+  Widget _chatBubble(ChatMessageModel m, bool isMe, bool isDark) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-            decoration: BoxDecoration(
-              color: isMe ? const Color(0xFF0EA5E9) : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
-              borderRadius: BorderRadius.circular(20).copyWith(
-                bottomRight: isMe ? const Radius.circular(4) : null,
-                bottomLeft: !isMe ? const Radius.circular(4) : null,
+          GestureDetector(
+            onLongPress: isMe ? () => _showMessageOptions(m) : null,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+              decoration: BoxDecoration(
+                color: isMe ? const Color(0xFF0EA5E9) : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
+                borderRadius: BorderRadius.circular(20).copyWith(
+                  bottomRight: isMe ? const Radius.circular(4) : null,
+                  bottomLeft: !isMe ? const Radius.circular(4) : null,
+                ),
+                boxShadow: [if (!isMe) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+                border: !isMe ? Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)) : null,
               ),
-              boxShadow: [if (!isMe) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
-              border: !isMe ? Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)) : null,
-            ),
-            child: Text(
-              text, 
-              style: TextStyle(
-                color: isMe || isDark ? Colors.white : Colors.black87,
-                fontSize: 15,
-                height: 1.3,
-              )
+              child: Text(
+                m.content, 
+                style: TextStyle(
+                  color: isMe || isDark ? Colors.white : Colors.black87,
+                  fontSize: 15,
+                  height: 1.3,
+                )
+              ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: Text(time, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+            child: Text(timeago.format(m.createdAt), style: const TextStyle(fontSize: 9, color: Colors.grey)),
           ),
         ],
       ),
     );
+  }
+
+  void _showMessageOptions(ChatMessageModel m) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 24),
+              decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)),
+            ),
+            _actionTile(Icons.edit_rounded, 'Edit Message', Colors.blue, () {
+              Navigator.pop(ctx);
+              setState(() {
+                _editingMessageId = m.id;
+                _controller.text = m.content;
+              });
+            }),
+            const SizedBox(height: 12),
+            _actionTile(Icons.delete_rounded, 'Delete Message', Colors.red, () async {
+              Navigator.pop(ctx);
+              final confirm = await _showDeleteConfirm();
+              if (confirm) {
+                _delete(m.id);
+              }
+            }),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionTile(IconData icon, String label, Color color, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 16),
+            Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _showDeleteConfirm() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Message?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    ) ?? false;
   }
 
   Widget _buildInputArea(bool isDark) {
@@ -634,37 +715,61 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         color: isDark ? const Color(0xFF0A1628) : Colors.white,
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(24),
+          if (_isEditing)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_rounded, size: 14, color: Color(0xFF0EA5E9)),
+                  const SizedBox(width: 8),
+                  const Text('Editing message', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0EA5E9))),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _editingMessageId = null;
+                      _controller.clear();
+                    }),
+                    child: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+                  ),
+                ],
               ),
-              child: TextField(
-                controller: _controller,
-                maxLines: null,
-                decoration: const InputDecoration(
-                  hintText: 'Type a message...',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    maxLines: null,
+                    decoration: const InputDecoration(
+                      hintText: 'Type a message...',
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                    onSubmitted: (_) => _send(),
+                  ),
                 ),
-                onSubmitted: (_) => _send(),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _send,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
-                shape: BoxShape.circle,
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _send,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(_isEditing ? Icons.check_rounded : Icons.send_rounded, color: Colors.white, size: 22),
+                ),
               ),
-              child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
-            ),
+            ],
           ),
         ],
       ),
@@ -674,13 +779,33 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   void _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    
+    final repo = ref.read(chatRepositoryProvider);
+    final editingId = _editingMessageId;
+    
     _controller.clear();
+    setState(() => _editingMessageId = null);
+    
     try {
-      await ref.read(chatRepositoryProvider).sendMessage(widget.partner.id, text);
+      if (editingId != null) {
+        await repo.editMessage(editingId, text);
+      } else {
+        await repo.sendMessage(widget.partner.id, text);
+      }
       ref.invalidate(chatMessagesProvider(widget.partner.id));
       ref.invalidate(conversationsProvider);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to send: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to process: $e')));
+    }
+  }
+
+  void _delete(int messageId) async {
+    try {
+      await ref.read(chatRepositoryProvider).deleteMessage(messageId);
+      ref.invalidate(chatMessagesProvider(widget.partner.id));
+      ref.invalidate(conversationsProvider);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
     }
   }
 }

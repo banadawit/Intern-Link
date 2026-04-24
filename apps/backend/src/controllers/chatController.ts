@@ -233,3 +233,46 @@ export const deleteConversation = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: e.message });
     }
 };
+
+// PATCH /chat/message/:messageId — edit a message
+export const editMessage = async (req: AuthRequest, res: Response) => {
+    try {
+        const me = ME(req);
+        const messageId = parseInt(String(req.params.messageId), 10);
+        const content = typeof req.body?.content === 'string' ? req.body.content.trim() : '';
+
+        if (!content) return res.status(400).json({ error: 'Message content is required.' });
+
+        const message = await prisma.chatMessage.findUnique({ where: { id: messageId } });
+        if (!message) return res.status(404).json({ error: 'Message not found.' });
+        if (message.senderId !== me) return res.status(403).json({ error: 'You can only edit your own messages.' });
+
+        const updated = await prisma.chatMessage.update({
+            where: { id: messageId },
+            data: { content },
+            select: { id: true, content: true, created_at: true, senderId: true, receiverId: true, is_read: true },
+        });
+
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// DELETE /chat/message/:messageId — delete a single message
+export const deleteMessage = async (req: AuthRequest, res: Response) => {
+    try {
+        const me = ME(req);
+        const messageId = parseInt(String(req.params.messageId), 10);
+
+        const message = await prisma.chatMessage.findUnique({ where: { id: messageId } });
+        if (!message) return res.status(404).json({ error: 'Message not found.' });
+        if (message.senderId !== me) return res.status(403).json({ error: 'You can only delete your own messages.' });
+
+        await prisma.chatMessage.delete({ where: { id: messageId } });
+
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+};
