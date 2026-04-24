@@ -30,6 +30,90 @@ router.post(
   commonFeedCtrl.createPost
 );
 
+// ==================== FILE UPLOAD ROUTES (before dynamic routes) ====================
+
+/**
+ * Upload images for posts
+ */
+router.post(
+  '/upload/images',
+  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
+  upload.array('images', 5),
+  commonFeedCtrl.uploadImages
+);
+
+/**
+ * Upload documents for posts
+ */
+router.post(
+  '/upload/documents',
+  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
+  upload.array('documents', 3),
+  commonFeedCtrl.uploadDocuments
+);
+
+// ==================== ADMIN ROUTES (before dynamic routes) ====================
+
+/**
+ * Get all reported posts (Admin only)
+ */
+router.get(
+  '/admin/reports',
+  authorize([Role.ADMIN]),
+  commonFeedCtrl.getReportedPosts
+);
+
+/**
+ * Review a report (Admin only)
+ */
+router.put(
+  '/admin/reports/:reportId',
+  authorize([Role.ADMIN]),
+  commonFeedCtrl.reviewReport
+);
+
+/**
+ * Get feed statistics (Admin only)
+ */
+router.get(
+  '/admin/stats',
+  authorize([Role.ADMIN]),
+  commonFeedCtrl.getFeedStats
+);
+
+// ==================== USER ROUTES (before generic :postId) ====================
+
+/**
+ * Get posts by a specific user
+ */
+router.get(
+  '/user/:userId',
+  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
+  commonFeedCtrl.getUserPosts
+);
+
+// ==================== COMMENT ROUTES (before generic :postId) ====================
+
+/**
+ * Update a comment (author only)
+ */
+router.put(
+  '/comments/:commentId',
+  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
+  commonFeedCtrl.updateComment
+);
+
+/**
+ * Delete a comment (author or admin only)
+ */
+router.delete(
+  '/comments/:commentId',
+  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
+  commonFeedCtrl.deleteComment
+);
+
+// ==================== DYNAMIC POST ROUTES (must be last) ====================
+
 /**
  * Get a single post by ID
  */
@@ -57,8 +141,6 @@ router.delete(
   commonFeedCtrl.deletePost
 );
 
-// ==================== COMMENT ROUTES ====================
-
 /**
  * Add a comment to a post
  */
@@ -67,26 +149,6 @@ router.post(
   authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
   commonFeedCtrl.addComment
 );
-
-/**
- * Update a comment (author only)
- */
-router.put(
-  '/comments/:commentId',
-  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
-  commonFeedCtrl.updateComment
-);
-
-/**
- * Delete a comment (author or admin only)
- */
-router.delete(
-  '/comments/:commentId',
-  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
-  commonFeedCtrl.deleteComment
-);
-
-// ==================== ENGAGEMENT ROUTES ====================
 
 /**
  * Like/Unlike a post
@@ -104,57 +166,6 @@ router.post(
   '/:postId/report',
   authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
   commonFeedCtrl.reportPost
-);
-
-// ==================== FILE UPLOAD ROUTES ====================
-
-/**
- * Upload images for posts
- */
-router.post(
-  '/upload/images',
-  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
-  upload.array('images', 5),
-  commonFeedCtrl.uploadImages
-);
-
-/**
- * Upload documents for posts
- */
-router.post(
-  '/upload/documents',
-  authorize([Role.ADMIN, Role.COORDINATOR, Role.HOD, Role.SUPERVISOR, Role.STUDENT]),
-  upload.array('documents', 3),
-  commonFeedCtrl.uploadDocuments
-);
-
-// ==================== ADMIN MODERATION ROUTES ====================
-
-/**
- * Get all reported posts (Admin only)
- */
-router.get(
-  '/admin/reports',
-  authorize([Role.ADMIN]),
-  commonFeedCtrl.getReportedPosts
-);
-
-/**
- * Review a report (Admin only)
- */
-router.put(
-  '/admin/reports/:reportId',
-  authorize([Role.ADMIN]),
-  commonFeedCtrl.reviewReport
-);
-
-/**
- * Get feed statistics (Admin only)
- */
-router.get(
-  '/admin/stats',
-  authorize([Role.ADMIN]),
-  commonFeedCtrl.getFeedStats
 );
 
 export default router;

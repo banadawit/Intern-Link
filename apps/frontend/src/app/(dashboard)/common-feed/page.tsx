@@ -14,8 +14,6 @@ import {
   Send,
   MoreHorizontal,
   Globe,
-  Users,
-  Building,
   X
 } from 'lucide-react';
 
@@ -64,6 +62,11 @@ export default function CommonFeedPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [userProfileData, setUserProfileData] = useState<any>(null);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -76,9 +79,49 @@ export default function CommonFeedPage() {
 
   const getCurrentUser = () => {
     if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          // Decode JWT token to get user info
+          const parts = token.split('.');
+          if (parts.length !== 3) {
+            console.error('Invalid token format - expected 3 parts, got:', parts.length);
+            return null;
+          }
+          
+          const base64Url = parts[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = atob(base64);
+          
+          const decoded = JSON.parse(jsonPayload);
+          console.log('Decoded JWT payload:', decoded);
+          
+          // Ensure userId is a number
+          const userId = typeof decoded.userId === 'number' ? decoded.userId : parseInt(decoded.userId, 10);
+          
+          if (isNaN(userId)) {
+            console.error('Invalid userId in token:', decoded.userId);
+            return null;
+          }
+          
+          return {
+            userId: userId,
+            id: userId, // Add both for compatibility
+            email: decoded.email,
+            role: decoded.role,
+            fullName: decoded.fullName || decoded.full_name || decoded.name || 'User'
+          };
+        } catch (error) {
+          console.error('Error decoding token:', error);
+        }
+      }
+      
+      // Fallback to localStorage user if token decode fails
       const userStr = localStorage.getItem('user');
       if (userStr) {
-        return JSON.parse(userStr);
+        const user = JSON.parse(userStr);
+        console.log('User from localStorage:', user);
+        return user;
       }
     }
     return null;
@@ -225,8 +268,70 @@ export default function CommonFeedPage() {
     }
   };
 
+  const openUserProfile = async (userId: number | undefined) => {
+    console.log('=== openUserProfile called ===');
+    console.log('userId parameter:', userId, 'type:', typeof userId);
+    console.log('Current user object:', currentUser);
+    
+    if (!userId) {
+      console.error('No userId provided to openUserProfile');
+      alert('Cannot open profile: User ID is missing');
+      return;
+    }
+    
+    setSelectedUserId(userId);
+    setShowUserProfile(true);
+    setLoadingProfile(true);
+
+    try {
+      const token = getToken();
+      const url = `${API_BASE}/common-feed/user/${userId}`;
+      console.log('Fetching user profile from:', url);
+      
+      const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      console.log('Profile response:', response.data);
+      setUserProfileData(response.data.data.user);
+      setUserPosts(response.data.data.posts);
+      setLoadingProfile(false);
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error);
+      console.error('Error response:', error.response?.data);
+      alert(`Failed to load profile: ${error.response?.data?.message || error.message}`);
+      setLoadingProfile(false);
+      setShowUserProfile(false);
+    }
+  };
+
+  const deleteUserPost = async (postId: number) => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      const token = getToken();
+      await axios.delete(`${API_BASE}/common-feed/${postId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Remove from user posts
+      setUserPosts(userPosts.filter(p => p.id !== postId));
+      
+      // Also remove from main feed if present
+      setPosts(posts.filter(p => p.id !== postId));
+      
+      alert('Post deleted successfully');
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      alert('Failed to delete post');
+    }
+  };
+
   useEffect(() => {
     const user = getCurrentUser();
+    console.log('=== Current User from localStorage ===');
+    console.log('User object:', user);
+    console.log('User keys:', user ? Object.keys(user) : 'null');
     setCurrentUser(user);
     fetchPosts(1);
   }, []);
@@ -292,7 +397,13 @@ export default function CommonFeedPage() {
             {/* Create Post Card */}
             <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4 sticky top-0 z-10">
               <div className="flex gap-3">
-                <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                <div 
+                  onClick={() => {
+                    const userId = currentUser?.userId || currentUser?.id;
+                    if (userId) openUserProfile(userId);
+                  }}
+                  className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                >
                   {currentUser ? getInitials(currentUser.fullName || 'User') : 'U'}
                 </div>
                 <button
@@ -352,12 +463,18 @@ export default function CommonFeedPage() {
                   <div className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex gap-3">
-                        <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                        <div 
+                          onClick={() => openUserProfile(post.author.id)}
+                          className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                        >
                           {getInitials(post.author.full_name)}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                            <h3 
+                              onClick={() => openUserProfile(post.author.id)}
+                              className="font-semibold text-slate-900 hover:text-teal-600 cursor-pointer"
+                            >
                               {post.author.full_name}
                             </h3>
                             <span className="text-xs text-slate-500">• 1st</span>
@@ -452,7 +569,7 @@ export default function CommonFeedPage() {
                             type="text"
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && addComment(post.id)}
+                            onKeyDown={(e) => e.key === 'Enter' && addComment(post.id)}
                             placeholder="Add a comment..."
                             className="flex-1 px-4 py-2 rounded-full border border-slate-300 focus:outline-none focus:border-slate-400 text-sm"
                           />
@@ -470,13 +587,21 @@ export default function CommonFeedPage() {
                       <div className="space-y-4">
                         {comments.map((comment) => (
                           <div key={comment.id} className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                            <div 
+                              onClick={() => openUserProfile(comment.author.id)}
+                              className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                            >
                               {getInitials(comment.author.full_name)}
                             </div>
                             <div className="flex-1">
                               <div className="bg-white rounded-lg px-4 py-2 border border-slate-200">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-sm text-slate-900">{comment.author.full_name}</span>
+                                  <span 
+                                    onClick={() => openUserProfile(comment.author.id)}
+                                    className="font-semibold text-sm text-slate-900 cursor-pointer hover:text-teal-600"
+                                  >
+                                    {comment.author.full_name}
+                                  </span>
                                   <span className="text-xs text-slate-500">• {getRoleBadge(comment.author.role).label}</span>
                                 </div>
                                 <p className="text-sm text-slate-700 mt-1">{comment.content}</p>
@@ -613,6 +738,113 @@ export default function CommonFeedPage() {
                 Post
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Modal */}
+      {showUserProfile && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h2 className="text-xl font-semibold text-slate-900">User Profile</h2>
+              <button
+                onClick={() => {
+                  setShowUserProfile(false);
+                  setUserProfileData(null);
+                  setUserPosts([]);
+                }}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            {loadingProfile ? (
+              <div className="flex items-center justify-center p-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+              </div>
+            ) : userProfileData ? (
+              <div>
+                {/* Profile Header */}
+                <div className="p-6 border-b border-slate-200">
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center text-2xl font-bold text-slate-600">
+                      {getInitials(userProfileData.full_name)}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-slate-900">{userProfileData.full_name}</h3>
+                      <p className="text-slate-600 mt-1">{getRoleBadge(userProfileData.role).label}</p>
+                      <p className="text-sm text-slate-500 mt-1">{userProfileData.email}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Posts Section */}
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                    Posts ({userPosts.length})
+                  </h3>
+
+                  {userPosts.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500">
+                      <p>No posts yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {userPosts.map((post) => (
+                        <div key={post.id} className="bg-slate-50 rounded-lg border border-slate-200 p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-slate-600">
+                                  {getPostTypeLabel(post.postType)}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  {formatTimeAgo(post.createdAt)}
+                                </span>
+                              </div>
+                              <h4 className="font-semibold text-slate-900 mt-1">{post.title}</h4>
+                            </div>
+                            {currentUser && (currentUser.userId === post.author.id || currentUser.id === post.author.id) && (
+                              <button
+                                onClick={() => deleteUserPost(post.id)}
+                                className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+
+                          <div 
+                            className="text-slate-700 text-sm leading-relaxed mb-3"
+                            dangerouslySetInnerHTML={{ __html: post.content }}
+                          />
+
+                          <div className="flex items-center gap-4 text-xs text-slate-600">
+                            <div className="flex items-center gap-1">
+                              <ThumbsUp className="w-4 h-4" />
+                              <span>{post.likeCount}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <MessageCircle className="w-4 h-4" />
+                              <span>{post.commentCount}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span>{post.viewCount} views</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-12 text-center text-slate-500">
+                <p>Failed to load profile</p>
+              </div>
+            )}
           </div>
         </div>
       )}
