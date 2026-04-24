@@ -17,7 +17,11 @@ export type HodCompanyRow = {
   id: number;
   name: string;
   official_email: string;
+  address: string | null;
   approval_status: string;
+  created_at: string;
+  supervisorCount: number;
+  activePlacementsCount: number;
 };
 
 export type HodProposalRow = {

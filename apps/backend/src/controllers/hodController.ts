@@ -242,8 +242,28 @@ export const getCompanies = async (req: AuthRequest, res: Response) => {
             },
             orderBy: { name: 'asc' },
             take: 200,
+            include: {
+                _count: {
+                    select: {
+                        supervisors: true,
+                        assignments: { where: { status: 'ACTIVE' } },
+                    },
+                },
+            },
         });
-        return sendSuccess(res, companies);
+
+        const payload = companies.map((c) => ({
+            id: c.id,
+            name: c.name,
+            official_email: c.official_email,
+            address: c.address,
+            approval_status: c.approval_status,
+            created_at: c.created_at,
+            supervisorCount: c._count.supervisors,
+            activePlacementsCount: c._count.assignments,
+        }));
+
+        return sendSuccess(res, payload);
     } catch (e: any) {
         return sendError(res, e.message);
     }
