@@ -53,4 +53,7 @@ router.post('/config/test-smtp', configCtrl.testSmtp);
 router.get('/config/export-audit-csv', configCtrl.exportAuditLogCsv);
 router.post('/config/broadcast', configCtrl.broadcastAnnouncement);
 
+// Analytics
+router.get('/analytics', adminCtrl.getAnalytics);
+
 export default router;
