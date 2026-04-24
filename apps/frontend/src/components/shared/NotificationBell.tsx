@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, MessageSquare, FolderKanban, CheckCircle2, Info, X, Megaphone } from "lucide-react";
+import { Bell, MessageSquare, FolderKanban, CheckCircle2, Info, X, Megaphone, FileText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -22,6 +22,7 @@ function iconFor(message: string) {
   if (m.includes("message") || m.includes("chat")) return <MessageSquare className="h-4 w-4 text-blue-500" />;
   if (m.includes("project") || m.includes("assigned")) return <FolderKanban className="h-4 w-4 text-teal-600" />;
   if (m.includes("approved") || m.includes("approval")) return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+  if (m.includes("proposal") || m.includes("internship")) return <FileText className="h-4 w-4 text-primary-500" />;
   return <Info className="h-4 w-4 text-slate-400" />;
 }
 
@@ -36,7 +37,17 @@ function linkFor(message: string, role: string | undefined): string | null {
     if (r === 'hod') return '/hod/common-feed';
     return null;
   }
+  // Internship proposal notifications → supervisor proposals page
+  if ((m.includes("proposal") || m.includes("internship proposal")) && r === 'supervisor') {
+    return '/supervisor/proposals';
+  }
   return null;
+}
+
+function linkLabelFor(link: string): string {
+  if (link.includes('/proposals')) return 'View proposals →';
+  if (link.includes('/common')) return 'View in Common Feed →';
+  return 'View →';
 }
 
 export default function NotificationBell() {
@@ -159,7 +170,7 @@ export default function NotificationBell() {
                     </p>
                     {link && (
                       <p className="mt-0.5 text-xs font-medium text-primary-600">
-                        View in Common Feed →
+                        {linkLabelFor(link)}
                       </p>
                     )}
                   </div>

@@ -57,8 +57,26 @@ export const sendPlacementProposal = async (req: AuthRequest, res: Response) => 
                 status: 'PENDING',
                 expected_duration_weeks: expected_duration_weeks != null ? parseInt(String(expected_duration_weeks), 10) : null,
                 expected_outcomes: typeof expected_outcomes === 'string' ? expected_outcomes : null,
-            }
+            },
+            include: {
+                student: { include: { user: { select: { full_name: true, email: true } } } },
+                company: { select: { name: true } },
+                university: { select: { name: true } },
+            },
         });
+
+        // Notify all supervisors of the target company
+        const supervisors = await prisma.supervisor.findMany({
+            where: { companyId },
+            select: { userId: true, user: { select: { full_name: true } } },
+        });
+        const { sendNotification } = await import('../utils/notificationHelper');
+        for (const sup of supervisors) {
+            await sendNotification(
+                sup.userId,
+                `📋 New internship proposal: ${proposal.student.user.full_name} from ${proposal.university.name} is applying for an internship at your company. Please review and respond within 24 hours.`
+            );
+        }
 
         return sendSuccess(res, proposal, "Proposal sent to company.", 201);
     } catch (error: any) {
@@ -100,9 +118,15 @@ export const getIncomingProposals = async (req: AuthRequest, res: Response) => {
         const proposals = await prisma.internshipProposal.findMany({
             where: { companyId: supervisor.companyId, status: 'PENDING' },
             include: {
-                student: { include: { user: { select: { full_name: true, email: true } } } },
+                student: {
+                    include: {
+                        user: { select: { full_name: true, email: true, verification_document: true } },
+                        university: { select: { name: true } },
+                    },
+                },
                 university: true,
             },
+            orderBy: { submitted_at: 'desc' },
         });
 
         const withSla = proposals.map((p) => attachProposalSla(p));
@@ -203,4 +227,4 @@ export const respondToProposal = async (req: AuthRequest, res: Response) => {
     } catch (error: any) {
         return sendError(res, error.message);
     }
-};
+};

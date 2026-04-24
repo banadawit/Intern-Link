@@ -32,18 +32,19 @@ const HodSidebar = () => {
   const [pendingStudents, setPendingStudents] = useState(0);
 
   useEffect(() => {
-    api.get<{ university?: { name: string }; pendingApprovals?: number }>("/hod/dashboard-stats")
+    api.get<{ success: boolean; data: { university?: { name: string }; pendingApprovals?: number } }>("/hod/dashboard-stats")
       .then(({ data }) => {
-        if (data?.university?.name) setUniversityName(data.university.name);
-        if (typeof data?.pendingApprovals === 'number') setPendingStudents(data.pendingApprovals);
+        const d = data.data;
+        if (d?.university?.name) setUniversityName(d.university.name);
+        if (typeof d?.pendingApprovals === 'number') setPendingStudents(d.pendingApprovals);
       })
       .catch(() => {});
     void fetchUnread();
     const interval = setInterval(() => {
       void fetchUnread();
       // Refresh pending student count every 30s
-      api.get<{ pendingApprovals?: number }>("/hod/dashboard-stats")
-        .then(({ data }) => { if (typeof data?.pendingApprovals === 'number') setPendingStudents(data.pendingApprovals); })
+      api.get<{ success: boolean; data: { pendingApprovals?: number } }>("/hod/dashboard-stats")
+        .then(({ data }) => { if (typeof data.data?.pendingApprovals === 'number') setPendingStudents(data.data.pendingApprovals); })
         .catch(() => {});
     }, 30000);
     return () => clearInterval(interval);

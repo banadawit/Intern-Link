@@ -54,11 +54,11 @@ export default function SupervisorTeamsPage() {
     try {
       const [t, s] = await Promise.all([
         api.get<{ active: Team[]; deleted: DeletedTeam[] }>("/supervisor/teams"),
-        api.get<StudentOpt[]>("/supervisor/students"),
+        api.get<{ success: boolean; data: StudentOpt[] }>("/supervisor/students"),
       ]);
       setTeams(t.data.active);
       setDeletedTeams(t.data.deleted);
-      setStudents(s.data);
+      setStudents(Array.isArray(s.data.data) ? s.data.data : []);
     } catch {
       setError("Could not load teams.");
     } finally {

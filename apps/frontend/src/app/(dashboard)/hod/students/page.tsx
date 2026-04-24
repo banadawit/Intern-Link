@@ -17,8 +17,8 @@ export default function HodStudentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<HodStudentRow[]>("/hod/students", { params: { status: "all" } });
-      setStudents(res.data);
+      const res = await api.get<{ success: boolean; data: HodStudentRow[] }>("/hod/students", { params: { status: "all" } });
+      setStudents(Array.isArray(res.data.data) ? res.data.data : []);
     } catch {
       setError("Could not load students.");
     } finally {
