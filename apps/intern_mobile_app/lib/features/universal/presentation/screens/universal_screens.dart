@@ -139,14 +139,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 }
 
-class ChatScreen extends ConsumerWidget {
+class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends ConsumerState<ChatScreen> {
+  int _currentIndex = 0; // 0 for Chats, 1 for Contacts
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final conversationsAsync = ref.watch(conversationsProvider);
+    final contactsAsync = ref.watch(contactsProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -169,37 +177,168 @@ class ChatScreen extends ConsumerWidget {
             children: [
               _buildChatHeader(context, isDark, ref),
               _buildSearchBar(context, isDark),
+              _buildTabSelector(isDark),
               Expanded(
-                child: conversationsAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Error: $e')),
-                  data: (conversations) {
-                    if (conversations.isEmpty) {
-                       return const Center(child: Text('No conversations yet', style: TextStyle(color: Colors.grey)));
-                    }
-                    return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: conversations.length,
-                      itemBuilder: (context, index) {
-                        final conv = conversations[index];
-                        return _conversationItem(
-                          context,
-                          conv.partner.fullName,
-                          conv.lastMessage?.content ?? '',
-                          conv.lastMessage != null ? timeago.format(conv.lastMessage!.createdAt) : '',
-                          conv.unreadCount,
-                          true,
-                          isDark,
+                child: _currentIndex == 0 
+                  ? conversationsAsync.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Center(child: Text('Error: $e')),
+                      data: (conversations) {
+                        if (conversations.isEmpty) {
+                           return const Center(child: Text('No conversations yet', style: TextStyle(color: Colors.grey)));
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: conversations.length,
+                          itemBuilder: (context, index) {
+                            final conv = conversations[index];
+                            return _conversationItem(
+                              context,
+                              conv.partner.fullName,
+                              conv.lastMessage?.content ?? '',
+                              conv.lastMessage != null ? timeago.format(conv.lastMessage!.createdAt) : '',
+                              conv.unreadCount,
+                              true,
+                              isDark,
+                              onTap: () => _openChatDetail(context, conv.partner),
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                ),
+                    )
+                  : contactsAsync.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Center(child: Text('Error: $e')),
+                      data: (contacts) {
+                        if (contacts.isEmpty) {
+                           return const Center(child: Text('No contacts found', style: TextStyle(color: Colors.grey)));
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: contacts.length,
+                          itemBuilder: (context, index) {
+                            final contact = contacts[index];
+                            return _contactItem(
+                              context,
+                              contact.fullName,
+                              contact.role,
+                              isDark,
+                              onTap: () => _openChatDetail(context, contact),
+                            );
+                          },
+                        );
+                      },
+                    ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTabSelector(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            _tabButton(0, 'Recent Chats', Icons.chat_bubble_rounded, isDark),
+            _tabButton(1, 'Contacts', Icons.people_rounded, isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tabButton(int index, String label, IconData icon, bool isDark) {
+    final isSelected = _currentIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _currentIndex = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? (isDark ? Colors.white.withOpacity(0.1) : Colors.white) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected && !isDark ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: isSelected ? const Color(0xFF0EA5E9) : Colors.grey),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? (isDark ? Colors.white : Colors.black87) : Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _contactItem(BuildContext context, String name, String role, bool isDark, {required VoidCallback onTap}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50, height: 50,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [const Color(0xFF0EA5E9).withOpacity(0.8), const Color(0xFF6366F1)]),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(child: Text(name[0], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: const Color(0xFF0EA5E9).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                      child: Text(role, style: const TextStyle(color: Color(0xFF0EA5E9), fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: Colors.grey.withOpacity(0.5)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openChatDetail(BuildContext context, ChatPartner partner) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (ctx) => ChatDetailScreen(partner: partner),
       ),
     );
   }
@@ -230,7 +369,10 @@ class ChatScreen extends ConsumerWidget {
             ),
             const Spacer(),
             GestureDetector(
-              onTap: () => ref.invalidate(conversationsProvider),
+              onTap: () {
+                ref.invalidate(conversationsProvider);
+                ref.invalidate(contactsProvider);
+              },
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -261,7 +403,7 @@ class ChatScreen extends ConsumerWidget {
         ),
         child: TextField(
           decoration: InputDecoration(
-            hintText: 'Search conversations...',
+            hintText: 'Search...',
             hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 15, fontWeight: FontWeight.w500),
             border: InputBorder.none,
             prefixIcon: Padding(
@@ -276,96 +418,270 @@ class ChatScreen extends ConsumerWidget {
     );
   }
 
-  Widget _conversationItem(BuildContext context, String name, String lastMsg, String time, int unread, bool isOnline, bool isDark) {
+  Widget _conversationItem(BuildContext context, String name, String lastMsg, String time, int unread, bool isOnline, bool isDark, {required VoidCallback onTap}) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
+          ),
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    width: 60, height: 60,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [const Color(0xFF0EA5E9), const Color(0xFF6366F1).withOpacity(0.8)]),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Center(child: Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
+                  ),
+                  if (isOnline)
+                    Positioned(
+                      right: 0, bottom: 0,
+                      child: Container(
+                        width: 14, height: 14,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: isDark ? const Color(0xFF0A1628) : Colors.white, width: 2),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                        Text(time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(lastMsg, style: TextStyle(color: unread > 0 ? (isDark ? Colors.white : Colors.black) : Colors.grey, fontSize: 14, fontWeight: unread > 0 ? FontWeight.bold : FontWeight.normal), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              if (unread > 0)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: const Color(0xFF0EA5E9), borderRadius: BorderRadius.circular(10)),
+                  child: Text(unread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ChatDetailScreen extends ConsumerStatefulWidget {
+  final ChatPartner partner;
+  const ChatDetailScreen({super.key, required this.partner});
+
+  @override
+  ConsumerState<ChatDetailScreen> createState() => _ChatDetailScreenState();
+}
+
+class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final messagesAsync = ref.watch(chatMessagesProvider(widget.partner.id));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(child: Text(widget.partner.fullName[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.partner.fullName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(widget.partner.role, style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.black54)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: () => ref.invalidate(chatMessagesProvider(widget.partner.id))),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: messagesAsync.when(
+              data: (messages) {
+                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+                if (messages.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.chat_bubble_outline_rounded, size: 48, color: Colors.grey.withOpacity(0.3)),
+                        const SizedBox(height: 16),
+                        const Text('No messages yet. Say hello!', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: messages.length,
+                  itemBuilder: (ctx, i) {
+                    final m = messages[i];
+                    final isMe = m.senderId != widget.partner.id;
+                    return _chatBubble(m.content, isMe, isDark, timeago.format(m.createdAt));
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+            ),
+          ),
+          _buildInputArea(isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _chatBubble(String text, bool isMe, bool isDark, String time) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+            decoration: BoxDecoration(
+              color: isMe ? const Color(0xFF0EA5E9) : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
+              borderRadius: BorderRadius.circular(20).copyWith(
+                bottomRight: isMe ? const Radius.circular(4) : null,
+                bottomLeft: !isMe ? const Radius.circular(4) : null,
+              ),
+              boxShadow: [if (!isMe) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+              border: !isMe ? Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)) : null,
+            ),
+            child: Text(
+              text, 
+              style: TextStyle(
+                color: isMe || isDark ? Colors.white : Colors.black87,
+                fontSize: 15,
+                height: 1.3,
+              )
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Text(time, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputArea(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0A1628) : Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
       ),
       child: Row(
         children: [
-          Stack(
-            children: [
-              Container(
-                width: 56, height: 56,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Center(
-                  child: Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: -0.3),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      time,
-                      style: TextStyle(
-                        color: unread > 0 ? const Color(0xFF0EA5E9) : (isDark ? Colors.white54 : Colors.black45),
-                        fontSize: 12,
-                        fontWeight: unread > 0 ? FontWeight.w800 : FontWeight.w600,
-                      ),
-                    ),
-                  ],
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: TextField(
+                controller: _controller,
+                maxLines: null,
+                decoration: const InputDecoration(
+                  hintText: 'Type a message...',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        lastMsg,
-                        style: TextStyle(
-                          color: unread > 0 ? (isDark ? Colors.white : Colors.black87) : (isDark ? Colors.white60 : Colors.black54),
-                          fontSize: 14,
-                          fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w500,
-                        ),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (unread > 0) ...[
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          unread.toString(),
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
+                onSubmitted: (_) => _send(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _send,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    _controller.clear();
+    try {
+      await ref.read(chatRepositoryProvider).sendMessage(widget.partner.id, text);
+      ref.invalidate(chatMessagesProvider(widget.partner.id));
+      ref.invalidate(conversationsProvider);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to send: $e')));
+    }
   }
 }
 
