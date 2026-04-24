@@ -744,107 +744,158 @@ export default function CommonFeedPage() {
 
       {/* User Profile Modal */}
       {showUserProfile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200">
-              <h2 className="text-xl font-semibold text-slate-900">User Profile</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-teal-50 to-emerald-50">
+              <h2 className="text-xl font-bold text-slate-900">User Profile</h2>
               <button
                 onClick={() => {
                   setShowUserProfile(false);
                   setUserProfileData(null);
                   setUserPosts([]);
                 }}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                className="p-2 hover:bg-white/80 rounded-full transition-all duration-200 hover:rotate-90"
               >
                 <X className="w-5 h-5 text-slate-600" />
               </button>
             </div>
 
-            {loadingProfile ? (
-              <div className="flex items-center justify-center p-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-              </div>
-            ) : userProfileData ? (
-              <div>
-                {/* Profile Header */}
-                <div className="p-6 border-b border-slate-200">
-                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center text-2xl font-bold text-slate-600">
-                      {getInitials(userProfileData.full_name)}
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold text-slate-900">{userProfileData.full_name}</h3>
-                      <p className="text-slate-600 mt-1">{getRoleBadge(userProfileData.role).label}</p>
-                      <p className="text-sm text-slate-500 mt-1">{userProfileData.email}</p>
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[calc(85vh-73px)]">
+              {loadingProfile ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200"></div>
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-teal-600 border-t-transparent absolute top-0 left-0"></div>
+                  </div>
+                  <p className="mt-4 text-slate-600 font-medium">Loading profile...</p>
+                </div>
+              ) : userProfileData ? (
+                <div>
+                  {/* Profile Header */}
+                  <div className="px-6 py-8 bg-gradient-to-br from-slate-50 to-white border-b border-slate-200">
+                    <div className="flex items-center gap-6">
+                      <div className="relative">
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-3xl font-bold text-white shadow-lg ring-4 ring-white">
+                          {getInitials(userProfileData.full_name)}
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center">
+                          <span className="text-white text-xs">✓</span>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-3xl font-bold text-slate-900 mb-2">{userProfileData.full_name}</h3>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getRoleBadge(userProfileData.role).color} bg-slate-100`}>
+                            {getRoleBadge(userProfileData.role).label}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                          {userProfileData.email}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Posts Section */}
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                    Posts ({userPosts.length})
-                  </h3>
-
-                  {userPosts.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500">
-                      <p>No posts yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {userPosts.map((post) => (
-                        <div key={post.id} className="bg-slate-50 rounded-lg border border-slate-200 p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-slate-600">
-                                  {getPostTypeLabel(post.postType)}
-                                </span>
-                                <span className="text-xs text-slate-500">
-                                  {formatTimeAgo(post.createdAt)}
-                                </span>
-                              </div>
-                              <h4 className="font-semibold text-slate-900 mt-1">{post.title}</h4>
-                            </div>
-                            {currentUser && (currentUser.userId === post.author.id || currentUser.id === post.author.id) && (
-                              <button
-                                onClick={() => deleteUserPost(post.id)}
-                                className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </div>
-
-                          <div 
-                            className="text-slate-700 text-sm leading-relaxed mb-3"
-                            dangerouslySetInnerHTML={{ __html: post.content }}
-                          />
-
-                          <div className="flex items-center gap-4 text-xs text-slate-600">
-                            <div className="flex items-center gap-1">
-                              <ThumbsUp className="w-4 h-4" />
-                              <span>{post.likeCount}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <MessageCircle className="w-4 h-4" />
-                              <span>{post.commentCount}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span>{post.viewCount} views</span>
-                            </div>
-                          </div>
+                  {/* Stats Bar */}
+                  <div className="px-6 py-4 bg-white border-b border-slate-200">
+                    <div className="flex items-center gap-8">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-slate-900">{userPosts.length}</div>
+                        <div className="text-sm text-slate-600">Posts</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-slate-900">
+                          {userPosts.reduce((sum, post) => sum + post.likeCount, 0)}
                         </div>
-                      ))}
+                        <div className="text-sm text-slate-600">Likes</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-slate-900">
+                          {userPosts.reduce((sum, post) => sum + post.commentCount, 0)}
+                        </div>
+                        <div className="text-sm text-slate-600">Comments</div>
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Posts Section */}
+                  <div className="px-6 py-6 bg-slate-50">
+                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-teal-600" />
+                      Recent Posts
+                    </h3>
+
+                    {userPosts.length === 0 ? (
+                      <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-slate-200">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <FileText className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <p className="text-slate-500 font-medium">No posts yet</p>
+                        <p className="text-sm text-slate-400 mt-1">Posts will appear here when created</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {userPosts.map((post) => (
+                          <div key={post.id} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-all duration-200 hover:border-teal-200">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-sm font-medium text-teal-600 bg-teal-50 px-3 py-1 rounded-full">
+                                    {getPostTypeLabel(post.postType)}
+                                  </span>
+                                  <span className="text-xs text-slate-500">
+                                    {formatTimeAgo(post.createdAt)}
+                                  </span>
+                                </div>
+                                <h4 className="font-bold text-slate-900 text-lg mb-2">{post.title}</h4>
+                              </div>
+                              {currentUser && (currentUser.userId === post.author.id || currentUser.id === post.author.id) && (
+                                <button
+                                  onClick={() => deleteUserPost(post.id)}
+                                  className="px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 hover:shadow-sm border border-transparent hover:border-red-200"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+
+                            <div 
+                              className="text-slate-700 text-sm leading-relaxed mb-4 line-clamp-3"
+                              dangerouslySetInnerHTML={{ __html: post.content }}
+                            />
+
+                            <div className="flex items-center gap-6 text-sm text-slate-600 pt-3 border-t border-slate-100">
+                              <div className="flex items-center gap-2 hover:text-teal-600 transition-colors">
+                                <ThumbsUp className="w-4 h-4" />
+                                <span className="font-medium">{post.likeCount}</span>
+                              </div>
+                              <div className="flex items-center gap-2 hover:text-teal-600 transition-colors">
+                                <MessageCircle className="w-4 h-4" />
+                                <span className="font-medium">{post.commentCount}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{post.viewCount} views</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="p-12 text-center text-slate-500">
-                <p>Failed to load profile</p>
-              </div>
-            )}
+              ) : (
+                <div className="py-20 text-center">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <X className="w-8 h-8 text-red-600" />
+                  </div>
+                  <p className="text-slate-600 font-medium">Failed to load profile</p>
+                  <p className="text-sm text-slate-400 mt-1">Please try again later</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
