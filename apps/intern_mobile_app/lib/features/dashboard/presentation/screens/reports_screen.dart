@@ -206,8 +206,8 @@ class ReportsScreen extends ConsumerWidget {
   }
 
   Widget _buildActionCard(BuildContext context, IconData icon, String title, String subtitle, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
+
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(

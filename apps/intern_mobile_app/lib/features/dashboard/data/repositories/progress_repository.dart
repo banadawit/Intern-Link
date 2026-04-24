@@ -2,68 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 
-// ---------------------------------------------------------
-// DATA MODELS
-// ---------------------------------------------------------
-
-class PlanDaySubmission {
-  final int id;
-  final int weeklyPlanId;
-  final DateTime workDate;
-
-  PlanDaySubmission({
-    required this.id,
-    required this.weeklyPlanId,
-    required this.workDate,
-  });
-
-  factory PlanDaySubmission.fromJson(Map<String, dynamic> json) {
-    return PlanDaySubmission(
-      id: json['id'] ?? 0,
-      weeklyPlanId: json['weeklyPlanId'] ?? 0,
-      workDate: DateTime.parse(json['workDate']),
-    );
-  }
-}
-
-class WeeklyPlan {
-  final int id;
-  final int weekNumber;
-  final String planDescription;
-  final String status;
-  final String? feedback;
-  final String? presentationFileUrl;
-  final DateTime submittedAt;
-  final List<PlanDaySubmission> daySubmissions;
-
-  WeeklyPlan({
-    required this.id,
-    required this.weekNumber,
-    required this.planDescription,
-    required this.status,
-    this.feedback,
-    this.presentationFileUrl,
-    required this.submittedAt,
-    required this.daySubmissions,
-  });
-
-  factory WeeklyPlan.fromJson(Map<String, dynamic> json) {
-    final presentation = json['presentation'];
-    return WeeklyPlan(
-      id: json['id'] ?? 0,
-      weekNumber: json['week_number'] ?? 0,
-      planDescription: json['plan_description'] ?? '',
-      status: json['status'] ?? 'PENDING',
-      feedback: json['feedback'],
-      presentationFileUrl: presentation is Map ? presentation['file_url'] : null,
-      submittedAt: DateTime.parse(json['submitted_at']),
-      daySubmissions: (json['daySubmissions'] as List?)
-              ?.map((e) => PlanDaySubmission.fromJson(e))
-              .toList() ??
-          [],
-    );
-  }
-}
+import '../../../plans/domain/entities/weekly_plan.dart';
+import '../../../plans/domain/entities/daily_checkin.dart';
+import '../../../plans/domain/entities/plan_enums.dart';
+import '../../../plans/data/models/plans_dtos.dart';
 
 // ---------------------------------------------------------
 // REPOSITORY
@@ -77,7 +19,7 @@ class ProgressRepository {
     try {
       final response = await _apiClient.dio.get('/progress/my-plans');
       final data = response.data as List;
-      return data.map((e) => WeeklyPlan.fromJson(e)).toList();
+      return data.map((e) => PlansDtos.weeklyPlanFromApi(Map<String, dynamic>.from(e))).toList();
     } on DioException catch (e) {
       final data = e.response?.data;
       String message = 'Failed to load plans';
@@ -101,7 +43,7 @@ class ProgressRepository {
           'plan_description': description,
         },
       );
-      return WeeklyPlan.fromJson(response.data['plan']);
+      return PlansDtos.weeklyPlanFromApi(Map<String, dynamic>.from(response.data['plan']));
     } on DioException catch (e) {
       final data = e.response?.data;
       String message = 'Failed to submit plan';

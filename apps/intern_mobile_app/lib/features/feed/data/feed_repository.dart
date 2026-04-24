@@ -162,10 +162,32 @@ class FeedRepository {
       'postType': postType,
       'visibility': 'PUBLIC',
     });
-    final raw = response.data is Map && response.data['data'] != null
-        ? response.data['data']
-        : response.data;
-    return FeedPost.fromJson(raw as Map<String, dynamic>);
+
+    // Defensively unwrap the response — backend may wrap in {data: ...} or return directly
+    dynamic raw = response.data;
+    if (raw is Map) {
+      raw = raw['data'] ?? raw['post'] ?? raw;
+    }
+
+    // If we still don't have a proper map, create a minimal stub so the UI doesn't crash
+    if (raw is! Map<String, dynamic>) {
+      return FeedPost(
+        id: DateTime.now().millisecondsSinceEpoch,
+        content: content,
+        title: title,
+        postType: postType,
+        visibility: 'PUBLIC',
+        author: const FeedAuthor(id: 0, fullName: 'You', role: 'STUDENT'),
+        likeCount: 0,
+        commentCount: 0,
+        viewCount: 0,
+        isLikedByUser: false,
+        isPinned: false,
+        createdAt: DateTime.now(),
+      );
+    }
+
+    return FeedPost.fromJson(raw);
   }
 }
 

@@ -122,6 +122,35 @@ class AdminRepository {
     final response = await apiClient.dio.get('/admin/companies', queryParameters: status != null ? {'status': status} : null);
     return (response.data as List?) ?? [];
   }
+
+  // --- SYSTEM CONFIGURATION ---
+
+  Future<Map<String, String>> getConfig() async {
+    final response = await apiClient.dio.get('/admin/config');
+    final data = response.data['data'] as Map?;
+    return data?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {};
+  }
+
+  Future<void> updateConfig(Map<String, String> updates) async {
+    await apiClient.dio.patch('/admin/config', data: updates);
+  }
+
+  Future<bool> testSmtp() async {
+    final response = await apiClient.dio.post('/admin/config/test-smtp');
+    return response.data['success'] == true;
+  }
+
+  Future<void> broadcast(String title, String content) async {
+    await apiClient.dio.post('/admin/config/broadcast', data: {
+      'title': title,
+      'content': content,
+    });
+  }
+
+  Future<String> exportAuditLogsCsv() async {
+    final response = await apiClient.dio.get('/admin/config/export-audit-csv');
+    return response.data.toString();
+  }
 }
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
@@ -170,4 +199,8 @@ final verifiedUniversitiesProvider = FutureProvider<List<dynamic>>((ref) {
 
 final verifiedCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getAllCompanies(status: 'APPROVED');
+});
+
+final systemConfigProvider = FutureProvider<Map<String, String>>((ref) {
+  return ref.watch(adminRepositoryProvider).getConfig();
 });
