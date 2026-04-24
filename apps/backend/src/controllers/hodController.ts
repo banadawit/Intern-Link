@@ -91,18 +91,53 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             select: { id: true, department: true, hod_approval_status: true, internship_status: true },
         });
         const inDept = students.filter((s) => departmentsMatch(s.department, hod.department));
-
         const deptStudentIds = inDept.map((s) => s.id);
-        const reportCount = deptStudentIds.length === 0 ? 0 : await prisma.report.count({
-            where: { studentId: { in: deptStudentIds } },
-        });
+
+        const [reportCount, proposalStats, recentStudents] = await Promise.all([
+            deptStudentIds.length === 0 ? Promise.resolve(0) : prisma.report.count({
+                where: { studentId: { in: deptStudentIds } },
+            }),
+            deptStudentIds.length === 0 ? Promise.resolve({ pending: 0, approved: 0, rejected: 0 }) :
+                prisma.internshipProposal.groupBy({
+                    by: ['status'],
+                    where: { studentId: { in: deptStudentIds } },
+                    _count: { status: true },
+                }).then((rows) => {
+                    const map: Record<string, number> = {};
+                    rows.forEach((r) => { map[r.status] = r._count.status; });
+                    return { pending: map['PENDING'] ?? 0, approved: map['APPROVED'] ?? 0, rejected: map['REJECTED'] ?? 0 };
+                }),
+            deptStudentIds.length === 0 ? Promise.resolve([]) :
+                prisma.student.findMany({
+                    where: { id: { in: deptStudentIds }, hod_approval_status: 'PENDING' },
+                    include: { user: { select: { full_name: true, email: true } } },
+                    orderBy: { id: 'desc' },
+                    take: 5,
+                }),
+        ]);
+
+        const approvedCount = inDept.filter((s) => s.hod_approval_status === 'APPROVED').length;
+        const rejectedCount = inDept.filter((s) => s.hod_approval_status === 'REJECTED').length;
+        const pendingCount = inDept.filter((s) => s.hod_approval_status === 'PENDING').length;
+        const placedCount = inDept.filter((s) => s.internship_status === 'PLACED').length;
+        const notPlacedApproved = inDept.filter((s) => s.hod_approval_status === 'APPROVED' && s.internship_status !== 'PLACED').length;
 
         return sendSuccess(res, {
             totalStudents: inDept.length,
-            pendingApprovals: inDept.filter((s) => s.hod_approval_status === 'PENDING').length,
-            placedStudents: inDept.filter((s) => s.internship_status === 'PLACED').length,
+            pendingApprovals: pendingCount,
+            approvedStudents: approvedCount,
+            rejectedStudents: rejectedCount,
+            placedStudents: placedCount,
+            approvedNotPlaced: notPlacedApproved,
             reports: reportCount,
+            proposals: proposalStats,
+            recentPendingStudents: recentStudents.map((s) => ({
+                id: s.id,
+                full_name: s.user.full_name,
+                email: s.user.email,
+            })),
             university: { name: hod.university.name },
+            department: hod.department,
         });
     } catch (e: any) {
         return sendError(res, e.message);
@@ -242,8 +277,28 @@ export const getCompanies = async (req: AuthRequest, res: Response) => {
             },
             orderBy: { name: 'asc' },
             take: 200,
+            include: {
+                _count: {
+                    select: {
+                        supervisors: true,
+                        assignments: { where: { status: 'ACTIVE' } },
+                    },
+                },
+            },
         });
-        return sendSuccess(res, companies);
+
+        const payload = companies.map((c) => ({
+            id: c.id,
+            name: c.name,
+            official_email: c.official_email,
+            address: c.address,
+            approval_status: c.approval_status,
+            created_at: c.created_at,
+            supervisorCount: c._count.supervisors,
+            activePlacementsCount: c._count.assignments,
+        }));
+
+        return sendSuccess(res, payload);
     } catch (e: any) {
         return sendError(res, e.message);
     }

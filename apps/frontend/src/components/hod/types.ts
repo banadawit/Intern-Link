@@ -1,8 +1,15 @@
 export type HodStats = {
   totalStudents: number;
   pendingApprovals: number;
+  approvedStudents: number;
+  rejectedStudents: number;
   placedStudents: number;
+  approvedNotPlaced: number;
   reports: number;
+  proposals: { pending: number; approved: number; rejected: number };
+  recentPendingStudents: { id: number; full_name: string; email: string }[];
+  university: { name: string };
+  department: string;
 };
 
 export type HodStudentRow = {
@@ -17,7 +24,11 @@ export type HodCompanyRow = {
   id: number;
   name: string;
   official_email: string;
+  address: string | null;
   approval_status: string;
+  created_at: string;
+  supervisorCount: number;
+  activePlacementsCount: number;
 };
 
 export type HodProposalRow = {
