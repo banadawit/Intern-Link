@@ -67,6 +67,11 @@ export default function CommonFeedPage() {
   const [userProfileData, setUserProfileData] = useState<any>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedSharePost, setSelectedSharePost] = useState<Post | null>(null);
+  const [shareMessage, setShareMessage] = useState('');
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [selectedSendPost, setSelectedSendPost] = useState<Post | null>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -337,6 +342,61 @@ export default function CommonFeedPage() {
     }
   };
 
+  const handleShare = (post: Post) => {
+    setSelectedSharePost(post);
+    setShowShareModal(true);
+  };
+
+  const sharePost = async (platform: string) => {
+    if (!selectedSharePost) return;
+
+    const postUrl = `${window.location.origin}/common-feed?post=${selectedSharePost.id}`;
+    const text = `Check out this post: ${selectedSharePost.title}`;
+
+    switch (platform) {
+      case 'copy':
+        navigator.clipboard.writeText(postUrl);
+        alert('Link copied to clipboard!');
+        setShowShareModal(false);
+        break;
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(postUrl)}`, '_blank');
+        break;
+      case 'facebook':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`, '_blank');
+        break;
+      case 'linkedin':
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`, '_blank');
+        break;
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + postUrl)}`, '_blank');
+        break;
+      case 'email':
+        window.location.href = `mailto:?subject=${encodeURIComponent(selectedSharePost.title)}&body=${encodeURIComponent(text + '\n\n' + postUrl)}`;
+        break;
+    }
+  };
+
+  const handleSend = (post: Post) => {
+    setSelectedSendPost(post);
+    setShowSendModal(true);
+  };
+
+  const sendPostViaEmail = () => {
+    if (!selectedSendPost || !shareMessage.trim()) {
+      alert('Please enter a message');
+      return;
+    }
+
+    const postUrl = `${window.location.origin}/common-feed?post=${selectedSendPost.id}`;
+    const subject = `Shared: ${selectedSendPost.title}`;
+    const body = `${shareMessage}\n\n${selectedSendPost.title}\n\n${postUrl}`;
+    
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setShowSendModal(false);
+    setShareMessage('');
+  };
+
   useEffect(() => {
     const user = getCurrentUser();
     console.log('=== Current User from localStorage ===');
@@ -556,11 +616,17 @@ export default function CommonFeedPage() {
                       <MessageCircle className="w-5 h-5" />
                       <span>Comment</span>
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center">
+                    <button 
+                      onClick={() => handleShare(post)}
+                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center"
+                    >
                       <Share2 className="w-5 h-5" />
                       <span>Share</span>
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center">
+                    <button 
+                      onClick={() => handleSend(post)}
+                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center"
+                    >
                       <Send className="w-5 h-5" />
                       <span>Send</span>
                     </button>
@@ -746,6 +812,140 @@ export default function CommonFeedPage() {
                 className="w-full py-3 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed font-semibold"
               >
                 Post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && selectedSharePost && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h2 className="text-xl font-bold text-slate-900">Share Post</h2>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-slate-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-slate-900 mb-1">{selectedSharePost.title}</h3>
+                <p className="text-sm text-slate-600">by {selectedSharePost.author.full_name}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => sharePost('copy')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center group-hover:bg-teal-100 transition-colors">
+                    <Share2 className="w-5 h-5 text-slate-600 group-hover:text-teal-600" />
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-teal-700">Copy Link</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('linkedin')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <span className="text-blue-600 font-bold text-sm">in</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-blue-700">LinkedIn</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('twitter')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-sky-500 hover:bg-sky-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center group-hover:bg-sky-200 transition-colors">
+                    <span className="text-sky-600 font-bold text-sm">𝕏</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-sky-700">Twitter</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('facebook')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-600 hover:bg-blue-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <span className="text-blue-600 font-bold text-sm">f</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-blue-700">Facebook</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('whatsapp')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <span className="text-green-600 font-bold text-sm">W</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-green-700">WhatsApp</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('email')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                    <span className="text-orange-600 font-bold text-sm">@</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-orange-700">Email</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Modal */}
+      {showSendModal && selectedSendPost && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h2 className="text-xl font-bold text-slate-900">Send Post</h2>
+              <button
+                onClick={() => {
+                  setShowSendModal(false);
+                  setShareMessage('');
+                }}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-slate-50 rounded-lg p-4 mb-4">
+                <h3 className="font-semibold text-slate-900 mb-1">{selectedSendPost.title}</h3>
+                <p className="text-sm text-slate-600">by {selectedSendPost.author.full_name}</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Add a message (optional)
+                </label>
+                <textarea
+                  value={shareMessage}
+                  onChange={(e) => setShareMessage(e.target.value)}
+                  placeholder="Write a message to send with this post..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <button
+                onClick={sendPostViaEmail}
+                className="w-full py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-semibold flex items-center justify-center gap-2"
+              >
+                <Send className="w-5 h-5" />
+                Send via Email
               </button>
             </div>
           </div>
