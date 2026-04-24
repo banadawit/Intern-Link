@@ -600,6 +600,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         children: [
           GestureDetector(
             onLongPress: isMe ? () => _showMessageOptions(m) : null,
+            onDoubleTap: isMe ? () {
+              setState(() {
+                _editingMessageId = m.id;
+                _controller.text = m.content;
+              });
+            } : null,
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 4),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
