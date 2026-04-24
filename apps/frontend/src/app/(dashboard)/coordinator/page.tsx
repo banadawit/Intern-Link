@@ -26,8 +26,8 @@ export default function CoordinatorDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api.get<CoordinatorDashboardStats>("/coordinator-portal/dashboard-stats");
-      setStats(data);
+      const { data } = await api.get<{ success: boolean; data: CoordinatorDashboardStats }>("/coordinator-portal/dashboard-stats");
+      setStats(data.data);
     } catch {
       setError("Could not load dashboard.");
       setStats(null);

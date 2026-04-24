@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "@/lib/api/client";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { Send, MessageSquare, Search } from "lucide-react";
+import { Send, MessageSquare, Search, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
 import { useChatStore } from "@/lib/store/chatStore";
@@ -69,6 +69,8 @@ export default function ChatPage() {
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -141,6 +143,19 @@ export default function ChatPage() {
       await loadSidebar();
     } finally {
       setSending(false);
+    }
+  };
+
+  const deleteHistory = async () => {
+    if (!activeId) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/chat/history/${activeId}`);
+      setMessages([]);
+      setConfirmDelete(false);
+      await loadSidebar();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -217,16 +232,26 @@ export default function ChatPage() {
 
       {/* Chat area */}
       {activeId && activePerson ? (
-        <div className="flex flex-1 flex-col min-w-0">
+        <div className="flex flex-1 flex-col min-w-0 relative">
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3.5">
             <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold", roleColor(activePerson.role))}>
               {initials(activePerson.full_name)}
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="font-semibold text-slate-900">{activePerson.full_name}</p>
               <p className="text-xs text-slate-400 capitalize">{activePerson.role.toLowerCase()}</p>
             </div>
+            {messages.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                title="Delete conversation history"
+                className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           {/* Messages */}
@@ -277,6 +302,45 @@ export default function ChatPage() {
               <Send className="h-4 w-4" />
             </button>
           </form>
+
+          {/* Delete confirmation modal */}
+          {confirmDelete && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm rounded-2xl">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-red-50 p-2.5 text-red-600">
+                      <Trash2 className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900">Delete history?</h3>
+                  </div>
+                  <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="text-sm text-slate-500">
+                  All messages with <strong>{activePerson.full_name}</strong> will be permanently deleted for both sides. This cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void deleteHistory()}
+                    disabled={deleting}
+                    className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {deleting ? "Deleting…" : "Delete all"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center text-center">

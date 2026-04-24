@@ -17,8 +17,8 @@ export default function HodOpenLettersPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<HodProposalRow[]>("/hod/proposals/open-letters");
-      setOpenLetters(res.data);
+      const res = await api.get<{ success: boolean; data: HodProposalRow[] }>("/hod/proposals/open-letters");
+      setOpenLetters(Array.isArray(res.data.data) ? res.data.data : []);
     } catch {
       setError("Could not load open letter proposals.");
     } finally {

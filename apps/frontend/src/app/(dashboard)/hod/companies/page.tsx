@@ -16,8 +16,8 @@ export default function HodCompaniesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<HodCompanyRow[]>("/hod/companies", { params: { verifiedOnly: true } });
-      setCompanies(res.data);
+      const res = await api.get<{ success: boolean; data: HodCompanyRow[] }>("/hod/companies", { params: { verifiedOnly: true } });
+      setCompanies(Array.isArray(res.data.data) ? res.data.data : []);
     } catch {
       setError("Could not load companies.");
     } finally {

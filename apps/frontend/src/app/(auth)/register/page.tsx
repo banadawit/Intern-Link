@@ -153,7 +153,11 @@ const RegisterPage = () => {
     if ((role === 'hod' || role === 'student') && step === 3 && approvedUniversities.length === 0) {
       fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/universities/approved`)
         .then((r) => r.json())
-        .then((data) => setApprovedUniversities(Array.isArray(data) ? data : []))
+        .then((data) => {
+          // Backend wraps response as { success, data: [...] }
+          const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+          setApprovedUniversities(list);
+        })
         .catch(() => setApprovedUniversities([]));
     }
   }, [role, step, approvedUniversities.length]);
@@ -166,7 +170,10 @@ const RegisterPage = () => {
       setFormData(prev => ({ ...prev, hodId: undefined }));
       fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/universities/${formData.universityId}/departments`)
         .then((r) => r.json())
-        .then((data) => setDepartments(Array.isArray(data) ? data : []))
+        .then((data) => {
+          const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+          setDepartments(list);
+        })
         .catch(() => setDepartments([]))
         .finally(() => setDeptLoading(false));
     }

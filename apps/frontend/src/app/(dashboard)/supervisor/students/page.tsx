@@ -28,8 +28,8 @@ export default function SupervisorStudentsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get<Row[]>("/supervisor/students");
-        if (!cancelled) setRows(res.data);
+        const res = await api.get<{ success: boolean; data: Row[] }>("/supervisor/students");
+        if (!cancelled) setRows(Array.isArray(res.data.data) ? res.data.data : []);
       } catch {
         if (!cancelled) setError("Could not load students.");
       } finally {

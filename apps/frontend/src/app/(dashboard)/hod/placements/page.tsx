@@ -30,13 +30,13 @@ export default function HodPlacementsPage() {
     setError(null);
     try {
       const [stud, comp, prop] = await Promise.all([
-        api.get<HodStudentRow[]>("/hod/students", { params: { status: "all" } }),
-        api.get<HodCompanyRow[]>("/hod/companies", { params: { verifiedOnly: true } }),
-        api.get<HodProposalRow[]>("/hod/proposals"),
+        api.get<{ success: boolean; data: HodStudentRow[] }>("/hod/students", { params: { status: "all" } }),
+        api.get<{ success: boolean; data: HodCompanyRow[] }>("/hod/companies", { params: { verifiedOnly: true } }),
+        api.get<{ success: boolean; data: HodProposalRow[] }>("/hod/proposals"),
       ]);
-      setStudents(stud.data);
-      setCompanies(comp.data);
-      setProposals(prop.data);
+      setStudents(Array.isArray(stud.data.data) ? stud.data.data : []);
+      setCompanies(Array.isArray(comp.data.data) ? comp.data.data : []);
+      setProposals(Array.isArray(prop.data.data) ? prop.data.data : []);
     } catch {
       setError("Could not load placement data.");
     } finally {

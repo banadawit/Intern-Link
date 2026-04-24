@@ -146,7 +146,10 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
         if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const studentId = parseInt(String(req.params.studentId), 10);
-        const student = await prisma.student.findUnique({ where: { id: studentId } });
+        const student = await prisma.student.findUnique({
+            where: { id: studentId },
+            include: { user: true },
+        });
         
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
             return sendError(res, 'Student not found in your department.', 404);
@@ -161,6 +164,21 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
             where: { id: student.userId },
             data: { verification_status: 'APPROVED' },
         });
+
+        // Notify the student that they've been approved
+        await sendNotification(
+            student.userId,
+            `✅ Your registration has been approved by your Head of Department. You can now log in to access the system.`
+        );
+
+        // Send approval email (fire-and-forget)
+        sendStudentHodDecisionEmail({
+            to: student.user.email,
+            studentName: student.user.full_name,
+            universityName: hod.university.name,
+            department: hod.department,
+            decision: 'approved',
+        }).catch((e: any) => console.error('Approval email error:', e?.message));
 
         return sendSuccess(res, { studentId }, 'Student approved.');
     } catch (e: any) {

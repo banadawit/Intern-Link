@@ -312,12 +312,17 @@ export const login = async (req: Request, res: Response) => {
                 return sendError(res, "Your registration is pending coordinator approval. You will receive an email once your department credentials are reviewed.", 401, 'PENDING_COORDINATOR_REVIEW', { email: user.email });
             }
             if (user.role === 'STUDENT') {
-                return sendError(res, "Your registration is pending Head of Department approval. You will receive an email once your academic status is reviewed.", 401, 'PENDING_HOD_REVIEW', { email: user.email });
+                // For students, check if HOD has already approved them (email verification is the blocker)
+                const sp = user.studentProfile;
+                if (sp && sp.hod_approval_status === 'APPROVED') {
+                    return sendError(res, "Please verify your email before logging in. Check your inbox for the verification link.", 401, 'EMAIL_NOT_VERIFIED', { requiresVerification: true, email: user.email });
+                }
+                return sendError(res, "Please verify your email before logging in. After verification, your registration will be reviewed by your Head of Department.", 401, 'EMAIL_NOT_VERIFIED', { requiresVerification: true, email: user.email });
             }
             if (user.role === 'SUPERVISOR') {
                 return sendError(res, "Your registration is pending administrator approval. You will receive an email once your company credentials are reviewed.", 401, 'PENDING_ADMIN_REVIEW', { email: user.email });
             }
-            return sendError(res, "Please verify your email before logging in", 401, undefined, { requiresVerification: true, email: user.email });
+            return sendError(res, "Please verify your email before logging in", 401, 'EMAIL_NOT_VERIFIED', { requiresVerification: true, email: user.email });
         }
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
