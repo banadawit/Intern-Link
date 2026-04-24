@@ -1,16 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
-// CommonFeedScreen has been moved to:
-// lib/features/feed/presentation/common_feed_screen.dart
+import '../../data/repositories/notifications_repository.dart';
+import '../../data/repositories/chat_repository.dart';
+import '../../data/repositories/ai_assistant_repository.dart';
 
-class NotificationsScreen extends ConsumerWidget {
+// NotificationsScreen
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationsRepositoryProvider).markAllAsRead();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final notificationsAsync = ref.watch(notificationsProvider);
 
     return Scaffold(
       body: Container(
@@ -28,17 +45,36 @@ class NotificationsScreen extends ConsumerWidget {
           physics: const BouncingScrollPhysics(),
           slivers: [
             _buildNotificationsAppBar(context),
-            SliverPadding(
-              padding: const EdgeInsets.all(24),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _notificationItem(context, 'Weekly Plan Approved', 'Your supervisor approved your Week 4 plan.', '10m ago', Icons.check_circle_rounded, Colors.green),
-                  _notificationItem(context, 'New Message', 'Abebe Bikila sent you a message.', '1h ago', Icons.chat_bubble_rounded, Colors.blue),
-                  _notificationItem(context, 'System Alert', 'Please complete your profile details.', '2h ago', Icons.warning_rounded, Colors.orange),
-                  _notificationItem(context, 'Meeting Invite', 'Final evaluation meeting scheduled for Friday.', '1d ago', Icons.event_rounded, Colors.purple),
-                  _notificationItem(context, 'Document Verified', 'Your university letter has been verified.', '2d ago', Icons.verified_rounded, Colors.teal),
-                ]),
-              ),
+            notificationsAsync.when(
+              loading: () => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
+              error: (err, _) => SliverFillRemaining(child: Center(child: Text('Error loading notifications: $err'))),
+              data: (notifications) {
+                if (notifications.isEmpty) {
+                  return const SliverFillRemaining(
+                    child: Center(child: Text('No notifications', style: TextStyle(color: Colors.grey))),
+                  );
+                }
+                return SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final notif = notifications[index];
+                        return _notificationItem(
+                          context,
+                          'Notification',
+                          notif.message,
+                          timeago.format(notif.createdAt),
+                          Icons.notifications_rounded,
+                          Colors.blue,
+                          notif.isRead,
+                        );
+                      },
+                      childCount: notifications.length,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -61,18 +97,22 @@ class NotificationsScreen extends ConsumerWidget {
         centerTitle: true,
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.done_all_rounded), onPressed: () {}),
+        IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.invalidate(notificationsProvider)),
       ],
     );
   }
 
-  Widget _notificationItem(BuildContext context, String title, String body, String time, IconData icon, Color color) {
+  Widget _notificationItem(BuildContext context, String title, String body, String time, IconData icon, Color color, bool isRead) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        color: isRead 
+            ? (isDark ? Colors.white.withOpacity(0.02) : Colors.white.withOpacity(0.5))
+            : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
       ),
@@ -84,9 +124,12 @@ class NotificationsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)), Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10))]),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))), 
+                    Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10))
+                ]),
                 const SizedBox(height: 4),
-                Text(body, style: const TextStyle(color: Colors.grey, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(body, style: TextStyle(color: isRead ? Colors.grey : (isDark ? Colors.white : Colors.black87), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -103,94 +146,65 @@ class ChatScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final conversationsAsync = ref.watch(conversationsProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
       body: Stack(
         children: [
-          // Background Elements
           Positioned(
-            top: -100,
-            left: -50,
+            top: -100, left: -50,
             child: Container(
-              width: 300,
-              height: 300,
+              width: 300, height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF0EA5E9).withOpacity(0.15),
-                    Colors.transparent,
-                  ],
+                  colors: [const Color(0xFF0EA5E9).withOpacity(0.15), Colors.transparent],
                 ),
               ),
             ),
           ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF6366F1).withOpacity(0.15),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Content
           Column(
             children: [
-              _buildChatHeader(context, isDark),
+              _buildChatHeader(context, isDark, ref),
               _buildSearchBar(context, isDark),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
-                  physics: const BouncingScrollPhysics(),
-                  children: [
-                    _conversationItem(context, 'Abebe Bikila', 'Can you review my proposal?', '10:45 AM', 2, true, isDark),
-                    _conversationItem(context, 'Dr. Sarah Smith', 'Your internship has been approved.', 'Yesterday', 0, false, isDark),
-                    _conversationItem(context, 'Hana Worku', 'Meet you at the workshop.', 'Wed', 0, true, isDark),
-                    _conversationItem(context, 'Coordinator (Admin)', 'Please update your contact info.', '24 May', 1, false, isDark),
-                    _conversationItem(context, 'Supervisor Support', 'Evaluation results are ready.', '12 May', 0, false, isDark),
-                  ],
+                child: conversationsAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (conversations) {
+                    if (conversations.isEmpty) {
+                       return const Center(child: Text('No conversations yet', style: TextStyle(color: Colors.grey)));
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: conversations.length,
+                      itemBuilder: (context, index) {
+                        final conv = conversations[index];
+                        return _conversationItem(
+                          context,
+                          conv.partner.fullName,
+                          conv.lastMessage?.content ?? '',
+                          conv.lastMessage != null ? timeago.format(conv.lastMessage!.createdAt) : '',
+                          conv.unreadCount,
+                          true,
+                          isDark,
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ],
           ),
         ],
       ),
-      floatingActionButton: Container(
-        height: 64,
-        width: 64,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6366F1).withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: FloatingActionButton(
-          onPressed: () {},
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: const Icon(Icons.edit_rounded, color: Colors.white, size: 28),
-        ),
-      ),
     );
   }
 
-  Widget _buildChatHeader(BuildContext context, bool isDark) {
+  Widget _buildChatHeader(BuildContext context, bool isDark, WidgetRef ref) {
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -215,16 +229,19 @@ class ChatScreen extends ConsumerWidget {
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.5),
             ),
             const Spacer(),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFF0EA5E9).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
-                ],
+            GestureDetector(
+              onTap: () => ref.invalidate(conversationsProvider),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFF0EA5E9).withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
+                  ],
+                ),
+                child: const Icon(Icons.refresh_rounded, color: Colors.white, size: 24),
               ),
-              child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
             ),
           ],
         ),
@@ -241,9 +258,6 @@ class ChatScreen extends ConsumerWidget {
           color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
-          boxShadow: [
-            if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
-          ],
         ),
         child: TextField(
           decoration: InputDecoration(
@@ -270,42 +284,24 @@ class ChatScreen extends ConsumerWidget {
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [
-          if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
       ),
       child: Row(
         children: [
           Stack(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 56, height: 56,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF6366F1)]),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Center(
                   child: Text(
-                    name[0].toUpperCase(),
+                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
                   ),
                 ),
               ),
-              if (isOnline)
-                Positioned(
-                  right: -2,
-                  bottom: -2,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: isDark ? const Color(0xFF1E293B) : Colors.white, width: 3),
-                    ),
-                  ),
-                ),
             ],
           ),
           const SizedBox(width: 16),
@@ -320,8 +316,7 @@ class ChatScreen extends ConsumerWidget {
                       child: Text(
                         name,
                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: -0.3),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -346,8 +341,7 @@ class ChatScreen extends ConsumerWidget {
                           fontSize: 14,
                           fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w500,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (unread > 0) ...[
@@ -375,41 +369,69 @@ class ChatScreen extends ConsumerWidget {
   }
 }
 
-class AiMessagesNotifier extends Notifier<List<Map<String, String>>> {
+class AiMessagesNotifier extends AsyncNotifier<List<AiMessageModel>> {
   @override
-  List<Map<String, String>> build() {
-    return [
-      {'role': 'assistant', 'text': 'Hello! I am your Intern-Link AI Assistant. How can I help you today?'}
-    ];
+  Future<List<AiMessageModel>> build() async {
+    final repo = ref.watch(aiAssistantRepositoryProvider);
+    final history = await repo.getHistory();
+    if (history.isEmpty) {
+      return [
+        AiMessageModel(speaker: 'assistant', content: 'Hello! I am your Intern-Link AI Assistant. How can I help you today?')
+      ];
+    }
+    return history;
   }
 
-  void sendMessage(String text) {
-    state = [
-      ...state,
-      {'role': 'user', 'text': text},
-    ];
+  Future<void> sendMessage(String text) async {
+    final repo = ref.read(aiAssistantRepositoryProvider);
+    
+    // Optimistically add user message
+    final current = state.value ?? [];
+    state = AsyncData([
+      ...current,
+      AiMessageModel(speaker: 'user', content: text),
+    ]);
 
-    // Simulated "Advanced" response delay
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      state = [
-        ...state,
-        {'role': 'assistant', 'text': 'I am currently processing your request about \"$text\". As an advanced AI, I can help you find the best internships and optimize your profile!'},
-      ];
-    });
+    try {
+      final response = await repo.sendMessage(text);
+      state = AsyncData([
+        ...state.value!,
+        response,
+      ]);
+    } catch (e) {
+      state = AsyncData([
+        ...state.value!,
+        AiMessageModel(speaker: 'assistant', content: 'Sorry, I encountered an error: $e'),
+      ]);
+    }
   }
 }
 
-final aiMessagesProvider = NotifierProvider<AiMessagesNotifier, List<Map<String, String>>>(() => AiMessagesNotifier());
+final aiMessagesProvider = AsyncNotifierProvider<AiMessagesNotifier, List<AiMessageModel>>(() => AiMessagesNotifier());
 
-class AiAssistantScreen extends ConsumerWidget {
+class AiAssistantScreen extends ConsumerStatefulWidget {
   const AiAssistantScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final messages = ref.watch(aiMessagesProvider);
+  ConsumerState<AiAssistantScreen> createState() => _AiAssistantScreenState();
+}
+
+class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
+  final TextEditingController _controller = TextEditingController();
+
+  void _submit() {
+    final text = _controller.text.trim();
+    if (text.isNotEmpty) {
+      ref.read(aiMessagesProvider.notifier).sendMessage(text);
+      _controller.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final messagesAsync = ref.watch(aiMessagesProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final controller = TextEditingController();
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -431,7 +453,6 @@ class AiAssistantScreen extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            // Gradient Header Background for AppBar area
             Container(
               height: 120,
               decoration: const BoxDecoration(
@@ -442,44 +463,46 @@ class AiAssistantScreen extends ConsumerWidget {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final msg = messages[index];
-                  final isUser = msg['role'] == 'user';
-                  return Align(
-                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(16),
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                      decoration: BoxDecoration(
-                        color: isUser 
-                          ? const Color(0xFF4A00E0) 
-                          : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
-                        borderRadius: BorderRadius.circular(20).copyWith(
-                          bottomRight: isUser ? const Radius.circular(0) : const Radius.circular(20),
-                          bottomLeft: !isUser ? const Radius.circular(0) : const Radius.circular(20),
+              child: messagesAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (messages) {
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = messages[index];
+                      final isUser = msg.speaker == 'user';
+                      return Align(
+                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                          decoration: BoxDecoration(
+                            color: isUser 
+                              ? const Color(0xFF4A00E0) 
+                              : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
+                            borderRadius: BorderRadius.circular(20).copyWith(
+                              bottomRight: isUser ? const Radius.circular(0) : const Radius.circular(20),
+                              bottomLeft: !isUser ? const Radius.circular(0) : const Radius.circular(20),
+                            ),
+                          ),
+                          child: Text(
+                            msg.content,
+                            style: TextStyle(
+                              color: isUser ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
+                          ),
                         ),
-                        boxShadow: [
-                          if (!isUser) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
-                        ],
-                      ),
-                      child: Text(
-                        msg['text']!,
-                        style: TextStyle(
-                          color: isUser ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                          fontSize: 15,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
+                      );
+                    },
                   );
                 },
               ),
             ),
-            // Input Area
             Container(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               child: Row(
@@ -491,37 +514,22 @@ class AiAssistantScreen extends ConsumerWidget {
                         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
                         borderRadius: BorderRadius.circular(30),
                         border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))
-                        ],
                       ),
                       child: TextField(
-                        controller: controller,
+                        controller: _controller,
                         decoration: const InputDecoration(
                           hintText: 'Ask me anything...',
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                         ),
-                        onSubmitted: (val) {
-                          final text = controller.text.trim();
-                          if (text.isNotEmpty) {
-                            ref.read(aiMessagesProvider.notifier).sendMessage(text);
-                            controller.clear();
-                          }
-                        },
+                        onSubmitted: (_) => _submit(),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   GestureDetector(
-                    onTap: () {
-                      final text = controller.text.trim();
-                      if (text.isNotEmpty) {
-                        ref.read(aiMessagesProvider.notifier).sendMessage(text);
-                        controller.clear();
-                      }
-                    },
+                    onTap: _submit,
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: const BoxDecoration(

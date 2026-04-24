@@ -12,6 +12,8 @@ import '../../data/repositories/student_repository.dart';
 import '../../data/repositories/progress_repository.dart';
 import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/admin_repository.dart';
+import '../../data/repositories/coordinator_repository.dart';
+import '../../data/repositories/hod_repository.dart';
 
 import '../../../supervisor/data/repositories/supervisor_repository.dart';
 import '../../../supervisor/domain/entities/supervisor_entities.dart';
@@ -838,10 +840,10 @@ class _StudentHomeTab extends ConsumerWidget {
                         _buildSectionHeader(theme, 'Learning & Growth'),
                         const SizedBox(height: 16),
                         _buildPlatformAnalytics(context, isDark, 
-                          growthTitle: 'Skills Progress', growthTrend: '+15% this week',
-                          placementTitle: 'Tasks Completed', placementSub: '128 total',
-                          successTitle: 'Quiz Score', successRate: 0.92,
-                          submissionTitle: 'Attendance', submissionSub: '98% accuracy'
+                          growthTitle: 'Current Week', growthTrend: 'Week ${profile.currentInternshipWeek}',
+                          placementTitle: 'Attendance', placementSub: '${plansAsync.value?.fold<int>(0, (sum, p) => sum + p.checkins.length) ?? 0} Check-ins',
+                          successTitle: 'Plan Status', successRate: (plansAsync.value?.isEmpty ?? true) ? 0.0 : (plansAsync.value!.where((p) => p.status.name.toUpperCase() == 'APPROVED').length / plansAsync.value!.length).clamp(0.0, 1.0),
+                          submissionTitle: 'Placements', submissionSub: profile.companyName ?? 'Awaiting placement'
                         ),
                         const SizedBox(height: 32),
 
@@ -2168,18 +2170,18 @@ class _SupervisorOverviewTab extends ConsumerWidget {
                     _buildSectionHeader(theme, 'Student Performance'),
                     const SizedBox(height: 16),
                     _buildPlatformAnalytics(context, isDark,
-                      growthTitle: 'Evaluation Trend', growthTrend: 'Upward +5%',
-                      placementTitle: 'Student Activity', placementSub: '85% active',
-                      successTitle: 'Avg. Grade', successRate: 0.78,
-                      submissionTitle: 'Report Reviews', submissionSub: '92% completed'
+                      growthTitle: 'Students', growthTrend: '${stats.totalStudents} Assigned',
+                      placementTitle: 'Pending Plans', placementSub: '${stats.pendingPlans} to Review',
+                      successTitle: 'Proposals', successRate: stats.totalStudents > 0 ? (stats.pendingProposals / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
+                      submissionTitle: 'Reports Due', submissionSub: '${stats.reportsDue} Pending'
                     ),
                     const SizedBox(height: 32),
 
                     Text('Critical Actions', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    _buildActionCard(context, Icons.assignment_late_rounded, 'Pending Plan Reviews', '5 plans waiting for feedback', Colors.orange),
+                    _buildActionCard(context, Icons.assignment_late_rounded, 'Pending Plan Reviews', '${stats.pendingPlans} plans waiting for feedback', Colors.orange),
                     const SizedBox(height: 12),
-                    _buildActionCard(context, Icons.rate_review_rounded, 'Final Evaluations', '3 students ready for grading', Colors.purple),
+                    _buildActionCard(context, Icons.rate_review_rounded, 'Final Evaluations', '${stats.reportsDue} reports to verify', Colors.purple),
                     const SizedBox(height: 120),
                   ]),
                 ),
@@ -3157,9 +3159,14 @@ class _CoordinatorHomeTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final statsAsync = ref.watch(coordinatorStatsProvider);
+
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
+      child: statsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (stats) => Stack(
         children: [
           Positioned(
             top: -100,
@@ -3194,7 +3201,7 @@ class _CoordinatorHomeTab extends ConsumerWidget {
           slivers: [
             ModernSliverAppBar(
               title: 'Coordinator',
-              subtitle: 'University Overview',
+              subtitle: stats.universityName,
               profileName: 'Coordinator',
               gradient: [const Color(0xFF1CB5E0), const Color(0xFF000046)],
               backgroundIcon: Icons.assessment_rounded,
@@ -3207,34 +3214,34 @@ class _CoordinatorHomeTab extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _buildStatCard(context, '1,240', 'Students', Icons.people_rounded, Colors.blue),
+                      _buildStatCard(context, stats.totalStudents.toString(), 'Students', Icons.people_rounded, Colors.blue),
                       const SizedBox(width: 16),
-                      _buildStatCard(context, '856', 'Placed', Icons.check_circle_rounded, Colors.green),
+                      _buildStatCard(context, stats.activePlacements.toString(), 'Placed', Icons.check_circle_rounded, Colors.green),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _buildStatCard(context, '12', 'Depts/HODs', Icons.domain_rounded, Colors.purple),
+                      _buildStatCard(context, stats.totalCompanies.toString(), 'Companies', Icons.business_rounded, Colors.purple),
                       const SizedBox(width: 16),
-                      _buildStatCard(context, '45', 'Proposals', Icons.description_rounded, Colors.orange),
+                      _buildStatCard(context, stats.pendingProposals.toString(), 'Proposals', Icons.description_rounded, Colors.orange),
                     ],
                   ),
                   const SizedBox(height: 32),
                   Text('University Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   _buildPlatformAnalytics(context, isDark,
-                    growthTitle: 'Enrollment', growthTrend: '+8% Annual',
-                    placementTitle: 'Industry Partners', placementSub: '45 Active',
-                    successTitle: 'Placement Rate', successRate: 0.68,
-                    submissionTitle: 'System Activity', submissionSub: 'High Load'
+                    growthTitle: 'Enrollment', growthTrend: '${stats.totalStudents} Total',
+                    placementTitle: 'Industry Partners', placementSub: '${stats.totalCompanies} Active',
+                    successTitle: 'Placement Rate', successRate: stats.totalStudents > 0 ? (stats.activePlacements / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
+                    submissionTitle: 'System Activity', submissionSub: 'Healthy'
                   ),
                   const SizedBox(height: 32),
                   Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
-                  _buildActivityItem(context, 'Weekly Report', 'CS Dept: 15 reports submitted', '10m ago', Colors.blue),
-                  _buildActivityItem(context, 'Placement', 'Mechanical Dept: 5 students placed', '2h ago', Colors.green),
-                  _buildActivityItem(context, 'New Proposal', 'Civil Dept: New request to Google', '5h ago', Colors.orange),
+                  _buildActivityItem(context, 'Weekly Report', 'Reviewing current submissions', 'Just now', Colors.blue),
+                  _buildActivityItem(context, 'Placement', 'New assignment processed', '2h ago', Colors.green),
+                  _buildActivityItem(context, 'New Proposal', 'System updated with new requests', '5h ago', Colors.orange),
                   const SizedBox(height: 120),
                 ]),
               ),
@@ -3242,6 +3249,7 @@ class _CoordinatorHomeTab extends ConsumerWidget {
           ],
           ),
         ],
+      ),
       ),
     );
   }
@@ -3278,35 +3286,36 @@ class _CoordinatorHomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildActivityItem(BuildContext context, String title, String subtitle, String time, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
-            ),
-            child: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
+}
+
+Widget _buildActivityItem(BuildContext context, String title, String subtitle, String time, Color color) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+      boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+    ),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
           ),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500))])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(time, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900))),
-        ],
-      ),
-    );
-  }
+          child: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500))])),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(time, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900))),
+      ],
+    ),
+  );
 }
 
 class _CoordinatorHodsTab extends ConsumerWidget {
@@ -4019,9 +4028,14 @@ class _HodOverviewTab extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final statsAsync = ref.watch(hodStatsProvider);
+
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
+      child: statsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (stats) => Stack(
         children: [
           Positioned(
             top: -100,
@@ -4065,21 +4079,21 @@ class _HodOverviewTab extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildStatGrid(context, isDark),
+                  _buildStatGrid(context, stats, isDark),
                   const SizedBox(height: 32),
                   Text('Department Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   _buildPlatformAnalytics(context, isDark,
-                    growthTitle: 'Dept. Growth', growthTrend: '+10% Students',
-                    placementTitle: 'Local Partners', placementSub: '12 Active',
-                    successTitle: 'Submission Rate', successRate: 0.85,
-                    submissionTitle: 'Avg. Attendance', submissionSub: '90%'
+                    growthTitle: 'Students', growthTrend: '${stats.totalStudents} Enrolled',
+                    placementTitle: 'Placements', placementSub: '${stats.placedStudents} Placed',
+                    successTitle: 'Submission Rate', successRate: stats.totalStudents > 0 ? (stats.totalReports / (stats.totalStudents * 4)).clamp(0.0, 1.0) : 0.0,
+                    submissionTitle: 'Pending Approvals', submissionSub: '${stats.pendingApprovals} Pending'
                   ),
                   const SizedBox(height: 32),
                   Text('Recent Reports', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 16),
-                  _buildReportItem(context, 'Desta Kasaye', 'Week 4 Report', 'Pending', Colors.orange),
-                  _buildReportItem(context, 'Sara Girma', 'Final Evaluation', 'Submitted', Colors.green),
+                  _buildActivityItem(context, 'Student Activity', 'Monitoring department progress', 'Just now', Colors.blue),
+                  _buildActivityItem(context, 'Reports', 'Processing weekly submissions', '2h ago', Colors.green),
                   const SizedBox(height: 120),
                 ]),
               ),
@@ -4088,10 +4102,11 @@ class _HodOverviewTab extends ConsumerWidget {
         ),
         ],
       ),
+      ),
     );
   }
 
-  Widget _buildStatGrid(BuildContext context, bool isDark) {
+  Widget _buildStatGrid(BuildContext context, HodStats stats, bool isDark) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -4100,10 +4115,10 @@ class _HodOverviewTab extends ConsumerWidget {
       crossAxisSpacing: 16,
       childAspectRatio: 1.05,
       children: [
-        _statCard('Total Students', '124', Icons.groups_rounded, Colors.blue, isDark),
-        _statCard('Pending Appr.', '12', Icons.pending_actions_rounded, Colors.orange, isDark),
-        _statCard('Placed', '86', Icons.check_circle_rounded, Colors.green, isDark),
-        _statCard('Reports', '45', Icons.description_rounded, Colors.purple, isDark),
+        _statCard('Total Students', stats.totalStudents.toString(), Icons.groups_rounded, Colors.blue, isDark),
+        _statCard('Pending Appr.', stats.pendingApprovals.toString(), Icons.pending_actions_rounded, Colors.orange, isDark),
+        _statCard('Placed', stats.placedStudents.toString(), Icons.check_circle_rounded, Colors.green, isDark),
+        _statCard('Reports', stats.totalReports.toString(), Icons.description_rounded, Colors.purple, isDark),
       ],
     );
   }
@@ -4834,9 +4849,9 @@ class _AdminOverviewTab extends ConsumerWidget {
                     _buildSectionHeader(theme, 'Platform Analytics'),
                     const SizedBox(height: 16),
                     _buildPlatformAnalytics(context, isDark,
-                      growthTitle: 'Users', growthTrend: '+12% Total',
-                      placementTitle: 'Institutions', placementSub: '88 Active',
-                      successTitle: 'Placement Rate', successRate: 0.72,
+                      growthTitle: 'Total Users', growthTrend: '${stats.totalUsers} Registered',
+                      placementTitle: 'Institutions', placementSub: '${stats.totalUniversities + stats.totalCompanies} Active',
+                      successTitle: 'Evaluations', successRate: stats.totalEvaluations > 0 ? 1.0 : 0.0,
                       submissionTitle: 'System Status', submissionSub: 'Healthy'
                     ),
 
@@ -4887,7 +4902,7 @@ class _AdminOverviewTab extends ConsumerWidget {
       children: [
         _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
         _buildStatCard(context, 'Institutions', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.account_balance_rounded, Colors.orange, isDark),
-        _buildStatCard(context, 'Active Internships', '452', Icons.work_rounded, Colors.green, isDark),
+        _buildStatCard(context, 'Total Reports', stats.totalReports.toString(), Icons.insert_chart_rounded, Colors.green, isDark),
         _buildStatCard(context, 'Pending Review', stats.pendingApprovals.toString(), Icons.pending_actions_rounded, Colors.red, isDark),
       ],
     );
@@ -5261,7 +5276,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             const SizedBox(width: 12),
             _buildMiniStat('Verified', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.verified_rounded, Colors.green, isDark),
             const SizedBox(width: 12),
-            _buildMiniStat('Suspended', '3', Icons.block_rounded, Colors.red, isDark),
+            _buildMiniStat('Suspended', '0', Icons.block_rounded, Colors.red, isDark),
           ],
         ),
       ),
@@ -5631,7 +5646,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
           const SizedBox(width: 12),
           _buildMiniStat('Suspended', suspended.toString(), Icons.block_rounded, Colors.red, isDark),
           const SizedBox(width: 12),
-          _buildMiniStat('New Today', '12', Icons.fiber_new_rounded, Colors.orange, isDark),
+          _buildMiniStat('New Today', '0', Icons.fiber_new_rounded, Colors.orange, isDark),
         ],
       ),
     );
