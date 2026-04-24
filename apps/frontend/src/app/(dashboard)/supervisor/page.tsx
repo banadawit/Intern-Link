@@ -26,8 +26,8 @@ export default function SupervisorDashboardPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get<MeResponse>("/supervisor/me");
-        if (!cancelled) setData(res.data);
+        const res = await api.get<{ success: boolean; data: MeResponse }>("/supervisor/me");
+        if (!cancelled) setData(res.data.data);
       } catch (e: unknown) {
         const msg = e && typeof e === "object" && "response" in e ? String((e as { response?: { data?: { message?: string } } }).response?.data?.message) : "Failed to load dashboard.";
         if (!cancelled) setError(msg || "Failed to load dashboard.");
@@ -55,6 +55,14 @@ export default function SupervisorDashboardPage() {
   }
 
   const { supervisor, stats } = data;
+
+  if (!supervisor?.company) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
+        Company profile not linked. Contact support.
+      </div>
+    );
+  }
 
   const cards = [
     {

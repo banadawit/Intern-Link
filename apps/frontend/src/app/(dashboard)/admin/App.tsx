@@ -15,6 +15,8 @@ import ApprovedHistoryView from "./ApprovedHistoryView";
 import RejectedHistoryView from "./RejectedHistoryView";
 import SuspendedView from "./SuspendedView";
 import SystemSettings from "./SystemSettings";
+import OrganizationsView from "./OrganizationsView";
+import AnalyticsView from "./AnalyticsView";
 import api from "@/lib/api/client";
 import {
   mapUniversityToProposal,
@@ -27,6 +29,8 @@ import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
 type ViewKey =
   | "dashboard"
   | "approvals"
+  | "organizations"
+  | "analytics"
   | "approved"
   | "rejected"
   | "suspended"
@@ -36,6 +40,8 @@ type ViewKey =
 const VALID_VIEWS: ViewKey[] = [
   "dashboard",
   "approvals",
+  "organizations",
+  "analytics",
   "approved",
   "rejected",
   "suspended",
@@ -185,6 +191,16 @@ export default function App() {
           onActionComplete={() => { loadStats(); loadAuditLogs(); loadProposals(); }}
         />
       );
+    if (activeView === "organizations")
+      return (
+        <OrganizationsView
+          proposals={proposals}
+          loading={listsLoading}
+          onReview={setSelectedProposal}
+          onActionComplete={() => { loadProposals(); loadStats(); }}
+        />
+      );
+    if (activeView === "analytics") return <AnalyticsView />;
     if (activeView === "approved")
       return (
         <ApprovedHistoryView
