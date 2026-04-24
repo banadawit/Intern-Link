@@ -35,11 +35,12 @@ const SupervisorSidebar = () => {
   const { unreadCount, fetchUnread } = useChatStore();
 
   useEffect(() => {
-    api.get<{ supervisor: { company: { name: string } }; stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } }>("/supervisor/me")
+    api.get<{ success: boolean; data: { supervisor: { company: { name: string } }; stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } } }>("/supervisor/me")
       .then(({ data }) => {
-        setPendingProposals(data.stats.pendingProposalsCount);
-        setPendingPlans(data.stats.pendingWeeklyPlansCount);
-        if (data.supervisor?.company?.name) setCompanyName(data.supervisor.company.name);
+        const d = data.data;
+        setPendingProposals(d.stats.pendingProposalsCount);
+        setPendingPlans(d.stats.pendingWeeklyPlansCount);
+        if (d.supervisor?.company?.name) setCompanyName(d.supervisor.company.name);
       })
       .catch(() => {});
     void fetchUnread();

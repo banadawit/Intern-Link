@@ -19,17 +19,45 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
 
         const companyId = supervisor.companyId;
 
-        const [pendingProposalsCount, pendingWeeklyPlansCount, placedStudentsCount] = await Promise.all([
+        const [
+            pendingProposalsCount,
+            pendingWeeklyPlansCount,
+            placedStudentsCount,
+            approvedProposalsCount,
+            reportsSubmittedCount,
+            recentPendingProposals,
+            recentPendingPlans,
+        ] = await Promise.all([
             prisma.internshipProposal.count({ where: { companyId, status: 'PENDING' } }),
             prisma.weeklyPlan.count({
                 where: {
                     status: 'PENDING',
-                    student: {
-                        assignments: { some: { companyId, status: 'ACTIVE' } },
-                    },
+                    student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
                 },
             }),
             prisma.internshipAssignment.count({ where: { companyId, status: 'ACTIVE' } }),
+            prisma.internshipProposal.count({ where: { companyId, status: 'APPROVED' } }),
+            prisma.report.count({ where: { student: { assignments: { some: { companyId } } } } }),
+            prisma.internshipProposal.findMany({
+                where: { companyId, status: 'PENDING' },
+                orderBy: { submitted_at: 'desc' },
+                take: 3,
+                include: {
+                    student: { include: { user: { select: { full_name: true, email: true } } } },
+                    university: { select: { name: true } },
+                },
+            }),
+            prisma.weeklyPlan.findMany({
+                where: {
+                    status: 'PENDING',
+                    student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+                },
+                orderBy: { submitted_at: 'desc' },
+                take: 3,
+                include: {
+                    student: { include: { user: { select: { full_name: true } } } },
+                },
+            }),
         ]);
 
         return sendSuccess(res, {
@@ -38,7 +66,22 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 pendingProposalsCount,
                 pendingWeeklyPlansCount,
                 placedStudentsCount,
+                approvedProposalsCount,
+                reportsSubmittedCount,
             },
+            recentPendingProposals: recentPendingProposals.map((p) => ({
+                id: p.id,
+                studentName: p.student.user.full_name,
+                studentEmail: p.student.user.email,
+                universityName: p.university.name,
+                submitted_at: p.submitted_at,
+            })),
+            recentPendingPlans: recentPendingPlans.map((p) => ({
+                id: p.id,
+                studentName: p.student.user.full_name,
+                weekNumber: p.week_number,
+                submitted_at: p.submitted_at,
+            })),
         }, 'Supervisor profile fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
