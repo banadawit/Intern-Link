@@ -894,13 +894,55 @@ class AiAssistantScreen extends ConsumerStatefulWidget {
 
 class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _isSending = false;
 
-  void _submit() {
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
     final text = _controller.text.trim();
-    if (text.isNotEmpty) {
-      ref.read(aiMessagesProvider.notifier).sendMessage(text);
-      _controller.clear();
+    if (text.isEmpty || _isSending) return;
+    setState(() => _isSending = true);
+    _controller.clear();
+    await ref.read(aiMessagesProvider.notifier).sendMessage(text);
+    if (mounted) {
+      setState(() => _isSending = false);
+      _scrollToBottom();
     }
+  }
+
+  Future<void> _clearChat() async {
+    try {
+      await ref.read(aiAssistantRepositoryProvider).clearHistory();
+      ref.invalidate(aiMessagesProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI chat history cleared.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to clear chat history: $e')),
+        );
+      }
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
@@ -916,6 +958,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            tooltip: 'Clear chat',
+            onPressed: _clearChat,
+            icon: const Icon(Icons.delete_sweep_rounded, color: Colors.white),
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -943,10 +992,30 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('Error: $e')),
                 data: (messages) {
+                  _scrollToBottom();
                   return ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                    itemCount: messages.length,
+                    itemCount: messages.length + (_isSending ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (_isSending && index == messages.length) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
                       final msg = messages[index];
                       final isUser = msg.speaker == 'user';
                       return Align(
@@ -979,6 +1048,19 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                 },
               ),
             ),
+            if (messagesAsync.maybeWhen(data: (messages) => messages.length <= 1, orElse: () => false))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildPromptChip('Help me create this week plan'),
+                    _buildPromptChip('Improve my internship report draft'),
+                    _buildPromptChip('Explain supervisor feedback'),
+                  ],
+                ),
+              ),
             Container(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               child: Row(
@@ -993,8 +1075,10 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                       ),
                       child: TextField(
                         controller: _controller,
+                        minLines: 1,
+                        maxLines: 4,
                         decoration: const InputDecoration(
-                          hintText: 'Ask me anything...',
+                          hintText: 'Ask about plans, feedback, reports...',
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
@@ -1005,15 +1089,16 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                   ),
                   const SizedBox(width: 12),
                   GestureDetector(
-                    onTap: _submit,
+                    onTap: _isSending ? null : _submit,
                     child: Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)]),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)]),
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Color(0xFF4A00E0), blurRadius: 10, offset: Offset(0, 4))],
+                        boxShadow: const [BoxShadow(color: Color(0xFF4A00E0), blurRadius: 10, offset: Offset(0, 4))],
+                        color: _isSending ? Colors.grey : null,
                       ),
-                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 24),
+                      child: Icon(_isSending ? Icons.hourglass_top_rounded : Icons.send_rounded, color: Colors.white, size: 24),
                     ),
                   ),
                 ],
@@ -1022,6 +1107,18 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPromptChip(String text) {
+    return ActionChip(
+      label: Text(text),
+      onPressed: _isSending
+          ? null
+          : () {
+              _controller.text = text;
+              _submit();
+            },
     );
   }
 }

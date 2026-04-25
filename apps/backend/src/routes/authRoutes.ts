@@ -7,7 +7,9 @@ import {
     resetPassword,
     verifyEmail,
     resendVerification,
-    getCurrentUser
+    getCurrentUser,
+    updateCurrentUser,
+    changePassword
 } from '../controllers/authController';
 import { authenticate } from '../middlewares/authMiddleware';
 import { uploadVerificationDocument } from '../config/multer.config';
@@ -41,6 +43,8 @@ router.post('/reset-password', resetPassword);
 
 // Get current user info
 router.get('/me', authenticate, getCurrentUser);
+router.patch('/me', authenticate, updateCurrentUser);
+router.post('/change-password', authenticate, changePassword);
 
 // Logout (client-side token removal, but can add blacklist if needed)
 router.post('/logout', authenticate, (req, res) => {
