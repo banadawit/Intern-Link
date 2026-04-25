@@ -991,6 +991,138 @@ export const getFeedStats = async (req: AuthRequest, res: Response) => {
   }
 };
 
+/**
+ * Get posts by a specific user
+ */
+export const getUserPosts = async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user!.userId;
+    const {
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    console.log('getUserPosts - userId from params:', userId, 'type:', typeof userId);
+    console.log('getUserPosts - currentUserId:', currentUserId);
+    console.log('getUserPosts - Number(userId):', Number(userId));
+    console.log('getUserPosts - isNaN(Number(userId)):', isNaN(Number(userId)));
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required',
+      });
+    }
+
+    // Check if userId is a valid number
+    const userIdNum = Number(userId);
+    if (isNaN(userIdNum)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format. Expected a number.',
+        receivedUserId: userId,
+      });
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Get user info
+    const user = await prisma.user.findUnique({
+      where: { id: userIdNum },
+      select: {
+        id: true,
+        full_name: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Get user's posts
+    const [posts, totalCount] = await Promise.all([
+      prisma.commonPost.findMany({
+        where: {
+          authorId: userIdNum,
+          isArchived: false,
+        },
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: {
+            select: {
+              id: true,
+              full_name: true,
+              role: true,
+              email: true,
+            },
+          },
+          _count: {
+            select: {
+              comments: true,
+              likes: true,
+              views: true,
+            },
+          },
+        },
+      }),
+      prisma.commonPost.count({
+        where: {
+          authorId: userIdNum,
+          isArchived: false,
+        },
+      }),
+    ]);
+
+    // Check if current user liked each post
+    const likedPosts = await prisma.postLike.findMany({
+      where: {
+        userId: currentUserId,
+        postId: { in: posts.map((p) => p.id) },
+      },
+      select: { postId: true },
+    });
+
+    const likedPostIds = new Set(likedPosts.map((l) => l.postId));
+
+    const postsWithLikeStatus = posts.map((post) => ({
+      ...post,
+      isLikedByUser: likedPostIds.has(post.id),
+      commentCount: post._count.comments,
+      likeCount: post._count.likes,
+      viewCount: post._count.views,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        posts: postsWithLikeStatus,
+        pagination: {
+          currentPage: Number(page),
+          totalPages: Math.ceil(totalCount / Number(limit)),
+          totalCount,
+          hasMore: skip + posts.length < totalCount,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('Get user posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user posts',
+      error: error.message,
+    });
+  }
+};
+
 
 // ==================== FILE UPLOAD ====================
 

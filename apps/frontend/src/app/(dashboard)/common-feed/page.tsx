@@ -14,8 +14,6 @@ import {
   Send,
   MoreHorizontal,
   Globe,
-  Users,
-  Building,
   X
 } from 'lucide-react';
 
@@ -64,8 +62,16 @@ export default function CommonFeedPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [sharePostId, setSharePostId] = useState<number | null>(null);
-  const [copyDone, setCopyDone] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [userProfileData, setUserProfileData] = useState<any>(null);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedSharePost, setSelectedSharePost] = useState<Post | null>(null);
+  const [shareMessage, setShareMessage] = useState('');
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [selectedSendPost, setSelectedSendPost] = useState<Post | null>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -78,9 +84,49 @@ export default function CommonFeedPage() {
 
   const getCurrentUser = () => {
     if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          // Decode JWT token to get user info
+          const parts = token.split('.');
+          if (parts.length !== 3) {
+            console.error('Invalid token format - expected 3 parts, got:', parts.length);
+            return null;
+          }
+          
+          const base64Url = parts[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = atob(base64);
+          
+          const decoded = JSON.parse(jsonPayload);
+          console.log('Decoded JWT payload:', decoded);
+          
+          // Ensure userId is a number
+          const userId = typeof decoded.userId === 'number' ? decoded.userId : parseInt(decoded.userId, 10);
+          
+          if (isNaN(userId)) {
+            console.error('Invalid userId in token:', decoded.userId);
+            return null;
+          }
+          
+          return {
+            userId: userId,
+            id: userId, // Add both for compatibility
+            email: decoded.email,
+            role: decoded.role,
+            fullName: decoded.fullName || decoded.full_name || decoded.name || 'User'
+          };
+        } catch (error) {
+          console.error('Error decoding token:', error);
+        }
+      }
+      
+      // Fallback to localStorage user if token decode fails
       const userStr = localStorage.getItem('user');
       if (userStr) {
-        return JSON.parse(userStr);
+        const user = JSON.parse(userStr);
+        console.log('User from localStorage:', user);
+        return user;
       }
     }
     return null;
@@ -152,7 +198,17 @@ export default function CommonFeedPage() {
 
       setNewPostContent('');
       setShowCreatePost(false);
+      
+      // Refresh the main feed
       fetchPosts(currentPage, filter !== 'ALL' ? filter : undefined);
+      
+      // If user profile is open, refresh it too
+      if (showUserProfile && selectedUserId) {
+        const response = await axios.get(`${API_BASE}/common-feed/user/${selectedUserId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUserPosts(response.data.data.posts);
+      }
     } catch (error) {
       console.error('Error creating post:', error);
       alert('Failed to create post');
@@ -227,8 +283,125 @@ export default function CommonFeedPage() {
     }
   };
 
+  const openUserProfile = async (userId: number | undefined) => {
+    console.log('=== openUserProfile called ===');
+    console.log('userId parameter:', userId, 'type:', typeof userId);
+    console.log('Current user object:', currentUser);
+    
+    if (!userId) {
+      console.error('No userId provided to openUserProfile');
+      alert('Cannot open profile: User ID is missing');
+      return;
+    }
+    
+    setSelectedUserId(userId);
+    setShowUserProfile(true);
+    setLoadingProfile(true);
+
+    try {
+      const token = getToken();
+      const url = `${API_BASE}/common-feed/user/${userId}`;
+      console.log('Fetching user profile from:', url);
+      
+      const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      console.log('Profile response:', response.data);
+      setUserProfileData(response.data.data.user);
+      setUserPosts(response.data.data.posts);
+      setLoadingProfile(false);
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error);
+      console.error('Error response:', error.response?.data);
+      alert(`Failed to load profile: ${error.response?.data?.message || error.message}`);
+      setLoadingProfile(false);
+      setShowUserProfile(false);
+    }
+  };
+
+  const deleteUserPost = async (postId: number) => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      const token = getToken();
+      await axios.delete(`${API_BASE}/common-feed/${postId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Remove from user posts
+      setUserPosts(userPosts.filter(p => p.id !== postId));
+      
+      // Also remove from main feed if present
+      setPosts(posts.filter(p => p.id !== postId));
+      
+      alert('Post deleted successfully');
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      alert('Failed to delete post');
+    }
+  };
+
+  const handleShare = (post: Post) => {
+    setSelectedSharePost(post);
+    setShowShareModal(true);
+  };
+
+  const sharePost = async (platform: string) => {
+    if (!selectedSharePost) return;
+
+    const postUrl = `${window.location.origin}/common-feed?post=${selectedSharePost.id}`;
+    const text = `Check out this post: ${selectedSharePost.title}`;
+
+    switch (platform) {
+      case 'copy':
+        navigator.clipboard.writeText(postUrl);
+        alert('Link copied to clipboard!');
+        setShowShareModal(false);
+        break;
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(postUrl)}`, '_blank');
+        break;
+      case 'facebook':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`, '_blank');
+        break;
+      case 'linkedin':
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`, '_blank');
+        break;
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + postUrl)}`, '_blank');
+        break;
+      case 'email':
+        window.location.href = `mailto:?subject=${encodeURIComponent(selectedSharePost.title)}&body=${encodeURIComponent(text + '\n\n' + postUrl)}`;
+        break;
+    }
+  };
+
+  const handleSend = (post: Post) => {
+    setSelectedSendPost(post);
+    setShowSendModal(true);
+  };
+
+  const sendPostViaEmail = () => {
+    if (!selectedSendPost || !shareMessage.trim()) {
+      alert('Please enter a message');
+      return;
+    }
+
+    const postUrl = `${window.location.origin}/common-feed?post=${selectedSendPost.id}`;
+    const subject = `Shared: ${selectedSendPost.title}`;
+    const body = `${shareMessage}\n\n${selectedSendPost.title}\n\n${postUrl}`;
+    
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setShowSendModal(false);
+    setShareMessage('');
+  };
+
   useEffect(() => {
     const user = getCurrentUser();
+    console.log('=== Current User from localStorage ===');
+    console.log('User object:', user);
+    console.log('User keys:', user ? Object.keys(user) : 'null');
     setCurrentUser(user);
     fetchPosts(1);
   }, []);
@@ -326,7 +499,13 @@ export default function CommonFeedPage() {
             {/* Create Post Card */}
             <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4 sticky top-0 z-10">
               <div className="flex gap-3">
-                <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                <div 
+                  onClick={() => {
+                    const userId = currentUser?.userId || currentUser?.id;
+                    if (userId) openUserProfile(userId);
+                  }}
+                  className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                >
                   {currentUser ? getInitials(currentUser.fullName || 'User') : 'U'}
                 </div>
                 <button
@@ -386,12 +565,18 @@ export default function CommonFeedPage() {
                   <div className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex gap-3">
-                        <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                        <div 
+                          onClick={() => openUserProfile(post.author.id)}
+                          className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                        >
                           {getInitials(post.author.full_name)}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                            <h3 
+                              onClick={() => openUserProfile(post.author.id)}
+                              className="font-semibold text-slate-900 hover:text-teal-600 cursor-pointer"
+                            >
                               {post.author.full_name}
                             </h3>
                             <span className="text-xs text-slate-500">• 1st</span>
@@ -463,48 +648,17 @@ export default function CommonFeedPage() {
                       <MessageCircle className="w-5 h-5" />
                       <span>Comment</span>
                     </button>
-                    <div className="relative flex-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSharePostId(sharePostId === post.id ? null : post.id); }}
-                        className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors w-full justify-center"
-                      >
-                        <Share2 className="w-5 h-5" />
-                        <span>Share</span>
-                      </button>
-                      {sharePostId === post.id && (
-                        <div onClick={(e) => e.stopPropagation()} className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 w-52 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
-                          <button
-                            onClick={() => { void copyLink(post.id); }}
-                            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                          >
-                            <span className="text-base">🔗</span>
-                            Copy link
-                          </button>
-                          <a
-                            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(getPostUrl(post.id))}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                          >
-                            <span className="text-base">📘</span> Facebook
-                          </a>
-                          <a
-                            href={`https://t.me/share/url?url=${encodeURIComponent(getPostUrl(post.id))}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                          >
-                            <span className="text-base">✈️</span> Telegram
-                          </a>
-                          <a
-                            href={`https://wa.me/?text=${encodeURIComponent(getPostUrl(post.id))}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                          >
-                            <span className="text-base">💬</span> WhatsApp
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                    <button className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center">
+                    <button 
+                      onClick={() => handleShare(post)}
+                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center"
+                    >
+                      <Share2 className="w-5 h-5" />
+                      <span>Share</span>
+                    </button>
+                    <button 
+                      onClick={() => handleSend(post)}
+                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center"
+                    >
                       <Send className="w-5 h-5" />
                       <span>Send</span>
                     </button>
@@ -523,8 +677,8 @@ export default function CommonFeedPage() {
                             type="text"
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && newComment.trim().length >= 10 && addComment(post.id)}
-                            placeholder="Add a comment (min 10 characters)..."
+                            onKeyDown={(e) => e.key === 'Enter' && addComment(post.id)}
+                            placeholder="Add a comment..."
                             className="flex-1 px-4 py-2 rounded-full border border-slate-300 focus:outline-none focus:border-slate-400 text-sm"
                           />
                           <button
@@ -541,13 +695,21 @@ export default function CommonFeedPage() {
                       <div className="space-y-4">
                         {comments.map((comment) => (
                           <div key={comment.id} className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                            <div 
+                              onClick={() => openUserProfile(comment.author.id)}
+                              className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                            >
                               {getInitials(comment.author.full_name)}
                             </div>
                             <div className="flex-1">
                               <div className="bg-white rounded-lg px-4 py-2 border border-slate-200">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-sm text-slate-900">{comment.author.full_name}</span>
+                                  <span 
+                                    onClick={() => openUserProfile(comment.author.id)}
+                                    className="font-semibold text-sm text-slate-900 cursor-pointer hover:text-teal-600"
+                                  >
+                                    {comment.author.full_name}
+                                  </span>
                                   <span className="text-xs text-slate-500">• {getRoleBadge(comment.author.role).label}</span>
                                 </div>
                                 <p className="text-sm text-slate-700 mt-1">{comment.content}</p>
@@ -698,6 +860,314 @@ export default function CommonFeedPage() {
               >
                 Post
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && selectedSharePost && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h2 className="text-xl font-bold text-slate-900">Share Post</h2>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-slate-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-slate-900 mb-1">{selectedSharePost.title}</h3>
+                <p className="text-sm text-slate-600">by {selectedSharePost.author.full_name}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => sharePost('copy')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center group-hover:bg-teal-100 transition-colors">
+                    <Share2 className="w-5 h-5 text-slate-600 group-hover:text-teal-600" />
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-teal-700">Copy Link</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('linkedin')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <span className="text-blue-600 font-bold text-sm">in</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-blue-700">LinkedIn</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('twitter')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-sky-500 hover:bg-sky-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center group-hover:bg-sky-200 transition-colors">
+                    <span className="text-sky-600 font-bold text-sm">𝕏</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-sky-700">Twitter</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('facebook')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-600 hover:bg-blue-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <span className="text-blue-600 font-bold text-sm">f</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-blue-700">Facebook</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('whatsapp')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <span className="text-green-600 font-bold text-sm">W</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-green-700">WhatsApp</span>
+                </button>
+
+                <button
+                  onClick={() => sharePost('email')}
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 group"
+                >
+                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                    <span className="text-orange-600 font-bold text-sm">@</span>
+                  </div>
+                  <span className="font-semibold text-slate-700 group-hover:text-orange-700">Email</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Modal */}
+      {showSendModal && selectedSendPost && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h2 className="text-xl font-bold text-slate-900">Send Post</h2>
+              <button
+                onClick={() => {
+                  setShowSendModal(false);
+                  setShareMessage('');
+                }}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-slate-50 rounded-lg p-4 mb-4">
+                <h3 className="font-semibold text-slate-900 mb-1">{selectedSendPost.title}</h3>
+                <p className="text-sm text-slate-600">by {selectedSendPost.author.full_name}</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Add a message (optional)
+                </label>
+                <textarea
+                  value={shareMessage}
+                  onChange={(e) => setShareMessage(e.target.value)}
+                  placeholder="Write a message to send with this post..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <button
+                onClick={sendPostViaEmail}
+                className="w-full py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-semibold flex items-center justify-center gap-2"
+              >
+                <Send className="w-5 h-5" />
+                Send via Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Modal */}
+      {showUserProfile && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-teal-50 to-emerald-50">
+              <h2 className="text-xl font-bold text-slate-900">User Profile</h2>
+              <button
+                onClick={() => {
+                  setShowUserProfile(false);
+                  setUserProfileData(null);
+                  setUserPosts([]);
+                }}
+                className="p-2 hover:bg-white/80 rounded-full transition-all duration-200 hover:rotate-90"
+              >
+                <X className="w-5 h-5 text-slate-600" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[calc(85vh-73px)]">
+              {loadingProfile ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200"></div>
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-teal-600 border-t-transparent absolute top-0 left-0"></div>
+                  </div>
+                  <p className="mt-4 text-slate-600 font-medium">Loading profile...</p>
+                </div>
+              ) : userProfileData ? (
+                <div>
+                  {/* Profile Header */}
+                  <div className="px-6 py-8 bg-gradient-to-br from-slate-50 to-white border-b border-slate-200">
+                    <div className="flex items-center gap-6">
+                      <div className="relative">
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-3xl font-bold text-white shadow-lg ring-4 ring-white">
+                          {getInitials(userProfileData.full_name)}
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center">
+                          <span className="text-white text-xs">✓</span>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-3xl font-bold text-slate-900 mb-2">{userProfileData.full_name}</h3>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getRoleBadge(userProfileData.role).color} bg-slate-100`}>
+                            {getRoleBadge(userProfileData.role).label}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 flex items-center gap-2">
+                          <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                          {userProfileData.email}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats Bar */}
+                  <div className="px-6 py-4 bg-white border-b border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-8">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-slate-900">{userPosts.length}</div>
+                          <div className="text-sm text-slate-600">Posts</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-slate-900">
+                            {userPosts.reduce((sum, post) => sum + post.likeCount, 0)}
+                          </div>
+                          <div className="text-sm text-slate-600">Likes</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-slate-900">
+                            {userPosts.reduce((sum, post) => sum + post.commentCount, 0)}
+                          </div>
+                          <div className="text-sm text-slate-600">Comments</div>
+                        </div>
+                      </div>
+                      
+                      {/* Show Create Post button only for own profile */}
+                      {currentUser && userProfileData && (currentUser.userId === userProfileData.id || currentUser.id === userProfileData.id) && (
+                        <button
+                          onClick={() => {
+                            setShowUserProfile(false);
+                            setShowCreatePost(true);
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
+                        >
+                          <Send className="w-4 h-4" />
+                          Create Post
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Posts Section */}
+                  <div className="px-6 py-6 bg-slate-50">
+                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-teal-600" />
+                      Recent Posts
+                    </h3>
+
+                    {userPosts.length === 0 ? (
+                      <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-slate-200">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <FileText className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <p className="text-slate-500 font-medium">No posts yet</p>
+                        <p className="text-sm text-slate-400 mt-1">Posts will appear here when created</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {userPosts.map((post) => (
+                          <div key={post.id} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-all duration-200 hover:border-teal-200">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-sm font-medium text-teal-600 bg-teal-50 px-3 py-1 rounded-full">
+                                    {getPostTypeLabel(post.postType)}
+                                  </span>
+                                  <span className="text-xs text-slate-500">
+                                    {formatTimeAgo(post.createdAt)}
+                                  </span>
+                                </div>
+                                <h4 className="font-bold text-slate-900 text-lg mb-2">{post.title}</h4>
+                              </div>
+                              {currentUser && (currentUser.userId === post.author.id || currentUser.id === post.author.id) && (
+                                <button
+                                  onClick={() => deleteUserPost(post.id)}
+                                  className="px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 hover:shadow-sm border border-transparent hover:border-red-200"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+
+                            <div 
+                              className="text-slate-700 text-sm leading-relaxed mb-4 line-clamp-3"
+                              dangerouslySetInnerHTML={{ __html: post.content }}
+                            />
+
+                            <div className="flex items-center gap-6 text-sm text-slate-600 pt-3 border-t border-slate-100">
+                              <div className="flex items-center gap-2 hover:text-teal-600 transition-colors">
+                                <ThumbsUp className="w-4 h-4" />
+                                <span className="font-medium">{post.likeCount}</span>
+                              </div>
+                              <div className="flex items-center gap-2 hover:text-teal-600 transition-colors">
+                                <MessageCircle className="w-4 h-4" />
+                                <span className="font-medium">{post.commentCount}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{post.viewCount} views</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="py-20 text-center">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <X className="w-8 h-8 text-red-600" />
+                  </div>
+                  <p className="text-slate-600 font-medium">Failed to load profile</p>
+                  <p className="text-sm text-slate-400 mt-1">Please try again later</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
