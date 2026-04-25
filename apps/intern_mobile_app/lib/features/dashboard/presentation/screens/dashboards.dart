@@ -6720,7 +6720,7 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                             _buildConfigItem('Weekly Deadlines', 
                               'Deadline: ${config['weekly_plan_deadline_day']}', 
                               Icons.event_note_rounded, isDark, 
-                              onTap: () {}),
+                              onTap: () => _showWeeklyDeadlineDialog(context, config)),
                           ]),
                           const SizedBox(height: 32),
                           _buildSection(context, 'Maintenance Mode', [
@@ -6931,6 +6931,61 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
             child: const Text('Save Rules')
           ),
         ],
+      ),
+    );
+  }
+
+  void _showWeeklyDeadlineDialog(BuildContext context, Map<String, String> config) {
+    const days = <String>[
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    var selectedDay = config['weekly_plan_deadline_day'] ?? 'Sunday';
+    if (!days.contains(selectedDay)) {
+      selectedDay = 'Sunday';
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocalState) => AlertDialog(
+          title: const Text('Weekly Plan Deadline'),
+          content: DropdownButtonFormField<String>(
+            value: selectedDay,
+            items: days
+                .map((d) => DropdownMenuItem<String>(
+                      value: d,
+                      child: Text(d),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setLocalState(() => selectedDay = value);
+              }
+            },
+            decoration: const InputDecoration(
+              labelText: 'Deadline Day',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await _updateConfig('weekly_plan_deadline_day', selectedDay);
+                if (mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Save Deadline'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -705,3 +705,97 @@ export const getCurrentUser = async (req: Request, res: Response) => {
         return sendError(res, error.message, 500);
     }
 };
+
+// ============================================
+// UPDATE CURRENT USER PROFILE - Protected Route
+// ============================================
+export const updateCurrentUser = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user?.userId;
+        if (!userId) {
+            return sendError(res, "Unauthorized", 401);
+        }
+
+        const body = (req.body ?? {}) as Record<string, unknown>;
+        const rawFullName = (body['fullName'] ?? body['full_name'] ?? '').toString().trim();
+        const rawEmail = (body['email'] ?? '').toString().trim().toLowerCase();
+
+        if (!rawFullName && !rawEmail) {
+            return sendError(res, "Please provide at least one field to update.", 400);
+        }
+
+        const existing = await prisma.user.findUnique({ where: { id: userId } });
+        if (!existing) {
+            return sendError(res, "User not found", 404);
+        }
+
+        if (rawEmail && rawEmail !== existing.email) {
+            const emailTaken = await prisma.user.findUnique({ where: { email: rawEmail } });
+            if (emailTaken && emailTaken.id !== userId) {
+                return sendError(res, "Email is already in use.", 400);
+            }
+        }
+
+        const updated = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                ...(rawFullName ? { full_name: rawFullName } : {}),
+                ...(rawEmail ? { email: rawEmail } : {}),
+            },
+        });
+
+        return sendSuccess(res, {
+            id: updated.id,
+            email: updated.email,
+            fullName: updated.full_name,
+            role: updated.role,
+        }, "Profile updated successfully.");
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
+    }
+};
+
+// ============================================
+// CHANGE PASSWORD - Protected Route
+// ============================================
+export const changePassword = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user?.userId;
+        if (!userId) {
+            return sendError(res, "Unauthorized", 401);
+        }
+
+        const { currentPassword, newPassword } = req.body as {
+            currentPassword?: string;
+            newPassword?: string;
+        };
+
+        if (!currentPassword || !newPassword) {
+            return sendError(res, "Current password and new password are required.", 400);
+        }
+
+        if (newPassword.length < 8) {
+            return sendError(res, "New password must be at least 8 characters long.", 400);
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return sendError(res, "User not found", 404);
+        }
+
+        const matches = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!matches) {
+            return sendError(res, "Current password is incorrect.", 400);
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({
+            where: { id: userId },
+            data: { password_hash: hashedPassword },
+        });
+
+        return sendSuccess(res, null, "Password changed successfully.");
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
+    }
+};
