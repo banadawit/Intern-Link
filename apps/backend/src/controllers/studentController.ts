@@ -109,3 +109,117 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// --- WEEKLY PRESENTATION UPLOAD ---
+
+/**
+ * Upload or replace weekly presentation (PDF/PPT)
+ * Allows re-submission by replacing old file
+ */
+export const uploadWeeklyPresentation = async (req: AuthRequest, res: Response) => {
+    try {
+        const { weeklyPlanId } = req.body;
+        const file = req.file;
+        const userId = req.user?.userId;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        if (!weeklyPlanId) {
+            return res.status(400).json({ error: 'weeklyPlanId is required' });
+        }
+
+        // Verify student owns this weekly plan
+        const student = await prisma.student.findUnique({
+            where: { userId },
+            include: {
+                weeklyPlans: {
+                    where: { id: parseInt(weeklyPlanId) },
+                },
+            },
+        });
+
+        if (!student || student.weeklyPlans.length === 0) {
+            return res.status(403).json({ error: 'Weekly plan not found or access denied' });
+        }
+
+        const { CloudinaryService } = await import('../services/cloudinary.service');
+
+        const folder = `internlink/${student.universityId}/${userId}/weekly-presentations`;
+
+        // Check if presentation already exists
+        const existingPresentation = await prisma.weeklyPresentation.findUnique({
+            where: { weeklyPlanId: parseInt(weeklyPlanId) },
+        });
+
+        let uploadResult;
+
+        if (existingPresentation) {
+            // Replace existing file
+            const existingFile = await prisma.file.findFirst({
+                where: { url: existingPresentation.file_url },
+            });
+
+            if (existingFile) {
+                uploadResult = await CloudinaryService.replaceFile(
+                    existingFile.publicId,
+                    file,
+                    {
+                        userId,
+                        organizationId: student.universityId,
+                        fileType: 'WEEKLY_PRESENTATION',
+                        folder,
+                        resourceType: 'raw',
+                    }
+                );
+            } else {
+                // Old file not in new system, just upload new one
+                uploadResult = await CloudinaryService.uploadDocument(file, {
+                    userId,
+                    organizationId: student.universityId,
+                    fileType: 'WEEKLY_PRESENTATION',
+                    folder,
+                    resourceType: 'raw',
+                });
+            }
+
+            // Update presentation record
+            await prisma.weeklyPresentation.update({
+                where: { weeklyPlanId: parseInt(weeklyPlanId) },
+                data: { file_url: uploadResult.url!, uploaded_at: new Date() },
+            });
+        } else {
+            // Create new presentation
+            uploadResult = await CloudinaryService.uploadDocument(file, {
+                userId,
+                organizationId: student.universityId,
+                fileType: 'WEEKLY_PRESENTATION',
+                folder,
+                resourceType: 'raw',
+            });
+
+            await prisma.weeklyPresentation.create({
+                data: {
+                    weeklyPlanId: parseInt(weeklyPlanId),
+                    file_url: uploadResult.url!,
+                },
+            });
+        }
+
+        if (!uploadResult.success) {
+            return res.status(400).json({ error: uploadResult.error });
+        }
+
+        res.json({
+            message: existingPresentation
+                ? 'Weekly presentation replaced successfully'
+                : 'Weekly presentation uploaded successfully',
+            url: uploadResult.url,
+            fileId: uploadResult.fileId,
+        });
+    } catch (error: any) {
+        console.error('Upload weekly presentation error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};

@@ -807,3 +807,71 @@ export const rejectCoordinator = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// --- FILE UPLOAD ENDPOINTS ---
+
+/**
+ * Upload verification document for university/company
+ * Used during manual verification process
+ */
+export const uploadVerificationDocument = async (req: AuthRequest, res: Response) => {
+    try {
+        const { organizationType, organizationId } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        if (!organizationType || !organizationId) {
+            return res.status(400).json({ error: 'organizationType and organizationId are required' });
+        }
+
+        const { CloudinaryService } = await import('../services/cloudinary.service');
+
+        const orgId = parseInt(organizationId);
+        const folder = `internlink/${orgId}/verification-docs`;
+
+        const uploadResult = await CloudinaryService.uploadDocument(file, {
+            organizationId: orgId,
+            fileType: 'VERIFICATION_DOC',
+            folder,
+            resourceType: 'raw',
+        });
+
+        if (!uploadResult.success) {
+            return res.status(400).json({ error: uploadResult.error });
+        }
+
+        // Update organization record
+        if (organizationType === 'UNIVERSITY') {
+            await prisma.university.update({
+                where: { id: orgId },
+                data: { verification_doc: uploadResult.url },
+            });
+        } else if (organizationType === 'COMPANY') {
+            await prisma.company.update({
+                where: { id: orgId },
+                data: { verification_doc: uploadResult.url },
+            });
+        }
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'UPLOADED_VERIFICATION_DOC',
+                targetId: orgId,
+                details: `Uploaded verification document for ${organizationType}`,
+            },
+        });
+
+        res.json({
+            message: 'Verification document uploaded successfully',
+            url: uploadResult.url,
+            fileId: uploadResult.fileId,
+        });
+    } catch (error: any) {
+        console.error('Upload verification document error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};

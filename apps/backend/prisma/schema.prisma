@@ -505,3 +505,30 @@ model AuditLog {
   details     String?  // e.g., "Approved Haramaya University"
   timestamp   DateTime @default(now())
 }
+
+enum FileType {
+  VERIFICATION_DOC
+  WEEKLY_PRESENTATION
+  COMPANY_STAMP
+  FINAL_REPORT
+  COMMON_FEED_IMAGE
+  COMMON_FEED_DOCUMENT
+}
+
+model File {
+  id             String   @id @default(uuid())
+  userId         Int?
+  organizationId Int?     // universityId or companyId
+  type           FileType
+  url            String
+  publicId       String   // Cloudinary public_id for deletion
+  filename       String
+  mimeType       String
+  size           Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, type])
+  @@index([organizationId, type])
+  @@map("files")
+}

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as adminCtrl from '../controllers/adminController';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
+import { uploadVerification } from '../config/multer.config';
 
 const router = Router();
 
@@ -21,6 +22,9 @@ router.patch('/university-status/:id', adminCtrl.updateUniversityStatus);
 
 router.get('/pending-companies', adminCtrl.getPendingCompanies);
 router.patch('/company-status/:id', adminCtrl.updateCompanyStatus);
+
+// File Upload
+router.post('/upload-verification', uploadVerification.single('file'), adminCtrl.uploadVerificationDocument);
 
 // User Management
 router.get('/users', adminCtrl.getAllUsers);

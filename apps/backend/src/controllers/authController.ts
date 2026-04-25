@@ -36,6 +36,23 @@ export const register = async (req: Request, res: Response) => {
         const verificationToken = generateVerificationToken();
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
+        // Upload verification document if provided
+        let verificationDocUrl: string | null = null;
+        if (file) {
+            const { CloudinaryService } = await import('../services/cloudinary.service');
+            const folder = `internlink/verification-docs`;
+            
+            const uploadResult = await CloudinaryService.uploadDocument(file, {
+                fileType: 'VERIFICATION_DOC',
+                folder,
+                resourceType: 'raw',
+            });
+
+            if (uploadResult.success) {
+                verificationDocUrl = uploadResult.url!;
+            }
+        }
+
         // Create user with verification token
         const roleUpper = role.toUpperCase();
         const needsIndividualAdminApproval =
@@ -50,7 +67,7 @@ export const register = async (req: Request, res: Response) => {
                 verification_status: 'PENDING',
                 verification_token: verificationToken,
                 verification_token_expiry: verificationTokenExpiry,
-                verification_document: file ? file.path : null, // Store file path if uploaded
+                verification_document: verificationDocUrl,
                 institution_access_approval: needsIndividualAdminApproval ? 'PENDING' : 'APPROVED',
             }
         });
