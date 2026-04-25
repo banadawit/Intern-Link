@@ -127,8 +127,11 @@ class AdminRepository {
 
   Future<Map<String, String>> getConfig() async {
     final response = await apiClient.dio.get('/admin/config');
-    final data = response.data['data'] as Map?;
-    return data?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {};
+    final raw = response.data;
+    if (raw is Map) {
+      return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+    }
+    return {};
   }
 
   Future<void> updateConfig(Map<String, String> updates) async {

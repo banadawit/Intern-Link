@@ -6609,15 +6609,6 @@ class _AdminSettingsTab extends ConsumerStatefulWidget {
 }
 
 class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
-  bool _regStudent = true;
-  bool _regCoordinator = true;
-  bool _regHod = true;
-  bool _regSupervisor = true;
-  bool _regUni = true;
-  bool _regComp = true;
-  bool _maintenance = false;
-  String _maintenanceMessage = '';
-  
   final _broadcastTitleCtrl = TextEditingController();
   final _broadcastContentCtrl = TextEditingController();
   bool _isUpdating = false;
@@ -6643,17 +6634,6 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
     }
   }
 
-  void _syncStateFromConfig(Map<String, String> config) {
-    _regStudent = config['registration_student_open'] == 'true';
-    _regCoordinator = config['registration_coordinator_open'] == 'true';
-    _regHod = config['registration_hod_open'] == 'true';
-    _regSupervisor = config['registration_supervisor_open'] == 'true';
-    _regUni = config['registration_university_open'] == 'true';
-    _regComp = config['registration_company_open'] == 'true';
-    _maintenance = config['maintenance_mode'] == 'true';
-    _maintenanceMessage = config['maintenance_message'] ?? '';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -6664,7 +6644,17 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error: $err')),
       data: (config) {
-        _syncStateFromConfig(config);
+        final regStudent = config['registration_student_open'] == 'true';
+        final regCoordinator = config['registration_coordinator_open'] == 'true';
+        final regHod = config['registration_hod_open'] == 'true';
+        final regSupervisor = config['registration_supervisor_open'] == 'true';
+        final regUni = config['registration_university_open'] == 'true';
+        final regComp = config['registration_company_open'] == 'true';
+        final maintenance = config['maintenance_mode'] == 'true';
+        final maintenanceMessage = config['maintenance_message'] ?? '';
+        final passwordMinLength = config['password_min_length'] ?? '8';
+        final sessionTimeoutMin = config['session_timeout_min'] ?? '30';
+        final apiRateLimitPerMin = config['api_rate_limit_per_min'] ?? '60';
         
         return Material(
           color: Colors.transparent,
@@ -6711,15 +6701,15 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                                 style: TextStyle(fontSize: 11, color: Colors.grey),
                               ),
                             ),
-                            _buildSwitchTile('Student registration open', _regStudent, (v) => _updateConfig('registration_student_open', v.toString()), isDark),
-                            _buildSwitchTile('Coordinator registration open', _regCoordinator, (v) => _updateConfig('registration_coordinator_open', v.toString()), isDark),
-                            _buildSwitchTile('Hod registration open', _regHod, (v) => _updateConfig('registration_hod_open', v.toString()), isDark),
-                            _buildSwitchTile('Supervisor registration open', _regSupervisor, (v) => _updateConfig('registration_supervisor_open', v.toString()), isDark),
+                            _buildSwitchTile('Student registration open', regStudent, (v) => _updateConfig('registration_student_open', v.toString()), isDark),
+                            _buildSwitchTile('Coordinator registration open', regCoordinator, (v) => _updateConfig('registration_coordinator_open', v.toString()), isDark),
+                            _buildSwitchTile('Hod registration open', regHod, (v) => _updateConfig('registration_hod_open', v.toString()), isDark),
+                            _buildSwitchTile('Supervisor registration open', regSupervisor, (v) => _updateConfig('registration_supervisor_open', v.toString()), isDark),
                             
                             const Divider(height: 32),
                             _buildSectionHeaderSmall('Institutional Controls'),
-                            _buildSwitchTile('Registration: University', _regUni, (v) => _updateConfig('registration_university_open', v.toString()), isDark),
-                            _buildSwitchTile('Registration: Company', _regComp, (v) => _updateConfig('registration_company_open', v.toString()), isDark),
+                            _buildSwitchTile('Registration: University', regUni, (v) => _updateConfig('registration_university_open', v.toString()), isDark),
+                            _buildSwitchTile('Registration: Company', regComp, (v) => _updateConfig('registration_company_open', v.toString()), isDark),
                             
                             const Divider(height: 32),
                             _buildSectionHeaderSmall('Operational Rules'),
@@ -6734,12 +6724,13 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                           ]),
                           const SizedBox(height: 32),
                           _buildSection(context, 'Maintenance Mode', [
-                            _buildSwitchTile('Enable Maintenance', _maintenance, (v) => _updateConfig('maintenance_mode', v.toString()), isDark),
-                            if (_maintenance)
+                            _buildSwitchTile('Enable Maintenance', maintenance, (v) => _updateConfig('maintenance_mode', v.toString()), isDark),
+                            if (maintenance)
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                child: TextField(
-                                  onSubmitted: (v) => _updateConfig('maintenance_message', v),
+                                child: TextFormField(
+                                  initialValue: maintenanceMessage,
+                                  onFieldSubmitted: (v) => _updateConfig('maintenance_message', v),
                                   decoration: InputDecoration(
                                     hintText: 'Maintenance message...',
                                     helperText: 'Press Enter to save message',
@@ -6747,7 +6738,6 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                                     fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                                   ),
-                                  controller: TextEditingController(text: _maintenanceMessage),
                                 ),
                               ),
                           ]),
@@ -6829,9 +6819,71 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                           ]),
                           const SizedBox(height: 32),
                           _buildSection(context, 'Security', [
-                            _buildActionTile('Password Policy', Icons.password_rounded, Colors.orange, isDark, () {}),
-                            _buildActionTile('Session Timeout', Icons.timer_rounded, Colors.purple, isDark, () {}),
-                            _buildActionTile('API Limits / Rate Limiting', Icons.speed_rounded, Colors.red, isDark, () {}),
+                            _buildConfigItem(
+                              'Password Policy',
+                              'Minimum length: $passwordMinLength',
+                              Icons.password_rounded,
+                              isDark,
+                              onTap: () => _showSingleValueConfigDialog(
+                                context: context,
+                                title: 'Password Policy',
+                                label: 'Minimum password length',
+                                configKey: 'password_min_length',
+                                initialValue: passwordMinLength,
+                                isNumber: true,
+                              ),
+                            ),
+                            _buildConfigItem(
+                              'Session Timeout',
+                              '$sessionTimeoutMin minutes',
+                              Icons.timer_rounded,
+                              isDark,
+                              onTap: () => _showSingleValueConfigDialog(
+                                context: context,
+                                title: 'Session Timeout',
+                                label: 'Session timeout (minutes)',
+                                configKey: 'session_timeout_min',
+                                initialValue: sessionTimeoutMin,
+                                isNumber: true,
+                              ),
+                            ),
+                            _buildConfigItem(
+                              'API Limits / Rate Limiting',
+                              '$apiRateLimitPerMin requests/min',
+                              Icons.speed_rounded,
+                              isDark,
+                              onTap: () => _showSingleValueConfigDialog(
+                                context: context,
+                                title: 'API Rate Limit',
+                                label: 'Requests per minute',
+                                configKey: 'api_rate_limit_per_min',
+                                initialValue: apiRateLimitPerMin,
+                                isNumber: true,
+                              ),
+                            ),
+                            _buildActionTile('Export Audit Logs (CSV)', Icons.download_rounded, Colors.teal, isDark, () async {
+                              try {
+                                final csv = await ref.read(adminRepositoryProvider).exportAuditLogsCsv();
+                                if (!mounted) return;
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Audit Logs CSV (preview)'),
+                                    content: SizedBox(
+                                      width: 420,
+                                      child: SingleChildScrollView(
+                                        child: SelectableText(
+                                          csv.length > 2000 ? '${csv.substring(0, 2000)}\n\n...truncated...' : csv,
+                                        ),
+                                      ),
+                                    ),
+                                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+                                  ),
+                                );
+                              } catch (e) {
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed export: $e')));
+                              }
+                            }),
                           ]),
                           const SizedBox(height: 120),
                         ]),
@@ -6941,22 +6993,85 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
   }
 
   void _showSMTPDialog(BuildContext context) {
+    final config = ref.read(systemConfigProvider).value ?? <String, String>{};
+    final hostCtrl = TextEditingController(text: config['smtp_host'] ?? '');
+    final portCtrl = TextEditingController(text: config['smtp_port'] ?? '');
+    final userCtrl = TextEditingController(text: config['smtp_username'] ?? '');
+    final passCtrl = TextEditingController(text: config['smtp_password'] ?? '');
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('SMTP Configuration'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(decoration: InputDecoration(labelText: 'Host')),
-            TextField(decoration: InputDecoration(labelText: 'Port')),
-            TextField(decoration: InputDecoration(labelText: 'Username')),
-            TextField(decoration: InputDecoration(labelText: 'Password'), obscureText: true),
+            TextField(controller: hostCtrl, decoration: const InputDecoration(labelText: 'Host')),
+            TextField(controller: portCtrl, decoration: const InputDecoration(labelText: 'Port')),
+            TextField(controller: userCtrl, decoration: const InputDecoration(labelText: 'Username')),
+            TextField(controller: passCtrl, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Save Settings')),
+          FilledButton(
+            onPressed: () async {
+              try {
+                await ref.read(adminRepositoryProvider).updateConfig({
+                  'smtp_host': hostCtrl.text.trim(),
+                  'smtp_port': portCtrl.text.trim(),
+                  'smtp_username': userCtrl.text.trim(),
+                  'smtp_password': passCtrl.text.trim(),
+                });
+                ref.invalidate(systemConfigProvider);
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('SMTP settings saved.')));
+                }
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+              }
+            },
+            child: const Text('Save Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSingleValueConfigDialog({
+    required BuildContext context,
+    required String title,
+    required String label,
+    required String configKey,
+    required String initialValue,
+    bool isNumber = false,
+  }) {
+    final ctrl = TextEditingController(text: initialValue);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          decoration: InputDecoration(labelText: label),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              final value = ctrl.text.trim();
+              if (value.isEmpty) return;
+              if (isNumber && int.tryParse(value) == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid number.')));
+                return;
+              }
+              await _updateConfig(configKey, value);
+              if (mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
         ],
       ),
     );

@@ -58,9 +58,6 @@ class _PlanEditorScreenState extends ConsumerState<PlanEditorScreen> {
     final notifier = ref.read(planEditorProvider.notifier);
     final state = ref.watch(planEditorProvider);
 
-    _titleCtrl.value = _titleCtrl.value.copyWith(text: state.title, selection: _titleCtrl.selection);
-    _objectivesCtrl.value = _objectivesCtrl.value.copyWith(text: state.objectives, selection: _objectivesCtrl.selection);
-
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(

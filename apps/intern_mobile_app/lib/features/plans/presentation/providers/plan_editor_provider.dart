@@ -52,8 +52,6 @@ class PlanEditorArgs {
 }
 
 class PlanEditorNotifier extends Notifier<PlanEditorState> {
-  bool _didInit = false;
-
   @override
   PlanEditorState build() {
     return const PlanEditorState(
@@ -65,10 +63,6 @@ class PlanEditorNotifier extends Notifier<PlanEditorState> {
   }
 
   void init(PlanEditorArgs arg) {
-    // Idempotent init per screen lifetime.
-    if (_didInit) return;
-    _didInit = true;
-
     state = PlanEditorState(
       draftId: arg.draftId,
       submittedPlanId: arg.submittedPlanId,
