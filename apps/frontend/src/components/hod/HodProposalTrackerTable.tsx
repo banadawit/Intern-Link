@@ -1,6 +1,21 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import type { HodProposalRow } from "./types";
+
+function StatusPill({ status }: { status: string }) {
+  return (
+    <span className={cn(
+      "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold",
+      status === "PENDING"  && "bg-amber-100 text-amber-800",
+      status === "APPROVED" && "bg-emerald-100 text-emerald-800",
+      status === "REJECTED" && "bg-red-100 text-red-700",
+      !["PENDING","APPROVED","REJECTED"].includes(status) && "bg-slate-100 text-slate-700",
+    )}>
+      {status}
+    </span>
+  );
+}
 
 type Props = { proposals: HodProposalRow[] };
 
@@ -24,7 +39,7 @@ export default function HodProposalTrackerTable({ proposals }: Props) {
               <tr key={p.id} className="hover:bg-slate-50/50">
                 <td className="px-4 py-3 text-slate-900">{p.student.user.full_name}</td>
                 <td className="px-4 py-3 text-slate-700">{p.company.name}</td>
-                <td className="px-4 py-3 text-slate-700">{p.status}</td>
+                <td className="px-4 py-3"><StatusPill status={p.status} /></td>
                 <td className="px-4 py-3 text-slate-700">{p.expected_duration_weeks ?? "—"}</td>
                 <td className="px-4 py-3 text-slate-500">{new Date(p.submitted_at).toLocaleString()}</td>
               </tr>

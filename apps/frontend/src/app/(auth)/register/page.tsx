@@ -102,6 +102,26 @@ const RegisterPage = () => {
   const [departments, setDepartments] = useState<{ id: number; department: string }[]>([]);
   const [deptLoading, setDeptLoading] = useState(false);
 
+  // Registration open/closed status per role
+  const [regStatus, setRegStatus] = useState<Record<string, boolean>>({
+    student: true, coordinator: true, hod: true, supervisor: true,
+  });
+
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    fetch(`${API}/registration-status`)
+      .then((r) => r.json())
+      .then((data: { student: boolean; coordinator: boolean; hod: boolean; supervisor: boolean }) => {
+        setRegStatus({
+          student: data.student !== false,
+          coordinator: data.coordinator !== false,
+          hod: data.hod !== false,
+          supervisor: data.supervisor !== false,
+        });
+      })
+      .catch(() => {});
+  }, []);
+
   // Password strength checker
   const checkPasswordStrength = useCallback((password: string) => {
     let score = 0;
@@ -133,7 +153,11 @@ const RegisterPage = () => {
     if ((role === 'hod' || role === 'student') && step === 3 && approvedUniversities.length === 0) {
       fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/universities/approved`)
         .then((r) => r.json())
-        .then((data) => setApprovedUniversities(Array.isArray(data) ? data : []))
+        .then((data) => {
+          // Backend wraps response as { success, data: [...] }
+          const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+          setApprovedUniversities(list);
+        })
         .catch(() => setApprovedUniversities([]));
     }
   }, [role, step, approvedUniversities.length]);
@@ -146,7 +170,10 @@ const RegisterPage = () => {
       setFormData(prev => ({ ...prev, hodId: undefined }));
       fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/universities/${formData.universityId}/departments`)
         .then((r) => r.json())
-        .then((data) => setDepartments(Array.isArray(data) ? data : []))
+        .then((data) => {
+          const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+          setDepartments(list);
+        })
         .catch(() => setDepartments([]))
         .finally(() => setDeptLoading(false));
     }
@@ -416,7 +443,6 @@ const RegisterPage = () => {
                 icon: GraduationCap, 
                 desc: 'Apply for internships and track your progress',
                 color: 'bg-emerald-50 text-emerald-600',
-                bgHover: 'hover:border-emerald-200'
               },
               { 
                 id: 'coordinator' as const, 
@@ -424,7 +450,6 @@ const RegisterPage = () => {
                 icon: School, 
                 desc: 'Manage student placements and university partnerships',
                 color: 'bg-primary-50 text-primary-600',
-                bgHover: 'hover:border-primary-200'
               },
               {
                 id: 'hod' as const,
@@ -432,7 +457,6 @@ const RegisterPage = () => {
                 icon: Building,
                 desc: 'Oversee departmental internship activities and approvals',
                 color: 'bg-violet-50 text-violet-600',
-                bgHover: 'hover:border-violet-200'
               },
               { 
                 id: 'supervisor' as const, 
@@ -440,34 +464,47 @@ const RegisterPage = () => {
                 icon: Briefcase, 
                 desc: 'Evaluate students and verify internship reports',
                 color: 'bg-slate-100 text-slate-600',
-                bgHover: 'hover:border-slate-300'
               },
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setRole(item.id)}
-                className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left group ${
-                  role === item.id 
-                    ? 'border-primary-600 bg-primary-50/30 shadow-soft' 
-                    : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-soft'
-                }`}
-              >
-                <div className={`p-3 rounded-xl transition-all ${
-                  role === item.id 
-                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' 
-                    : 'bg-slate-100 text-slate-500 group-hover:bg-primary-50 group-hover:text-primary-600'
-                }`}>
-                  <item.icon className="h-6 w-6" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-bold text-slate-900">{item.title}</p>
-                  <p className="text-xs text-slate-500">{item.desc}</p>
-                </div>
-                {role === item.id && (
-                  <CheckCircle2 className="h-5 w-5 text-primary-600" />
-                )}
-              </button>
-            ))}
+            ].map((item) => {
+              const isClosed = !regStatus[item.id];
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => !isClosed && setRole(item.id)}
+                  disabled={isClosed}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left group ${
+                    isClosed
+                      ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
+                      : role === item.id 
+                        ? 'border-primary-600 bg-primary-50/30 shadow-soft' 
+                        : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-soft'
+                  }`}
+                >
+                  <div className={`p-3 rounded-xl transition-all ${
+                    isClosed
+                      ? 'bg-slate-200 text-slate-400'
+                      : role === item.id 
+                        ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' 
+                        : 'bg-slate-100 text-slate-500 group-hover:bg-primary-50 group-hover:text-primary-600'
+                  }`}>
+                    <item.icon className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-bold ${isClosed ? 'text-slate-400' : 'text-slate-900'}`}>{item.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {isClosed ? 'Registration is currently closed for this role.' : item.desc}
+                    </p>
+                  </div>
+                  {isClosed ? (
+                    <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                      Closed
+                    </span>
+                  ) : role === item.id ? (
+                    <CheckCircle2 className="h-5 w-5 text-primary-600" />
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
 
           <button

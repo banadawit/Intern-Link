@@ -406,6 +406,13 @@ export default function CommonFeedPage() {
     fetchPosts(1);
   }, []);
 
+  useEffect(() => {
+    if (sharePostId === null) return;
+    const close = () => setSharePostId(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [sharePostId]);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -445,6 +452,31 @@ export default function CommonFeedPage() {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return date.toLocaleDateString();
+  };
+
+  const getPostUrl = (postId: number) => {
+    const base = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${base}/common-feed?post=${postId}`;
+  };
+
+  const copyLink = async (postId: number) => {
+    const url = getPostUrl(postId);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const el = document.createElement('textarea');
+        el.value = url;
+        el.style.position = 'fixed';
+        el.style.opacity = '0';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+    } catch { /* ignore */ }
+    setCopyDone(true);
+    setTimeout(() => setCopyDone(false), 2500);
   };
 
   if (loading) {
@@ -651,7 +683,7 @@ export default function CommonFeedPage() {
                           />
                           <button
                             onClick={() => addComment(post.id)}
-                            disabled={!newComment.trim()}
+                            disabled={newComment.trim().length < 10}
                             className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed text-sm font-medium"
                           >
                             Post
@@ -749,6 +781,21 @@ export default function CommonFeedPage() {
           </div>
         </div>
       </div>
+
+      {/* Copy link toast */}
+      {copyDone && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 rounded-2xl bg-slate-900 px-5 py-3.5 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white">Link copied!</p>
+            <p className="text-xs text-slate-400">Ready to share anywhere</p>
+          </div>
+        </div>
+      )}
 
       {/* Create Post Modal */}
       {showCreatePost && (

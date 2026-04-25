@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
+import { sendSuccess, sendError } from '../utils/responseHelper';
 
 async function getCoordinator(userId: number) {
     return prisma.coordinator.findUnique({
@@ -13,7 +14,7 @@ async function getCoordinator(userId: number) {
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
     try {
         const coord = await getCoordinator(req.user!.userId);
-        if (!coord?.universityId) return res.status(403).json({ error: 'Not linked to a university.' });
+        if (!coord?.universityId) return sendError(res, 'Not linked to a university.', 403);
 
         const uniId = coord.universityId;
 
@@ -66,8 +67,9 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             return acc;
         }, {});
 
-        res.json({
+        const data = {
             universityId: uniId,
+            universityName: coord.university?.name || 'Your University',
             hods: { total: hodsAll.length, ...hodsByStatus },
             students: {
                 total: studentsAll.length,
@@ -78,9 +80,11 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             activeAssignments,
             reportsCount,
             recentNotifications,
-        });
+        };
+
+        return sendSuccess(res, data);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return sendError(res, e.message);
     }
 };
 
@@ -92,9 +96,9 @@ export const markNotificationRead = async (req: AuthRequest, res: Response) => {
             where: { id, recipientId: req.user!.userId },
             data: { is_read: true },
         });
-        res.json({ ok: true });
+        return sendSuccess(res, { id }, "Notification marked as read");
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return sendError(res, e.message);
     }
 };
 
@@ -112,9 +116,9 @@ export const getCompanies = async (req: AuthRequest, res: Response) => {
                 created_at: true,
             },
         });
-        res.json(companies);
+        return sendSuccess(res, companies);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return sendError(res, e.message);
     }
 };
 
@@ -122,7 +126,7 @@ export const getCompanies = async (req: AuthRequest, res: Response) => {
 export const getProposalsOverview = async (req: AuthRequest, res: Response) => {
     try {
         const coord = await getCoordinator(req.user!.userId);
-        if (!coord?.universityId) return res.status(403).json({ error: 'Not linked to a university.' });
+        if (!coord?.universityId) return sendError(res, 'Not linked to a university.', 403);
 
         const proposals = await prisma.internshipProposal.findMany({
             where: { universityId: coord.universityId },
@@ -132,9 +136,9 @@ export const getProposalsOverview = async (req: AuthRequest, res: Response) => {
                 company: { select: { id: true, name: true, official_email: true, approval_status: true } },
             },
         });
-        res.json(proposals);
+        return sendSuccess(res, proposals);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return sendError(res, e.message);
     }
 };
 
@@ -142,7 +146,7 @@ export const getProposalsOverview = async (req: AuthRequest, res: Response) => {
 export const getAssignmentsOverview = async (req: AuthRequest, res: Response) => {
     try {
         const coord = await getCoordinator(req.user!.userId);
-        if (!coord?.universityId) return res.status(403).json({ error: 'Not linked to a university.' });
+        if (!coord?.universityId) return sendError(res, 'Not linked to a university.', 403);
 
         const assignments = await prisma.internshipAssignment.findMany({
             where: { student: { universityId: coord.universityId } },
@@ -157,9 +161,9 @@ export const getAssignmentsOverview = async (req: AuthRequest, res: Response) =>
                 company: { select: { id: true, name: true, official_email: true } },
             },
         });
-        res.json(assignments);
+        return sendSuccess(res, assignments);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return sendError(res, e.message);
     }
 };
 
@@ -167,7 +171,7 @@ export const getAssignmentsOverview = async (req: AuthRequest, res: Response) =>
 export const getReportsOverview = async (req: AuthRequest, res: Response) => {
     try {
         const coord = await getCoordinator(req.user!.userId);
-        if (!coord?.universityId) return res.status(403).json({ error: 'Not linked to a university.' });
+        if (!coord?.universityId) return sendError(res, 'Not linked to a university.', 403);
 
         const reports = await prisma.report.findMany({
             where: { student: { universityId: coord.universityId } },
@@ -181,8 +185,8 @@ export const getReportsOverview = async (req: AuthRequest, res: Response) => {
                 },
             },
         });
-        res.json(reports);
+        return sendSuccess(res, reports);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return sendError(res, e.message);
     }
 };

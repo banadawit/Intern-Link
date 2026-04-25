@@ -1,0 +1,172 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../constants/storage_keys.dart';
+
+final appSessionServiceProvider = Provider<AppSessionService>((ref) => AppSessionService());
+
+class AppSessionService {
+  AppSessionService({
+    SharedPreferences? sharedPreferences,
+    FlutterSecureStorage? secureStorage,
+  }) : _sharedPreferences = sharedPreferences,
+       _secureStorage = secureStorage ?? const FlutterSecureStorage();
+
+  final SharedPreferences? _sharedPreferences;
+  final FlutterSecureStorage _secureStorage;
+
+  Future<SharedPreferences> get _prefs async {
+    if (_sharedPreferences != null) {
+      return _sharedPreferences;
+    }
+    return SharedPreferences.getInstance();
+  }
+
+  Future<bool> isFirstLaunch() async {
+    try {
+      final prefs = await _prefs;
+      final firstLaunchCompleted =
+          prefs.getBool(StorageKeys.firstLaunchCompleted) ?? false;
+      return !firstLaunchCompleted;
+    } catch (error, stackTrace) {
+      throw AppSessionException(
+        operation: 'isFirstLaunch',
+        message: 'Failed to read first launch state.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> setFirstLaunchCompleted() async {
+    try {
+      final prefs = await _prefs;
+      await prefs.setBool(StorageKeys.firstLaunchCompleted, true);
+    } catch (error, stackTrace) {
+      throw AppSessionException(
+        operation: 'setFirstLaunchCompleted',
+        message: 'Failed to persist first launch state.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// On Flutter Web, [FlutterSecureStorage] is unsupported and silently returns
+  /// null. We fall back to [SharedPreferences] (backed by window.localStorage).
+  Future<String?> getToken() async {
+    try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        final token = prefs.getString(StorageKeys.authToken);
+        final sanitized = token?.trim();
+        if (sanitized == null || sanitized.isEmpty) return null;
+        return sanitized;
+      }
+      final token = await _secureStorage.read(key: StorageKeys.authToken);
+      final sanitized = token?.trim();
+      if (sanitized == null || sanitized.isEmpty) return null;
+      return sanitized;
+    } catch (error, stackTrace) {
+      throw AppSessionException(
+        operation: 'getToken',
+        message: 'Failed to read auth token.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> saveToken(String token) async {
+    final sanitized = token.trim();
+    if (sanitized.isEmpty) {
+      throw const AppSessionException(
+        operation: 'saveToken',
+        message: 'Token cannot be empty.',
+      );
+    }
+
+    try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        await prefs.setString(StorageKeys.authToken, sanitized);
+        return;
+      }
+      await _secureStorage.write(key: StorageKeys.authToken, value: sanitized);
+    } catch (error, stackTrace) {
+      throw AppSessionException(
+        operation: 'saveToken',
+        message: 'Failed to save auth token.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> clearSession() async {
+    try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        await prefs.remove(StorageKeys.authToken);
+        await prefs.remove(StorageKeys.userRole);
+        return;
+      }
+      await _secureStorage.delete(key: StorageKeys.authToken);
+      await _secureStorage.delete(key: StorageKeys.userRole);
+    } catch (error, stackTrace) {
+      throw AppSessionException(
+        operation: 'clearSession',
+        message: 'Failed to clear session.',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<String?> getRole() async {
+    try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        return prefs.getString(StorageKeys.userRole);
+      }
+      return await _secureStorage.read(key: StorageKeys.userRole);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveRole(String role) async {
+    try {
+      if (kIsWeb) {
+        final prefs = await _prefs;
+        await prefs.setString(StorageKeys.userRole, role);
+        return;
+      }
+      await _secureStorage.write(key: StorageKeys.userRole, value: role);
+    } catch (_) {
+      // Non-critical — role caching is best-effort.
+    }
+  }
+}
+
+class AppSessionException implements Exception {
+  const AppSessionException({
+    required this.operation,
+    required this.message,
+    this.cause,
+    this.stackTrace,
+  });
+
+  final String operation;
+  final String message;
+  final Object? cause;
+  final StackTrace? stackTrace;
+
+  @override
+  String toString() {
+    return 'AppSessionException(operation: $operation, message: $message, cause: $cause)';
+  }
+}

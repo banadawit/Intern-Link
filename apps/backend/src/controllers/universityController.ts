@@ -5,6 +5,8 @@ import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail } from '.
 import { assertUniversityVerificationProposalExists } from '../utils/institutionVerification';
 import { attachVerificationSla } from '../utils/verificationSla';
 import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
+import { sendSuccess, sendError } from '../utils/responseHelper';
+import { notifyAllAdmins, NotificationType } from '../services/notification.service';
 
 // 1. Coordinator: Setup University Profile
 export const setupUniversity = async (req: AuthRequest, res: Response) => {
@@ -18,7 +20,7 @@ export const setupUniversity = async (req: AuthRequest, res: Response) => {
         });
 
         if (existingCoordinator) {
-            return res.status(400).json({ message: "You have already set up a university profile." });
+            return sendError(res, "You have already set up a university profile.", 400);
         }
 
         // Create University and link Coordinator in one transaction
@@ -47,9 +49,14 @@ export const setupUniversity = async (req: AuthRequest, res: Response) => {
             submitterEmail: coordinatorUser?.email,
         });
 
-        res.status(201).json({ message: "University profile submitted for approval.", university });
+        await notifyAllAdmins(
+            `New university registration pending approval: ${university.name}`,
+            NotificationType.ADMIN_ALERT
+        );
+
+        return sendSuccess(res, { university }, "University profile submitted for approval.", 201);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -59,9 +66,9 @@ export const getPendingUniversities = async (req: AuthRequest, res: Response) =>
         const pending = await prisma.university.findMany({
             where: { approval_status: 'PENDING' }
         });
-        res.json(pending.map((u) => attachVerificationSla(u)));
+        return sendSuccess(res, pending.map((u) => attachVerificationSla(u)), "Pending universities fetched");
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -77,11 +84,11 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
 
         const existing = await prisma.university.findUnique({ where: { id: uid } });
         if (!existing) {
-            return res.status(404).json({ error: 'University not found' });
+            return sendError(res, 'University not found', 404);
         }
 
         if (status === 'SUSPENDED' && existing.approval_status !== 'APPROVED') {
-            return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
+            return sendError(res, 'Only approved organizations can be suspended.', 400);
         }
 
         if (status === 'APPROVED') {
@@ -89,7 +96,7 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
                 try {
                     await assertUniversityVerificationProposalExists(uid);
                 } catch (e: any) {
-                    return res.status(400).json({ error: e.message || 'Approval validation failed' });
+                    return sendError(res, e.message || 'Approval validation failed', 400);
                 }
             }
         }
@@ -118,8 +125,8 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             );
         }
 
-        res.json({ message: `University is now ${status}`, updated });
+        return sendSuccess(res, { updated }, `University is now ${status}`);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
-};
+};

@@ -31,10 +31,11 @@ export default function SupervisorReportsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<StudentRow[]>("/supervisor/students");
-      setRows(res.data);
+      const res = await api.get<{ success: boolean; data: StudentRow[] }>("/supervisor/students");
+      const rows = Array.isArray(res.data.data) ? res.data.data : [];
+      setRows(rows);
       const init: Record<number, { technical: string; soft: string; comments: string }> = {};
-      for (const r of res.data) {
+      for (const r of rows) {
         init[r.student.id] = { technical: "", soft: "", comments: "" };
       }
       setForm(init);

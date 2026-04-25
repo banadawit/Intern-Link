@@ -23,6 +23,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             activeInternships,
             pendingCoordinators,
             pendingSupervisors,
+            totalEvaluations,
+            totalReports,
         ] = await Promise.all([
             prisma.university.count({ where: { approval_status: 'PENDING' } }),
             prisma.company.count({ where: { approval_status: 'PENDING' } }),
@@ -33,6 +35,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             prisma.internshipAssignment.count({ where: { status: 'ACTIVE' } }),
             prisma.coordinator.count({ where: { universityId: { equals: null } } }),
             prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'PENDING' } }),
+            prisma.finalEvaluation.count(),
+            prisma.report.count(),
         ]);
 
         res.json({
@@ -45,6 +49,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             activeInternships,
             pendingCoordinators,
             pendingSupervisors,
+            totalEvaluations,
+            totalReports,
             rejectedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'REJECTED' } }),
             rejectedSupervisors: await prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'REJECTED' } }),
             suspendedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'SUSPENDED' } }),
@@ -803,6 +809,97 @@ export const rejectCoordinator = async (req: AuthRequest, res: Response) => {
         );
 
         res.json({ message: 'Coordinator rejected' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// --- ANALYTICS ---
+
+export const getAnalytics = async (req: AuthRequest, res: Response) => {
+    try {
+        const now = new Date();
+        // Build last 6 months labels
+        const months: { label: string; start: Date; end: Date }[] = [];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+            months.push({
+                label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
+                start: d,
+                end,
+            });
+        }
+
+        // User growth — registrations per month per role
+        const userGrowthData = await Promise.all(
+            months.map(async ({ label, start, end }) => {
+                const [students, coordinators, supervisors, hods] = await Promise.all([
+                    prisma.user.count({ where: { role: 'STUDENT', created_at: { gte: start, lte: end } } }),
+                    prisma.user.count({ where: { role: 'COORDINATOR', created_at: { gte: start, lte: end } } }),
+                    prisma.user.count({ where: { role: 'SUPERVISOR', created_at: { gte: start, lte: end } } }),
+                    prisma.user.count({ where: { role: 'HOD', created_at: { gte: start, lte: end } } }),
+                ]);
+                return { label, students, coordinators, supervisors, hods, total: students + coordinators + supervisors + hods };
+            })
+        );
+
+        // Placement rates — internship status breakdown
+        const [totalStudents, placedStudents, completedStudents] = await Promise.all([
+            prisma.student.count(),
+            prisma.student.count({ where: { internship_status: 'PLACED' } }),
+            prisma.student.count({ where: { internship_status: 'COMPLETED' } }),
+        ]);
+        const pendingStudents = totalStudents - placedStudents - completedStudents;
+
+        // Placement rate per month (assignments created)
+        const placementTrend = await Promise.all(
+            months.map(async ({ label, start, end }) => {
+                const count = await prisma.internshipAssignment.count({
+                    where: { start_date: { gte: start, lte: end } },
+                });
+                return { label, count };
+            })
+        );
+
+        // Approval rates — proposals
+        const [totalProposals, approvedProposals, rejectedProposals, pendingProposals] = await Promise.all([
+            prisma.internshipProposal.count(),
+            prisma.internshipProposal.count({ where: { status: 'APPROVED' } }),
+            prisma.internshipProposal.count({ where: { status: 'REJECTED' } }),
+            prisma.internshipProposal.count({ where: { status: 'PENDING' } }),
+        ]);
+
+        // Org approval rates
+        const [totalUnis, approvedUnis, totalComps, approvedComps] = await Promise.all([
+            prisma.university.count(),
+            prisma.university.count({ where: { approval_status: 'APPROVED' } }),
+            prisma.company.count(),
+            prisma.company.count({ where: { approval_status: 'APPROVED' } }),
+        ]);
+
+        // Weekly plan submission trend
+        const weeklyPlanTrend = await Promise.all(
+            months.map(async ({ label, start, end }) => {
+                const [submitted, approved] = await Promise.all([
+                    prisma.weeklyPlan.count({ where: { submitted_at: { gte: start, lte: end } } }),
+                    prisma.weeklyPlan.count({ where: { status: 'APPROVED', submitted_at: { gte: start, lte: end } } }),
+                ]);
+                return { label, submitted, approved };
+            })
+        );
+
+        res.json({
+            userGrowth: userGrowthData,
+            placementStats: { total: totalStudents, placed: placedStudents, completed: completedStudents, pending: pendingStudents },
+            placementTrend,
+            proposalStats: { total: totalProposals, approved: approvedProposals, rejected: rejectedProposals, pending: pendingProposals },
+            orgStats: {
+                universities: { total: totalUnis, approved: approvedUnis },
+                companies: { total: totalComps, approved: approvedComps },
+            },
+            weeklyPlanTrend,
+        });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

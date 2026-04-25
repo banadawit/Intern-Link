@@ -9,6 +9,9 @@ import { generateVerificationToken, getVerificationTokenExpiry } from '../utils/
 import { sendVerificationEmail, sendPasswordResetEmail, sendCoordinatorHodReviewEmail } from '../services/email.service';
 import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
 import { sendNotification } from '../utils/notificationHelper';
+import { isRegistrationOpen, isMaintenanceMode } from './systemConfigController';
+import { sendSuccess, sendError } from '../utils/responseHelper';
+import { notifyAllAdmins, NotificationType } from '../services/notification.service';
 
 // ============================================
 // REGISTER - with email verification
@@ -20,13 +23,23 @@ export const register = async (req: Request, res: Response) => {
         // Get uploaded file if exists
         const file = (req as any).file;
 
+        // Maintenance mode check
+        const maintenance = await isMaintenanceMode();
+        if (maintenance.active) {
+            return sendError(res, maintenance.message, 503, 'MAINTENANCE_MODE');
+        }
+
+        // Check if registration is open for this role
+        const roleUpper = (role ?? '').toUpperCase();
+        const registrationOpen = await isRegistrationOpen(roleUpper);
+        if (!registrationOpen) {
+            return sendError(res, `Registration for ${roleUpper} accounts is currently closed. Please try again later.`, 403, 'REGISTRATION_CLOSED');
+        }
+
         // Check if user exists
         const userExists = await prisma.user.findUnique({ where: { email } });
         if (userExists) {
-            return res.status(400).json({ 
-                success: false,
-                message: "Email already exists" 
-            });
+            return sendError(res, "Email already exists", 400);
         }
 
         // Hash password
@@ -37,7 +50,6 @@ export const register = async (req: Request, res: Response) => {
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
         // Create user with verification token
-        const roleUpper = role.toUpperCase();
         const needsIndividualAdminApproval =
             roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR' || roleUpper === 'HOD';
 
@@ -73,6 +85,11 @@ export const register = async (req: Request, res: Response) => {
                 organizationId: newUser.id,
                 submitterEmail: email,
             });
+
+            await notifyAllAdmins(
+                `New Coordinator registration pending: ${full_name} (${email}) for ${university_name || 'Unknown University'}`,
+                NotificationType.ADMIN_ALERT
+            );
         } 
         else if (roleUpper === 'SUPERVISOR') {
             // First, find or create company
@@ -108,7 +125,17 @@ export const register = async (req: Request, res: Response) => {
                     organizationId: company.id,
                     submitterEmail: email,
                 });
+
+                await notifyAllAdmins(
+                    `New Company registration pending: ${company_name} (Submitted by ${full_name})`,
+                    NotificationType.ADMIN_ALERT
+                );
             }
+            
+            await notifyAllAdmins(
+                `New Supervisor registration pending: ${full_name} (${email}) for ${company_name || 'Existing Company'}`,
+                NotificationType.ADMIN_ALERT
+            );
             
             if (company) {
                 await prisma.supervisor.create({
@@ -125,19 +152,13 @@ export const register = async (req: Request, res: Response) => {
 
             if (!universityId || !department) {
                 await prisma.user.delete({ where: { id: newUser.id } });
-                return res.status(400).json({
-                    success: false,
-                    message: 'University and department are required for HoD registration.',
-                });
+                return sendError(res, 'University and department are required for HoD registration.', 400);
             }
 
             const university = await prisma.university.findUnique({ where: { id: universityId } });
             if (!university || university.approval_status !== 'APPROVED') {
                 await prisma.user.delete({ where: { id: newUser.id } });
-                return res.status(400).json({
-                    success: false,
-                    message: 'Selected university is not approved or does not exist.',
-                });
+                return sendError(res, 'Selected university is not approved or does not exist.', 400);
             }
 
             // Block HOD registration if the university has no approved coordinator yet
@@ -146,10 +167,7 @@ export const register = async (req: Request, res: Response) => {
             });
             if (!universityCoordinator) {
                 await prisma.user.delete({ where: { id: newUser.id } });
-                return res.status(400).json({
-                    success: false,
-                    message: `Your university "${university.name}" does not have a coordinator yet. Please make sure your coordinator registers and gets approved first before you register as Head of Department.`,
-                });
+                return sendError(res, `Your university "${university.name}" does not have a coordinator yet. Please make sure your coordinator registers and gets approved first before you register as Head of Department.`, 400);
             }
 
             await prisma.hodProfile.create({
@@ -166,7 +184,7 @@ export const register = async (req: Request, res: Response) => {
                 where: { universityId },
                 include: { user: { select: { email: true } } },
             });
-            const coordinatorEmails = coordinators.map((c) => c.user.email);
+            const coordinatorEmails = coordinators.map((c: any) => c.user.email);
 
             if (coordinatorEmails.length > 0) {
                 await sendCoordinatorHodReviewEmail(coordinatorEmails, {
@@ -185,13 +203,13 @@ export const register = async (req: Request, res: Response) => {
 
             if (!universityId) {
                 await prisma.user.delete({ where: { id: newUser.id } });
-                return res.status(400).json({ success: false, message: 'University is required for student registration.' });
+                return sendError(res, 'University is required for student registration.', 400);
             }
 
             const university = await prisma.university.findUnique({ where: { id: universityId } });
             if (!university || university.approval_status !== 'APPROVED') {
                 await prisma.user.delete({ where: { id: newUser.id } });
-                return res.status(400).json({ success: false, message: 'Selected university is not approved.' });
+                return sendError(res, 'Selected university is not approved.', 400);
             }
 
             // Validate HoD if provided
@@ -200,7 +218,7 @@ export const register = async (req: Request, res: Response) => {
                 hodProfile = await prisma.hodProfile.findUnique({ where: { id: hodId } });
                 if (!hodProfile || hodProfile.universityId !== universityId) {
                     await prisma.user.delete({ where: { id: newUser.id } });
-                    return res.status(400).json({ success: false, message: 'Selected department is not valid for this university.' });
+                    return sendError(res, 'Selected department is not valid for this university.', 400);
                 }
             }
 
@@ -245,40 +263,31 @@ export const register = async (req: Request, res: Response) => {
         };
 
         if (emailSendError) {
-            return res.status(201).json({ 
-                success: true,
-                message: "Registration successful, but verification email could not be sent. Please request a new verification link or contact support.",
-                error: emailSendError,
-                data: {
-                    ...baseResponse,
-                    emailSent: false
-                }
-            });
+            return sendSuccess(res, {
+                ...baseResponse,
+                emailSent: false,
+                emailError: emailSendError
+            }, "Registration successful, but verification email could not be sent. Please request a new verification link or contact support.", 201);
         }
 
-        res.status(201).json({ 
-            success: true,
-            message: roleUpper === 'COORDINATOR'
-                ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
-                : roleUpper === 'HOD'
-                ? "Registration submitted. Your University Coordinator will review your department credentials. You will be notified via email upon approval."
-                : roleUpper === 'STUDENT'
-                ? "Registration submitted. Your Head of Department will review your academic status. You will be notified via email once approved."
-                : "Registration successful. Please check your email to verify your account.",
-            data: {
-                ...baseResponse,
-                emailSent: true,
-                pendingAdminReview: roleUpper === 'COORDINATOR',
-                pendingCoordinatorReview: roleUpper === 'HOD',
-            }
-        });
+        const successMessage = roleUpper === 'COORDINATOR'
+            ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
+            : roleUpper === 'HOD'
+            ? "Registration submitted. Your University Coordinator will review your department credentials. You will be notified via email upon approval."
+            : roleUpper === 'STUDENT'
+            ? "Registration submitted. Your Head of Department will review your academic status. You will be notified via email once approved."
+            : "Registration successful. Please check your email to verify your account.";
+
+        return sendSuccess(res, {
+            ...baseResponse,
+            emailSent: true,
+            pendingAdminReview: roleUpper === 'COORDINATOR',
+            pendingCoordinatorReview: roleUpper === 'HOD',
+        }, successMessage, 201);
         
     } catch (error: any) {
         console.error('Registration error:', error);
-        res.status(500).json({ 
-            success: false,
-            error: error.message 
-        });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -292,10 +301,7 @@ export const login = async (req: Request, res: Response) => {
             typeof rawEmail === 'string' ? rawEmail.trim() : '';
 
         if (!email || typeof password !== 'string') {
-            return res.status(400).json({
-                success: false,
-                message: 'Email and password are required',
-            });
+            return sendError(res, 'Email and password are required', 400);
         }
 
         const user = await prisma.user.findFirst({
@@ -310,60 +316,39 @@ export const login = async (req: Request, res: Response) => {
             },
         });
         if (!user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password. Please try again.',
-            });
+            // Log security alert for unknown user login attempt
+            console.warn(`[Security] Login attempt for non-existent email: ${email}`);
+            // notifyAllAdmins(`Suspicious activity: Login attempt for non-existent user ${email}`, NotificationType.SECURITY_ALERT);
+            return sendError(res, 'Invalid email or password. Please try again.', 401);
         }
 
         // ✅ Check if email is verified
         if (user.verification_status !== 'APPROVED') {
             if (user.role === 'COORDINATOR') {
-                return res.status(401).json({
-                    success: false,
-                    message: "Your registration is pending administrator approval. You will receive an email once your university credentials are reviewed.",
-                    code: 'PENDING_ADMIN_REVIEW',
-                    email: user.email
-                });
+                return sendError(res, "Your registration is pending administrator approval. You will receive an email once your university credentials are reviewed.", 401, 'PENDING_ADMIN_REVIEW', { email: user.email });
             }
             if (user.role === 'HOD') {
-                return res.status(401).json({
-                    success: false,
-                    message: "Your registration is pending coordinator approval. You will receive an email once your department credentials are reviewed.",
-                    code: 'PENDING_COORDINATOR_REVIEW',
-                    email: user.email
-                });
+                return sendError(res, "Your registration is pending coordinator approval. You will receive an email once your department credentials are reviewed.", 401, 'PENDING_COORDINATOR_REVIEW', { email: user.email });
             }
             if (user.role === 'STUDENT') {
-                return res.status(401).json({
-                    success: false,
-                    message: "Your registration is pending Head of Department approval. You will receive an email once your academic status is reviewed.",
-                    code: 'PENDING_HOD_REVIEW',
-                    email: user.email
-                });
+                // For students, check if HOD has already approved them (email verification is the blocker)
+                const sp = user.studentProfile;
+                if (sp && sp.hod_approval_status === 'APPROVED') {
+                    return sendError(res, "Please verify your email before logging in. Check your inbox for the verification link.", 401, 'EMAIL_NOT_VERIFIED', { requiresVerification: true, email: user.email });
+                }
+                return sendError(res, "Please verify your email before logging in. After verification, your registration will be reviewed by your Head of Department.", 401, 'EMAIL_NOT_VERIFIED', { requiresVerification: true, email: user.email });
             }
             if (user.role === 'SUPERVISOR') {
-                return res.status(401).json({
-                    success: false,
-                    message: "Your registration is pending administrator approval. You will receive an email once your company credentials are reviewed.",
-                    code: 'PENDING_ADMIN_REVIEW',
-                    email: user.email
-                });
+                return sendError(res, "Your registration is pending administrator approval. You will receive an email once your company credentials are reviewed.", 401, 'PENDING_ADMIN_REVIEW', { email: user.email });
             }
-            return res.status(401).json({ 
-                success: false,
-                message: "Please verify your email before logging in",
-                requiresVerification: true,
-                email: user.email
-            });
+            return sendError(res, "Please verify your email before logging in", 401, 'EMAIL_NOT_VERIFIED', { requiresVerification: true, email: user.email });
         }
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid email or password. Please try again.',
-            });
+            console.warn(`[Security] Failed login attempt for user: ${email}`);
+            // If we wanted to track multiple failures, we'd do it here.
+            return sendError(res, 'Invalid email or password. Please try again.', 401);
         }
 
         // Institution verification (SRS): org must be admin-approved; coordinators/supervisors also need individual admin approval
@@ -371,19 +356,11 @@ export const login = async (req: Request, res: Response) => {
             const profile = user.coordinatorProfile;
             // Coordinator hasn't been approved yet (no university linked)
             if (!profile?.universityId) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Your coordinator account is pending administrator approval. You will receive an email once approved.',
-                    code: 'PENDING_ADMIN_REVIEW',
-                });
+                return sendError(res, 'Your coordinator account is pending administrator approval. You will receive an email once approved.', 403, 'PENDING_ADMIN_REVIEW');
             }
             const uni = profile?.university;
             if (!uni) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'No university profile is linked to this account. Contact support.',
-                    code: 'NO_INSTITUTION_PROFILE',
-                });
+                return sendError(res, 'No university profile is linked to this account. Contact support.', 403, 'NO_INSTITUTION_PROFILE');
             }
             if (uni.approval_status === 'SUSPENDED') {
                 return res.status(403).json({
@@ -394,55 +371,26 @@ export const login = async (req: Request, res: Response) => {
                 });
             }
             if (uni.approval_status !== 'APPROVED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'Your university’s verification proposal must be submitted and approved by an administrator before you can access the system.',
-                    code: 'INSTITUTION_NOT_APPROVED',
-                });
+                return sendError(res, 'Your university’s verification proposal must be submitted and approved by an administrator before you can access the system.', 403, 'INSTITUTION_NOT_APPROVED');
             }
             if (user.institution_access_approval !== 'APPROVED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'Your coordinator account must be individually approved by an administrator after your organization is verified.',
-                    code: 'INSTITUTION_MEMBER_NOT_APPROVED',
-                });
+                return sendError(res, 'Your coordinator account must be individually approved by an administrator after your organization is verified.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
             }
         }
 
         if (user.role === 'SUPERVISOR') {
             const company = user.supervisorProfile?.company;
             if (!company) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'No company profile is linked to this account. Contact support.',
-                    code: 'NO_INSTITUTION_PROFILE',
-                });
+                return sendError(res, 'No company profile is linked to this account. Contact support.', 403, 'NO_INSTITUTION_PROFILE');
             }
             if (company.approval_status === 'SUSPENDED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'This company organization has been suspended by an administrator. Contact support for assistance.',
-                    code: 'INSTITUTION_SUSPENDED',
-                });
+                return sendError(res, 'This company organization has been suspended by an administrator. Contact support for assistance.', 403, 'INSTITUTION_SUSPENDED');
             }
             if (company.approval_status !== 'APPROVED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'Your company’s verification proposal must be submitted and approved by an administrator before you can access the system.',
-                    code: 'INSTITUTION_NOT_APPROVED',
-                });
+                return sendError(res, 'Your company’s verification proposal must be submitted and approved by an administrator before you can access the system.', 403, 'INSTITUTION_NOT_APPROVED');
             }
             if (user.institution_access_approval !== 'APPROVED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'Your supervisor account must be individually approved by an administrator after your organization is verified.',
-                    code: 'INSTITUTION_MEMBER_NOT_APPROVED',
-                });
+                return sendError(res, 'Your supervisor account must be individually approved by an administrator after your organization is verified.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
             }
         }
 
@@ -450,18 +398,10 @@ export const login = async (req: Request, res: Response) => {
             const profile = user.hodProfile;
             const uni = profile?.university;
             if (!profile) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Your HoD profile is incomplete. Please re-register or contact support.',
-                    code: 'NO_INSTITUTION_PROFILE',
-                });
+                return sendError(res, 'Your HoD profile is incomplete. Please re-register or contact support.', 403, 'NO_INSTITUTION_PROFILE');
             }
             if (!uni) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'No university is linked to your HoD account. Contact support.',
-                    code: 'NO_INSTITUTION_PROFILE',
-                });
+                return sendError(res, 'No university is linked to your HoD account. Contact support.', 403, 'NO_INSTITUTION_PROFILE');
             }
             if (uni.approval_status === 'SUSPENDED') {
                 return res.status(403).json({
@@ -472,51 +412,26 @@ export const login = async (req: Request, res: Response) => {
                 });
             }
             if (uni.approval_status !== 'APPROVED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'Your university must be verified by an administrator before you can access the system.',
-                    code: 'INSTITUTION_NOT_APPROVED',
-                });
+                return sendError(res, 'Your university must be verified by an administrator before you can access the system.', 403, 'INSTITUTION_NOT_APPROVED');
             }
             if (user.institution_access_approval !== 'APPROVED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'Your HOD account is pending approval from your university coordinator.',
-                    code: 'INSTITUTION_MEMBER_NOT_APPROVED',
-                });
+                return sendError(res, 'Your HOD account is pending approval from your university coordinator.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
             }
         }
 
         if (user.role === 'STUDENT') {
             const uni = user.studentProfile?.university;
             if (uni && uni.approval_status === 'SUSPENDED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'Your university organization has been suspended by an administrator. Contact support for assistance.',
-                    code: 'INSTITUTION_SUSPENDED',
-                });
+                return sendError(res, 'Your university organization has been suspended by an administrator. Contact support for assistance.', 403, 'INSTITUTION_SUSPENDED');
             }
             if (uni && uni.approval_status !== 'APPROVED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'Your university account is not active yet. Verification must be submitted and approved by an administrator before you can sign in.',
-                    code: 'INSTITUTION_NOT_APPROVED',
-                });
+                return sendError(res, 'Your university account is not active yet. Verification must be submitted and approved by an administrator before you can sign in.', 403, 'INSTITUTION_NOT_APPROVED');
             }
             const sp = user.studentProfile;
             if (sp && sp.hod_approval_status !== 'APPROVED') {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        sp.hod_approval_status === 'REJECTED'
-                            ? 'Your registration was not approved by your Head of Department. Contact your department for assistance.'
-                            : 'Your registration is pending approval from your Head of Department.',
-                    code: 'HOD_APPROVAL_PENDING',
-                });
+                return sendError(res, sp.hod_approval_status === 'REJECTED'
+                    ? 'Your registration was not approved by your Head of Department. Contact your department for assistance.'
+                    : 'Your registration is pending approval from your Head of Department.', 403, 'HOD_APPROVAL_PENDING');
             }
         }
 
@@ -532,20 +447,18 @@ export const login = async (req: Request, res: Response) => {
             void incrementActivityForUser(user.id);
         }
 
-        res.json({ 
-            success: true,
-            data: {
-                token,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    fullName: user.full_name,
-                    role: user.role,
-                    isVerified: user.verification_status === 'APPROVED',
-                    institutionAccessApproval: user.institution_access_approval,
-                }
+        return sendSuccess(res, {
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                fullName: user.full_name,
+                role: user.role,
+                isVerified: user.verification_status === 'APPROVED',
+                institutionAccessApproval: user.institution_access_approval,
+                hodApprovalStatus: user.role === 'STUDENT' ? user.studentProfile?.hod_approval_status : undefined,
             }
-        });
+        }, "Login successful");
         
     } catch (error: any) {
         res.status(500).json({ 
@@ -563,10 +476,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
         const { token } = req.body;
 
         if (!token) {
-            return res.status(400).json({
-                success: false,
-                message: "Verification token is required"
-            });
+            return sendError(res, "Verification token is required", 400);
         }
 
         // Find user with valid token
@@ -580,10 +490,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
         });
 
         if (!user) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid or expired verification token. Please request a new one."
-            });
+            return sendError(res, "Invalid or expired verification token. Please request a new one.", 400);
         }
 
         // Update user as verified
@@ -596,17 +503,11 @@ export const verifyEmail = async (req: Request, res: Response) => {
             }
         });
 
-        res.status(200).json({
-            success: true,
-            message: "Email verified successfully. You can now login."
-        });
+        return sendSuccess(res, null, "Email verified successfully. You can now login.");
 
     } catch (error: any) {
         console.error('Verification error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -618,10 +519,7 @@ export const resendVerification = async (req: Request, res: Response) => {
         const { email } = req.body;
 
         if (!email) {
-            return res.status(400).json({
-                success: false,
-                message: "Email is required"
-            });
+            return sendError(res, "Email is required", 400);
         }
 
         const user = await prisma.user.findUnique({
@@ -636,10 +534,7 @@ export const resendVerification = async (req: Request, res: Response) => {
         }
 
         if (user.verification_status === 'APPROVED') {
-            return res.status(400).json({
-                success: false,
-                message: "Email is already verified"
-            });
+            return sendError(res, "Email is already verified", 400);
         }
 
         // Generate new token
@@ -659,17 +554,10 @@ export const resendVerification = async (req: Request, res: Response) => {
             await sendVerificationEmail(email, verificationToken);
         } catch (err: any) {
             console.error('Email resend error:', err);
-            return res.status(500).json({
-                success: false,
-                message: "Failed to resend verification email. Please check your email settings or contact support.",
-                error: err?.message || 'Unable to send verification email.'
-            });
+            return sendError(res, "Failed to resend verification email. Please check your email settings or contact support.", 500);
         }
 
-        res.status(200).json({
-            success: true,
-            message: "Verification email resent successfully"
-        });
+        return sendSuccess(res, null, "Verification email resent successfully");
 
     } catch (error: any) {
         console.error('Resend error:', error);
@@ -689,10 +577,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
         const user = await prisma.user.findUnique({ where: { email } });
 
         if (!user) {
-            return res.status(404).json({ 
-                success: false,
-                message: "User not found" 
-            });
+            return sendError(res, "User not found", 404);
         }
 
         // Generate a random token
@@ -721,17 +606,12 @@ export const forgotPassword = async (req: Request, res: Response) => {
             console.log(`   http://localhost:3000/reset-password/${resetToken}\n`);
         }
 
-        res.json({ 
-            success: true,
-            message: "Password reset email sent",
+        return sendSuccess(res, {
             token: process.env.NODE_ENV === 'development' ? resetToken : undefined
-        });
+        }, "Password reset email sent");
         
     } catch (error: any) {
-        res.status(500).json({ 
-            success: false,
-            error: error.message 
-        });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -743,10 +623,7 @@ export const resetPassword = async (req: Request, res: Response) => {
         const { token, newPassword } = req.body;
 
         if (!token || !newPassword) {
-            return res.status(400).json({
-                success: false,
-                message: "Token and new password are required"
-            });
+            return sendError(res, "Token and new password are required", 400);
         }
 
         // Find user with this token and check if token is still valid
@@ -758,10 +635,7 @@ export const resetPassword = async (req: Request, res: Response) => {
         });
 
         if (!user) {
-            return res.status(400).json({ 
-                success: false,
-                message: "Invalid or expired token" 
-            });
+            return sendError(res, "Invalid or expired token", 400);
         }
 
         // Hash new password
@@ -777,16 +651,10 @@ export const resetPassword = async (req: Request, res: Response) => {
             }
         });
 
-        res.json({ 
-            success: true,
-            message: "Password has been reset successfully" 
-        });
+        return sendSuccess(res, null, "Password has been reset successfully");
         
     } catch (error: any) {
-        res.status(500).json({ 
-            success: false,
-            error: error.message 
-        });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -798,10 +666,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
         const userId = (req as any).user?.userId;
         
         if (!userId) {
-            return res.status(401).json({
-                success: false,
-                message: "Unauthorized"
-            });
+            return sendError(res, "Unauthorized", 401);
         }
 
         const user = await prisma.user.findUnique({
@@ -823,29 +688,114 @@ export const getCurrentUser = async (req: Request, res: Response) => {
         });
 
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found"
-            });
+            return sendError(res, "User not found", 404);
         }
 
-        res.json({
-            success: true,
-            data: {
-                id: user.id,
-                email: user.email,
-                fullName: user.full_name,
-                role: user.role,
-                isVerified: user.verification_status === 'APPROVED',
-                institutionAccessApproval: user.institution_access_approval,
-                profile: user.studentProfile || user.coordinatorProfile || user.hodProfile || user.supervisorProfile
-            }
-        });
+        return sendSuccess(res, {
+            id: user.id,
+            email: user.email,
+            fullName: user.full_name,
+            role: user.role,
+            isVerified: user.verification_status === 'APPROVED',
+            institutionAccessApproval: user.institution_access_approval,
+            profile: user.studentProfile || user.coordinatorProfile || user.hodProfile || user.supervisorProfile
+        }, "User profile fetched");
 
     } catch (error: any) {
-        res.status(500).json({
-            success: false,
-            error: error.message
+        return sendError(res, error.message, 500);
+    }
+};
+
+// ============================================
+// UPDATE CURRENT USER PROFILE - Protected Route
+// ============================================
+export const updateCurrentUser = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user?.userId;
+        if (!userId) {
+            return sendError(res, "Unauthorized", 401);
+        }
+
+        const body = (req.body ?? {}) as Record<string, unknown>;
+        const rawFullName = (body['fullName'] ?? body['full_name'] ?? '').toString().trim();
+        const rawEmail = (body['email'] ?? '').toString().trim().toLowerCase();
+
+        if (!rawFullName && !rawEmail) {
+            return sendError(res, "Please provide at least one field to update.", 400);
+        }
+
+        const existing = await prisma.user.findUnique({ where: { id: userId } });
+        if (!existing) {
+            return sendError(res, "User not found", 404);
+        }
+
+        if (rawEmail && rawEmail !== existing.email) {
+            const emailTaken = await prisma.user.findUnique({ where: { email: rawEmail } });
+            if (emailTaken && emailTaken.id !== userId) {
+                return sendError(res, "Email is already in use.", 400);
+            }
+        }
+
+        const updated = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                ...(rawFullName ? { full_name: rawFullName } : {}),
+                ...(rawEmail ? { email: rawEmail } : {}),
+            },
         });
+
+        return sendSuccess(res, {
+            id: updated.id,
+            email: updated.email,
+            fullName: updated.full_name,
+            role: updated.role,
+        }, "Profile updated successfully.");
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
+    }
+};
+
+// ============================================
+// CHANGE PASSWORD - Protected Route
+// ============================================
+export const changePassword = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user?.userId;
+        if (!userId) {
+            return sendError(res, "Unauthorized", 401);
+        }
+
+        const { currentPassword, newPassword } = req.body as {
+            currentPassword?: string;
+            newPassword?: string;
+        };
+
+        if (!currentPassword || !newPassword) {
+            return sendError(res, "Current password and new password are required.", 400);
+        }
+
+        if (newPassword.length < 8) {
+            return sendError(res, "New password must be at least 8 characters long.", 400);
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return sendError(res, "User not found", 404);
+        }
+
+        const matches = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!matches) {
+            return sendError(res, "Current password is incorrect.", 400);
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({
+            where: { id: userId },
+            data: { password_hash: hashedPassword },
+        });
+
+        return sendSuccess(res, null, "Password changed successfully.");
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
     }
 };

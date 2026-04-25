@@ -13,6 +13,7 @@ interface User {
   role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
   isVerified: boolean;
   institutionAccessApproval?: string;
+  hodApprovalStatus?: string;
   profile?: {
     universityId?: number;
     universityName?: string;
@@ -27,6 +28,7 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   error: string | null;
+  _hydrated: boolean;
   
   // Actions
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
@@ -70,6 +72,7 @@ interface LoginResponse {
       role: 'ADMIN' | 'COORDINATOR' | 'HOD' | 'SUPERVISOR' | 'STUDENT';
       isVerified: boolean;
       institutionAccessApproval?: string;
+      hodApprovalStatus?: string;
     };
   };
 }
@@ -92,6 +95,7 @@ export const useAuth = create<AuthState>()(
       token: null,
       isLoading: false,
       error: null,
+      _hydrated: false,
 
       // ============================================
       // LOGIN - Real API Call
@@ -112,6 +116,7 @@ export const useAuth = create<AuthState>()(
               role: user.role,
               isVerified: user.isVerified,
               institutionAccessApproval: user.institutionAccessApproval,
+              hodApprovalStatus: user.hodApprovalStatus,
             },
             token,
             isLoading: false,
@@ -287,6 +292,11 @@ export const useAuth = create<AuthState>()(
     {
       name: 'auth-storage',
       partialize: (state) => ({ user: state.user, token: state.token }),
+      onRehydrateStorage: () => (_state, error) => {
+        if (!error) {
+          useAuth.setState({ _hydrated: true });
+        }
+      },
     }
   )
 );

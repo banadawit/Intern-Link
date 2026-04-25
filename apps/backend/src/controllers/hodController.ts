@@ -1,11 +1,11 @@
 import { Response } from 'express';
 import prisma from '../config/db';
 import { AuthRequest } from '../middlewares/authMiddleware';
-import type { ApprovalStatus } from '@prisma/client';
+import { ApprovalStatus } from '@prisma/client';
 import { departmentsMatch } from '../utils/hodScope';
-import { sendCompanyInviteEmail } from '../services/email.service';
+import { sendCompanyInviteEmail, sendStudentHodDecisionEmail } from '../services/email.service';
 import { sendNotification } from '../utils/notificationHelper';
-import { sendStudentHodDecisionEmail } from '../services/email.service';
+import { sendSuccess, sendError } from '../utils/responseHelper';
 
 async function getHodOr403(userId: number) {
     const hod = await prisma.hodProfile.findUnique({
@@ -18,9 +18,9 @@ async function getHodOr403(userId: number) {
 export const verifyStudent = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
+        if (!uid) return sendError(res, 'Unauthorized', 401);
         const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const { studentId, status, reason } = req.body as {
             studentId?: number;
@@ -29,15 +29,16 @@ export const verifyStudent = async (req: AuthRequest, res: Response) => {
         };
 
         if (!studentId || !status || !['APPROVED', 'REJECTED'].includes(status)) {
-            return res.status(400).json({ error: 'studentId and status (APPROVED | REJECTED) are required.' });
+            return sendError(res, 'studentId and status (APPROVED | REJECTED) are required.', 400);
         }
 
         const student = await prisma.student.findUnique({
             where: { id: studentId },
             include: { user: true },
         });
+        
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
-            return res.status(404).json({ error: 'Student not in your department.' });
+            return sendError(res, 'Student not in your department.', 404);
         }
 
         await prisma.student.update({
@@ -45,10 +46,17 @@ export const verifyStudent = async (req: AuthRequest, res: Response) => {
             data: { hod_approval_status: status as ApprovalStatus },
         });
 
-        // Notify the student via in-app + email
+        if (status === 'APPROVED') {
+            await prisma.user.update({
+                where: { id: student.userId },
+                data: { verification_status: 'APPROVED' },
+            });
+        }
+
         const msg = status === 'APPROVED'
-            ? `Your registration has been approved by your Head of Department. You can now access InternLink features.`
-            : `Your registration was not approved by your Head of Department. Reason: ${reason?.trim() || 'No reason provided.'}`;
+            ? `Your registration has been approved by your Head of Department.`
+            : `Your registration was not approved. Reason: ${reason?.trim() || 'No reason provided.'}`;
+        
         await sendNotification(student.userId, msg);
 
         await sendStudentHodDecisionEmail({
@@ -60,19 +68,18 @@ export const verifyStudent = async (req: AuthRequest, res: Response) => {
             reason: reason?.trim(),
         });
 
-        res.json({ message: `Student ${status.toLowerCase()}.`, studentId, status });
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, { studentId, status }, `Student ${status.toLowerCase()}.`);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
+        if (!uid) return sendError(res, 'Unauthorized', 401);
         const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const baseStudentWhere = {
             universityId: hod.universityId,
@@ -84,48 +91,69 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             select: { id: true, department: true, hod_approval_status: true, internship_status: true },
         });
         const inDept = students.filter((s) => departmentsMatch(s.department, hod.department));
-
-        const totalStudents = inDept.length;
-        const pendingApprovals = inDept.filter((s) => s.hod_approval_status === 'PENDING').length;
-        const placedStudents = inDept.filter((s) => s.internship_status === 'PLACED').length;
-
         const deptStudentIds = inDept.map((s) => s.id);
-        const reportCount =
-            deptStudentIds.length === 0
-                ? 0
-                : await prisma.report.count({
-                      where: { studentId: { in: deptStudentIds } },
-                  });
 
-        res.json({
-            totalStudents,
-            pendingApprovals,
-            placedStudents,
+        const [reportCount, proposalStats, recentStudents] = await Promise.all([
+            deptStudentIds.length === 0 ? Promise.resolve(0) : prisma.report.count({
+                where: { studentId: { in: deptStudentIds } },
+            }),
+            deptStudentIds.length === 0 ? Promise.resolve({ pending: 0, approved: 0, rejected: 0 }) :
+                prisma.internshipProposal.groupBy({
+                    by: ['status'],
+                    where: { studentId: { in: deptStudentIds } },
+                    _count: { status: true },
+                }).then((rows) => {
+                    const map: Record<string, number> = {};
+                    rows.forEach((r) => { map[r.status] = r._count.status; });
+                    return { pending: map['PENDING'] ?? 0, approved: map['APPROVED'] ?? 0, rejected: map['REJECTED'] ?? 0 };
+                }),
+            deptStudentIds.length === 0 ? Promise.resolve([]) :
+                prisma.student.findMany({
+                    where: { id: { in: deptStudentIds }, hod_approval_status: 'PENDING' },
+                    include: { user: { select: { full_name: true, email: true } } },
+                    orderBy: { id: 'desc' },
+                    take: 5,
+                }),
+        ]);
+
+        const approvedCount = inDept.filter((s) => s.hod_approval_status === 'APPROVED').length;
+        const rejectedCount = inDept.filter((s) => s.hod_approval_status === 'REJECTED').length;
+        const pendingCount = inDept.filter((s) => s.hod_approval_status === 'PENDING').length;
+        const placedCount = inDept.filter((s) => s.internship_status === 'PLACED').length;
+        const notPlacedApproved = inDept.filter((s) => s.hod_approval_status === 'APPROVED' && s.internship_status !== 'PLACED').length;
+
+        return sendSuccess(res, {
+            totalStudents: inDept.length,
+            pendingApprovals: pendingCount,
+            approvedStudents: approvedCount,
+            rejectedStudents: rejectedCount,
+            placedStudents: placedCount,
+            approvedNotPlaced: notPlacedApproved,
             reports: reportCount,
+            proposals: proposalStats,
+            recentPendingStudents: recentStudents.map((s) => ({
+                id: s.id,
+                full_name: s.user.full_name,
+                email: s.user.email,
+            })),
             university: { name: hod.university.name },
+            department: hod.department,
         });
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const getStudents = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
+        if (!uid) return sendError(res, 'Unauthorized', 401);
         const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const status = (req.query.status as string) || 'all';
-        const hodApprovalFilter: ApprovalStatus | 'all' | undefined =
-            status === 'pending'
-                ? 'PENDING'
-                : status === 'approved'
-                  ? 'APPROVED'
-                  : status === 'rejected'
-                    ? 'REJECTED'
-                    : 'all';
+        const hodApprovalFilter: ApprovalStatus | 'all' =
+            status === 'pending' ? 'PENDING' : status === 'approved' ? 'APPROVED' : status === 'rejected' ? 'REJECTED' : 'all';
 
         const rows = await prisma.student.findMany({
             where: {
@@ -140,55 +168,73 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
         });
 
         const filtered = rows.filter((s) => departmentsMatch(s.department, hod.department));
-        res.json(filtered);
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, filtered);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const approveStudent = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const studentId = parseInt(String(req.params.studentId), 10);
-        if (Number.isNaN(studentId)) return res.status(400).json({ error: 'Invalid student id' });
-
-        const student = await prisma.student.findUnique({ where: { id: studentId } });
+        const student = await prisma.student.findUnique({
+            where: { id: studentId },
+            include: { user: true },
+        });
+        
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
-            return res.status(404).json({ error: 'Student not in your department.' });
+            return sendError(res, 'Student not found in your department.', 404);
         }
 
         await prisma.student.update({
             where: { id: studentId },
             data: { hod_approval_status: 'APPROVED' },
         });
-        res.json({ message: 'Student approved.', studentId });
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+
+        await prisma.user.update({
+            where: { id: student.userId },
+            data: { verification_status: 'APPROVED' },
+        });
+
+        // Notify the student that they've been approved
+        await sendNotification(
+            student.userId,
+            `✅ Your registration has been approved by your Head of Department. You can now log in to access the system.`
+        );
+
+        // Send approval email (fire-and-forget)
+        sendStudentHodDecisionEmail({
+            to: student.user.email,
+            studentName: student.user.full_name,
+            universityName: hod.university.name,
+            department: hod.department,
+            decision: 'approved',
+        }).catch((e: any) => console.error('Approval email error:', e?.message));
+
+        return sendSuccess(res, { studentId }, 'Student approved.');
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const rejectStudent = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const studentId = parseInt(String(req.params.studentId), 10);
-        if (Number.isNaN(studentId)) return res.status(400).json({ error: 'Invalid student id' });
-
         const student = await prisma.student.findUnique({
             where: { id: studentId },
             include: { user: true },
         });
+
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
-            return res.status(404).json({ error: 'Student not in your department.' });
+            return sendError(res, 'Student not found in your department.', 404);
         }
 
         const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
@@ -198,9 +244,7 @@ export const rejectStudent = async (req: AuthRequest, res: Response) => {
             data: { hod_approval_status: 'REJECTED' },
         });
 
-        await sendNotification(student.userId,
-            `Your registration was not approved by your Head of Department.${reason ? ` Reason: ${reason}` : ''}`
-        );
+        await sendNotification(student.userId, `Your registration was not approved.${reason ? ` Reason: ${reason}` : ''}`);
 
         await sendStudentHodDecisionEmail({
             to: student.user.email,
@@ -211,19 +255,17 @@ export const rejectStudent = async (req: AuthRequest, res: Response) => {
             reason,
         });
 
-        res.json({ message: 'Student rejected.', studentId });
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, { studentId }, 'Student rejected.');
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const getCompanies = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
         const verifiedOnly = req.query.verifiedOnly !== 'false';
@@ -231,54 +273,70 @@ export const getCompanies = async (req: AuthRequest, res: Response) => {
         const companies = await prisma.company.findMany({
             where: {
                 ...(verifiedOnly ? { approval_status: 'APPROVED' } : {}),
-                ...(q
-                    ? {
-                          name: { contains: q, mode: 'insensitive' },
-                      }
-                    : {}),
+                ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
             },
             orderBy: { name: 'asc' },
             take: 200,
+            include: {
+                _count: {
+                    select: {
+                        supervisors: true,
+                        assignments: { where: { status: 'ACTIVE' } },
+                    },
+                },
+            },
         });
-        res.json(companies);
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+
+        const payload = companies.map((c) => ({
+            id: c.id,
+            name: c.name,
+            official_email: c.official_email,
+            address: c.address,
+            approval_status: c.approval_status,
+            created_at: c.created_at,
+            supervisorCount: c._count.supervisors,
+            activePlacementsCount: c._count.assignments,
+        }));
+
+        return sendSuccess(res, payload);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const sendProposal = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const { studentId, companyId, proposal_type, expected_duration_weeks, expected_outcomes } = req.body;
         const sid = parseInt(String(studentId), 10);
         const cid = parseInt(String(companyId), 10);
-        if (Number.isNaN(sid) || Number.isNaN(cid)) {
-            return res.status(400).json({ error: 'studentId and companyId are required' });
-        }
 
         const student = await prisma.student.findUnique({ where: { id: sid } });
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
-            return res.status(400).json({ error: 'Student not in your department or not found.' });
+            return sendError(res, 'Student not found in your department.', 400);
         }
+        
         if (student.hod_approval_status !== 'APPROVED') {
-            return res.status(400).json({ error: 'Student must be approved by HOD before placement.' });
+            return sendError(res, 'Student must be approved by HOD before placement.', 400);
+        }
+
+        if (student.internship_status === 'PLACED') {
+            return sendError(res, 'This student already has an active internship placement.', 400);
         }
 
         const company = await prisma.company.findUnique({ where: { id: cid } });
         if (!company || company.approval_status !== 'APPROVED') {
-            return res.status(400).json({ error: 'Company must be verified (approved).' });
+            return sendError(res, 'Company must be verified (approved).', 400);
         }
 
         const pendingDup = await prisma.internshipProposal.findFirst({
             where: { studentId: sid, companyId: cid, status: 'PENDING' },
         });
         if (pendingDup) {
-            return res.status(400).json({ error: 'A pending proposal already exists for this student and company.' });
+            return sendError(res, 'A pending proposal already exists.', 400);
         }
 
         const proposal = await prisma.internshipProposal.create({
@@ -286,27 +344,24 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
                 studentId: sid,
                 companyId: cid,
                 universityId: hod.universityId,
-                proposal_type: proposal_type || 'University_Initiated',
+                proposal_type: proposal_type || 'HoD_Initiated',
                 status: 'PENDING',
-                expected_duration_weeks:
-                    expected_duration_weeks != null ? parseInt(String(expected_duration_weeks), 10) : null,
+                expected_duration_weeks: expected_duration_weeks != null ? parseInt(String(expected_duration_weeks), 10) : null,
                 expected_outcomes: typeof expected_outcomes === 'string' ? expected_outcomes : null,
             },
         });
 
-        res.status(201).json({ message: 'Proposal sent.', proposal });
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, proposal, 'Proposal sent.', 201);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const getProposals = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const students = await prisma.student.findMany({
             where: { universityId: hod.universityId, department: { not: null } },
@@ -322,38 +377,26 @@ export const getProposals = async (req: AuthRequest, res: Response) => {
             },
             orderBy: { submitted_at: 'desc' },
         });
-        res.json(proposals);
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, proposals);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const inviteCompany = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const { email, company_name } = req.body;
-        if (!email || !company_name) {
-            return res.status(400).json({ error: 'email and company_name are required' });
-        }
+        if (!email || !company_name) return sendError(res, 'email and company_name are required', 400);
 
-        const existing = await prisma.company.findFirst({
-            where: { official_email: email },
-        });
-        if (existing) {
-            return res.status(400).json({ error: 'A company with this email already exists.' });
-        }
+        const existing = await prisma.company.findFirst({ where: { official_email: email } });
+        if (existing) return sendError(res, 'A company with this email already exists.', 400);
 
         const company = await prisma.company.create({
-            data: {
-                name: company_name,
-                official_email: email,
-                approval_status: 'PENDING',
-            },
+            data: { name: company_name, official_email: email, approval_status: 'PENDING' },
         });
 
         const hodUser = await prisma.user.findUnique({ where: { id: uid } });
@@ -364,19 +407,17 @@ export const inviteCompany = async (req: AuthRequest, res: Response) => {
             hodName: hodUser?.full_name ?? 'Head of Department',
         });
 
-        res.status(201).json({ message: 'Invitation sent.', companyId: company.id });
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, { companyId: company.id }, 'Invitation sent.', 201);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const getOpenLetterProposals = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const students = await prisma.student.findMany({
             where: { universityId: hod.universityId, department: { not: null } },
@@ -385,121 +426,94 @@ export const getOpenLetterProposals = async (req: AuthRequest, res: Response) =>
         const studentIds = students.filter((s) => departmentsMatch(s.department, hod.department)).map((s) => s.id);
 
         const proposals = await prisma.internshipProposal.findMany({
-            where: {
-                studentId: { in: studentIds },
-                proposal_type: 'Open_Letter',
-            },
+            where: { studentId: { in: studentIds }, proposal_type: 'Open_Letter' },
             include: {
                 student: { include: { user: { select: { full_name: true, email: true } } } },
                 company: true,
             },
             orderBy: { submitted_at: 'desc' },
         });
-        res.json(proposals);
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, proposals);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const updateOpenLetterProposal = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const id = parseInt(String(req.params.id), 10);
         const { status } = req.body as { status?: ApprovalStatus };
+        
         if (Number.isNaN(id) || !status || !['APPROVED', 'REJECTED'].includes(status)) {
-            return res.status(400).json({ error: 'Valid status (APPROVED|REJECTED) required' });
+            return sendError(res, 'Valid status (APPROVED|REJECTED) required', 400);
         }
 
         const proposal = await prisma.internshipProposal.findUnique({ where: { id } });
         if (!proposal || proposal.proposal_type !== 'Open_Letter') {
-            return res.status(404).json({ error: 'Open letter proposal not found.' });
+            return sendError(res, 'Open letter proposal not found.', 404);
         }
 
         const student = await prisma.student.findUnique({ where: { id: proposal.studentId } });
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
-            return res.status(403).json({ error: 'Not allowed.' });
+            return sendError(res, 'Unauthorized.', 403);
         }
 
         const updated = await prisma.internshipProposal.update({
             where: { id },
-            data: {
-                status,
-                responded_at: new Date(),
-            },
+            data: { status, responded_at: new Date() },
         });
-        res.json(updated);
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, updated);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const getReports = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const studentsInDept = await prisma.student.findMany({
-            where: {
-                universityId: hod.universityId,
-                department: { not: null },
-            },
+            where: { universityId: hod.universityId, department: { not: null } },
             select: { id: true, department: true },
         });
-        const deptIds = studentsInDept
-            .filter((s) => departmentsMatch(s.department, hod.department))
-            .map((s) => s.id);
-        const reports =
-            deptIds.length === 0
-                ? []
-                : await prisma.report.findMany({
-                      where: { studentId: { in: deptIds } },
-                      include: {
-                          student: {
-                              include: { user: { select: { full_name: true, email: true } } },
-                          },
-                      },
-                      orderBy: { generated_at: 'desc' },
-                  });
-        res.json(reports);
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        const deptIds = studentsInDept.filter((s) => departmentsMatch(s.department, hod.department)).map((s) => s.id);
+        
+        const reports = deptIds.length === 0 ? [] : await prisma.report.findMany({
+            where: { studentId: { in: deptIds } },
+            include: { student: { include: { user: { select: { full_name: true, email: true } } } } },
+            orderBy: { generated_at: 'desc' },
+        });
+        return sendSuccess(res, reports);
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
 
 export const getReportDownload = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
-        if (!uid) return res.status(401).json({ error: 'Unauthorized' });
-        const hod = await getHodOr403(uid);
-        if (!hod) return res.status(403).json({ error: 'HOD profile not found.' });
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const id = parseInt(String(req.params.id), 10);
-        if (Number.isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
-
         const report = await prisma.report.findUnique({
             where: { id },
             include: { student: true },
         });
-        if (!report) return res.status(404).json({ error: 'Report not found' });
-        if (
-            report.student.universityId !== hod.universityId ||
-            !departmentsMatch(report.student.department, hod.department)
-        ) {
-            return res.status(403).json({ error: 'Not allowed' });
+        
+        if (!report) return sendError(res, 'Report not found', 404);
+        if (report.student.universityId !== hod.universityId || !departmentsMatch(report.student.department, hod.department)) {
+            return sendError(res, 'Unauthorized', 403);
         }
 
-        res.json({ pdf_url: report.pdf_url, stamped: report.stamped, generated_at: report.generated_at });
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Server error';
-        res.status(500).json({ error: msg });
+        return sendSuccess(res, { pdf_url: report.pdf_url, stamped: report.stamped, generated_at: report.generated_at });
+    } catch (e: any) {
+        return sendError(res, e.message);
     }
 };
