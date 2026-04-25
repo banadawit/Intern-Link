@@ -26,18 +26,29 @@ class AiAssistantRepository {
   Future<List<AiMessageModel>> getHistory() async {
     final response = await apiClient.dio.get('/ai/chat/history');
     final data = response.data;
-    if (data is List) {
-      return data.map((e) => AiMessageModel.fromJson(e as Map<String, dynamic>)).toList();
+    if (data is Map && data['messages'] is List) {
+      final messages = data['messages'] as List;
+      return messages
+          .map((e) => AiMessageModel.fromJson(e as Map<String, dynamic>))
+          .toList();
     }
     return [];
   }
 
   Future<AiMessageModel> sendMessage(String message) async {
     final response = await apiClient.dio.post('/ai/chat', data: {'message': message});
+    final data = response.data;
+    final reply = data is Map ? (data['reply'] as String?) : null;
     return AiMessageModel(
       speaker: 'assistant',
-      content: response.data['response'] as String? ?? 'Error: No response',
+      content: (reply != null && reply.trim().isNotEmpty)
+          ? reply
+          : 'I could not generate a response right now.',
     );
+  }
+
+  Future<void> clearHistory() async {
+    await apiClient.dio.delete('/ai/chat/history');
   }
 }
 
