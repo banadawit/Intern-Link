@@ -91,11 +91,11 @@ class AdminRepository {
   }
 
   Future<void> updateUniversityStatus(int id, String status) async {
-    await apiClient.dio.patch('/admin/universities/$id/status', data: {'status': status});
+    await apiClient.dio.patch('/admin/university-status/$id', data: {'status': status});
   }
 
   Future<void> updateCompanyStatus(int id, String status) async {
-    await apiClient.dio.patch('/admin/companies/$id/status', data: {'status': status});
+    await apiClient.dio.patch('/admin/company-status/$id', data: {'status': status});
   }
 
   Future<void> approveCoordinator(int userId) async {

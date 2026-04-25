@@ -211,6 +211,19 @@ export const getFeed = async (req: AuthRequest, res: Response) => {
               views: true,
             },
           },
+          comments: {
+            take: 3,
+            orderBy: { createdAt: 'desc' },
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  full_name: true,
+                  role: true,
+                },
+              },
+            },
+          },
         },
       }),
       prisma.commonPost.count({ where: visibilityFilter }),
@@ -535,7 +548,7 @@ export const addComment = async (req: AuthRequest, res: Response) => {
     const { content, parentId } = req.body;
 
     // Validate content
-    const validation = ContentSanitizationService.validateContent(content);
+    const validation = ContentSanitizationService.validateComment(content);
     if (!validation.valid) {
       return res.status(400).json({
         success: false,

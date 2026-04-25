@@ -23,6 +23,7 @@ import '../../../supervisor/domain/entities/supervisor_entities.dart';
 import '../../../plans/domain/entities/weekly_plan.dart';
 import '../../../plans/presentation/screens/plans_screen.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../feed/data/feed_repository.dart';
 
 // ---------------------------------------------------------
 // STATE MANAGEMENT (NAVIGATION)
@@ -978,7 +979,7 @@ class _StudentHomeTab extends ConsumerWidget {
                         const SizedBox(height: 20),
                         _buildRecentActivity(context, isDark, plansAsync, proposalsAsync),
                         const SizedBox(height: 20),
-                        _buildCommonFeedPreview(context, isDark),
+                        FeedPreviewSection(),
                         const SizedBox(height: 24),
                         _buildQuickActions(context, ref, theme, isDark),
                         const SizedBox(height: 120),
@@ -1469,72 +1470,6 @@ class _StudentHomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildCommonFeedPreview(BuildContext context, bool isDark) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Common Feed',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-                ),
-              ),
-              TextButton(
-                onPressed: () => context.push(AppRoutes.commonFeed),
-                child: const Text('See all'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Announcements, opportunities, and updates.',
-            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
-          ),
-          const SizedBox(height: 14),
-          _feedPreviewRow(context, Icons.campaign_rounded, 'New announcement posted'),
-          const SizedBox(height: 10),
-          _feedPreviewRow(context, Icons.work_outline_rounded, 'Opportunity shared by a company'),
-          const SizedBox(height: 10),
-          _feedPreviewRow(context, Icons.lightbulb_outline_rounded, 'Experience tip from a student'),
-        ],
-      ),
-    );
-  }
-
-  Widget _feedPreviewRow(BuildContext context, IconData icon, String text) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, size: 18, color: theme.colorScheme.primary),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-        const Icon(Icons.chevron_right_rounded, size: 18),
-      ],
-    );
-  }
-
   Widget _buildQuickActions(BuildContext context, WidgetRef ref, ThemeData theme, bool isDark) {
     return Column(
       children: [
@@ -1599,7 +1534,6 @@ class _StudentHomeTab extends ConsumerWidget {
       ),
     );
   }
-}
 
   _InternshipStatus _deriveInternshipStatusLabel(StudentProfile profile) {
     if ((profile.internshipStatus).toUpperCase() == 'PLACED' || profile.companyName != null) {
@@ -1610,6 +1544,7 @@ class _StudentHomeTab extends ConsumerWidget {
     }
     return _InternshipStatus.notPlaced;
   }
+}
 
 class _ActivityItem {
   final IconData icon;
@@ -3340,6 +3275,7 @@ class _CoordinatorHomeTab extends ConsumerWidget {
                           successTitle: 'Placement Rate', successRate: stats.totalStudents > 0 ? (stats.activePlacements / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
                           submissionTitle: 'System Activity', submissionSub: 'Healthy'
                         ),
+                        FeedPreviewSection(),
                         const SizedBox(height: 32),
                         Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
@@ -4196,6 +4132,7 @@ class _HodOverviewTab extends ConsumerWidget {
                           successTitle: 'Submission Rate', successRate: stats.totalStudents > 0 ? (stats.totalReports / (stats.totalStudents * 4)).clamp(0.0, 1.0) : 0.0,
                           submissionTitle: 'Pending Approvals', submissionSub: '${stats.pendingApprovals} Pending'
                         ),
+                        FeedPreviewSection(),
                         const SizedBox(height: 32),
                         Text('Recent Reports', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
                         const SizedBox(height: 16),
@@ -4880,11 +4817,24 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 }
 
-class _AdminOverviewTab extends ConsumerWidget {
+class _AdminOverviewTab extends ConsumerStatefulWidget {
   const _AdminOverviewTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AdminOverviewTab> createState() => _AdminOverviewTabState();
+}
+
+class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
+  final _broadcastController = TextEditingController();
+
+  @override
+  void dispose() {
+    _broadcastController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final statsAsync = ref.watch(adminStatsProvider);
@@ -4930,10 +4880,9 @@ class _AdminOverviewTab extends ConsumerWidget {
                       _buildPendingApprovalsPreview(context, ref, isDark),
 
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Recent Audit Logs'),
-                      const SizedBox(height: 16),
                       _buildRecentActivitiesPreview(context, ref, isDark),
 
+                      FeedPreviewSection(),
                       const SizedBox(height: 32),
                       _buildSectionHeader(theme, 'Broadcast Announcement'),
                       const SizedBox(height: 16),
@@ -4947,7 +4896,7 @@ class _AdminOverviewTab extends ConsumerWidget {
                       const SizedBox(height: 32),
                       _buildSectionHeader(theme, 'Quick Navigation'),
                       const SizedBox(height: 16),
-                      _buildQuickNavigation(context, isDark),
+                      _buildQuickNavigation(context, ref, isDark),
 
                       const SizedBox(height: 120),
                     ]),
@@ -5163,7 +5112,9 @@ class _AdminOverviewTab extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           TextField(
+            controller: _broadcastController,
             style: const TextStyle(color: Colors.white),
+            maxLines: 2,
             decoration: InputDecoration(
               hintText: 'Type message to all users...',
               hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
@@ -5176,7 +5127,20 @@ class _AdminOverviewTab extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () {},
+              onPressed: () async {
+                final content = _broadcastController.text.trim();
+                if (content.isEmpty) return;
+                try {
+                  await ref.read(adminRepositoryProvider).broadcast('System Broadcast', content);
+                  _broadcastController.clear();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Broadcast sent successfully!')));
+                    ref.invalidate(feedProvider);
+                  }
+                } catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              },
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: theme.colorScheme.primary,
@@ -5228,22 +5192,22 @@ class _AdminOverviewTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickNavigation(BuildContext context, bool isDark) {
+  Widget _buildQuickNavigation(BuildContext context, WidgetRef ref, bool isDark) {
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        _buildNavChip(context, 'Users', Icons.group_rounded, isDark),
-        _buildNavChip(context, 'Companies', Icons.business_rounded, isDark),
-        _buildNavChip(context, 'Audit Logs', Icons.receipt_long_rounded, isDark),
-        _buildNavChip(context, 'Settings', Icons.settings_rounded, isDark),
+        _buildNavChip(context, ref, 'Orgs', Icons.business_rounded, isDark, 1),
+        _buildNavChip(context, ref, 'Users', Icons.group_rounded, isDark, 2),
+        _buildNavChip(context, ref, 'Audit Logs', Icons.receipt_long_rounded, isDark, 3),
+        _buildNavChip(context, ref, 'Config', Icons.settings_rounded, isDark, 4),
       ],
     );
   }
 
-  Widget _buildNavChip(BuildContext context, String label, IconData icon, bool isDark) {
+  Widget _buildNavChip(BuildContext context, WidgetRef ref, String label, IconData icon, bool isDark, int targetIndex) {
     return InkWell(
-      onTap: () {},
+      onTap: () => ref.read(dashboardIndexProvider.notifier).state = targetIndex,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -5463,91 +5427,252 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
 
   Widget _buildOrgCard(BuildContext context, WidgetRef ref, Map<String, dynamic> org, bool isDark) {
     final theme = Theme.of(context);
-    final status = org['approval_status'] as String;
+    final status = org['approval_status'] as String? ?? 'PENDING';
     final isPending = status == 'PENDING';
-    
+    final statusColor = switch (status) {
+      'APPROVED' => Colors.green,
+      'PENDING' => Colors.orange,
+      'SUSPENDED' => Colors.red,
+      'REJECTED' => Colors.grey,
+      _ => Colors.grey,
+    };
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        border: Border.all(
+          color: isPending ? Colors.orange.withOpacity(0.3) : isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        ),
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                child: Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, color: theme.colorScheme.primary),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(org['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16), overflow: TextOverflow.ellipsis),
-                    Text(
-                      '${org['type']} • ${org['official_email'] ?? 'No email'}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                    ),
-                    if (org['created_at'] != null)
-                      Text(
-                        'Submitted: ${org['created_at'].toString().split('T')[0]}',
-                        style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                      ),
-                  ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, color: theme.colorScheme.primary, size: 22),
                 ),
-              ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15), overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(org['official_email'] ?? 'No email', style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                  child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+            child: Row(children: [
+              Icon(Icons.category_rounded, size: 11, color: Colors.grey.shade400),
+              const SizedBox(width: 4),
+              Text(org['type'] ?? '', style: TextStyle(fontSize: 10, color: Colors.grey.shade400, fontWeight: FontWeight.bold)),
+              if (org['created_at'] != null) ...[
+                const SizedBox(width: 12),
+                Icon(Icons.calendar_today_rounded, size: 11, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Text(org['created_at'].toString().split('T')[0], style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+              ],
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Row(
+              children: [
+                if (isPending) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showRejectDialog(ref, org),
+                      icon: const Icon(Icons.close_rounded, size: 16),
+                      label: const Text('Reject'),
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _updateStatus(ref, org, 'APPROVED'),
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('Approve'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                ] else ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showOrgDetails(context, ref, org, isDark),
+                      icon: const Icon(Icons.info_outline_rounded, size: 16),
+                      label: const Text('Details'),
+                      style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  if (status == 'APPROVED')
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _updateStatus(ref, org, 'SUSPENDED'),
+                        icon: const Icon(Icons.block_rounded, size: 16),
+                        label: const Text('Suspend'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      ),
+                    )
+                  else if (status == 'SUSPENDED')
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _updateStatus(ref, org, 'APPROVED'),
+                        icon: const Icon(Icons.check_circle_rounded, size: 16),
+                        label: const Text('Activate'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      ),
+                    )
+                  else
+                    const Expanded(child: SizedBox()),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOrgDetails(BuildContext context, WidgetRef ref, Map<String, dynamic> org, bool isDark) {
+    final status = org['approval_status'] as String? ?? '';
+    final statusColor = switch (status) {
+      'APPROVED' => Colors.green,
+      'PENDING' => Colors.orange,
+      'SUSPENDED' => Colors.red,
+      _ => Colors.grey,
+    };
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (_, controller) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 24),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                  child: Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, size: 28, color: Theme.of(context).colorScheme.primary),
+                ),
+                const SizedBox(width: 16),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                  ),
+                ])),
+              ]),
+              const SizedBox(height: 32),
+              _detailRow(Icons.category_rounded, 'Type', org['type']?.toString() ?? '-'),
+              _detailRow(Icons.email_rounded, 'Official Email', org['official_email']?.toString() ?? '-'),
+              if (org['phone'] != null) _detailRow(Icons.phone_rounded, 'Phone', org['phone'].toString()),
+              if (org['address'] != null) _detailRow(Icons.location_on_rounded, 'Address', org['address'].toString()),
+              if (org['website'] != null) _detailRow(Icons.language_rounded, 'Website', org['website'].toString()),
+              if (org['created_at'] != null) _detailRow(Icons.calendar_today_rounded, 'Registered', org['created_at'].toString().split('T')[0]),
+              if (org['rejection_reason'] != null && org['rejection_reason'].toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.withOpacity(0.3))),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.info_outline_rounded, color: Colors.red, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text('Rejection Reason: ${org['rejection_reason']}', style: const TextStyle(color: Colors.red, fontSize: 13))),
+                  ]),
+                ),
+              ],
+              const SizedBox(height: 24),
+              if (status == 'SUSPENDED')
+                FilledButton.icon(
+                  onPressed: () { Navigator.pop(ctx); _updateStatus(ref, org, 'APPROVED'); },
+                  icon: const Icon(Icons.check_circle_rounded),
+                  label: const Text('Reactivate Organization'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                ),
+              const SizedBox(height: 24),
             ],
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              if (isPending) ...[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _updateStatus(ref, org, 'REJECTED'),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent)),
-                    child: const Text('Reject'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => _updateStatus(ref, org, 'APPROVED'),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                    child: const Text('Approve'),
-                  ),
-                ),
-              ] else ...[
-                 Expanded(
-                   child: OutlinedButton(
-                     onPressed: () {},
-                     child: const Text('View Details'),
-                   ),
-                 ),
-                 const SizedBox(width: 12),
-                 if (status == 'APPROVED')
-                   Expanded(
-                     child: FilledButton(
-                       onPressed: () => _updateStatus(ref, org, 'SUSPENDED'),
-                       style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-                       child: const Text('Suspend'),
-                     ),
-                   )
-                 else if (status == 'SUSPENDED')
-                   Expanded(
-                     child: FilledButton(
-                       onPressed: () => _updateStatus(ref, org, 'APPROVED'),
-                       style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                       child: const Text('Activate'),
-                     ),
-                   ),
-              ],
-            ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 18, color: Colors.grey),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        ])),
+      ]),
+    );
+  }
+
+  void _showRejectDialog(WidgetRef ref, Map<String, dynamic> org) {
+    final reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Reject Organization', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              child: Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonCtrl, maxLines: 3,
+              decoration: InputDecoration(hintText: 'Enter rejection reason (optional)...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), contentPadding: const EdgeInsets.all(12)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () { Navigator.pop(ctx); _updateStatus(ref, org, 'REJECTED'); },
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Confirm Reject'),
           ),
         ],
       ),
@@ -5557,19 +5682,21 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
   Future<void> _updateStatus(WidgetRef ref, Map<String, dynamic> org, String status) async {
     try {
       final repo = ref.read(adminRepositoryProvider);
+      final id = org['id'] as int;
       if (org['type'] == 'University') {
-        await repo.updateUniversityStatus(org['id'], status);
+        await repo.updateUniversityStatus(id, status);
       } else {
-        await repo.updateCompanyStatus(org['id'], status);
+        await repo.updateCompanyStatus(id, status);
       }
       ref.invalidate(allUniversitiesProvider);
       ref.invalidate(allCompaniesProvider);
       ref.invalidate(adminStatsProvider);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Status updated to $status')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${org['name']} -> $status')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
+
 
   void _showInviteDialog(BuildContext context) {
     showDialog(
@@ -5600,21 +5727,32 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
 
 class _AdminUsersTab extends ConsumerStatefulWidget {
   const _AdminUsersTab();
-
   @override
   ConsumerState<_AdminUsersTab> createState() => _AdminUsersTabState();
 }
 
-class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
+class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   String _searchQuery = '';
-  String _selectedRole = 'All';
-  String _selectedStatus = 'All';
+  String _statusFilter = 'ALL'; // ALL, PENDING, APPROVED, REJECTED, SUSPENDED
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final usersAsync = ref.watch(allUsersProvider);
+    final statsAsync = ref.watch(adminStatsProvider);
 
     return Material(
       color: Colors.transparent,
@@ -5629,293 +5767,527 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> {
             ],
           ),
         ),
-        child: usersAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
-          data: (users) {
-            final filteredUsers = users.where((u) {
-              final matchesSearch = (u['full_name'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                  (u['email'] ?? '').toString().toLowerCase().contains(_searchQuery.toLowerCase());
-              final matchesRole = _selectedRole == 'All' || u['role'] == _selectedRole;
-              final matchesStatus = _selectedStatus == 'All' || 
-                  (_selectedStatus == 'Active' && u['isApproved'] == true) ||
-                  (_selectedStatus == 'Suspended' && u['isApproved'] == false);
-              return matchesSearch && matchesRole && matchesStatus;
-            }).toList();
-
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                ModernSliverAppBar(
-                  title: 'User Management',
-                  subtitle: 'Control platform access',
-                  profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
-                  gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
-                  backgroundIcon: Icons.people_rounded,
-                  actions: [
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.file_download_rounded, color: Colors.white),
-                      tooltip: 'Export CSV',
-                    ),
-                  ],
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.all(24),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      _buildOverviewRow(users, isDark),
-                      const SizedBox(height: 32),
-                      _buildSearchAndFilters(theme, isDark),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Directory (${filteredUsers.length})', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                          TextButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(Icons.bolt_rounded, size: 16),
-                            label: const Text('Bulk Actions'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ]),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _buildUserCard(context, filteredUsers[index], isDark),
-                      childCount: filteredUsers.length,
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOverviewRow(List<dynamic> users, bool isDark) {
-    final total = users.length;
-    final active = users.where((u) => u['isApproved'] == true).length;
-    final suspended = users.where((u) => u['isApproved'] == false).length;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildMiniStat('Total', total.toString(), Icons.group_rounded, Colors.blue, isDark),
-          const SizedBox(width: 12),
-          _buildMiniStat('Active', active.toString(), Icons.check_circle_rounded, Colors.green, isDark),
-          const SizedBox(width: 12),
-          _buildMiniStat('Suspended', suspended.toString(), Icons.block_rounded, Colors.red, isDark),
-          const SizedBox(width: 12),
-          _buildMiniStat('New Today', '0', Icons.fiber_new_rounded, Colors.orange, isDark),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniStat(String label, String value, IconData icon, Color color, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchAndFilters(ThemeData theme, bool isDark) {
-    return Column(
-      children: [
-        TextField(
-          onChanged: (v) => setState(() => _searchQuery = v),
-          decoration: InputDecoration(
-            hintText: 'Search by name or email...',
-            prefixIcon: const Icon(Icons.search_rounded),
-            filled: true,
-            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildFilterChip('Role: $_selectedRole', Icons.badge_rounded, () => _showFilterDialog('Role')),
-              const SizedBox(width: 8),
-              _buildFilterChip('Status: $_selectedStatus', Icons.verified_user_rounded, () => _showFilterDialog('Status')),
-              const SizedBox(width: 8),
-              _buildFilterChip('Joined: All Time', Icons.calendar_today_rounded, () {}),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFilterChip(String label, IconData icon, VoidCallback onTap) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down_rounded, size: 16, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserCard(BuildContext context, dynamic user, bool isDark) {
-    final theme = Theme.of(context);
-    final statusColor = user['isApproved'] == true ? Colors.green : Colors.red;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-            child: Text(user['full_name']?[0].toUpperCase() ?? '?', 
-              style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        user['full_name'] ?? 'Unknown',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                      child: Text(user['isApproved'] == true ? 'ACTIVE' : 'SUSPENDED', 
-                        style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.w900)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${user['role']} • ${user['email']}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            ModernSliverAppBar(
+              title: 'Staff Management',
+              subtitle: 'Coordinators & Supervisors',
+              profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
+              gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
+              backgroundIcon: Icons.manage_accounts_rounded,
             ),
-          ),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert_rounded, size: 20, color: Colors.grey),
-            itemBuilder: (ctx) => [
-              const PopupMenuItem(value: 'view', child: Row(children: [Icon(Icons.visibility_rounded, size: 18), SizedBox(width: 12), Text('View Details')])),
-              PopupMenuItem(
-                value: user['isApproved'] == true ? 'suspend' : 'activate', 
-                child: Row(children: [
-                  Icon(user['isApproved'] == true ? Icons.block_rounded : Icons.check_circle_rounded, size: 18), 
-                  const SizedBox(width: 12), 
-                  Text(user['isApproved'] == true ? 'Suspend' : 'Activate')
-                ])
-              ),
-              const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_forever_rounded, size: 18, color: Colors.redAccent), SizedBox(width: 12), Text('Delete User', style: TextStyle(color: Colors.redAccent))])),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFilterDialog(String type) {
-    final options = type == 'Role' 
-      ? ['All', 'STUDENT', 'SUPERVISOR', 'COORDINATOR', 'ADMIN', 'HOD']
-      : ['All', 'Active', 'Suspended'];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Select $type', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: options.map((opt) {
-                final isSelected = type == 'Role' ? _selectedRole == opt : _selectedStatus == opt;
-                return ChoiceChip(
-                  label: Text(opt),
-                  selected: isSelected,
-                  onSelected: (s) {
-                    setState(() {
-                      if (type == 'Role') _selectedRole = opt;
-                      else _selectedStatus = opt;
-                    });
-                    Navigator.pop(ctx);
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: statsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (stats) {
+                    final pendingSupsCount = ref.watch(pendingSupervisorsProvider).asData?.value.length ?? 0;
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _miniStat('Pending Coords', stats.pendingApprovals.toString(), Icons.pending_rounded, Colors.orange, isDark),
+                        const SizedBox(width: 12),
+                        _miniStat('Pending Sups', pendingSupsCount.toString(), Icons.pending_actions_rounded, Colors.purple, isDark),
+                        const SizedBox(width: 12),
+                        _miniStat('Total Users', stats.totalUsers.toString(), Icons.group_rounded, Colors.blue, isDark),
+                      ]),
+                    );
                   },
-                );
-              }).toList(),
+                ),
+              ),
             ),
-            const SizedBox(height: 24),
+            SliverToBoxAdapter(
+              child: Material(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: theme.colorScheme.primary,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: theme.colorScheme.primary,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  tabs: const [
+                    Tab(icon: Icon(Icons.school_rounded, size: 18), text: 'Coordinators'),
+                    Tab(icon: Icon(Icons.work_rounded, size: 18), text: 'Supervisors'),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                child: Column(children: [
+                  TextField(
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search by name or email...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(children: ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'].map((s) {
+                      final selected = _statusFilter == s;
+                      final color = switch (s) {
+                        'APPROVED' => Colors.green,
+                        'PENDING' => Colors.orange,
+                        'REJECTED' => Colors.red,
+                        'SUSPENDED' => Colors.grey,
+                        _ => theme.colorScheme.primary,
+                      };
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(s, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: selected ? Colors.white : null)),
+                          selected: selected,
+                          selectedColor: color,
+                          onSelected: (_) => setState(() => _statusFilter = s),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      );
+                    }).toList()),
+                  ),
+                ]),
+              ),
+            ),
           ],
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildCoordinatorsTab(isDark),
+              _buildSupervisorsTab(isDark),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildCoordinatorsTab(bool isDark) {
+    final pendingAsync = ref.watch(pendingCoordinatorsProvider);
+    // We merge pending + others using the allUsers data for approved/rejected/suspended
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(pendingCoordinatorsProvider);
+        ref.invalidate(adminStatsProvider);
+      },
+      child: pendingAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (coordinators) {
+          final filtered = coordinators.where((c) {
+            final name = (c['user']?['full_name'] ?? '').toString().toLowerCase();
+            final email = (c['user']?['email'] ?? '').toString().toLowerCase();
+            final status = (c['user']?['institution_access_approval'] ?? 'PENDING').toString();
+            final matchesSearch = name.contains(_searchQuery.toLowerCase()) || email.contains(_searchQuery.toLowerCase());
+            final matchesStatus = _statusFilter == 'ALL' || status == _statusFilter;
+            return matchesSearch && matchesStatus;
+          }).toList();
+
+          if (filtered.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.school_rounded, size: 48, color: Colors.grey.shade300),
+                  const SizedBox(height: 12),
+                  Text('No coordinators found', style: TextStyle(color: Colors.grey.shade500)),
+                ]),
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
+            itemCount: filtered.length,
+            itemBuilder: (context, i) => _buildCoordinatorCard(context, filtered[i], isDark),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSupervisorsTab(bool isDark) {
+    final pendingAsync = ref.watch(pendingSupervisorsProvider);
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(pendingSupervisorsProvider);
+        ref.invalidate(adminStatsProvider);
+      },
+      child: pendingAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (supervisors) {
+          final filtered = supervisors.where((s) {
+            final name = (s['user']?['full_name'] ?? '').toString().toLowerCase();
+            final email = (s['user']?['email'] ?? '').toString().toLowerCase();
+            final status = (s['user']?['institution_access_approval'] ?? 'PENDING').toString();
+            final matchesSearch = name.contains(_searchQuery.toLowerCase()) || email.contains(_searchQuery.toLowerCase());
+            final matchesStatus = _statusFilter == 'ALL' || status == _statusFilter;
+            return matchesSearch && matchesStatus;
+          }).toList();
+
+          if (filtered.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.work_rounded, size: 48, color: Colors.grey.shade300),
+                  const SizedBox(height: 12),
+                  Text('No supervisors found', style: TextStyle(color: Colors.grey.shade500)),
+                ]),
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
+            itemCount: filtered.length,
+            itemBuilder: (context, i) => _buildSupervisorCard(context, filtered[i], isDark),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCoordinatorCard(BuildContext context, dynamic coord, bool isDark) {
+    final theme = Theme.of(context);
+    final user = coord['user'] as Map<String, dynamic>? ?? {};
+    final approval = (user['institution_access_approval'] ?? 'PENDING') as String;
+    final isPending = approval == 'PENDING';
+    final uniName = coord['pending_university_name'] as String? ?? 'University not linked';
+    final statusColor = switch (approval) {
+      'APPROVED' => Colors.green,
+      'PENDING' => Colors.orange,
+      'REJECTED' => Colors.red,
+      'SUSPENDED' => Colors.grey,
+      _ => Colors.grey,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isPending ? Colors.orange.withOpacity(0.35) : isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        ),
+      ),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Row(children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
+              child: Text(
+                (user['full_name'] ?? '?').toString().isNotEmpty ? user['full_name'].toString()[0].toUpperCase() : '?',
+                style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(user['full_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15), overflow: TextOverflow.ellipsis),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(approval, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900)),
+                ),
+              ]),
+              const SizedBox(height: 3),
+              Text(user['email'] ?? '', style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              Row(children: [
+                Icon(Icons.account_balance_rounded, size: 11, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Expanded(child: Text(uniName, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic), overflow: TextOverflow.ellipsis)),
+              ]),
+            ])),
+          ]),
+        ),
+        if (isPending)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            child: Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _rejectCoordinator(coord),
+                  icon: const Icon(Icons.close_rounded, size: 16),
+                  label: const Text('Reject'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => _approveCoordinator(coord),
+                  icon: const Icon(Icons.check_rounded, size: 16),
+                  label: const Text('Approve'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ]),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+            child: Row(children: [
+              if (user['created_at'] != null) ...[
+                Icon(Icons.calendar_today_rounded, size: 11, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Text(user['created_at'].toString().split('T')[0], style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+                const Spacer(),
+              ],
+              if (approval == 'APPROVED')
+                TextButton.icon(
+                  onPressed: () => _rejectCoordinator(coord),
+                  icon: const Icon(Icons.block_rounded, size: 14),
+                  label: const Text('Revoke', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(foregroundColor: Colors.redAccent, visualDensity: VisualDensity.compact),
+                ),
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  Widget _buildSupervisorCard(BuildContext context, dynamic sup, bool isDark) {
+    final theme = Theme.of(context);
+    final user = sup['user'] as Map<String, dynamic>? ?? {};
+    final company = sup['company'] as Map<String, dynamic>? ?? {};
+    final approval = (user['institution_access_approval'] ?? 'PENDING') as String;
+    final isPending = approval == 'PENDING';
+    final statusColor = switch (approval) {
+      'APPROVED' => Colors.green,
+      'PENDING' => Colors.orange,
+      'REJECTED' => Colors.red,
+      'SUSPENDED' => Colors.grey,
+      _ => Colors.grey,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isPending ? Colors.purple.withOpacity(0.35) : isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        ),
+      ),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Row(children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: Colors.purple.withOpacity(0.12),
+              child: Text(
+                (user['full_name'] ?? '?').toString().isNotEmpty ? user['full_name'].toString()[0].toUpperCase() : '?',
+                style: const TextStyle(color: Colors.purple, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(user['full_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15), overflow: TextOverflow.ellipsis),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(approval, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900)),
+                ),
+              ]),
+              const SizedBox(height: 3),
+              Text(user['email'] ?? '', style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              if (company['name'] != null)
+                Row(children: [
+                  Icon(Icons.business_rounded, size: 11, color: Colors.grey.shade400),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text(company['name'].toString(), style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic), overflow: TextOverflow.ellipsis)),
+                ]),
+            ])),
+          ]),
+        ),
+        if (isPending)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            child: Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _rejectSupervisor(sup),
+                  icon: const Icon(Icons.close_rounded, size: 16),
+                  label: const Text('Reject'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => _approveSupervisor(sup),
+                  icon: const Icon(Icons.check_rounded, size: 16),
+                  label: const Text('Approve'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ]),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+            child: Row(children: [
+              if (user['created_at'] != null) ...[
+                Icon(Icons.calendar_today_rounded, size: 11, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Text(user['created_at'].toString().split('T')[0], style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+                const Spacer(),
+              ],
+              if (approval == 'APPROVED')
+                TextButton.icon(
+                  onPressed: () => _rejectSupervisor(sup),
+                  icon: const Icon(Icons.block_rounded, size: 14),
+                  label: const Text('Revoke', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(foregroundColor: Colors.redAccent, visualDensity: VisualDensity.compact),
+                ),
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  Widget _miniStat(String label, String value, IconData icon, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Row(children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 10),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+          Text(label, style: TextStyle(fontSize: 9, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+        ]),
+      ]),
+    );
+  }
+
+  Future<void> _approveCoordinator(dynamic coord) async {
+    final userId = (coord['user']?['id'] ?? coord['userId']) as int?;
+    if (userId == null) return;
+    try {
+      await ref.read(adminRepositoryProvider).approveCoordinator(userId);
+      ref.invalidate(pendingCoordinatorsProvider);
+      ref.invalidate(adminStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${coord['user']?['full_name']} approved as Coordinator'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _rejectCoordinator(dynamic coord) async {
+    final userId = (coord['user']?['id'] ?? coord['userId']) as int?;
+    if (userId == null) return;
+    final name = coord['user']?['full_name'] ?? 'This coordinator';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Reject Coordinator', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Text('Are you sure you want to reject $name?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Colors.redAccent), child: const Text('Reject')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(adminRepositoryProvider).rejectCoordinator(userId);
+      ref.invalidate(pendingCoordinatorsProvider);
+      ref.invalidate(adminStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$name rejected'), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _approveSupervisor(dynamic sup) async {
+    final userId = (sup['user']?['id'] ?? sup['userId']) as int?;
+    if (userId == null) return;
+    try {
+      await ref.read(adminRepositoryProvider).approveSupervisor(userId);
+      ref.invalidate(pendingSupervisorsProvider);
+      ref.invalidate(adminStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${sup['user']?['full_name']} approved as Supervisor'), backgroundColor: Colors.purple),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _rejectSupervisor(dynamic sup) async {
+    final userId = (sup['user']?['id'] ?? sup['userId']) as int?;
+    if (userId == null) return;
+    final name = sup['user']?['full_name'] ?? 'This supervisor';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Reject Supervisor', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Text('Are you sure you want to reject $name?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Colors.redAccent), child: const Text('Reject')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(adminRepositoryProvider).rejectSupervisor(userId);
+      ref.invalidate(pendingSupervisorsProvider);
+      ref.invalidate(adminStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$name rejected'), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 }
+
+
 
 class _AdminLogsTab extends ConsumerStatefulWidget {
   const _AdminLogsTab();
@@ -6788,4 +7160,116 @@ class _LineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// --- COMMON FEED PREVIEW SECTION ---
+
+class FeedPreviewSection extends ConsumerWidget {
+  const FeedPreviewSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final feedAsync = ref.watch(feedProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Common Feed',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Latest community updates',
+                      style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push(AppRoutes.commonFeed),
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                child: const Text('See all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          feedAsync.when(
+            loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
+            error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(fontSize: 12))),
+            data: (posts) {
+              if (posts.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: Text('No updates yet', style: TextStyle(color: Colors.grey))),
+                );
+              }
+              final previewPosts = posts.take(3).toList();
+              return Column(
+                children: previewPosts.map((post) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () => context.push(AppRoutes.commonFeed),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (post.isPinned ? Colors.blue : Colors.grey).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              post.isPinned ? Icons.campaign_rounded : Icons.dynamic_feed_rounded,
+                              size: 16,
+                              color: post.isPinned ? Colors.blue : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  post.title ?? (post.content.length > 30 ? '${post.content.substring(0, 30)}...' : post.content),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                Text(
+                                  '${post.author.fullName} • ${timeago.format(post.createdAt)}',
+                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }

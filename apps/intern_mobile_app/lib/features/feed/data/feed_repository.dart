@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../../../core/network/api_client.dart';
@@ -31,6 +32,9 @@ class FeedPost {
   final bool isLikedByUser;
   final bool isPinned;
   final DateTime createdAt;
+  final List<FeedComment> comments;
+  final List<String> imageUrls;
+  final List<String> documentUrls;
 
   const FeedPost({
     required this.id,
@@ -45,6 +49,9 @@ class FeedPost {
     required this.isLikedByUser,
     required this.isPinned,
     required this.createdAt,
+    required this.comments,
+    this.imageUrls = const [],
+    this.documentUrls = const [],
   });
 
   factory FeedPost.fromJson(Map<String, dynamic> j) {
@@ -62,10 +69,23 @@ class FeedPost {
       isLikedByUser: j['isLikedByUser'] as bool? ?? false,
       isPinned: j['isPinned'] as bool? ?? false,
       createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+      comments: (j['comments'] as List<dynamic>?)
+              ?.map((c) => FeedComment.fromJson(c as Map<String, dynamic>))
+              .toList() ??
+          [],
+      imageUrls: (j['imageUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      documentUrls: (j['documentUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
     );
   }
 
-  FeedPost copyWith({bool? isLikedByUser, int? likeCount}) => FeedPost(
+  FeedPost copyWith({
+    bool? isLikedByUser,
+    int? likeCount,
+    List<FeedComment>? comments,
+    List<String>? imageUrls,
+    List<String>? documentUrls,
+  }) =>
+      FeedPost(
         id: id,
         title: title,
         content: content,
@@ -78,6 +98,9 @@ class FeedPost {
         isLikedByUser: isLikedByUser ?? this.isLikedByUser,
         isPinned: isPinned,
         createdAt: createdAt,
+        comments: comments ?? this.comments,
+        imageUrls: imageUrls ?? this.imageUrls,
+        documentUrls: documentUrls ?? this.documentUrls,
       );
 }
 
@@ -100,7 +123,9 @@ class FeedComment {
         id: j['id'] as int,
         content: j['content'] as String? ?? '',
         author: FeedAuthor.fromJson(j['author'] as Map<String, dynamic>),
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? 
+                   DateTime.tryParse(j['created_at'] as String? ?? '') ?? 
+                   DateTime.now(),
         replies: (j['replies'] as List<dynamic>?)
                 ?.map((r) => FeedComment.fromJson(r as Map<String, dynamic>))
                 .toList() ??
@@ -121,7 +146,6 @@ class FeedRepository {
     final response = await apiClient.dio.get('/common-feed', queryParameters: query);
     final data = response.data;
 
-    // Handle both wrapped {data:{posts:[]}} and raw {posts:[]} shapes
     List<dynamic> posts;
     if (data is Map && data['posts'] != null) {
       posts = data['posts'] as List;
@@ -135,9 +159,49 @@ class FeedRepository {
     return posts.map((p) => FeedPost.fromJson(p as Map<String, dynamic>)).toList();
   }
 
+  Future<FeedPost> getPostDetails(int postId) async {
+    final response = await apiClient.dio.get('/common-feed/$postId');
+    final raw = response.data is Map && response.data['data'] != null
+        ? response.data['data']
+        : response.data;
+    return FeedPost.fromJson(raw as Map<String, dynamic>);
+  }
+
+  Future<List<String>> uploadImages(List<String> filePaths) async {
+    final formData = FormData();
+    for (final path in filePaths) {
+      formData.files.add(MapEntry(
+        'images',
+        await MultipartFile.fromFile(path, filename: path.split('/').last),
+      ));
+    }
+    final response = await apiClient.dio.post('/common-feed/upload/images', data: formData);
+    return (response.data['urls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+  }
+
+  Future<List<String>> uploadDocuments(List<String> filePaths) async {
+    final formData = FormData();
+    for (final path in filePaths) {
+      formData.files.add(MapEntry(
+        'documents',
+        await MultipartFile.fromFile(path, filename: path.split('/').last),
+      ));
+    }
+    final response = await apiClient.dio.post('/common-feed/upload/documents', data: formData);
+    return (response.data['urls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+  }
+
   Future<bool> toggleLike(int postId) async {
     final response = await apiClient.dio.post('/common-feed/$postId/like');
     return response.data['liked'] as bool? ?? false;
+  }
+
+  Future<void> deletePost(int postId) async {
+    await apiClient.dio.delete('/common-feed/$postId');
+  }
+
+  Future<void> reportPost(int postId, String reason) async {
+    await apiClient.dio.post('/common-feed/$postId/report', data: {'reason': reason});
   }
 
   Future<FeedComment> addComment(int postId, String content) async {
@@ -155,21 +219,23 @@ class FeedRepository {
     required String content,
     String? title,
     String postType = 'GENERAL_UPDATE',
+    List<String> imageUrls = const [],
+    List<String> documentUrls = const [],
   }) async {
     final response = await apiClient.dio.post('/common-feed', data: {
       'content': content,
       if (title != null) 'title': title,
       'postType': postType,
       'visibility': 'PUBLIC',
+      'imageUrls': imageUrls,
+      'documentUrls': documentUrls,
     });
 
-    // Defensively unwrap the response — backend may wrap in {data: ...} or return directly
     dynamic raw = response.data;
     if (raw is Map) {
       raw = raw['data'] ?? raw['post'] ?? raw;
     }
 
-    // If we still don't have a proper map, create a minimal stub so the UI doesn't crash
     if (raw is! Map<String, dynamic>) {
       return FeedPost(
         id: DateTime.now().millisecondsSinceEpoch,
@@ -184,6 +250,7 @@ class FeedRepository {
         isLikedByUser: false,
         isPinned: false,
         createdAt: DateTime.now(),
+        comments: [],
       );
     }
 

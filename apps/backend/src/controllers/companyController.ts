@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
+import { notifyAllAdmins, NotificationType } from '../services/notification.service';
 
 export const setupCompany = async (req: AuthRequest, res: Response) => {
     try {
@@ -44,6 +45,11 @@ export const setupCompany = async (req: AuthRequest, res: Response) => {
             organizationId: company.id,
             submitterEmail: supervisorUser?.email,
         });
+
+        await notifyAllAdmins(
+            `New company registration pending approval: ${company.name}`,
+            NotificationType.ADMIN_ALERT
+        );
 
         res.status(201).json({ message: "Company created. Awaiting admin approval.", company });
     } catch (error: any) {

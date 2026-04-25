@@ -11,6 +11,7 @@ import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProp
 import { sendNotification } from '../utils/notificationHelper';
 import { isRegistrationOpen, isMaintenanceMode } from './systemConfigController';
 import { sendSuccess, sendError } from '../utils/responseHelper';
+import { notifyAllAdmins, NotificationType } from '../services/notification.service';
 
 // ============================================
 // REGISTER - with email verification
@@ -84,6 +85,11 @@ export const register = async (req: Request, res: Response) => {
                 organizationId: newUser.id,
                 submitterEmail: email,
             });
+
+            await notifyAllAdmins(
+                `New Coordinator registration pending: ${full_name} (${email}) for ${university_name || 'Unknown University'}`,
+                NotificationType.ADMIN_ALERT
+            );
         } 
         else if (roleUpper === 'SUPERVISOR') {
             // First, find or create company
@@ -119,7 +125,17 @@ export const register = async (req: Request, res: Response) => {
                     organizationId: company.id,
                     submitterEmail: email,
                 });
+
+                await notifyAllAdmins(
+                    `New Company registration pending: ${company_name} (Submitted by ${full_name})`,
+                    NotificationType.ADMIN_ALERT
+                );
             }
+            
+            await notifyAllAdmins(
+                `New Supervisor registration pending: ${full_name} (${email}) for ${company_name || 'Existing Company'}`,
+                NotificationType.ADMIN_ALERT
+            );
             
             if (company) {
                 await prisma.supervisor.create({
@@ -300,6 +316,9 @@ export const login = async (req: Request, res: Response) => {
             },
         });
         if (!user) {
+            // Log security alert for unknown user login attempt
+            console.warn(`[Security] Login attempt for non-existent email: ${email}`);
+            // notifyAllAdmins(`Suspicious activity: Login attempt for non-existent user ${email}`, NotificationType.SECURITY_ALERT);
             return sendError(res, 'Invalid email or password. Please try again.', 401);
         }
 
@@ -327,6 +346,8 @@ export const login = async (req: Request, res: Response) => {
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
+            console.warn(`[Security] Failed login attempt for user: ${email}`);
+            // If we wanted to track multiple failures, we'd do it here.
             return sendError(res, 'Invalid email or password. Please try again.', 401);
         }
 

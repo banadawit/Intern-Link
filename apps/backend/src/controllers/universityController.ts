@@ -6,6 +6,7 @@ import { assertUniversityVerificationProposalExists } from '../utils/institution
 import { attachVerificationSla } from '../utils/verificationSla';
 import { notifyAdminsNewVerificationProposal } from '../utils/notifyAdminNewProposal';
 import { sendSuccess, sendError } from '../utils/responseHelper';
+import { notifyAllAdmins, NotificationType } from '../services/notification.service';
 
 // 1. Coordinator: Setup University Profile
 export const setupUniversity = async (req: AuthRequest, res: Response) => {
@@ -47,6 +48,11 @@ export const setupUniversity = async (req: AuthRequest, res: Response) => {
             organizationId: university.id,
             submitterEmail: coordinatorUser?.email,
         });
+
+        await notifyAllAdmins(
+            `New university registration pending approval: ${university.name}`,
+            NotificationType.ADMIN_ALERT
+        );
 
         return sendSuccess(res, { university }, "University profile submitted for approval.", 201);
     } catch (error: any) {

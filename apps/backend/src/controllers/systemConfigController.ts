@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { testEmailConfig } from '../services/email.service';
+import { notifyAllAdmins, NotificationType } from '../services/notification.service';
 
 // Default config values
 const DEFAULTS: Record<string, string> = {
@@ -134,6 +135,11 @@ export const broadcastAnnouncement = async (req: AuthRequest, res: Response) => 
         is_read: false,
       })),
     });
+
+    await notifyAllAdmins(
+        `System-wide broadcast sent successfully: "${title.trim()}"`,
+        NotificationType.SYSTEM_ALERT
+    );
 
     res.status(201).json({ success: true, data: post });
   } catch (e: any) {
