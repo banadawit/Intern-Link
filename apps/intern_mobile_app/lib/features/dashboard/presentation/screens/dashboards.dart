@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -5427,91 +5427,252 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
 
   Widget _buildOrgCard(BuildContext context, WidgetRef ref, Map<String, dynamic> org, bool isDark) {
     final theme = Theme.of(context);
-    final status = org['approval_status'] as String;
+    final status = org['approval_status'] as String? ?? 'PENDING';
     final isPending = status == 'PENDING';
-    
+    final statusColor = switch (status) {
+      'APPROVED' => Colors.green,
+      'PENDING' => Colors.orange,
+      'SUSPENDED' => Colors.red,
+      'REJECTED' => Colors.grey,
+      _ => Colors.grey,
+    };
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        border: Border.all(
+          color: isPending ? Colors.orange.withOpacity(0.3) : isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        ),
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                child: Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, color: theme.colorScheme.primary),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(org['name'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16), overflow: TextOverflow.ellipsis),
-                    Text(
-                      '${org['type']} • ${org['official_email'] ?? 'No email'}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                    ),
-                    if (org['created_at'] != null)
-                      Text(
-                        'Submitted: ${org['created_at'].toString().split('T')[0]}',
-                        style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                      ),
-                  ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, color: theme.colorScheme.primary, size: 22),
                 ),
-              ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15), overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(org['official_email'] ?? 'No email', style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                  child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+            child: Row(children: [
+              Icon(Icons.category_rounded, size: 11, color: Colors.grey.shade400),
+              const SizedBox(width: 4),
+              Text(org['type'] ?? '', style: TextStyle(fontSize: 10, color: Colors.grey.shade400, fontWeight: FontWeight.bold)),
+              if (org['created_at'] != null) ...[
+                const SizedBox(width: 12),
+                Icon(Icons.calendar_today_rounded, size: 11, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Text(org['created_at'].toString().split('T')[0], style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+              ],
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Row(
+              children: [
+                if (isPending) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showRejectDialog(ref, org),
+                      icon: const Icon(Icons.close_rounded, size: 16),
+                      label: const Text('Reject'),
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _updateStatus(ref, org, 'APPROVED'),
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('Approve'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                ] else ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showOrgDetails(context, ref, org, isDark),
+                      icon: const Icon(Icons.info_outline_rounded, size: 16),
+                      label: const Text('Details'),
+                      style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  if (status == 'APPROVED')
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _updateStatus(ref, org, 'SUSPENDED'),
+                        icon: const Icon(Icons.block_rounded, size: 16),
+                        label: const Text('Suspend'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      ),
+                    )
+                  else if (status == 'SUSPENDED')
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _updateStatus(ref, org, 'APPROVED'),
+                        icon: const Icon(Icons.check_circle_rounded, size: 16),
+                        label: const Text('Activate'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      ),
+                    )
+                  else
+                    const Expanded(child: SizedBox()),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOrgDetails(BuildContext context, WidgetRef ref, Map<String, dynamic> org, bool isDark) {
+    final status = org['approval_status'] as String? ?? '';
+    final statusColor = switch (status) {
+      'APPROVED' => Colors.green,
+      'PENDING' => Colors.orange,
+      'SUSPENDED' => Colors.red,
+      _ => Colors.grey,
+    };
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (_, controller) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 24),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                  child: Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, size: 28, color: Theme.of(context).colorScheme.primary),
+                ),
+                const SizedBox(width: 16),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                  ),
+                ])),
+              ]),
+              const SizedBox(height: 32),
+              _detailRow(Icons.category_rounded, 'Type', org['type']?.toString() ?? '-'),
+              _detailRow(Icons.email_rounded, 'Official Email', org['official_email']?.toString() ?? '-'),
+              if (org['phone'] != null) _detailRow(Icons.phone_rounded, 'Phone', org['phone'].toString()),
+              if (org['address'] != null) _detailRow(Icons.location_on_rounded, 'Address', org['address'].toString()),
+              if (org['website'] != null) _detailRow(Icons.language_rounded, 'Website', org['website'].toString()),
+              if (org['created_at'] != null) _detailRow(Icons.calendar_today_rounded, 'Registered', org['created_at'].toString().split('T')[0]),
+              if (org['rejection_reason'] != null && org['rejection_reason'].toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.withOpacity(0.3))),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.info_outline_rounded, color: Colors.red, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text('Rejection Reason: ${org['rejection_reason']}', style: const TextStyle(color: Colors.red, fontSize: 13))),
+                  ]),
+                ),
+              ],
+              const SizedBox(height: 24),
+              if (status == 'SUSPENDED')
+                FilledButton.icon(
+                  onPressed: () { Navigator.pop(ctx); _updateStatus(ref, org, 'APPROVED'); },
+                  icon: const Icon(Icons.check_circle_rounded),
+                  label: const Text('Reactivate Organization'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                ),
+              const SizedBox(height: 24),
             ],
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              if (isPending) ...[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _updateStatus(ref, org, 'REJECTED'),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent)),
-                    child: const Text('Reject'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => _updateStatus(ref, org, 'APPROVED'),
-                    style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                    child: const Text('Approve'),
-                  ),
-                ),
-              ] else ...[
-                 Expanded(
-                   child: OutlinedButton(
-                     onPressed: () {},
-                     child: const Text('View Details'),
-                   ),
-                 ),
-                 const SizedBox(width: 12),
-                 if (status == 'APPROVED')
-                   Expanded(
-                     child: FilledButton(
-                       onPressed: () => _updateStatus(ref, org, 'SUSPENDED'),
-                       style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-                       child: const Text('Suspend'),
-                     ),
-                   )
-                 else if (status == 'SUSPENDED')
-                   Expanded(
-                     child: FilledButton(
-                       onPressed: () => _updateStatus(ref, org, 'APPROVED'),
-                       style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                       child: const Text('Activate'),
-                     ),
-                   ),
-              ],
-            ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 18, color: Colors.grey),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        ])),
+      ]),
+    );
+  }
+
+  void _showRejectDialog(WidgetRef ref, Map<String, dynamic> org) {
+    final reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Reject Organization', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              child: Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonCtrl, maxLines: 3,
+              decoration: InputDecoration(hintText: 'Enter rejection reason (optional)...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), contentPadding: const EdgeInsets.all(12)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () { Navigator.pop(ctx); _updateStatus(ref, org, 'REJECTED'); },
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Confirm Reject'),
           ),
         ],
       ),
@@ -5521,19 +5682,21 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
   Future<void> _updateStatus(WidgetRef ref, Map<String, dynamic> org, String status) async {
     try {
       final repo = ref.read(adminRepositoryProvider);
+      final id = org['id'] as int;
       if (org['type'] == 'University') {
-        await repo.updateUniversityStatus(org['id'], status);
+        await repo.updateUniversityStatus(id, status);
       } else {
-        await repo.updateCompanyStatus(org['id'], status);
+        await repo.updateCompanyStatus(id, status);
       }
       ref.invalidate(allUniversitiesProvider);
       ref.invalidate(allCompaniesProvider);
       ref.invalidate(adminStatsProvider);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Status updated to $status')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${org['name']} -> $status')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
+
 
   void _showInviteDialog(BuildContext context) {
     showDialog(
