@@ -510,23 +510,29 @@ model AuditLog {
   timestamp   DateTime @default(now())
 }
 
-/// Key-value store for platform-wide configuration set by admins.
-model SystemConfig {
-  key       String   @id
-  value     String   @db.Text
-  updatedAt DateTime @updatedAt
+enum FileType {
+  VERIFICATION_DOC
+  WEEKLY_PRESENTATION
+  COMPANY_STAMP
+  FINAL_REPORT
+  COMMON_FEED_IMAGE
+  COMMON_FEED_DOCUMENT
 }
 
-model ChatMessage {
-  id         Int      @id @default(autoincrement())
-  senderId   Int
-  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiverId Int
-  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-  content    String   @db.Text
-  is_read    Boolean  @default(false)
-  created_at DateTime @default(now())
+model File {
+  id             String   @id @default(uuid())
+  userId         Int?
+  organizationId Int?     // universityId or companyId
+  type           FileType
+  url            String
+  publicId       String   // Cloudinary public_id for deletion
+  filename       String
+  mimeType       String
+  size           Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  @@index([senderId, receiverId, created_at])
-  @@index([receiverId, is_read])
+  @@index([userId, type])
+  @@index([organizationId, type])
+  @@map("files")
 }
