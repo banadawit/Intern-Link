@@ -85,36 +85,52 @@ const stats = [
 
 const colorStyles = {
   primary: {
-    badge: "bg-primary-50 text-primary-700 ring-primary-600/20",
-    iconGlow: "bg-primary-100",
-    check: "text-primary-500",
-    action: "text-primary-600",
-    statIconBox: "bg-primary-50",
-    statIcon: "text-primary-600",
+    badge: "bg-teal-50 text-teal-700 ring-teal-600/20",
+    iconGlow: "bg-teal-100",
+    check: "text-teal-500",
+    action: "text-teal-700",
+    statIconBox: "bg-teal-50",
+    statIcon: "text-teal-600",
+    hoverTint: "from-teal-50/80 via-transparent to-white",
+    hoverRing: "group-hover:ring-teal-300/60",
+    iconGradient: "from-teal-500 to-teal-700",
+    borderTop: "from-teal-400 to-teal-600",
   },
   success: {
-    badge: "bg-success-50 text-success-700 ring-success-600/20",
-    iconGlow: "bg-success-100",
-    check: "text-success-500",
-    action: "text-success-600",
-    statIconBox: "bg-success-50",
-    statIcon: "text-success-600",
+    badge: "bg-green-50 text-green-700 ring-green-600/20",
+    iconGlow: "bg-green-100",
+    check: "text-green-500",
+    action: "text-green-700",
+    statIconBox: "bg-green-50",
+    statIcon: "text-green-600",
+    hoverTint: "from-green-50/70 via-transparent to-white",
+    hoverRing: "group-hover:ring-green-300/60",
+    iconGradient: "from-green-500 to-green-700",
+    borderTop: "from-green-400 to-green-600",
   },
   warning: {
-    badge: "bg-warning-50 text-warning-700 ring-warning-600/20",
-    iconGlow: "bg-warning-100",
-    check: "text-warning-500",
-    action: "text-warning-600",
-    statIconBox: "bg-warning-50",
-    statIcon: "text-warning-600",
+    badge: "bg-yellow-50 text-yellow-700 ring-yellow-600/20",
+    iconGlow: "bg-yellow-100",
+    check: "text-yellow-500",
+    action: "text-yellow-700",
+    statIconBox: "bg-yellow-50",
+    statIcon: "text-yellow-600",
+    hoverTint: "from-yellow-50/75 via-transparent to-white",
+    hoverRing: "group-hover:ring-yellow-300/60",
+    iconGradient: "from-yellow-500 to-amber-600",
+    borderTop: "from-yellow-400 to-amber-500",
   },
   info: {
-    badge: "bg-info-50 text-info-700 ring-info-600/20",
-    iconGlow: "bg-info-100",
-    check: "text-info-500",
-    action: "text-info-600",
-    statIconBox: "bg-info-50",
-    statIcon: "text-info-600",
+    badge: "bg-blue-50 text-blue-700 ring-blue-600/20",
+    iconGlow: "bg-blue-100",
+    check: "text-blue-500",
+    action: "text-blue-700",
+    statIconBox: "bg-blue-50",
+    statIcon: "text-blue-600",
+    hoverTint: "from-blue-50/75 via-transparent to-white",
+    hoverRing: "group-hover:ring-blue-300/60",
+    iconGradient: "from-blue-500 to-blue-700",
+    borderTop: "from-blue-400 to-blue-600",
   },
 } as const;
 
@@ -131,17 +147,18 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
       initial={{ opacity: 0, y: 30 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, delay: index * 0.1 }}
-      whileHover={{ y: -8 }}
-      className="group relative rounded-2xl bg-white shadow-card transition-all duration-300 hover:shadow-card-hover"
+      whileHover={{ y: -10, scale: 1.01 }}
+      className={`group relative overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-slate-200 transition-all duration-300 hover:shadow-card-hover ${styles.hoverRing}`}
     >
-      {/* Decorative gradient border */}
-      <div className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl -z-10`} />
+      <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${styles.borderTop}`} />
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${styles.hoverTint} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
+      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-white/40 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       
       <div className="p-8">
         {/* Icon with animated background */}
         <div className={`relative mb-6`}>
           <div className={`absolute inset-0 rounded-xl blur-lg opacity-50 transition-opacity group-hover:opacity-75 ${styles.iconGlow}`} />
-          <div className={`relative w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
+          <div className={`relative w-14 h-14 rounded-xl bg-gradient-to-br ${styles.iconGradient} flex items-center justify-center shadow-lg transform transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
             <Icon className="w-7 h-7 text-white" />
           </div>
         </div>
@@ -154,7 +171,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
         </div>
         
         {/* Title */}
-        <h3 className="text-xl font-bold text-slate-900 mb-3">
+        <h3 className="text-xl font-bold text-slate-900 mb-3 transition-colors group-hover:text-slate-800">
           {feature.title}
         </h3>
         
@@ -177,7 +194,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
         <div className="mt-6 pt-4 border-t border-slate-100">
           <button className={`inline-flex items-center gap-1 text-sm font-semibold transition-all group-hover:gap-2 ${styles.action}`}>
             Learn more
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>

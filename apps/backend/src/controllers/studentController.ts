@@ -3,6 +3,7 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import bcrypt from 'bcryptjs';
 import { getCurrentInternshipWeekFromStart } from '../utils/internshipWeek';
+import { sendSuccess, sendError } from '../utils/responseHelper';
 
 // 1. COORDINATOR Task: Register a Student (SRS FR-4.2)
 export const registerStudent = async (req: AuthRequest, res: Response) => {
@@ -16,11 +17,11 @@ export const registerStudent = async (req: AuthRequest, res: Response) => {
         });
 
         if (!coordinator) {
-            return res.status(403).json({ message: "Coordinator profile not found." });
+            return sendError(res, "Coordinator profile not found.", 403);
         }
 
         if (!coordinator.universityId) {
-            return res.status(403).json({ message: "Your coordinator account has not been approved yet. You cannot register students until an administrator approves your university credentials." });
+            return sendError(res, "Your coordinator account has not been approved yet. You cannot register students until an administrator approves your university credentials.", 403);
         }
 
         // Generate a temporary password (Requirement BR-006)
@@ -47,14 +48,13 @@ export const registerStudent = async (req: AuthRequest, res: Response) => {
             include: { studentProfile: true }
         });
 
-        res.status(201).json({
-            message: "Student registered successfully.",
+        return sendSuccess(res, {
             tempPassword, // In production, send this via email
             student
-        });
+        }, "Student registered successfully.", 201);
     } catch (error: any) {
-        if (error.code === 'P2002') return res.status(400).json({ message: "Email already exists" });
-        res.status(500).json({ error: error.message });
+        if (error.code === 'P2002') return sendError(res, "Email already exists", 400);
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -84,7 +84,7 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
             },
         });
         if (!profile) {
-            return res.status(404).json({ message: 'Student profile not found.' });
+            return sendError(res, 'Student profile not found.', 404);
         }
 
         const assignment = profile.assignments[0];
@@ -94,7 +94,7 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
             ? getCurrentInternshipWeekFromStart(assignment.start_date)
             : 1;
 
-        res.json({
+        return sendSuccess(res, {
             ...profile,
             activeAssignment: assignment ?? null,
             supervisor: supervisor
@@ -104,9 +104,9 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
                   }
                 : null,
             currentInternshipWeek,
-        });
+        }, "Student profile fetched");
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 };
 

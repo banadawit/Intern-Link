@@ -42,10 +42,11 @@ export default function SupervisorAttendanceReportsPage() {
     setLoading(true);
     setError(null);
     try {
-      const repRes = await api.get<ReportRow[]>("/supervisor/weekly-reports");
-      setRows(repRes.data);
+      const repRes = await api.get<{ success: boolean; data: ReportRow[] }>("/supervisor/weekly-reports");
+      const rows = Array.isArray(repRes.data.data) ? repRes.data.data : [];
+      setRows(rows);
       const next: Record<number, { execution: string; status: ReportRow["attendanceStatus"] }> = {};
-      for (const r of repRes.data) {
+      for (const r of rows) {
         next[r.id] = {
           execution: r.execution_status ?? "",
           status: r.attendanceStatus,

@@ -13,8 +13,8 @@ import {
   ListChecks,
   UsersRound,
   FolderKanban,
-  Sparkles,
   MessageSquare,
+  MessagesSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
 import api from "@/lib/api/client";
+import { useChatStore } from "@/lib/store/chatStore";
 
 const SupervisorSidebar = () => {
   const pathname = usePathname();
@@ -31,16 +32,21 @@ const SupervisorSidebar = () => {
   const [pendingProposals, setPendingProposals] = useState(0);
   const [pendingPlans, setPendingPlans] = useState(0);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const { unreadCount, fetchUnread } = useChatStore();
 
   useEffect(() => {
-    api.get<{ supervisor: { company: { name: string } }; stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } }>("/supervisor/me")
+    api.get<{ success: boolean; data: { supervisor: { company: { name: string } }; stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } } }>("/supervisor/me")
       .then(({ data }) => {
-        setPendingProposals(data.stats.pendingProposalsCount);
-        setPendingPlans(data.stats.pendingWeeklyPlansCount);
-        if (data.supervisor?.company?.name) setCompanyName(data.supervisor.company.name);
+        const d = data.data;
+        setPendingProposals(d.stats.pendingProposalsCount);
+        setPendingPlans(d.stats.pendingWeeklyPlansCount);
+        if (d.supervisor?.company?.name) setCompanyName(d.supervisor.company.name);
       })
       .catch(() => {});
-  }, []);
+    void fetchUnread();
+    const interval = setInterval(() => void fetchUnread(), 10000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   const handleLogout = () => {
     logout();
@@ -59,14 +65,14 @@ const SupervisorSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/supervisor", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/supervisor/common-feed", badge: 0 },
+    { icon: MessagesSquare, label: "Messages", path: "/supervisor/chat", badge: unreadCount },
     { icon: Users, label: "Students", path: "/supervisor/students", badge: 0 },
     { icon: UsersRound, label: "Teams", path: "/supervisor/teams", badge: 0 },
     { icon: FolderKanban, label: "Projects", path: "/supervisor/projects", badge: 0 },
     { icon: Inbox, label: "Proposals", path: "/supervisor/proposals", badge: pendingProposals },
     { icon: ClipboardList, label: "Weekly plans", path: "/supervisor/plans", badge: pendingPlans },
-    { icon: Sparkles, label: "AI assistant", path: "/supervisor/ai", badge: 0 },
     { icon: FileCheck, label: "Reports", path: "/supervisor/reports", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/supervisor/common-feed", badge: 0 },
   ];
 
   const attendanceNavItems = [

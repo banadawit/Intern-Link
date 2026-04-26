@@ -14,6 +14,9 @@ import ApprovalsView from "./ApprovalsView";
 import ApprovedHistoryView from "./ApprovedHistoryView";
 import RejectedHistoryView from "./RejectedHistoryView";
 import SuspendedView from "./SuspendedView";
+import SystemSettings from "./SystemSettings";
+import OrganizationsView from "./OrganizationsView";
+import AnalyticsView from "./AnalyticsView";
 import api from "@/lib/api/client";
 import {
   mapUniversityToProposal,
@@ -26,6 +29,8 @@ import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
 type ViewKey =
   | "dashboard"
   | "approvals"
+  | "organizations"
+  | "analytics"
   | "approved"
   | "rejected"
   | "suspended"
@@ -35,6 +40,8 @@ type ViewKey =
 const VALID_VIEWS: ViewKey[] = [
   "dashboard",
   "approvals",
+  "organizations",
+  "analytics",
   "approved",
   "rejected",
   "suspended",
@@ -184,6 +191,16 @@ export default function App() {
           onActionComplete={() => { loadStats(); loadAuditLogs(); loadProposals(); }}
         />
       );
+    if (activeView === "organizations")
+      return (
+        <OrganizationsView
+          proposals={proposals}
+          loading={listsLoading}
+          onReview={setSelectedProposal}
+          onActionComplete={() => { loadProposals(); loadStats(); }}
+        />
+      );
+    if (activeView === "analytics") return <AnalyticsView />;
     if (activeView === "approved")
       return (
         <ApprovedHistoryView
@@ -213,18 +230,7 @@ export default function App() {
         />
       );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
-    return (
-      <div className="space-y-6">
-        <AdminPageHero
-          badge="Settings"
-          title="System configuration"
-          description="Global settings and platform parameters are managed here."
-        />
-        <div className="card p-8 text-center shadow-sm">
-          <p className="text-slate-600">Additional settings can be connected to the backend as needed.</p>
-        </div>
-      </div>
-    );
+    if (activeView === "settings") return <SystemSettings />;
   }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading]);
 
   return (

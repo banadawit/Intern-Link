@@ -16,8 +16,8 @@ export default function HodReportsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<HodReportRow[]>("/hod/reports");
-      setReports(res.data);
+      const res = await api.get<{ success: boolean; data: HodReportRow[] }>("/hod/reports");
+      setReports(Array.isArray(res.data.data) ? res.data.data : []);
     } catch {
       setError("Could not load reports.");
     } finally {

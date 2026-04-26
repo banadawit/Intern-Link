@@ -87,6 +87,8 @@ model User {
 
   aiChatMessages    AiChatMessage[]
   activityLogs      ActivityLog[]
+  sentMessages      ChatMessage[]   @relation("SentMessages")
+  receivedMessages  ChatMessage[]   @relation("ReceivedMessages")
 }
 
 /// Daily activity counts for contribution heatmap (login, submissions, etc.).
@@ -331,6 +333,7 @@ model Team {
   company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   members    StudentTeam[]
   created_at DateTime      @default(now())
+  deleted_at DateTime?
 }
 
 model StudentTeam {
@@ -349,6 +352,7 @@ model Project {
   company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   students   StudentProject[]
   created_at DateTime          @default(now())
+  deleted_at DateTime?
 }
 
 model StudentProject {
@@ -500,9 +504,9 @@ model Notification {
 model AuditLog {
   id          Int      @id @default(autoincrement())
   adminId     Int
-  action      String   // e.g., "APPROVED_UNIVERSITY"
-  targetId    Int      // ID of the university or company
-  details     String?  // e.g., "Approved Haramaya University"
+  action      String
+  targetId    Int
+  details     String?
   timestamp   DateTime @default(now())
 }
 

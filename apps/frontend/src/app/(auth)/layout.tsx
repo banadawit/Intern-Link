@@ -18,33 +18,30 @@ export default function AuthLayout({
 
   // If already logged in, redirect to appropriate dashboard
   useEffect(() => {
-    if (user) {
-      // Pending institution approval — stay on auth pages (verification-pending)
-      if (
-        (user.role === 'COORDINATOR' || user.role === 'HOD' || user.role === 'SUPERVISOR') &&
-        user.institutionAccessApproval !== 'APPROVED'
-      ) {
-        return;
-      }
-      switch (user.role) {
-        case 'ADMIN':
-          router.push('/admin');
-          break;
-        case 'COORDINATOR':
-          router.push('/coordinator');
-          break;
-        case 'HOD':
-          router.push('/hod');
-          break;
-        case 'SUPERVISOR':
-          router.push('/supervisor');
-          break;
-        case 'STUDENT':
-          router.push('/student');
-          break;
-      }
-    }
-  }, [user, router]);
+    let storedUser: { role?: string; institutionAccessApproval?: string } | null = null;
+    try {
+      const raw = localStorage.getItem("auth-storage");
+      if (raw) storedUser = JSON.parse(raw)?.state?.user ?? null;
+    } catch { storedUser = null; }
+
+    const token = localStorage.getItem("token");
+    if (!token || !storedUser?.role) return;
+
+    if (
+      (storedUser.role === 'COORDINATOR' || storedUser.role === 'HOD' || storedUser.role === 'SUPERVISOR') &&
+      storedUser.institutionAccessApproval !== 'APPROVED'
+    ) return;
+
+    // Students with pending HoD approval stay on pending page
+    if (storedUser.role === 'STUDENT' && (storedUser as any).hodApprovalStatus === 'PENDING') return;
+
+    const dest: Record<string, string> = {
+      ADMIN: '/admin', COORDINATOR: '/coordinator', HOD: '/hod',
+      SUPERVISOR: '/supervisor', STUDENT: '/student',
+    };
+    if (dest[storedUser.role]) router.replace(dest[storedUser.role]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-white">

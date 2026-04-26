@@ -64,7 +64,7 @@ function VerifyEmailContent() {
       // Coordinators, HoDs and Students go to pending-review; everyone else goes to login
       setTimeout(() => {
         if (roleParam === 'coordinator' || roleParam === 'hod' || roleParam === 'student' || roleParam === 'supervisor') {
-          router.push('/register/pending-review');
+          router.push(`/register/pending-review?role=${roleParam}`);
         } else {
           router.push('/login?verified=true');
         }
@@ -169,7 +169,7 @@ function VerifyEmailContent() {
         </div>
 
         <Link
-          href={roleParam === 'coordinator' || roleParam === 'hod' || roleParam === 'student' || roleParam === 'supervisor' ? '/register/pending-review' : '/login'}
+          href={roleParam === 'coordinator' || roleParam === 'hod' || roleParam === 'student' || roleParam === 'supervisor' ? `/register/pending-review?role=${roleParam}` : '/login'}
           className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
         >
           {roleParam === 'coordinator' ? 'View submission status' : 'Continue to Login'}

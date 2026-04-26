@@ -36,8 +36,8 @@ export default function SupervisorPlansPage() {
     setError(null);
     try {
       const q = filter === "PENDING" ? "?status=PENDING" : "";
-      const res = await api.get<WeeklyPlanRow[]>(`/supervisor/weekly-plans${q}`);
-      setRows(res.data);
+      const res = await api.get<{ success: boolean; data: WeeklyPlanRow[] }>(`/supervisor/weekly-plans${q}`);
+      setRows(Array.isArray(res.data.data) ? res.data.data : []);
     } catch {
       setError("Could not load weekly plans.");
     } finally {

@@ -10,8 +10,9 @@ import {
   LogOut,
   ShieldCheck,
   Ban,
-  Sparkles,
   MessageSquare,
+  Building2,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -21,6 +22,8 @@ import LogoutModal from "@/components/common/LogoutModal";
 type ViewKey =
   | "dashboard"
   | "approvals"
+  | "organizations"
+  | "analytics"
   | "approved"
   | "rejected"
   | "suspended"
@@ -54,6 +57,8 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
     { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" },
     { icon: Clock, label: "Approvals", view: "approvals" },
+    { icon: Building2, label: "Organizations", view: "organizations" },
+    { icon: BarChart3, label: "Analytics", view: "analytics" },
     { icon: CheckCircle, label: "Approved History", view: "approved" },
     { icon: Ban, label: "Suspended", view: "suspended" },
     { icon: XCircle, label: "Rejected History", view: "rejected" },
@@ -109,13 +114,6 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
         >
           <MessageSquare className="h-5 w-5 shrink-0" />
           <span className="min-w-0 flex-1 whitespace-nowrap text-left">Common Feed</span>
-        </Link>
-        <Link
-          href="/admin/ai"
-          className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 lg:w-full lg:gap-3 lg:px-4 lg:py-3"
-        >
-          <Sparkles className="h-5 w-5 shrink-0" />
-          <span className="min-w-0 flex-1 whitespace-nowrap text-left">AI assistant</span>
         </Link>
       </nav>
 

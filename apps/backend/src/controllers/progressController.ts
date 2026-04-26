@@ -6,13 +6,15 @@ import {
     parseIsoDateOnly,
 } from '../utils/internshipWeekDates';
 import { incrementActivityForUser } from '../services/activityLog.service';
+import { sendSuccess, sendError } from '../utils/responseHelper';
+import { notifyStudentPlanReview } from '../services/notification.service';
 
 /** List weekly plans for the logged-in student */
 export const getMyWeeklyPlans = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.userId;
         const student = await prisma.student.findUnique({ where: { userId } });
-        if (!student) return res.status(404).json({ message: 'Student profile not found.' });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
 
         const plans = await prisma.weeklyPlan.findMany({
             where: { studentId: student.id },
@@ -22,9 +24,9 @@ export const getMyWeeklyPlans = async (req: AuthRequest, res: Response) => {
                 daySubmissions: { orderBy: { workDate: 'asc' } },
             },
         });
-        res.json(plans);
+        return sendSuccess(res, plans, 'Weekly plans fetched');
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -37,14 +39,14 @@ export const updateMyWeeklyPlan = async (req: AuthRequest, res: Response) => {
         const userId = req.user?.userId;
 
         const student = await prisma.student.findUnique({ where: { userId } });
-        if (!student) return res.status(404).json({ message: 'Student profile not found.' });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
 
         const existing = await prisma.weeklyPlan.findFirst({
             where: { id: planId, studentId: student.id },
         });
-        if (!existing) return res.status(404).json({ message: 'Plan not found.' });
+        if (!existing) return sendError(res, 'Plan not found.', 404);
         if (existing.status !== 'PENDING') {
-            return res.status(400).json({ message: 'Only pending plans can be edited.' });
+            return sendError(res, 'Only pending plans can be edited.', 400);
         }
 
         const updated = await prisma.weeklyPlan.update({
@@ -54,9 +56,9 @@ export const updateMyWeeklyPlan = async (req: AuthRequest, res: Response) => {
             },
             include: { presentation: true },
         });
-        res.json({ message: 'Plan updated.', plan: updated });
+        return sendSuccess(res, { plan: updated }, 'Plan updated.');
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -73,10 +75,20 @@ export const submitWeeklyPlan = async (req: AuthRequest, res: Response) => {
         });
 
         if (!student || student.internship_status !== 'PLACED') {
-            return res.status(403).json({ message: "You must be placed in a company to submit plans." });
+            return sendError(res, "You must be placed in a company to submit plans.", 403);
         }
 
-        // 2. Create the Weekly Plan and Link Presentation File if uploaded
+        // 2. Prevent duplicate plan for the same week
+        const weekNum = parseInt(week_number);
+        const existingPlan = await prisma.weeklyPlan.findFirst({
+            where: { studentId: student.id, week_number: weekNum }
+        });
+
+        if (existingPlan) {
+            return sendError(res, `A weekly plan for Week ${weekNum} already exists.`, 400);
+        }
+
+        // 3. Create the Weekly Plan and Link Presentation File if uploaded
         const plan = await prisma.weeklyPlan.create({
             data: {
                 studentId: student.id,
@@ -96,9 +108,9 @@ export const submitWeeklyPlan = async (req: AuthRequest, res: Response) => {
             void incrementActivityForUser(userId);
         }
 
-        res.status(201).json({ message: "Weekly plan submitted successfully.", plan });
+        return sendSuccess(res, { plan }, "Weekly plan submitted successfully.", 201);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -111,17 +123,21 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
         const planId = Array.isArray(id) ? id[0] : id;
         const parsedId = parseInt(String(planId), 10);
         if (Number.isNaN(parsedId)) {
-            return res.status(400).json({ message: 'Invalid plan id.' });
+            return sendError(res, 'Invalid plan id.', 400);
         }
 
         const supervisor = await prisma.supervisor.findUnique({
             where: { userId: req.user?.userId },
         });
 
-        if (!supervisor) return res.status(403).json({ message: 'Only supervisors can review plans.' });
+        if (!supervisor) return sendError(res, 'Only supervisors can review plans.', 403);
 
         if (status !== 'APPROVED' && status !== 'REJECTED') {
-            return res.status(400).json({ message: "status must be 'APPROVED' or 'REJECTED'." });
+            return sendError(res, "status must be 'APPROVED' or 'REJECTED'.", 400);
+        }
+
+        if (status === 'REJECTED' && (!remarks || remarks.trim().length < 5)) {
+            return sendError(res, "Feedback is required when rejecting a plan (min 5 chars).", 400);
         }
 
         const existing = await prisma.weeklyPlan.findUnique({
@@ -129,6 +145,7 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
             include: {
                 student: {
                     include: {
+                        user: { select: { id: true } },
                         assignments: {
                             where: { companyId: supervisor.companyId, status: 'ACTIVE' },
                         },
@@ -138,12 +155,10 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
         });
 
         if (!existing) {
-            return res.status(404).json({ message: 'Plan not found.' });
+            return sendError(res, 'Plan not found.', 404);
         }
         if (existing.student.assignments.length === 0) {
-            return res.status(403).json({
-                message: 'This weekly plan is not for a student currently assigned to your company.',
-            });
+            return sendError(res, 'This weekly plan is not for a student currently assigned to your company.', 403);
         }
 
         const now = new Date();
@@ -170,9 +185,12 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
             });
         }
 
-        res.json({ message: `Plan ${status}`, updatedPlan });
+        // Trigger real-time notification
+        void notifyStudentPlanReview(existing.student.userId, existing.week_number, status);
+
+        return sendSuccess(res, { updatedPlan }, `Plan ${status}`);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message, 500);
     }
 };
 
@@ -181,21 +199,21 @@ export const getPlanDaySubmissions = async (req: AuthRequest, res: Response) => 
     try {
         const planId = parseInt(String(req.params.id), 10);
         if (Number.isNaN(planId)) {
-            return res.status(400).json({ message: 'Invalid plan id.' });
+            return sendError(res, 'Invalid plan id.', 400);
         }
         const userId = req.user?.userId;
         const student = await prisma.student.findUnique({ where: { userId } });
-        if (!student) return res.status(404).json({ message: 'Student profile not found.' });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
 
         const plan = await prisma.weeklyPlan.findFirst({
             where: { id: planId, studentId: student.id },
             include: { daySubmissions: { orderBy: { workDate: 'asc' } } },
         });
-        if (!plan) return res.status(404).json({ message: 'Plan not found.' });
-        res.json(plan.daySubmissions);
+        if (!plan) return sendError(res, 'Plan not found.', 404);
+        return sendSuccess(res, plan.daySubmissions, 'Day submissions fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
 
@@ -204,11 +222,11 @@ export const submitPlanDay = async (req: AuthRequest, res: Response) => {
     try {
         const planId = parseInt(String(req.params.id), 10);
         if (Number.isNaN(planId)) {
-            return res.status(400).json({ message: 'Invalid plan id.' });
+            return sendError(res, 'Invalid plan id.', 400);
         }
         const workDateRaw = (req.body as { workDate?: string })?.workDate;
         if (typeof workDateRaw !== 'string' || !parseIsoDateOnly(workDateRaw)) {
-            return res.status(400).json({ message: 'workDate must be YYYY-MM-DD.' });
+            return sendError(res, 'workDate must be YYYY-MM-DD.', 400);
         }
 
         const userId = req.user?.userId;
@@ -216,47 +234,51 @@ export const submitPlanDay = async (req: AuthRequest, res: Response) => {
             where: { userId },
             include: { assignments: { where: { status: 'ACTIVE' }, take: 1 } },
         });
-        if (!student) return res.status(404).json({ message: 'Student profile not found.' });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
         const assignment = student.assignments[0];
         if (!assignment) {
-            return res.status(403).json({ message: 'You need an active placement to log daily tasks.' });
+            return sendError(res, 'You need an active placement to log daily tasks.', 403);
         }
 
         const plan = await prisma.weeklyPlan.findFirst({
             where: { id: planId, studentId: student.id },
         });
-        if (!plan) return res.status(404).json({ message: 'Plan not found.' });
+        if (!plan) return sendError(res, 'Plan not found.', 404);
         if (plan.status !== 'APPROVED') {
-            return res.status(400).json({ message: 'Daily check-ins are only available after your weekly plan is approved.' });
+            return sendError(res, 'Daily check-ins are only available after your weekly plan is approved.', 400);
         }
         if (!isWorkDateInInternshipWeek(assignment.start_date, plan.week_number, workDateRaw)) {
-            return res.status(400).json({
-                message: 'That date is outside the internship week for this plan.',
-            });
+            return sendError(res, 'That date is outside the internship week for this plan.', 400);
         }
 
-        const created = await prisma.weeklyPlanDaySubmission.upsert({
+        const existingCheckin = await prisma.weeklyPlanDaySubmission.findUnique({
             where: {
                 weeklyPlanId_workDate: {
                     weeklyPlanId: planId,
                     workDate: new Date(`${workDateRaw}T12:00:00.000Z`),
                 },
             },
-            create: {
+        });
+
+        if (existingCheckin) {
+            return sendError(res, "You have already checked in for this date.", 400);
+        }
+
+        const created = await prisma.weeklyPlanDaySubmission.create({
+            data: {
                 weeklyPlanId: planId,
                 workDate: new Date(`${workDateRaw}T12:00:00.000Z`),
             },
-            update: {},
         });
 
         if (userId) {
             void incrementActivityForUser(userId);
         }
 
-        res.status(201).json(created);
+        return sendSuccess(res, created, 'Daily check-in submitted.', 201);
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
 };
 
@@ -266,17 +288,17 @@ export const deletePlanDay = async (req: AuthRequest, res: Response) => {
         const planId = parseInt(String(req.params.id), 10);
         const workDateParam = String(req.params.workDate ?? '');
         if (Number.isNaN(planId) || !parseIsoDateOnly(workDateParam)) {
-            return res.status(400).json({ message: 'Invalid plan or date.' });
+            return sendError(res, 'Invalid plan or date.', 400);
         }
 
         const userId = req.user?.userId;
         const student = await prisma.student.findUnique({ where: { userId } });
-        if (!student) return res.status(404).json({ message: 'Student profile not found.' });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
 
         const plan = await prisma.weeklyPlan.findFirst({
             where: { id: planId, studentId: student.id },
         });
-        if (!plan) return res.status(404).json({ message: 'Plan not found.' });
+        if (!plan) return sendError(res, 'Plan not found.', 404);
 
         await prisma.weeklyPlanDaySubmission.deleteMany({
             where: {
@@ -285,9 +307,9 @@ export const deletePlanDay = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        res.json({ message: 'Removed.' });
+        return sendSuccess(res, null, 'Removed.');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
-        res.status(500).json({ error: message });
+        return sendError(res, message, 500);
     }
-};
+};

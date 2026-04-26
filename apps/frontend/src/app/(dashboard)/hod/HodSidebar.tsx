@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   LogOut,
   School,
-  Sparkles,
   Users,
   Building2,
   Send,
@@ -13,6 +12,7 @@ import {
   FileCheck,
   FileText,
   MessageSquare,
+  MessagesSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
 import api from "@/lib/api/client";
+import { useChatStore } from "@/lib/store/chatStore";
 
 const HodSidebar = () => {
   const pathname = usePathname();
@@ -27,14 +28,27 @@ const HodSidebar = () => {
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
+  const { unreadCount, fetchUnread } = useChatStore();
+  const [pendingStudents, setPendingStudents] = useState(0);
 
   useEffect(() => {
-    api.get<{ university?: { name: string } }>("/hod/dashboard-stats")
+    api.get<{ success: boolean; data: { university?: { name: string }; pendingApprovals?: number } }>("/hod/dashboard-stats")
       .then(({ data }) => {
-        if (data?.university?.name) setUniversityName(data.university.name);
+        const d = data.data;
+        if (d?.university?.name) setUniversityName(d.university.name);
+        if (typeof d?.pendingApprovals === 'number') setPendingStudents(d.pendingApprovals);
       })
       .catch(() => {});
-  }, []);
+    void fetchUnread();
+    const interval = setInterval(() => {
+      void fetchUnread();
+      // Refresh pending student count every 30s
+      api.get<{ success: boolean; data: { pendingApprovals?: number } }>("/hod/dashboard-stats")
+        .then(({ data }) => { if (typeof data.data?.pendingApprovals === 'number') setPendingStudents(data.data.pendingApprovals); })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   const handleLogout = () => {
     logout();
@@ -52,15 +66,15 @@ const HodSidebar = () => {
       .slice(0, 2) ?? "HD";
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/hod" },
-    { icon: MessageSquare, label: "Common Feed", path: "/hod/common-feed" },
-    { icon: Users, label: "Students", path: "/hod/students" },
-    { icon: Building2, label: "Companies", path: "/hod/companies" },
-    { icon: Send, label: "Placements", path: "/hod/placements" },
-    { icon: Mail, label: "Invite company", path: "/hod/invite" },
-    { icon: FileCheck, label: "Open letters", path: "/hod/open-letters" },
-    { icon: FileText, label: "Reports", path: "/hod/reports" },
-    { icon: Sparkles, label: "AI assistant", path: "/hod/ai" },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/hod", badge: 0 },
+    { icon: MessagesSquare, label: "Messages", path: "/hod/chat", badge: unreadCount },
+    { icon: Users, label: "Students", path: "/hod/students", badge: pendingStudents },
+    { icon: Building2, label: "Companies", path: "/hod/companies", badge: 0 },
+    { icon: Send, label: "Placements", path: "/hod/placements", badge: 0 },
+    { icon: Mail, label: "Invite company", path: "/hod/invite", badge: 0 },
+    { icon: FileCheck, label: "Open letters", path: "/hod/open-letters", badge: 0 },
+    { icon: FileText, label: "Reports", path: "/hod/reports", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/hod/common-feed", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>
@@ -101,7 +115,12 @@ const HodSidebar = () => {
           return (
             <Link key={item.path} href={item.path} className={linkClass(!!active)}>
               <item.icon className="h-5 w-5 shrink-0" />
-              <span className="whitespace-nowrap">{item.label}</span>
+              <span className="whitespace-nowrap flex-1">{item.label}</span>
+              {item.badge > 0 && (
+                <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-rose-700 ring-1 ring-rose-200/80">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

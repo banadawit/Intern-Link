@@ -5,6 +5,9 @@ import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
 import { uploadImage } from '../config/multer.config';
 
+import { validate } from '../middlewares/validationMiddleware';
+import { evaluationSchema, teamSchema } from '../validations/supervisorValidation';
+
 const router = Router();
 router.use(authenticate);
 router.use(authorize([Role.SUPERVISOR]));
@@ -21,15 +24,19 @@ router.get('/attendance-heatmap', supervisorCtrl.getAttendanceHeatmap);
 router.post('/upload-stamp', uploadImage.single('file'), supervisorCtrl.uploadCompanyStamp);
 
 router.get('/teams', supervisorTeamCtrl.listTeams);
-router.post('/teams', supervisorTeamCtrl.createTeam);
+router.post('/teams', validate(teamSchema), supervisorTeamCtrl.createTeam);
 router.delete('/teams/:id', supervisorTeamCtrl.deleteTeam);
+router.patch('/teams/:id/restore', supervisorTeamCtrl.restoreTeam);
 router.post('/teams/:id/members', supervisorTeamCtrl.addTeamMember);
 router.delete('/teams/:teamId/members/:studentId', supervisorTeamCtrl.removeTeamMember);
 
 router.get('/projects', supervisorTeamCtrl.listProjects);
 router.post('/projects', supervisorTeamCtrl.createProject);
 router.delete('/projects/:id', supervisorTeamCtrl.deleteProject);
+router.patch('/projects/:id/restore', supervisorTeamCtrl.restoreProject);
 router.post('/projects/:id/members', supervisorTeamCtrl.addProjectMember);
 router.delete('/projects/:projectId/members/:studentId', supervisorTeamCtrl.removeProjectMember);
+
+router.post('/evaluation', validate(evaluationSchema), supervisorCtrl.submitEvaluation);
 
 export default router;

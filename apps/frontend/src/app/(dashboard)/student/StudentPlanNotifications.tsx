@@ -215,8 +215,7 @@ export default function StudentPlanNotifications() {
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-end gap-3 border-b border-border-default bg-bg-main/95 px-4 py-3 backdrop-blur-sm md:gap-4 md:px-8",
-        /* Sit above <main> so the dropdown/backdrop are not covered by page content */
+        "flex shrink-0 items-center gap-3 py-3",
         panelOpen && "relative z-[100]"
       )}
     >
