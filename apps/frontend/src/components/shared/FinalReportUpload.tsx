@@ -3,10 +3,13 @@
 import FileUpload from './FileUpload';
 import { uploadSignedReport, generateStampedReport, downloadFile } from '@/lib/api/fileUpload';
 import { useState } from 'react';
-import { FileText, Download } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { FileText, Download, Eye } from 'lucide-react';
+import { getViewerUrl } from '@/lib/utils';
 
 interface FinalReportUploadProps {
   studentId: number;
+  organizationId: number;
   currentReportUrl?: string;
   isLocked?: boolean;
   onUploadSuccess?: (url: string) => void;
@@ -15,6 +18,7 @@ interface FinalReportUploadProps {
 
 export default function FinalReportUpload({
   studentId,
+  organizationId,
   currentReportUrl,
   isLocked = false,
   onUploadSuccess,
@@ -25,9 +29,10 @@ export default function FinalReportUpload({
     type: 'success' | 'error' | null;
     message: string;
   }>({ type: null, message: '' });
+  const router = useRouter();
 
   const handleUpload = async (file: File) => {
-    const result = await uploadSignedReport(file, studentId);
+    const result = await uploadSignedReport(file, studentId, organizationId);
 
     if (result.success && result.url && onUploadSuccess) {
       onUploadSuccess(result.url);
@@ -90,13 +95,22 @@ export default function FinalReportUpload({
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleDownload}
-              className="inline-flex items-center px-3 py-2 border border-green-600 rounded-md text-sm font-medium text-green-600 hover:bg-green-100"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push(getViewerUrl(currentReportUrl) + `&title=${encodeURIComponent('Final Report - Student ' + studentId)}`)}
+                className="inline-flex items-center px-3 py-2 border border-green-600 rounded-md text-sm font-medium text-green-600 hover:bg-green-100"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                View
+              </button>
+              <button
+                onClick={handleDownload}
+                className="inline-flex items-center px-3 py-2 border border-green-600 rounded-md text-sm font-medium text-green-600 hover:bg-green-100"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </button>
+            </div>
           </div>
         </div>
       )}

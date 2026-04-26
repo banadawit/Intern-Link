@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api/client";
-import { getApiOrigin } from "@/lib/apiOrigin";
-import { AlertCircle, Download, FileCheck, Send } from "lucide-react";
+import { AlertCircle, Download, FileCheck, Send, Eye } from "lucide-react";
+import PdfViewerPage from "@/components/shared/PdfViewerPage";
 
 type StudentRow = {
   student: {
@@ -21,11 +21,13 @@ type StudentRow = {
 };
 
 export default function SupervisorReportsPage() {
+ xport default function SupervisorReportsPage() {
   const [rows, setRows] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<Record<number, { technical: string; soft: string; comments: string }>>({});
   const [busy, setBusy] = useState<number | null>(null);
+  const router = useRouter();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,14 +78,12 @@ export default function SupervisorReportsPage() {
     }
   };
 
-  const downloadPdf = async (studentId: number) => {
+  const downloadPdf = async (studentId: number, studentName: string) => {
     setBusy(studentId);
     setError(null);
     try {
       const res = await api.get<{ reportUrl: string }>(`/reports/generate/${studentId}`);
-      const path = res.data.reportUrl.replace(/^\//, "");
-      const url = `${getApiOrigin()}/${path}`;
-      window.open(url, "_blank", "noopener,noreferrer");
+      router.push(getViewerUrl(res.data.reportUrl) + `&title=${encodeURIComponent(studentName + ' - Final Report')}`);
       await load();
     } catch (e: unknown) {
       const msg =
@@ -158,12 +158,22 @@ export default function SupervisorReportsPage() {
                     <button
                       type="button"
                       disabled={busy === r.student.id || locked}
-                      onClick={() => void downloadPdf(r.student.id)}
+                      onClick={() => void downloadPdf(r.student.id, r.student.user.full_name)}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                     >
                       <Download className="h-4 w-4" />
                       Generate PDF
                     </button>
+                    {fr?.pdf_url && (
+                      <button
+                        type="button"
+                        onClick={() => router.push(getViewerUrl(fr.pdf_url) + `&title=${encodeURIComponent(r.student.user.full_name + ' - Final Report')}`)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-100 disabled:opacity-50"
+                      >
+                        <Eye className="h-4 w-4" />
+                        View PDF
+                      </button>
+                    )}
                     {fr && !locked && (
                       <button
                         type="button"

@@ -26,6 +26,7 @@ import {
   Search
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { cloudinaryService } from '@/lib/services/cloudinary.service';
 
 // Types
 type Role = 'student' | 'coordinator' | 'hod' | 'supervisor' | null;
@@ -332,6 +333,22 @@ const RegisterPage = () => {
     setErrors({});
     
     try {
+      // 1. Upload verification file to Cloudinary first if it exists
+      let verificationDocumentUrl = '';
+      if (formData.verificationFile) {
+        // Use a generic folder for registration verification docs
+        const folder = `internlink/registration-verifications`;
+        const uploadResult = await cloudinaryService.uploadDocument(formData.verificationFile, folder);
+        
+        if (uploadResult.success && uploadResult.url) {
+          verificationDocumentUrl = uploadResult.url;
+        } else {
+          const errorMsg = uploadResult.error || 'Failed to upload verification document';
+          console.error('Upload failed:', errorMsg);
+          throw new Error(`Document upload failed: ${errorMsg}. Please check your Cloudinary configuration.`);
+        }
+      }
+
       const registerData = {
         fullName: formData.fullName,
         email: formData.email,
@@ -353,7 +370,7 @@ const RegisterPage = () => {
           hodId: formData.hodId,
           studentId: formData.studentId,
         }),
-        verificationDocument: formData.verificationFile,
+        verificationDocument: verificationDocumentUrl || undefined,
       };
       
       await register(registerData);

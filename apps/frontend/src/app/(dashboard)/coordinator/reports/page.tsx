@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import api from "@/lib/api/client";
 import CoordinatorPageHero from "../CoordinatorPageHero";
+import PdfViewerPage from "@/components/shared/PdfViewerPage";
 
 type ReportRow = {
   id: number;
@@ -20,6 +21,7 @@ export default function CoordinatorReportsPage() {
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdf, setPdf] = useState<{ url: string; title: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,16 +37,16 @@ export default function CoordinatorReportsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
+
+  if (pdf) return <PdfViewerPage url={pdf.url} title={pdf.title} onClose={() => setPdf(null)} />;
 
   return (
     <div className="space-y-6 pb-8">
       <CoordinatorPageHero
         badge="Reports"
         title="Final reports"
-        description="Submitted final reports from students across your university. Open PDFs in a new tab."
+        description="Submitted final reports from students across your university."
         action={
           <button
             type="button"
@@ -84,18 +86,14 @@ export default function CoordinatorReportsPage() {
                   <td className="px-4 py-3 font-medium text-slate-900">{r.student.user.full_name}</td>
                   <td className="px-4 py-3 text-slate-600">{r.student.department ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-700">{r.stamped ? "Yes" : "No"}</td>
-                  <td className="px-4 py-3 text-slate-500">
-                    {new Date(r.generated_at).toLocaleString()}
-                  </td>
+                  <td className="px-4 py-3 text-slate-500">{new Date(r.generated_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
-                    <a
-                      href={r.pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-primary-600 hover:underline"
+                    <button
+                      onClick={() => setPdf({ url: r.pdf_url, title: `${r.student.user.full_name} - Final Report` })}
+                      className="font-medium text-primary-600 hover:text-primary-700 hover:underline"
                     >
-                      Open
-                    </a>
+                      View PDF
+                    </button>
                   </td>
                 </tr>
               ))}
