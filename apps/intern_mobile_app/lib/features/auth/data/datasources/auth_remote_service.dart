@@ -30,7 +30,8 @@ class AuthRemoteService {
   }
 
   Future<void> register(RegisterPayload payload) async {
-    final formData = FormData.fromMap({
+    // Build form fields first
+    final fields = <String, dynamic>{
       'full_name': payload.fullName,
       'email': payload.email,
       'password': payload.password,
@@ -50,7 +51,17 @@ class AuthRemoteService {
       if (payload.hodId != null) 'hod_id': payload.hodId.toString(),
       if (payload.employeeId?.trim().isNotEmpty ?? false)
         'employee_id': payload.employeeId!.trim(),
-    });
+    };
+
+    // Attach file separately using bytes (works on all platforms, no dart:io needed)
+    if (payload.verificationFileBytes != null) {
+      fields['verification_document'] = MultipartFile.fromBytes(
+        payload.verificationFileBytes!,
+        filename: payload.verificationFileName ?? 'verification',
+      );
+    }
+
+    final formData = FormData.fromMap(fields);
 
     try {
       await _dio.post<void>(

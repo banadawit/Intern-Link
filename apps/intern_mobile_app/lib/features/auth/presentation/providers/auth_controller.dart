@@ -6,11 +6,9 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/session_service.dart';
 import '../../../../features/app_entry/domain/entities/app_role.dart';
 import '../../../../features/app_entry/presentation/providers/app_entry_providers.dart';
-import '../../../app_entry/domain/entities/app_start_decision.dart';
 import '../../data/datasources/auth_remote_service.dart';
 import '../../data/models/auth_models.dart';
 import '../../../app_entry/data/models/current_user_model.dart';
-import '../../../app_entry/presentation/providers/app_entry_providers.dart';
 
 enum AuthMode { login, register }
 
@@ -173,7 +171,7 @@ class AuthController extends Notifier<AuthUiState> {
         emailForVerification: error.email,
       );
       return null;
-    } catch (_) {
+    } catch (e) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Unexpected error occurred. Please try again.',
@@ -217,10 +215,10 @@ class AuthController extends Notifier<AuthUiState> {
     } on AuthApiException catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.message);
       return false;
-    } catch (_) {
+    } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Unexpected error occurred. Please try again.',
+        errorMessage: e.toString().replaceFirst('Exception: ', ''),
         clearAuthMeta: true,
       );
       return false;

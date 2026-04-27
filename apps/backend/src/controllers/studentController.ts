@@ -156,33 +156,14 @@ export const uploadWeeklyPresentation = async (req: AuthRequest, res: Response) 
         let uploadResult;
 
         if (existingPresentation) {
-            // Replace existing file
-            const existingFile = await prisma.file.findFirst({
-                where: { url: existingPresentation.file_url },
+            // Replace existing — upload new file directly (no file record lookup needed)
+            uploadResult = await CloudinaryService.uploadDocument(file, {
+                userId,
+                organizationId: student.universityId,
+                fileType: 'WEEKLY_PRESENTATION',
+                folder,
+                resourceType: 'raw',
             });
-
-            if (existingFile) {
-                uploadResult = await CloudinaryService.replaceFile(
-                    existingFile.publicId,
-                    file,
-                    {
-                        userId,
-                        organizationId: student.universityId,
-                        fileType: 'WEEKLY_PRESENTATION',
-                        folder,
-                        resourceType: 'raw',
-                    }
-                );
-            } else {
-                // Old file not in new system, just upload new one
-                uploadResult = await CloudinaryService.uploadDocument(file, {
-                    userId,
-                    organizationId: student.universityId,
-                    fileType: 'WEEKLY_PRESENTATION',
-                    folder,
-                    resourceType: 'raw',
-                });
-            }
 
             // Update presentation record
             await prisma.weeklyPresentation.update({

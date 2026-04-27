@@ -49,20 +49,30 @@ export const register = async (req: Request, res: Response) => {
         const verificationToken = generateVerificationToken();
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
-        // Upload verification document if provided
+        // Upload verification document if provided (PDF or image)
         let verificationDocUrl: string | null = null;
         if (file) {
-            const { CloudinaryService } = await import('../services/cloudinary.service');
-            const folder = `internlink/verification-docs`;
-            
-            const uploadResult = await CloudinaryService.uploadDocument(file, {
-                fileType: 'VERIFICATION_DOC',
-                folder,
-                resourceType: 'raw',
-            });
+            const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+            const apiKey = process.env.CLOUDINARY_API_KEY;
+            const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
-            if (uploadResult.success) {
-                verificationDocUrl = uploadResult.url!;
+            if (cloudName && apiKey && apiSecret) {
+                const { CloudinaryService } = await import('../services/cloudinary.service');
+                const folder = `internlink/verification-docs`;
+
+                const uploadResult = await CloudinaryService.uploadVerificationDoc(file, {
+                    fileType: 'VERIFICATION_DOC',
+                    folder,
+                });
+
+                if (uploadResult.success) {
+                    verificationDocUrl = uploadResult.url!;
+                } else {
+                    console.warn('Verification doc upload failed:', uploadResult.error);
+                    // Non-fatal — admin can request doc manually
+                }
+            } else {
+                console.warn('Cloudinary not configured — skipping verification doc upload.');
             }
         }
 

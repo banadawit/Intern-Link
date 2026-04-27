@@ -467,34 +467,14 @@ export const uploadCompanyStamp = async (req: AuthRequest, res: Response) => {
         let uploadResult;
 
         if (existingStamp) {
-            // Find existing file record
-            const existingFile = await prisma.file.findFirst({
-                where: { url: existingStamp },
+            // Upload new stamp directly (no file record lookup needed)
+            uploadResult = await CloudinaryService.uploadImage(file, {
+                userId,
+                organizationId: supervisor.companyId,
+                fileType: 'COMPANY_STAMP',
+                folder,
+                resourceType: 'image',
             });
-
-            if (existingFile) {
-                // Replace existing stamp
-                uploadResult = await CloudinaryService.replaceFile(
-                    existingFile.publicId,
-                    file,
-                    {
-                        userId,
-                        organizationId: supervisor.companyId,
-                        fileType: 'COMPANY_STAMP',
-                        folder,
-                        resourceType: 'image',
-                    }
-                );
-            } else {
-                // Old stamp not in new system, just upload new one
-                uploadResult = await CloudinaryService.uploadImage(file, {
-                    userId,
-                    organizationId: supervisor.companyId,
-                    fileType: 'COMPANY_STAMP',
-                    folder,
-                    resourceType: 'image',
-                });
-            }
         } else {
             // Upload new stamp
             uploadResult = await CloudinaryService.uploadImage(file, {
