@@ -16,12 +16,27 @@ class AccountSettingsRepository {
     throw Exception('Invalid profile response');
   }
 
-  Future<CurrentUserModel> updateProfile({required String fullName, String? email}) async {
+  Future<CurrentUserModel> updateProfile({
+    required String fullName,
+    String? email,
+    String? phoneNumber,
+    String? department,
+    String? studentId,
+  }) async {
     final payload = <String, String>{
       'fullName': fullName.trim(),
     };
     if (email != null && email.trim().isNotEmpty) {
       payload['email'] = email.trim();
+    }
+    if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
+      payload['phoneNumber'] = phoneNumber.trim();
+    }
+    if (department != null && department.trim().isNotEmpty) {
+      payload['department'] = department.trim();
+    }
+    if (studentId != null && studentId.trim().isNotEmpty) {
+      payload['studentId'] = studentId.trim();
     }
 
     final response = await apiClient.dio.patch('/auth/me', data: payload);

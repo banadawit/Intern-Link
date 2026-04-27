@@ -24,6 +24,7 @@ import '../../../plans/domain/entities/weekly_plan.dart';
 import '../../../plans/presentation/screens/plans_screen.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../../feed/data/feed_repository.dart';
+import '../../../app_entry/presentation/providers/app_entry_providers.dart';
 
 // ---------------------------------------------------------
 // STATE MANAGEMENT (NAVIGATION)
@@ -295,6 +296,9 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
               // Reset navigation index before clearing session
               ref.read(dashboardIndexProvider.notifier).state = 0;
               await ref.read(appSessionServiceProvider).clearSession();
+              // Invalidate cached profile so the next login fetches fresh data
+              ref.invalidate(userProfileProvider);
+              ref.invalidate(appStartDecisionProvider);
               if (context.mounted) context.go(AppRoutes.auth);
             },
             isDestructive: true,
@@ -7180,6 +7184,9 @@ Future<void> _showLogoutConfirmation(BuildContext context, WidgetRef ref) async 
     // Reset navigation index before clearing session
     ref.read(dashboardIndexProvider.notifier).state = 0;
     await ref.read(appSessionServiceProvider).clearSession();
+    // Invalidate cached profile so the next login fetches fresh data
+    ref.invalidate(userProfileProvider);
+    ref.invalidate(appStartDecisionProvider);
     if (context.mounted) {
       context.go(AppRoutes.auth);
     }
