@@ -931,7 +931,8 @@ class AiMessagesNotifier extends AsyncNotifier<List<AiMessageModel>> {
     ]);
 
     try {
-      final response = await repo.sendMessage(text);
+      // Pass full conversation history so the AI has context
+      final response = await repo.sendMessage(text, history: state.value ?? []);
       state = AsyncData([
         ...state.value!,
         response,
@@ -939,7 +940,7 @@ class AiMessagesNotifier extends AsyncNotifier<List<AiMessageModel>> {
     } catch (e) {
       state = AsyncData([
         ...state.value!,
-        AiMessageModel(speaker: 'assistant', content: 'Sorry, I encountered an error: $e'),
+        AiMessageModel(speaker: 'assistant', content: 'Sorry, I encountered an error. Please try again.'),
       ]);
     }
   }
