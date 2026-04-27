@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/session_service.dart';
 import '../../features/app_entry/presentation/screens/splash_screen.dart';
+import '../../features/auth/presentation/screens/force_change_password_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/pending_review_screen.dart';
@@ -233,6 +234,13 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.studentDashboard,
       builder: (context, state) => const StudentDashboardScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.forceChangePassword,
+      builder: (context, state) {
+        final nextRoute = state.uri.queryParameters['next'] ?? AppRoutes.hodDashboard;
+        return ForceChangePasswordScreen(nextRoute: nextRoute);
+      },
     ),
     GoRoute(
       path: AppRoutes.supervisorDashboard,

@@ -12,6 +12,7 @@ class CoordinatorStats {
   final int pendingHods;
   final int reportsCount;
   final String universityName;
+  final List<Map<String, dynamic>> recentNotifications;
 
   CoordinatorStats({
     required this.totalStudents,
@@ -22,9 +23,14 @@ class CoordinatorStats {
     required this.pendingHods,
     required this.reportsCount,
     required this.universityName,
+    this.recentNotifications = const [],
   });
 
   factory CoordinatorStats.fromJson(Map<String, dynamic> json) {
+    final rawNotifs = json['recentNotifications'];
+    final notifs = rawNotifs is List
+        ? rawNotifs.whereType<Map<String, dynamic>>().toList()
+        : <Map<String, dynamic>>[];
     return CoordinatorStats(
       totalStudents: (json['students']?['total'] as num?)?.toInt() ?? 0,
       totalCompanies: (json['totalCompanies'] as num?)?.toInt() ?? 0,
@@ -34,6 +40,7 @@ class CoordinatorStats {
       pendingHods: (json['hods']?['pending'] as num?)?.toInt() ?? 0,
       reportsCount: (json['reportsCount'] as num?)?.toInt() ?? 0,
       universityName: json['universityName'] as String? ?? 'Your University',
+      recentNotifications: notifs,
     );
   }
 }
@@ -87,14 +94,12 @@ class CoordinatorRepository {
     required String fullName,
     required String email,
     required String department,
-    String? password,
     String? employeeId,
   }) async {
     final res = await apiClient.dio.post('/coordinator/hods', data: {
       'fullName': fullName.trim(),
       'email': email.trim(),
       'department': department.trim(),
-      if (password != null && password.trim().isNotEmpty) 'password': password.trim(),
       if (employeeId != null && employeeId.trim().isNotEmpty) 'employeeId': employeeId.trim(),
     });
     return res.data as Map<String, dynamic>;
