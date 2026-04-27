@@ -1,5 +1,4 @@
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
-import prisma from '../config/db';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -78,7 +77,7 @@ export class CloudinaryService {
             resource_type: 'image',
             transformation: [{ quality: 'auto', fetch_format: 'auto' }],
           },
-          (error, result) => {
+          (error: any, result: any) => {
             if (error) reject(error);
             else resolve(result!);
           }
@@ -86,25 +85,11 @@ export class CloudinaryService {
         uploadStream.end(file.buffer);
       });
 
-      // Save to database
-      const fileRecord = await prisma.file.create({
-        data: {
-          userId: options.userId,
-          organizationId: options.organizationId,
-          type: options.fileType,
-          url: result.secure_url,
-          publicId: result.public_id,
-          filename: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
-        },
-      });
-
       return {
         success: true,
         url: result.secure_url,
         publicId: result.public_id,
-        fileId: fileRecord.id,
+        fileId: result.public_id,
       };
     } catch (error: any) {
       console.error('Cloudinary upload error:', error);
@@ -134,7 +119,7 @@ export class CloudinaryService {
             resource_type: 'raw',
             format: file.originalname.split('.').pop(),
           },
-          (error, result) => {
+          (error: any, result: any) => {
             if (error) reject(error);
             else resolve(result!);
           }
@@ -142,25 +127,11 @@ export class CloudinaryService {
         uploadStream.end(file.buffer);
       });
 
-      // Save to database
-      const fileRecord = await prisma.file.create({
-        data: {
-          userId: options.userId,
-          organizationId: options.organizationId,
-          type: options.fileType,
-          url: result.secure_url,
-          publicId: result.public_id,
-          filename: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
-        },
-      });
-
       return {
         success: true,
         url: result.secure_url,
         publicId: result.public_id,
-        fileId: fileRecord.id,
+        fileId: result.public_id,
       };
     } catch (error: any) {
       console.error('Cloudinary upload error:', error);
@@ -178,11 +149,6 @@ export class CloudinaryService {
 
       // Delete from Cloudinary
       await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
-
-      // Delete from database
-      await prisma.file.deleteMany({
-        where: { publicId },
-      });
 
       return true;
     } catch (error) {
@@ -224,11 +190,9 @@ export class CloudinaryService {
    */
   static async getFileUrl(fileId: string): Promise<string | null> {
     try {
-      const file = await prisma.file.findUnique({
-        where: { id: fileId },
-        select: { url: true },
-      });
-      return file?.url || null;
+      // fileId is the Cloudinary public_id — construct URL directly
+      const result = await cloudinary.api.resource(fileId);
+      return result?.secure_url || null;
     } catch (error) {
       console.error('Get file URL error:', error);
       return null;

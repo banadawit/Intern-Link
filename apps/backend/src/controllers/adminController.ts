@@ -881,3 +881,125 @@ export const uploadVerificationDocument = async (req: AuthRequest, res: Response
         res.status(500).json({ error: error.message });
     }
 };
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export const getAnalytics = async (req: AuthRequest, res: Response) => {
+    try {
+        // ── User growth: last 6 months, grouped by month ──────────────────────
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+        sixMonthsAgo.setDate(1);
+        sixMonthsAgo.setHours(0, 0, 0, 0);
+
+        const users = await prisma.user.findMany({
+            where: { created_at: { gte: sixMonthsAgo } },
+            select: { role: true, created_at: true },
+        });
+
+        // Build month buckets
+        const monthMap: Record<string, { label: string; students: number; coordinators: number; supervisors: number; hods: number; total: number }> = {};
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const label = d.toLocaleString('default', { month: 'short' });
+            monthMap[key] = { label, students: 0, coordinators: 0, supervisors: 0, hods: 0, total: 0 };
+        }
+        for (const u of users) {
+            const d = new Date(u.created_at);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!monthMap[key]) continue;
+            monthMap[key].total++;
+            if (u.role === 'STUDENT') monthMap[key].students++;
+            else if (u.role === 'COORDINATOR') monthMap[key].coordinators++;
+            else if (u.role === 'SUPERVISOR') monthMap[key].supervisors++;
+            else if (u.role === 'HOD') monthMap[key].hods++;
+        }
+        const userGrowth = Object.values(monthMap);
+
+        // ── Placement stats ───────────────────────────────────────────────────
+        const [totalStudents, placedStudents, completedStudents] = await Promise.all([
+            prisma.student.count(),
+            prisma.student.count({ where: { internship_status: 'PLACED' } }),
+            prisma.student.count({ where: { internship_status: 'COMPLETED' } }),
+        ]);
+        const placementStats = {
+            total: totalStudents,
+            placed: placedStudents,
+            completed: completedStudents,
+            pending: totalStudents - placedStudents - completedStudents,
+        };
+
+        // ── Placement trend: assignments created per month (last 6 months) ────
+        const assignments = await prisma.internshipAssignment.findMany({
+            where: { start_date: { gte: sixMonthsAgo } },
+            select: { start_date: true },
+        });
+        const trendMap: Record<string, { label: string; count: number }> = {};
+        for (const key of Object.keys(monthMap)) {
+            trendMap[key] = { label: monthMap[key].label, count: 0 };
+        }
+        for (const a of assignments) {
+            const d = new Date(a.start_date);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (trendMap[key]) trendMap[key].count++;
+        }
+        const placementTrend = Object.values(trendMap);
+
+        // ── Proposal stats ────────────────────────────────────────────────────
+        const proposalGroups = await prisma.internshipProposal.groupBy({
+            by: ['status'],
+            _count: { status: true },
+        });
+        const pMap: Record<string, number> = {};
+        for (const g of proposalGroups) pMap[g.status] = g._count.status;
+        const proposalStats = {
+            total: Object.values(pMap).reduce((a, b) => a + b, 0),
+            approved: pMap['APPROVED'] ?? 0,
+            rejected: pMap['REJECTED'] ?? 0,
+            pending: pMap['PENDING'] ?? 0,
+        };
+
+        // ── Org stats ─────────────────────────────────────────────────────────
+        const [totalUnis, approvedUnis, totalComps, approvedComps] = await Promise.all([
+            prisma.university.count(),
+            prisma.university.count({ where: { approval_status: 'APPROVED' } }),
+            prisma.company.count(),
+            prisma.company.count({ where: { approval_status: 'APPROVED' } }),
+        ]);
+        const orgStats = {
+            universities: { total: totalUnis, approved: approvedUnis },
+            companies: { total: totalComps, approved: approvedComps },
+        };
+
+        // ── Weekly plan trend: last 6 months ──────────────────────────────────
+        const plans = await prisma.weeklyPlan.findMany({
+            where: { submitted_at: { gte: sixMonthsAgo } },
+            select: { status: true, submitted_at: true },
+        });
+        const wpMap: Record<string, { label: string; submitted: number; approved: number }> = {};
+        for (const key of Object.keys(monthMap)) {
+            wpMap[key] = { label: monthMap[key].label, submitted: 0, approved: 0 };
+        }
+        for (const p of plans) {
+            const d = new Date(p.submitted_at);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!wpMap[key]) continue;
+            wpMap[key].submitted++;
+            if (p.status === 'APPROVED') wpMap[key].approved++;
+        }
+        const weeklyPlanTrend = Object.values(wpMap);
+
+        return res.json({
+            userGrowth,
+            placementStats,
+            placementTrend,
+            proposalStats,
+            orgStats,
+            weeklyPlanTrend,
+        });
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
+    }
+};

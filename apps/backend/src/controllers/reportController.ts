@@ -384,37 +384,20 @@ export const uploadSignedReport = async (req: AuthRequest, res: Response) => {
         let uploadResult;
 
         if (existingReport) {
-            const existingFile = await prisma.file.findFirst({
-                where: { url: existingReport.pdf_url },
+            // Upload new file directly (no file record lookup needed)
+            uploadResult = await CloudinaryService.uploadDocument(file, {
+                userId: student.userId,
+                organizationId: student.universityId,
+                fileType: 'FINAL_REPORT',
+                folder,
+                resourceType: 'raw',
             });
-
-            if (existingFile) {
-                uploadResult = await CloudinaryService.replaceFile(
-                    existingFile.publicId,
-                    file,
-                    {
-                        userId: student.userId,
-                        organizationId: student.universityId,
-                        fileType: 'FINAL_REPORT',
-                        folder,
-                        resourceType: 'raw',
-                    }
-                );
-            } else {
-                uploadResult = await CloudinaryService.uploadDocument(file, {
-                    userId: student.userId,
-                    organizationId: student.universityId,
-                    fileType: 'FINAL_REPORT',
-                    folder,
-                    resourceType: 'raw',
-                });
-            }
 
             await prisma.report.update({
                 where: { studentId: sid },
                 data: { 
                     pdf_url: uploadResult.url!,
-                    stamped: true, // Assume manually uploaded reports are signed
+                    stamped: true,
                     generated_at: new Date(),
                 },
             });

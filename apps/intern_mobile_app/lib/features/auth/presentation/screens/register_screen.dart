@@ -1247,7 +1247,6 @@ class _DepartmentPicker extends ConsumerWidget {
                       style: TextStyle(color: Colors.grey)),
                 );
               }
-              final selected = depts.where((d) => d.id == selectedHodId).firstOrNull;
               return DropdownButtonFormField<int>(
                 value: selectedHodId,
                 decoration: InputDecoration(
@@ -1345,7 +1344,6 @@ class _InputField extends StatelessWidget {
     required this.primary,
     this.obscureText = false,
     this.keyboardType,
-    this.textInputAction,
     this.validator,
     this.suffix,
     this.enabled = true,
@@ -1358,7 +1356,6 @@ class _InputField extends StatelessWidget {
   final Color primary;
   final bool obscureText;
   final TextInputType? keyboardType;
-  final TextInputAction? textInputAction;
   final String? Function(String?)? validator;
   final Widget? suffix;
   final bool enabled;
@@ -1369,7 +1366,6 @@ class _InputField extends StatelessWidget {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      textInputAction: textInputAction,
       validator: validator,
       enabled: enabled,
       style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
@@ -1455,12 +1451,15 @@ class _PrimaryButton extends StatelessWidget {
                 children: [
                   if (leadingIcon != null) ...[
                     Icon(leadingIcon, size: 18),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                   ],
-                  Text(label,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  Flexible(
+                    child: Text(label,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                  ),
                   if (trailingIcon != null) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Icon(trailingIcon, size: 18),
                   ],
                 ],
