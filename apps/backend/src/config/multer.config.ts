@@ -29,12 +29,13 @@ const documentFileFilter = (req: any, file: Express.Multer.File, cb: multer.File
     }
 };
 
-// File filter for verification documents (PDF only)
+// File filter for verification documents (PDF, JPG, PNG)
 const verificationFileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    if (file.mimetype === 'application/pdf') {
+    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Invalid file type. Only PDF files are allowed for verification.'));
+        cb(new Error('Invalid file type. Only PDF, JPG, or PNG files are allowed for verification.'));
     }
 };
 
