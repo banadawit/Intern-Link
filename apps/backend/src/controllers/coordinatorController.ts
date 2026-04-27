@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import bcrypt from 'bcryptjs';
-import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail } from '../services/email.service';
+import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail, sendHodWelcomeEmail } from '../services/email.service';
 
 const hodInclude = {
     user: {
@@ -163,25 +163,26 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
 /**
  * POST /coordinator/hods
  * Coordinator manually creates an HoD account for their university.
- * The account is auto-approved because the coordinator is vouching for them.
- * Body: { fullName, email, department, password?, employeeId? }
+ * - Default password is "123456" (or coordinator-supplied password)
+ * - Account is auto-approved (coordinator vouches for them)
+ * - must_change_password = true forces password change on first login
+ * - Welcome email with credentials is sent to the HoD
  */
 export const createHod = async (req: AuthRequest, res: Response) => {
     try {
         const coordinatorProfile = await prisma.coordinator.findUnique({
             where: { userId: req.user!.userId },
-            include: { university: true },
+            include: { university: true, user: { select: { full_name: true } } },
         });
 
         if (!coordinatorProfile?.universityId) {
             return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
         }
 
-        const { fullName, email, department, password, employeeId } = req.body as {
+        const { fullName, email, department, employeeId } = req.body as {
             fullName?: string;
             email?: string;
             department?: string;
-            password?: string;
             employeeId?: string;
         };
 
@@ -191,17 +192,16 @@ export const createHod = async (req: AuthRequest, res: Response) => {
 
         const emailLower = email.trim().toLowerCase();
 
-        // Check email not already taken
         const existing = await prisma.user.findUnique({ where: { email: emailLower } });
         if (existing) {
             return res.status(409).json({ error: 'An account with this email already exists.' });
         }
 
-        // Use provided password or generate a temporary one
-        const rawPassword = password?.trim() || `HoD@${Math.random().toString(36).slice(2, 10)}`;
-        const passwordHash = await bcrypt.hash(rawPassword, 10);
+        // Always use "123456" as the default temporary password
+        const temporaryPassword = '123456';
+        const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
-        // Create user + HOD profile in a transaction — auto-approved
+        // Create user + HOD profile — auto-approved, must change password on first login
         const newUser = await prisma.user.create({
             data: {
                 full_name: fullName.trim(),
@@ -209,7 +209,8 @@ export const createHod = async (req: AuthRequest, res: Response) => {
                 password_hash: passwordHash,
                 role: 'HOD',
                 verification_status: 'APPROVED',
-                institution_access_approval: 'APPROVED', // auto-approved by coordinator
+                institution_access_approval: 'APPROVED',
+                must_change_password: true,
                 hodProfile: {
                     create: {
                         universityId: coordinatorProfile.universityId,
@@ -223,26 +224,24 @@ export const createHod = async (req: AuthRequest, res: Response) => {
                 full_name: true,
                 email: true,
                 role: true,
-                institution_access_approval: true,
+                must_change_password: true,
                 hodProfile: { select: { id: true, department: true } },
             },
         });
 
-        // Notify the new HOD by email
-        try {
-            await sendOrganizationApprovalEmail(
-                emailLower,
-                coordinatorProfile.university!.name,
-                'University'
-            );
-        } catch (_) {
-            // Non-fatal — account is created regardless
-        }
+        // Send welcome email with credentials (non-fatal)
+        await sendHodWelcomeEmail({
+            to: emailLower,
+            hodName: fullName.trim(),
+            department: department.trim(),
+            universityName: coordinatorProfile.university!.name,
+            temporaryPassword,
+            coordinatorName: coordinatorProfile.user.full_name,
+        });
 
         return res.status(201).json({
-            message: 'HoD account created and approved successfully.',
+            message: 'HoD account created successfully. A welcome email with login credentials has been sent.',
             user: newUser,
-            temporaryPassword: password?.trim() ? undefined : rawPassword,
         });
     } catch (error: any) {
         return res.status(500).json({ error: error.message });

@@ -66,6 +66,10 @@ model User {
   created_at        DateTime       @default(now())
   updated_at        DateTime       @updatedAt
 
+  /// Set to true when account is created by a coordinator/admin with a temp password.
+  /// User must change password on first login before accessing the dashboard.
+  must_change_password Boolean @default(false)
+
   
 
   // Specific Role Relations
@@ -535,4 +539,25 @@ model File {
   @@index([userId, type])
   @@index([organizationId, type])
   @@map("files")
+}
+
+/// Key-value store for platform-wide configuration set by admins.
+model SystemConfig {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId Int
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@index([senderId, receiverId, created_at])
+  @@index([receiverId, is_read])
 }

@@ -1,5 +1,4 @@
-import 'dart:ui';
-import 'package:flutter/cupertino.dart';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -4197,19 +4196,6 @@ class _StudentList extends ConsumerWidget {
     );
   }
 }
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: pct,
-              backgroundColor: color.withOpacity(0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 6,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _CoordinatorCompaniesTab extends ConsumerStatefulWidget {
   const _CoordinatorCompaniesTab();
@@ -4236,9 +4222,6 @@ class _CoordinatorCompaniesTabState extends ConsumerState<_CoordinatorCompaniesT
             profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
             gradient: [const Color(0xFFDA22FF), const Color(0xFF9733EE)],
             backgroundIcon: Icons.business_rounded,
-          ),
-          CupertinoSliverRefreshControl(
-            onRefresh: () async => ref.invalidate(coordinatorCompaniesProvider),
           ),
           SliverToBoxAdapter(
             child: Padding(

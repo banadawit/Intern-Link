@@ -29,9 +29,9 @@ extension RegistrationRoleX on RegistrationRole {
 }
 
 class LoginResult {
-  const LoginResult({required this.token});
-
+  const LoginResult({required this.token, this.mustChangePassword = false});
   final String token;
+  final bool mustChangePassword;
 }
 
 class RegisterPayload {
