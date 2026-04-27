@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../features/app_entry/domain/entities/app_role.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../data/repositories/account_settings_repository.dart';
 
 class AccountSettingsScreen extends ConsumerStatefulWidget {
-  final String initialSection; // 'profile' or 'security'
+  final String initialSection;
 
   const AccountSettingsScreen({super.key, this.initialSection = 'profile'});
 
@@ -59,30 +60,30 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
               ),
             ),
             NestedScrollView(
-            headerSliverBuilder: (context, _) => [
-              _buildAppBar(context, isDark),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SliverTabBarDelegate(
-                  TabBar(
-                    tabs: const [Tab(text: 'Profile Details'), Tab(text: 'Security')],
-                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    unselectedLabelColor: Colors.grey,
-                    labelColor: theme.colorScheme.primary,
-                    indicatorColor: theme.colorScheme.primary,
-                    indicatorWeight: 3,
-                    indicatorSize: TabBarIndicatorSize.label,
+              headerSliverBuilder: (context, _) => [
+                _buildAppBar(context, isDark),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SliverTabBarDelegate(
+                    TabBar(
+                      tabs: const [Tab(text: 'Profile Details'), Tab(text: 'Security')],
+                      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      unselectedLabelColor: Colors.grey,
+                      labelColor: theme.colorScheme.primary,
+                      indicatorColor: theme.colorScheme.primary,
+                      indicatorWeight: 3,
+                      indicatorSize: TabBarIndicatorSize.label,
+                    ),
+                    isDark,
                   ),
-                  isDark,
                 ),
-              ),
-            ],
-            body: const TabBarView(
-              children: [
-                _ProfileSettingsView(),
-                _SecuritySettingsView(),
               ],
-            ),
+              body: TabBarView(
+                children: [
+                  _ProfileSettingsView(parentState: this),
+                  _SecuritySettingsView(parentState: this),
+                ],
+              ),
             ),
           ],
         ),
@@ -90,16 +91,20 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     );
   }
 
-  Future<void> _saveProfile({
+  Future<void> saveProfile({
     required BuildContext context,
     required String fullName,
-    required String email,
+    String? phoneNumber,
+    String? department,
+    String? studentId,
   }) async {
     setState(() => _isSavingProfile = true);
     try {
       await ref.read(accountSettingsRepositoryProvider).updateProfile(
             fullName: fullName,
-            email: email,
+            phoneNumber: phoneNumber,
+            department: department,
+            studentId: studentId,
           );
       ref.invalidate(userProfileProvider);
       if (mounted) {
@@ -118,7 +123,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     }
   }
 
-  Future<void> _changePassword({
+  Future<void> changePassword({
     required BuildContext context,
     required String currentPassword,
     required String newPassword,
@@ -163,8 +168,13 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// PROFILE SETTINGS VIEW — role-aware fields
+// ---------------------------------------------------------------------------
+
 class _ProfileSettingsView extends ConsumerStatefulWidget {
-  const _ProfileSettingsView();
+  const _ProfileSettingsView({required this.parentState});
+  final _AccountSettingsScreenState parentState;
 
   @override
   ConsumerState<_ProfileSettingsView> createState() => _ProfileSettingsViewState();
@@ -173,6 +183,9 @@ class _ProfileSettingsView extends ConsumerStatefulWidget {
 class _ProfileSettingsViewState extends ConsumerState<_ProfileSettingsView> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _emailCtrl;
+  late final TextEditingController _phoneCtrl;
+  late final TextEditingController _departmentCtrl;
+  late final TextEditingController _studentIdCtrl;
   bool _didInit = false;
 
   @override
@@ -180,18 +193,23 @@ class _ProfileSettingsViewState extends ConsumerState<_ProfileSettingsView> {
     super.initState();
     _nameCtrl = TextEditingController();
     _emailCtrl = TextEditingController();
+    _phoneCtrl = TextEditingController();
+    _departmentCtrl = TextEditingController();
+    _studentIdCtrl = TextEditingController();
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _departmentCtrl.dispose();
+    _studentIdCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final parent = context.findAncestorStateOfType<_AccountSettingsScreenState>();
     final profileAsync = ref.watch(userProfileProvider);
 
     return profileAsync.when(
@@ -202,7 +220,11 @@ class _ProfileSettingsViewState extends ConsumerState<_ProfileSettingsView> {
           _didInit = true;
           _nameCtrl.text = profile.fullName;
           _emailCtrl.text = profile.email;
+          _phoneCtrl.text = profile.profile.phoneNumber ?? '';
+          _departmentCtrl.text = profile.profile.department ?? '';
+          _studentIdCtrl.text = profile.profile.studentId ?? '';
         }
+
         return ListView(
           padding: const EdgeInsets.all(24),
           children: [
@@ -218,44 +240,100 @@ class _ProfileSettingsViewState extends ConsumerState<_ProfileSettingsView> {
               enabled: false,
               helperText: 'Email change disabled by policy.',
             ),
+            ..._buildRoleFields(context, profile.role),
             const SizedBox(height: 40),
-            Container(
-              width: double.infinity,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057)]),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFFE94057).withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 8)),
-                ],
-              ),
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                onPressed: parent == null || parent._isSavingProfile
-                    ? null
-                    : () => parent._saveProfile(
-                          context: context,
-                          fullName: _nameCtrl.text.trim(),
-                          email: _emailCtrl.text.trim(),
-                        ),
-                child: Text(
-                  parent?._isSavingProfile == true ? 'Updating...' : 'Update Profile',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ),
+            _buildSaveButton(context, profile.role),
           ],
         );
       },
     );
   }
 
+  /// Returns the extra fields that are specific to each role.
+  List<Widget> _buildRoleFields(BuildContext context, AppRole role) {
+    switch (role) {
+      case AppRole.student:
+        return [
+          const SizedBox(height: 16),
+          _buildSectionHeader('Academic Information'),
+          const SizedBox(height: 16),
+          _buildTextField(context, 'Student ID', _studentIdCtrl, Icons.badge_outlined),
+          const SizedBox(height: 16),
+          _buildTextField(context, 'Department', _departmentCtrl, Icons.school_outlined),
+        ];
+
+      case AppRole.supervisor:
+        return [
+          const SizedBox(height: 16),
+          _buildSectionHeader('Work Information'),
+          const SizedBox(height: 16),
+          _buildTextField(context, 'Phone Number', _phoneCtrl, Icons.phone_outlined),
+        ];
+
+      case AppRole.coordinator:
+        return [
+          const SizedBox(height: 16),
+          _buildSectionHeader('Contact Information'),
+          const SizedBox(height: 16),
+          _buildTextField(context, 'Phone Number', _phoneCtrl, Icons.phone_outlined),
+        ];
+
+      case AppRole.hod:
+        return [
+          const SizedBox(height: 16),
+          _buildSectionHeader('Department Information'),
+          const SizedBox(height: 16),
+          _buildTextField(context, 'Phone Number', _phoneCtrl, Icons.phone_outlined),
+          const SizedBox(height: 16),
+          _buildTextField(context, 'Department', _departmentCtrl, Icons.school_outlined),
+        ];
+
+      case AppRole.admin:
+        // Admin only has full name — no role-specific profile table
+        return [];
+    }
+  }
+
+  Widget _buildSaveButton(BuildContext context, AppRole role) {
+    final isSaving = widget.parentState._isSavingProfile;
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057)]),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFE94057).withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        onPressed: isSaving
+            ? null
+            : () => widget.parentState.saveProfile(
+                  context: context,
+                  fullName: _nameCtrl.text.trim(),
+                  phoneNumber: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+                  department: _departmentCtrl.text.trim().isEmpty ? null : _departmentCtrl.text.trim(),
+                  studentId: _studentIdCtrl.text.trim().isEmpty ? null : _studentIdCtrl.text.trim(),
+                ),
+        child: Text(
+          isSaving ? 'Updating...' : 'Update Profile',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title) {
-    return Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2));
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
+    );
   }
 
   Widget _buildTextField(
@@ -292,12 +370,16 @@ class _ProfileSettingsViewState extends ConsumerState<_ProfileSettingsView> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// SECURITY SETTINGS VIEW
+// ---------------------------------------------------------------------------
+
 class _SecuritySettingsView extends ConsumerWidget {
-  const _SecuritySettingsView();
+  const _SecuritySettingsView({required this.parentState});
+  final _AccountSettingsScreenState parentState;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final parent = context.findAncestorStateOfType<_AccountSettingsScreenState>();
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -309,9 +391,9 @@ class _SecuritySettingsView extends ConsumerWidget {
           'Update your account password',
           Icons.lock_outline_rounded,
           Colors.blue,
-          onTap: parent == null || parent._isChangingPassword
+          onTap: parentState._isChangingPassword
               ? null
-              : () => _showChangePasswordDialog(context, parent),
+              : () => _showChangePasswordDialog(context, parentState),
         ),
         const SizedBox(height: 16),
         _buildSecurityCard(
@@ -353,61 +435,34 @@ class _SecuritySettingsView extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: currentCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Current Password'),
-            ),
+            TextField(controller: currentCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Current Password')),
             const SizedBox(height: 12),
-            TextField(
-              controller: newCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'New Password'),
-            ),
+            TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'New Password')),
             const SizedBox(height: 12),
-            TextField(
-              controller: confirmCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Confirm New Password'),
-            ),
+            TextField(controller: confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm New Password')),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
-              final currentPassword = currentCtrl.text.trim();
-              final newPassword = newCtrl.text.trim();
-              final confirmPassword = confirmCtrl.text.trim();
-
-              if (currentPassword.isEmpty || newPassword.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please fill all password fields.')),
-                );
+              final current = currentCtrl.text.trim();
+              final newPass = newCtrl.text.trim();
+              final confirm = confirmCtrl.text.trim();
+              if (current.isEmpty || newPass.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all password fields.')));
                 return;
               }
-              if (newPassword.length < 8) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('New password must be at least 8 characters.')),
-                );
+              if (newPass.length < 8) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('New password must be at least 8 characters.')));
                 return;
               }
-              if (newPassword != confirmPassword) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Password confirmation does not match.')),
-                );
+              if (newPass != confirm) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password confirmation does not match.')));
                 return;
               }
-
               Navigator.pop(ctx);
-              await parent._changePassword(
-                context: context,
-                currentPassword: currentPassword,
-                newPassword: newPassword,
-              );
+              await parent.changePassword(context: context, currentPassword: current, newPassword: newPass);
             },
             child: const Text('Change Password'),
           ),
@@ -473,6 +528,10 @@ class _SecuritySettingsView extends ConsumerWidget {
     return Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2));
   }
 }
+
+// ---------------------------------------------------------------------------
+// SLIVER TAB BAR DELEGATE
+// ---------------------------------------------------------------------------
 
 class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;

@@ -708,6 +708,32 @@ export const getCurrentUser = async (req: Request, res: Response) => {
             return sendError(res, "User not found", 404);
         }
 
+        // Build role-specific profile fields
+        let roleProfile: Record<string, any> = {};
+        if (user.role === 'STUDENT' && user.studentProfile) {
+            roleProfile = {
+                studentId: user.studentProfile.studentId,
+                department: user.studentProfile.department,
+                universityName: user.studentProfile.university?.name,
+            };
+        } else if (user.role === 'SUPERVISOR' && user.supervisorProfile) {
+            roleProfile = {
+                phoneNumber: user.supervisorProfile.phone_number,
+                companyName: user.supervisorProfile.company?.name,
+            };
+        } else if (user.role === 'COORDINATOR' && user.coordinatorProfile) {
+            roleProfile = {
+                phoneNumber: user.coordinatorProfile.phone_number,
+                universityName: user.coordinatorProfile.university?.name,
+            };
+        } else if (user.role === 'HOD' && user.hodProfile) {
+            roleProfile = {
+                phoneNumber: user.hodProfile.phone_number,
+                department: user.hodProfile.department,
+                universityName: user.hodProfile.university?.name,
+            };
+        }
+
         return sendSuccess(res, {
             id: user.id,
             email: user.email,
@@ -715,7 +741,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
             role: user.role,
             isVerified: user.verification_status === 'APPROVED',
             institutionAccessApproval: user.institution_access_approval,
-            profile: user.studentProfile || user.coordinatorProfile || user.hodProfile || user.supervisorProfile
+            profile: roleProfile,
         }, "User profile fetched");
 
     } catch (error: any) {
@@ -737,13 +763,18 @@ export const updateCurrentUser = async (req: Request, res: Response) => {
         const rawFullName = (body['fullName'] ?? body['full_name'] ?? '').toString().trim();
         const rawEmail = (body['email'] ?? '').toString().trim().toLowerCase();
 
-        if (!rawFullName && !rawEmail) {
-            return sendError(res, "Please provide at least one field to update.", 400);
-        }
+        // Role-specific fields
+        const rawPhoneNumber = (body['phoneNumber'] ?? body['phone_number'] ?? '').toString().trim();
+        const rawDepartment = (body['department'] ?? '').toString().trim();
+        const rawStudentId = (body['studentId'] ?? body['student_id'] ?? '').toString().trim();
 
         const existing = await prisma.user.findUnique({ where: { id: userId } });
         if (!existing) {
             return sendError(res, "User not found", 404);
+        }
+
+        if (!rawFullName && !rawEmail && !rawPhoneNumber && !rawDepartment && !rawStudentId) {
+            return sendError(res, "Please provide at least one field to update.", 400);
         }
 
         if (rawEmail && rawEmail !== existing.email) {
@@ -753,6 +784,7 @@ export const updateCurrentUser = async (req: Request, res: Response) => {
             }
         }
 
+        // Update shared User fields
         const updated = await prisma.user.update({
             where: { id: userId },
             data: {
@@ -761,11 +793,61 @@ export const updateCurrentUser = async (req: Request, res: Response) => {
             },
         });
 
+        // Update role-specific profile fields
+        if (existing.role === 'STUDENT') {
+            await prisma.student.updateMany({
+                where: { userId },
+                data: {
+                    ...(rawDepartment ? { department: rawDepartment } : {}),
+                    ...(rawStudentId ? { studentId: rawStudentId } : {}),
+                },
+            });
+        } else if (existing.role === 'SUPERVISOR') {
+            await prisma.supervisor.updateMany({
+                where: { userId },
+                data: {
+                    ...(rawPhoneNumber ? { phone_number: rawPhoneNumber } : {}),
+                },
+            });
+        } else if (existing.role === 'COORDINATOR') {
+            await prisma.coordinator.updateMany({
+                where: { userId },
+                data: {
+                    ...(rawPhoneNumber ? { phone_number: rawPhoneNumber } : {}),
+                },
+            });
+        } else if (existing.role === 'HOD') {
+            await prisma.hodProfile.updateMany({
+                where: { userId },
+                data: {
+                    ...(rawPhoneNumber ? { phone_number: rawPhoneNumber } : {}),
+                    ...(rawDepartment ? { department: rawDepartment } : {}),
+                },
+            });
+        }
+
+        // Re-fetch role-specific profile to return updated data
+        let roleProfile: Record<string, any> = {};
+        if (existing.role === 'STUDENT') {
+            const sp = await prisma.student.findUnique({ where: { userId }, include: { university: true } });
+            if (sp) roleProfile = { studentId: sp.studentId, department: sp.department, universityName: sp.university?.name };
+        } else if (existing.role === 'SUPERVISOR') {
+            const sv = await prisma.supervisor.findUnique({ where: { userId }, include: { company: true } });
+            if (sv) roleProfile = { phoneNumber: sv.phone_number, companyName: sv.company?.name };
+        } else if (existing.role === 'COORDINATOR') {
+            const co = await prisma.coordinator.findUnique({ where: { userId }, include: { university: true } });
+            if (co) roleProfile = { phoneNumber: co.phone_number, universityName: co.university?.name };
+        } else if (existing.role === 'HOD') {
+            const hod = await prisma.hodProfile.findUnique({ where: { userId }, include: { university: true } });
+            if (hod) roleProfile = { phoneNumber: hod.phone_number, department: hod.department, universityName: hod.university?.name };
+        }
+
         return sendSuccess(res, {
             id: updated.id,
             email: updated.email,
             fullName: updated.full_name,
             role: updated.role,
+            profile: roleProfile,
         }, "Profile updated successfully.");
     } catch (error: any) {
         return sendError(res, error.message, 500);
