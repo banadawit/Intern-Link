@@ -177,6 +177,20 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   int _currentIndex = 0; // 0 for Chats, 1 for Contacts
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(() => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()));
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -213,15 +227,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (e, _) => Center(child: Text('Error: $e')),
                       data: (conversations) {
-                        if (conversations.isEmpty) {
+                        final filtered = _searchQuery.isEmpty
+                            ? conversations
+                            : conversations.where((c) =>
+                                c.partner.fullName.toLowerCase().contains(_searchQuery)).toList();
+                        if (filtered.isEmpty) {
                            return const Center(child: Text('No conversations yet', style: TextStyle(color: Colors.grey)));
                         }
                         return ListView.builder(
                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
                           physics: const BouncingScrollPhysics(),
-                          itemCount: conversations.length,
+                          itemCount: filtered.length,
                           itemBuilder: (context, index) {
-                            final conv = conversations[index];
+                            final conv = filtered[index];
                             return _conversationItem(
                               context,
                               conv.partner.fullName,
@@ -240,23 +258,49 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (e, _) => Center(child: Text('Error: $e')),
                       data: (contacts) {
-                        if (contacts.isEmpty) {
+                        final filtered = _searchQuery.isEmpty
+                            ? contacts
+                            : contacts.where((c) =>
+                                c.fullName.toLowerCase().contains(_searchQuery) ||
+                                c.role.toLowerCase().contains(_searchQuery)).toList();
+                        if (filtered.isEmpty) {
                            return const Center(child: Text('No contacts found', style: TextStyle(color: Colors.grey)));
                         }
-                        return ListView.builder(
+                        // Group by role
+                        final grouped = <String, List<ChatPartner>>{};
+                        for (final c in filtered) {
+                          grouped.putIfAbsent(c.role, () => []).add(c);
+                        }
+                        final roleOrder = ['ADMIN', 'COORDINATOR', 'HOD', 'SUPERVISOR', 'STUDENT'];
+                        final sortedKeys = grouped.keys.toList()
+                          ..sort((a, b) => roleOrder.indexOf(a).compareTo(roleOrder.indexOf(b)));
+
+                        return ListView(
                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
                           physics: const BouncingScrollPhysics(),
-                          itemCount: contacts.length,
-                          itemBuilder: (context, index) {
-                            final contact = contacts[index];
-                            return _contactItem(
-                              context,
-                              contact.fullName,
-                              contact.role,
-                              isDark,
-                              onTap: () => _openChatDetail(context, contact),
-                            );
-                          },
+                          children: [
+                            for (final role in sortedKeys) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8, top: 4),
+                                child: Text(
+                                  _roleLabel(role),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade500,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ),
+                              ...grouped[role]!.map((contact) => _contactItem(
+                                context,
+                                contact.fullName,
+                                contact.role,
+                                isDark,
+                                onTap: () => _openChatDetail(context, contact),
+                              )),
+                            ],
+                          ],
                         );
                       },
                     ),
@@ -431,6 +475,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
         ),
         child: TextField(
+          controller: _searchCtrl,
           decoration: InputDecoration(
             hintText: 'Search...',
             hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 15, fontWeight: FontWeight.w500),
@@ -441,10 +486,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             prefixIconConstraints: const BoxConstraints(minWidth: 40),
             contentPadding: const EdgeInsets.symmetric(vertical: 18),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => _searchCtrl.clear(),
+                  )
+                : null,
           ),
         ),
       ),
     );
+  }
+
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'ADMIN': return 'ADMIN';
+      case 'COORDINATOR': return 'COORDINATORS';
+      case 'HOD': return 'HEADS OF DEPARTMENT';
+      case 'SUPERVISOR': return 'SUPERVISORS';
+      case 'STUDENT': return 'STUDENTS';
+      default: return role;
+    }
   }
 
   Widget _conversationItem(BuildContext context, String name, String lastMsg, String time, int unread, bool isOnline, bool isDark, {required VoidCallback onTap}) {
