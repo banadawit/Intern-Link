@@ -128,6 +128,19 @@ class CoordinatorRepository {
     final data = res.data;
     return data is List ? data : [];
   }
+
+  Future<void> suspendHod(int userId) async {
+    await apiClient.dio.patch('/coordinator/hods/$userId/suspend');
+  }
+
+  Future<void> activateHod(int userId) async {
+    await apiClient.dio.patch('/coordinator/hods/$userId/activate');
+  }
+
+  Future<Map<String, dynamic>> getHodDetail(int userId) async {
+    final res = await apiClient.dio.get('/coordinator/hods/$userId');
+    return res.data as Map<String, dynamic>;
+  }
 }
 
 // ─── Providers ────────────────────────────────────────────────────────────────
@@ -170,4 +183,8 @@ final coordinatorCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
 
 final coordinatorStudentsProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(coordinatorRepositoryProvider).getStudents();
+});
+
+final hodDetailProvider = FutureProvider.family<Map<String, dynamic>, int>((ref, userId) {
+  return ref.watch(coordinatorRepositoryProvider).getHodDetail(userId);
 });

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/session_service.dart';
@@ -293,15 +294,9 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
           _buildDrawerItem(
             Icons.logout_rounded,
             'Sign Out',
-            () async {
-              Navigator.pop(context);
-              // Reset navigation index before clearing session
-              ref.read(dashboardIndexProvider.notifier).state = 0;
-              await ref.read(appSessionServiceProvider).clearSession();
-              // Invalidate cached profile so the next login fetches fresh data
-              ref.invalidate(userProfileProvider);
-              ref.invalidate(appStartDecisionProvider);
-              if (context.mounted) context.go(AppRoutes.auth);
+            () {
+              Navigator.pop(context); // close drawer first
+              _showLogoutConfirmation(context, ref);
             },
             isDestructive: true,
           ),
@@ -3457,6 +3452,37 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     }
   }
 
+  // ── Suspend / Activate ──────────────────────────────────────────────────────
+  Future<void> _suspend(int userId) async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).suspendHod(userId);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HOD account suspended.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _activate(int userId) async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).activateHod(userId);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HOD account activated.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   void _showRejectDialog(int userId) {
     final ctrl = TextEditingController();
     showDialog(
@@ -3865,8 +3891,14 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
             final email = user['email'] as String? ?? '';
             final dept = hod['department'] as String? ?? 'N/A';
             final userId = user['id'] as int? ?? 0;
+            final approvalStatus = user['institution_access_approval'] as String? ?? '';
 
-            return Container(
+            return GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => HodDetailScreen(userId: userId)),
+              ),
+              child: Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -3954,12 +3986,293 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
                       ],
                     ),
                   ],
+                  if (!showActions && approvalStatus == 'APPROVED') ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => _suspend(userId),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                        child: const Text('Suspend'),
+                      ),
+                    ),
+                  ],
+                  if (!showActions && approvalStatus == 'SUSPENDED') ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => _activate(userId),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                        child: const Text('Activate'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
+            ),
             );
           },
         );
       },
+    );
+  }
+}
+
+// ── HOD Detail Screen ─────────────────────────────────────────────────────────
+class HodDetailScreen extends ConsumerStatefulWidget {
+  const HodDetailScreen({super.key, required this.userId});
+  final int userId;
+
+  @override
+  ConsumerState<HodDetailScreen> createState() => _HodDetailScreenState();
+}
+
+class _HodDetailScreenState extends ConsumerState<HodDetailScreen> {
+  Future<void> _suspend() async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).suspendHod(widget.userId);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      ref.invalidate(hodDetailProvider(widget.userId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HOD account suspended.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _activate() async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).activateHod(widget.userId);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      ref.invalidate(hodDetailProvider(widget.userId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HOD account activated.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _verify(String status, {String? reason}) async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).verifyHod(widget.userId, status, reason: reason);
+      ref.invalidate(pendingHodsProvider);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(rejectedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      ref.invalidate(hodDetailProvider(widget.userId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('HOD ${status.toLowerCase()} successfully.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _showRejectDialog() {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject HOD'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Reason (optional)'),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _verify('REJECTED', reason: ctrl.text.trim().isEmpty ? null : ctrl.text.trim());
+            },
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final detailAsync = ref.watch(hodDetailProvider(widget.userId));
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      body: detailAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.withOpacity(0.6)),
+              const SizedBox(height: 12),
+              Text('Error: $e', textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => ref.invalidate(hodDetailProvider(widget.userId)),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+        data: (hod) {
+          final fullName = hod['fullName'] as String? ?? 'Unknown';
+          final email = hod['email'] as String? ?? '';
+          final department = hod['department'] as String? ?? 'N/A';
+          final phoneNumber = hod['phoneNumber'] as String?;
+          final approvalStatus = hod['approvalStatus'] as String? ?? 'PENDING';
+          final createdAt = hod['createdAt'] as String? ?? '';
+          final studentCount = (hod['studentCount'] as num?)?.toInt() ?? 0;
+
+          final statusColor = approvalStatus == 'APPROVED'
+              ? Colors.green
+              : approvalStatus == 'SUSPENDED'
+                  ? Colors.orange
+                  : approvalStatus == 'REJECTED'
+                      ? Colors.red
+                      : Colors.blue;
+
+          return NestedScrollView(
+            headerSliverBuilder: (ctx, _) => [
+              ModernSliverAppBar(
+                title: fullName,
+                subtitle: 'HOD Profile',
+                profileName: fullName,
+                gradient: const [Color(0xFF00F260), const Color(0xFF0575E6)],
+                backgroundIcon: Icons.school_rounded,
+              ),
+            ],
+            body: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
+              children: [
+                // Status badge
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: statusColor.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      approvalStatus,
+                      style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, fontSize: 13),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Profile info card
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04)),
+                    boxShadow: [if (!isDark) BoxShadow(color: Colors.blue.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 6))],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Profile Information', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      const SizedBox(height: 16),
+                      _detailRow(Icons.person_rounded, 'Full Name', fullName, isDark),
+                      _detailRow(Icons.alternate_email_rounded, 'Email', email, isDark),
+                      _detailRow(Icons.school_rounded, 'Department', department, isDark),
+                      if (phoneNumber != null && phoneNumber.isNotEmpty)
+                        _detailRow(Icons.badge_outlined, 'Employee ID / Phone', phoneNumber, isDark),
+                      _detailRow(Icons.people_rounded, 'Students', '$studentCount', isDark),
+                      if (createdAt.isNotEmpty)
+                        _detailRow(Icons.calendar_today_rounded, 'Joined', createdAt.substring(0, 10), isDark),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Action buttons
+                if (approvalStatus == 'APPROVED')
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _suspend,
+                      icon: const Icon(Icons.block_rounded),
+                      label: const Text('Suspend Account'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                    ),
+                  ),
+                if (approvalStatus == 'SUSPENDED')
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _activate,
+                      icon: const Icon(Icons.check_circle_rounded),
+                      label: const Text('Activate Account'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                    ),
+                  ),
+                if (approvalStatus == 'PENDING') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _showRejectDialog,
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                          child: const Text('Reject'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => _verify('APPROVED'),
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0575E6)),
+                          child: const Text('Approve'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade500),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4421,18 +4734,21 @@ class _CoordinatorPlacementsTab extends ConsumerStatefulWidget {
 }
 
 class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacementsTab>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabCtrl;
+  late TabController _assignmentTabCtrl;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
+    _assignmentTabCtrl = TabController(length: 3, vsync: this);
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _assignmentTabCtrl.dispose();
     super.dispose();
   }
 
@@ -4470,8 +4786,32 @@ class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacement
         body: TabBarView(
           controller: _tabCtrl,
           children: [
-            // Active assignments
-            _buildAssignmentsList(assignmentsAsync, isDark, 'ACTIVE'),
+            // Active assignments — nested sub-tabs
+            NestedScrollView(
+              headerSliverBuilder: (ctx, _) => [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: SliverTabBarDelegate(
+                    TabBar(
+                      controller: _assignmentTabCtrl,
+                      tabs: const [Tab(text: 'Active'), Tab(text: 'Completed'), Tab(text: 'Terminated')],
+                      labelColor: const Color(0xFFFC466B),
+                      indicatorColor: const Color(0xFFFC466B),
+                      unselectedLabelColor: Colors.grey,
+                    ),
+                    isDark,
+                  ),
+                ),
+              ],
+              body: TabBarView(
+                controller: _assignmentTabCtrl,
+                children: [
+                  _buildAssignmentsList(assignmentsAsync, isDark, 'ACTIVE'),
+                  _buildAssignmentsList(assignmentsAsync, isDark, 'COMPLETED'),
+                  _buildAssignmentsList(assignmentsAsync, isDark, 'TERMINATED'),
+                ],
+              ),
+            ),
             // Proposals
             _buildProposalsList(proposalsAsync, isDark),
             // Analytics
@@ -4493,11 +4833,16 @@ class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacement
         }).toList();
 
         if (filtered.isEmpty) {
+          final emptyMsg = statusFilter == 'ACTIVE'
+              ? 'No active placements'
+              : statusFilter == 'COMPLETED'
+                  ? 'No completed placements yet'
+                  : 'No terminated placements';
           return Center(
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.work_off_rounded, size: 48, color: Colors.grey.withOpacity(0.4)),
               const SizedBox(height: 12),
-              const Text('No active placements', style: TextStyle(color: Colors.grey)),
+              Text(emptyMsg, style: const TextStyle(color: Colors.grey)),
             ]),
           );
         }
@@ -4517,7 +4862,11 @@ class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacement
               final companyName = company['name'] as String? ?? 'N/A';
               final status = a['status'] as String? ?? 'ACTIVE';
               final startDate = a['start_date'] as String? ?? '';
-              final statusColor = status == 'ACTIVE' ? Colors.green : status == 'COMPLETED' ? Colors.blue : Colors.red;
+              final statusColor = status == 'ACTIVE'
+                  ? Colors.green
+                  : status == 'COMPLETED'
+                      ? Colors.blue
+                      : Colors.red;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 14),
@@ -4847,6 +5196,7 @@ class _ReportsView extends ConsumerWidget {
               final dept = student['department'] as String? ?? 'N/A';
               final stamped = r['stamped'] as bool? ?? false;
               final generatedAt = r['generated_at'] as String? ?? '';
+              final pdfUrl = r['pdf_url'] as String?;
               final color = colors[i % colors.length];
 
               return Container(
@@ -4890,6 +5240,31 @@ class _ReportsView extends ConsumerWidget {
                         stamped ? 'Stamped' : 'Pending',
                         style: TextStyle(color: stamped ? Colors.green : Colors.orange, fontSize: 10, fontWeight: FontWeight.w800),
                       ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.download_rounded,
+                        color: pdfUrl != null && pdfUrl.isNotEmpty ? color : Colors.grey.shade300,
+                      ),
+                      onPressed: pdfUrl != null && pdfUrl.isNotEmpty
+                          ? () async {
+                              final uri = Uri.parse(pdfUrl);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Opening report…')),
+                                  );
+                                }
+                              } else {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Unable to open report. The file may not be available.')),
+                                  );
+                                }
+                              }
+                            }
+                          : null,
                     ),
                   ],
                 ),

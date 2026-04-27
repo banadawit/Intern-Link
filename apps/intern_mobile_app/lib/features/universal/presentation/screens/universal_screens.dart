@@ -556,7 +556,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Text(time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
                       ],
                     ),
