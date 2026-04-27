@@ -431,3 +431,100 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         return sendError(res, message, 500);
     }
 };
+
+// --- COMPANY STAMP UPLOAD ---
+
+/**
+ * Upload or replace company stamp image
+ * Used for stamping final reports
+ */
+export const uploadCompanyStamp = async (req: AuthRequest, res: Response) => {
+    try {
+        const file = req.file;
+        const userId = req.user?.userId;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        // Get supervisor's company
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId },
+            include: { company: true },
+        });
+
+        if (!supervisor) {
+            return res.status(403).json({ error: 'Supervisor profile not found' });
+        }
+
+        const { CloudinaryService } = await import('../services/cloudinary.service');
+
+        const folder = `internlink/${supervisor.companyId}/${userId}/stamps`;
+
+        // Check if stamp already exists
+        const existingStamp = supervisor.company.stamp_image_url;
+
+        let uploadResult;
+
+        if (existingStamp) {
+            // Find existing file record
+            const existingFile = await prisma.file.findFirst({
+                where: { url: existingStamp },
+            });
+
+            if (existingFile) {
+                // Replace existing stamp
+                uploadResult = await CloudinaryService.replaceFile(
+                    existingFile.publicId,
+                    file,
+                    {
+                        userId,
+                        organizationId: supervisor.companyId,
+                        fileType: 'COMPANY_STAMP',
+                        folder,
+                        resourceType: 'image',
+                    }
+                );
+            } else {
+                // Old stamp not in new system, just upload new one
+                uploadResult = await CloudinaryService.uploadImage(file, {
+                    userId,
+                    organizationId: supervisor.companyId,
+                    fileType: 'COMPANY_STAMP',
+                    folder,
+                    resourceType: 'image',
+                });
+            }
+        } else {
+            // Upload new stamp
+            uploadResult = await CloudinaryService.uploadImage(file, {
+                userId,
+                organizationId: supervisor.companyId,
+                fileType: 'COMPANY_STAMP',
+                folder,
+                resourceType: 'image',
+            });
+        }
+
+        if (!uploadResult.success) {
+            return res.status(400).json({ error: uploadResult.error });
+        }
+
+        // Update company record
+        await prisma.company.update({
+            where: { id: supervisor.companyId },
+            data: { stamp_image_url: uploadResult.url },
+        });
+
+        res.json({
+            message: existingStamp
+                ? 'Company stamp replaced successfully'
+                : 'Company stamp uploaded successfully',
+            url: uploadResult.url,
+            fileId: uploadResult.fileId,
+        });
+    } catch (error: any) {
+        console.error('Upload company stamp error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};

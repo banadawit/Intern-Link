@@ -1,5 +1,5 @@
--- AlterEnum
-ALTER TYPE "Role" ADD VALUE 'HOD';
+-- AlterEnum (HOD already exists from previous migration)
+-- ALTER TYPE "Role" ADD VALUE 'HOD';
 
 -- AlterTable
 ALTER TABLE "InternshipProposal" ADD COLUMN     "expected_duration_weeks" INTEGER,

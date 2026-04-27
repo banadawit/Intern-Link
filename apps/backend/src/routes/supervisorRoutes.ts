@@ -3,6 +3,7 @@ import * as supervisorCtrl from '../controllers/supervisorController';
 import * as supervisorTeamCtrl from '../controllers/supervisorTeamController';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
+import { uploadImage } from '../config/multer.config';
 
 import { validate } from '../middlewares/validationMiddleware';
 import { evaluationSchema, teamSchema } from '../validations/supervisorValidation';
@@ -18,6 +19,9 @@ router.get('/weekly-plans', supervisorCtrl.getCompanyWeeklyPlans);
 router.get('/weekly-reports', supervisorCtrl.listWeeklyAttendanceReports);
 router.patch('/weekly-reports/:id', supervisorCtrl.patchWeeklyAttendanceReport);
 router.get('/attendance-heatmap', supervisorCtrl.getAttendanceHeatmap);
+
+// Company stamp upload
+router.post('/upload-stamp', uploadImage.single('file'), supervisorCtrl.uploadCompanyStamp);
 
 router.get('/teams', supervisorTeamCtrl.listTeams);
 router.post('/teams', validate(teamSchema), supervisorTeamCtrl.createTeam);

@@ -814,93 +814,70 @@ export const rejectCoordinator = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// --- ANALYTICS ---
+// --- FILE UPLOAD ENDPOINTS ---
 
-export const getAnalytics = async (req: AuthRequest, res: Response) => {
+/**
+ * Upload verification document for university/company
+ * Used during manual verification process
+ */
+export const uploadVerificationDocument = async (req: AuthRequest, res: Response) => {
     try {
-        const now = new Date();
-        // Build last 6 months labels
-        const months: { label: string; start: Date; end: Date }[] = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
-            months.push({
-                label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
-                start: d,
-                end,
+        const { organizationType, organizationId } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        if (!organizationType || !organizationId) {
+            return res.status(400).json({ error: 'organizationType and organizationId are required' });
+        }
+
+        const { CloudinaryService } = await import('../services/cloudinary.service');
+
+        const orgId = parseInt(organizationId);
+        const folder = `internlink/${orgId}/verification-docs`;
+
+        const uploadResult = await CloudinaryService.uploadDocument(file, {
+            organizationId: orgId,
+            fileType: 'VERIFICATION_DOC',
+            folder,
+            resourceType: 'raw',
+        });
+
+        if (!uploadResult.success) {
+            return res.status(400).json({ error: uploadResult.error });
+        }
+
+        // Update organization record
+        if (organizationType === 'UNIVERSITY') {
+            await prisma.university.update({
+                where: { id: orgId },
+                data: { verification_doc: uploadResult.url },
+            });
+        } else if (organizationType === 'COMPANY') {
+            await prisma.company.update({
+                where: { id: orgId },
+                data: { verification_doc: uploadResult.url },
             });
         }
 
-        // User growth — registrations per month per role
-        const userGrowthData = await Promise.all(
-            months.map(async ({ label, start, end }) => {
-                const [students, coordinators, supervisors, hods] = await Promise.all([
-                    prisma.user.count({ where: { role: 'STUDENT', created_at: { gte: start, lte: end } } }),
-                    prisma.user.count({ where: { role: 'COORDINATOR', created_at: { gte: start, lte: end } } }),
-                    prisma.user.count({ where: { role: 'SUPERVISOR', created_at: { gte: start, lte: end } } }),
-                    prisma.user.count({ where: { role: 'HOD', created_at: { gte: start, lte: end } } }),
-                ]);
-                return { label, students, coordinators, supervisors, hods, total: students + coordinators + supervisors + hods };
-            })
-        );
-
-        // Placement rates — internship status breakdown
-        const [totalStudents, placedStudents, completedStudents] = await Promise.all([
-            prisma.student.count(),
-            prisma.student.count({ where: { internship_status: 'PLACED' } }),
-            prisma.student.count({ where: { internship_status: 'COMPLETED' } }),
-        ]);
-        const pendingStudents = totalStudents - placedStudents - completedStudents;
-
-        // Placement rate per month (assignments created)
-        const placementTrend = await Promise.all(
-            months.map(async ({ label, start, end }) => {
-                const count = await prisma.internshipAssignment.count({
-                    where: { start_date: { gte: start, lte: end } },
-                });
-                return { label, count };
-            })
-        );
-
-        // Approval rates — proposals
-        const [totalProposals, approvedProposals, rejectedProposals, pendingProposals] = await Promise.all([
-            prisma.internshipProposal.count(),
-            prisma.internshipProposal.count({ where: { status: 'APPROVED' } }),
-            prisma.internshipProposal.count({ where: { status: 'REJECTED' } }),
-            prisma.internshipProposal.count({ where: { status: 'PENDING' } }),
-        ]);
-
-        // Org approval rates
-        const [totalUnis, approvedUnis, totalComps, approvedComps] = await Promise.all([
-            prisma.university.count(),
-            prisma.university.count({ where: { approval_status: 'APPROVED' } }),
-            prisma.company.count(),
-            prisma.company.count({ where: { approval_status: 'APPROVED' } }),
-        ]);
-
-        // Weekly plan submission trend
-        const weeklyPlanTrend = await Promise.all(
-            months.map(async ({ label, start, end }) => {
-                const [submitted, approved] = await Promise.all([
-                    prisma.weeklyPlan.count({ where: { submitted_at: { gte: start, lte: end } } }),
-                    prisma.weeklyPlan.count({ where: { status: 'APPROVED', submitted_at: { gte: start, lte: end } } }),
-                ]);
-                return { label, submitted, approved };
-            })
-        );
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'UPLOADED_VERIFICATION_DOC',
+                targetId: orgId,
+                details: `Uploaded verification document for ${organizationType}`,
+            },
+        });
 
         res.json({
-            userGrowth: userGrowthData,
-            placementStats: { total: totalStudents, placed: placedStudents, completed: completedStudents, pending: pendingStudents },
-            placementTrend,
-            proposalStats: { total: totalProposals, approved: approvedProposals, rejected: rejectedProposals, pending: pendingProposals },
-            orgStats: {
-                universities: { total: totalUnis, approved: approvedUnis },
-                companies: { total: totalComps, approved: approvedComps },
-            },
-            weeklyPlanTrend,
+            message: 'Verification document uploaded successfully',
+            url: uploadResult.url,
+            fileId: uploadResult.fileId,
         });
     } catch (error: any) {
+        console.error('Upload verification document error:', error);
         res.status(500).json({ error: error.message });
     }
 };

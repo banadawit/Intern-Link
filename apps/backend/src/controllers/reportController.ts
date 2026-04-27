@@ -141,15 +141,87 @@ export const generateStudentReport = async (req: AuthRequest, res: Response) => 
         }
 
         const company = data.assignments.find((a) => a.status === 'ACTIVE')?.company ?? data.assignments[0]?.company;
-        const reportPath = `uploads/reports/report-${studentId}.pdf`;
 
-        // Ensure directory exists
-        if (!fs.existsSync('uploads/reports')) fs.mkdirSync('uploads/reports', { recursive: true });
-
-        // Create PDF
+        // Create PDF using PDFKit
         const doc = new PDFDocument();
-        const stream = fs.createWriteStream(reportPath);
-        doc.pipe(stream);
+        const chunks: Buffer[] = [];
+
+        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('end', async () => {
+            try {
+                const pdfBuffer = Buffer.concat(chunks);
+
+                // Import services
+                const { CloudinaryService } = await import('../services/cloudinary.service');
+                const { PDFStampingService } = await import('../services/pdfStamping.service');
+
+                // Upload unstamped PDF first
+                const unstampedFile = {
+                    buffer: pdfBuffer,
+                    originalname: `report-${studentId}-unstamped.pdf`,
+                    mimetype: 'application/pdf',
+                    size: pdfBuffer.length,
+                } as Express.Multer.File;
+
+                const folder = `internlink/${data.universityId}/${data.userId}/final-reports`;
+
+                const uploadResult = await CloudinaryService.uploadDocument(unstampedFile, {
+                    userId: data.userId,
+                    organizationId: data.universityId,
+                    fileType: 'FINAL_REPORT',
+                    folder,
+                    resourceType: 'raw',
+                });
+
+                if (!uploadResult.success) {
+                    return res.status(500).json({ error: 'Failed to upload PDF' });
+                }
+
+                let finalPdfUrl = uploadResult.url!;
+
+                // Apply stamp if company has one
+                if (company?.stamp_image_url) {
+                    const stampResult = await PDFStampingService.stampAndUploadPDF(
+                        uploadResult.url!,
+                        company.stamp_image_url,
+                        {
+                            userId: data.userId,
+                            organizationId: data.universityId,
+                            folder,
+                        }
+                    );
+
+                    if (stampResult.success) {
+                        finalPdfUrl = stampResult.url!;
+                        // Delete unstamped version
+                        await CloudinaryService.deleteFile(uploadResult.publicId!);
+                    }
+                }
+
+                // Save report record in DB
+                await prisma.report.upsert({
+                    where: { studentId: parseInt(studentId) },
+                    update: { 
+                        pdf_url: finalPdfUrl,
+                        stamped: !!company?.stamp_image_url,
+                    },
+                    create: { 
+                        studentId: parseInt(studentId), 
+                        pdf_url: finalPdfUrl,
+                        stamped: !!company?.stamp_image_url,
+                    }
+                });
+
+                res.json({ 
+                    message: "PDF Generated Successfully", 
+                    reportUrl: finalPdfUrl,
+                    stamped: !!company?.stamp_image_url,
+                });
+            } catch (error: any) {
+                console.error('PDF processing error:', error);
+                res.status(500).json({ error: error.message });
+            }
+        });
 
         // --- PDF CONTENT ---
         doc.fontSize(20).text('InternLink: Internship Performance Report', { align: 'center' });
@@ -170,24 +242,11 @@ export const generateStudentReport = async (req: AuthRequest, res: Response) => 
             doc.text(`Week ${plan.week_number}: ${plan.plan_description}`);
         });
 
-        // --- THE STAMP (Requirement FR-19) ---
-        if (company?.stamp_image_url) {
-            doc.moveDown();
-            doc.text('Company Authorization:');
-            // Assuming image path is valid
-            doc.image(company.stamp_image_url, { width: 100 });
-        }
+        doc.moveDown(2);
+        doc.text('Company Authorization:', { underline: true });
+        doc.text('This report has been verified and approved by the company.');
 
         doc.end();
-
-        // Save report record in DB
-        const report = await prisma.report.upsert({
-            where: { studentId: parseInt(studentId) },
-            update: { pdf_url: reportPath },
-            create: { studentId: parseInt(studentId), pdf_url: reportPath }
-        });
-
-        res.json({ message: "PDF Generated Successfully", reportUrl: reportPath });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -256,6 +315,140 @@ export const sendReportToUniversity = async (req: AuthRequest, res: Response) =>
 
         res.json({ message: 'Report sent to the university. Coordinators have been notified.' });
     } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * Upload signed final report (PDF)
+ * Used when student/supervisor uploads a manually signed report
+ */
+export const uploadSignedReport = async (req: AuthRequest, res: Response) => {
+    try {
+        const { studentId } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        if (!studentId) {
+            return res.status(400).json({ error: 'studentId is required' });
+        }
+
+        const sid = parseInt(studentId);
+
+        // Verify access
+        const student = await prisma.student.findUnique({
+            where: { id: sid },
+            include: { assignments: true },
+        });
+
+        if (!student) {
+            return res.status(404).json({ error: 'Student not found' });
+        }
+
+        // Check if user has permission
+        if (req.user?.role === 'STUDENT' && student.userId !== req.user.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        if (req.user?.role === 'SUPERVISOR') {
+            const supervisor = await prisma.supervisor.findUnique({
+                where: { userId: req.user.userId },
+            });
+            const placedHere = student.assignments.some(
+                (a) => a.companyId === supervisor?.companyId && a.status === 'ACTIVE'
+            );
+            if (!supervisor || !placedHere) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+        }
+
+        // Check if report is locked
+        const existingReport = await prisma.report.findUnique({
+            where: { studentId: sid },
+        });
+
+        if (existingReport?.locked) {
+            return res.status(400).json({
+                error: 'This report has been sent to the university and is locked.',
+            });
+        }
+
+        const { CloudinaryService } = await import('../services/cloudinary.service');
+
+        const folder = `internlink/${student.universityId}/${student.userId}/final-reports`;
+
+        // Replace existing report if any
+        let uploadResult;
+
+        if (existingReport) {
+            const existingFile = await prisma.file.findFirst({
+                where: { url: existingReport.pdf_url },
+            });
+
+            if (existingFile) {
+                uploadResult = await CloudinaryService.replaceFile(
+                    existingFile.publicId,
+                    file,
+                    {
+                        userId: student.userId,
+                        organizationId: student.universityId,
+                        fileType: 'FINAL_REPORT',
+                        folder,
+                        resourceType: 'raw',
+                    }
+                );
+            } else {
+                uploadResult = await CloudinaryService.uploadDocument(file, {
+                    userId: student.userId,
+                    organizationId: student.universityId,
+                    fileType: 'FINAL_REPORT',
+                    folder,
+                    resourceType: 'raw',
+                });
+            }
+
+            await prisma.report.update({
+                where: { studentId: sid },
+                data: { 
+                    pdf_url: uploadResult.url!,
+                    stamped: true, // Assume manually uploaded reports are signed
+                    generated_at: new Date(),
+                },
+            });
+        } else {
+            uploadResult = await CloudinaryService.uploadDocument(file, {
+                userId: student.userId,
+                organizationId: student.universityId,
+                fileType: 'FINAL_REPORT',
+                folder,
+                resourceType: 'raw',
+            });
+
+            await prisma.report.create({
+                data: {
+                    studentId: sid,
+                    pdf_url: uploadResult.url!,
+                    stamped: true,
+                },
+            });
+        }
+
+        if (!uploadResult.success) {
+            return res.status(400).json({ error: uploadResult.error });
+        }
+
+        res.json({
+            message: existingReport
+                ? 'Final report replaced successfully'
+                : 'Final report uploaded successfully',
+            url: uploadResult.url,
+            fileId: uploadResult.fileId,
+        });
+    } catch (error: any) {
+        console.error('Upload signed report error:', error);
         res.status(500).json({ error: error.message });
     }
 };
