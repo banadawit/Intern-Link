@@ -30,6 +30,12 @@ export class CloudinaryService {
     'application/vnd.ms-powerpoint',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   ];
+  private static readonly ALLOWED_VERIFICATION_TYPES = [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+  ];
   private static readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
   /**
@@ -93,6 +99,47 @@ export class CloudinaryService {
       };
     } catch (error: any) {
       console.error('Cloudinary upload error:', error);
+      return { success: false, error: error.message || 'Upload failed' };
+    }
+  }
+
+  /**
+   * Upload verification document (PDF or image) to Cloudinary.
+   * Used during registration — accepts PDF, JPG, PNG.
+   */
+  static async uploadVerificationDoc(
+    file: Express.Multer.File,
+    options: UploadOptions
+  ): Promise<UploadResult> {
+    try {
+      const validation = this.validateFile(file, this.ALLOWED_VERIFICATION_TYPES);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+
+      const isImage = file.mimetype.startsWith('image/');
+      const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: options.folder,
+            resource_type: isImage ? 'image' : 'raw',
+          },
+          (error: any, result: any) => {
+            if (error) reject(error);
+            else resolve(result!);
+          }
+        );
+        uploadStream.end(file.buffer);
+      });
+
+      return {
+        success: true,
+        url: result.secure_url,
+        publicId: result.public_id,
+        fileId: result.public_id,
+      };
+    } catch (error: any) {
+      console.error('Cloudinary verification upload error:', error);
       return { success: false, error: error.message || 'Upload failed' };
     }
   }

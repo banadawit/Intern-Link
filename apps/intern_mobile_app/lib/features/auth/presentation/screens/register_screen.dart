@@ -89,8 +89,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool _agreedToTerms = false;
   bool _uniSearchOpen = false;
   final _uniSearchCtrl = TextEditingController();
-  // Verification file
-  String? _verificationFilePath;
+  // Verification file — store bytes to avoid dart:io dependency
+  List<int>? _verificationFileBytes;
   String? _verificationFileName;
 
   final _step2Key = GlobalKey<FormState>();
@@ -176,7 +176,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       universityId: _selectedUniversityId,
       hodId: _selectedHodId,
       employeeId: _employeeIdCtrl.text.trim().isEmpty ? null : _employeeIdCtrl.text.trim(),
-      verificationFilePath: _verificationFilePath,
+      verificationFileBytes: _verificationFileBytes,
       verificationFileName: _verificationFileName,
     );
 
@@ -752,12 +752,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       isDark: isDark,
       primary: primary,
       fileName: _verificationFileName,
-      onPicked: (path, name) => setState(() {
-        _verificationFilePath = path;
+      onPicked: (bytes, name) => setState(() {
+        _verificationFileBytes = bytes;
         _verificationFileName = name;
       }),
       onRemoved: () => setState(() {
-        _verificationFilePath = null;
+        _verificationFileBytes = null;
         _verificationFileName = null;
       }),
     );
@@ -778,11 +778,10 @@ class _FilePicker extends StatelessWidget {
   final bool isDark;
   final Color primary;
   final String? fileName;
-  final void Function(String path, String name) onPicked;
+  final void Function(List<int> bytes, String name) onPicked;
   final VoidCallback onRemoved;
 
   Future<void> _pick(BuildContext context) async {
-    // Show bottom sheet to choose gallery (image) or files
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -803,7 +802,10 @@ class _FilePicker extends StatelessWidget {
                 Navigator.pop(ctx);
                 final picker = ImagePicker();
                 final file = await picker.pickImage(source: ImageSource.gallery);
-                if (file != null) onPicked(file.path, file.name);
+                if (file != null) {
+                  final bytes = await file.readAsBytes();
+                  onPicked(bytes, file.name);
+                }
               },
             ),
             ListTile(
@@ -813,7 +815,10 @@ class _FilePicker extends StatelessWidget {
                 Navigator.pop(ctx);
                 final picker = ImagePicker();
                 final file = await picker.pickImage(source: ImageSource.camera);
-                if (file != null) onPicked(file.path, file.name);
+                if (file != null) {
+                  final bytes = await file.readAsBytes();
+                  onPicked(bytes, file.name);
+                }
               },
             ),
             const SizedBox(height: 8),

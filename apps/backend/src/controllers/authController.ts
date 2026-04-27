@@ -49,20 +49,21 @@ export const register = async (req: Request, res: Response) => {
         const verificationToken = generateVerificationToken();
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
-        // Upload verification document if provided
+        // Upload verification document if provided (PDF or image)
         let verificationDocUrl: string | null = null;
         if (file) {
             const { CloudinaryService } = await import('../services/cloudinary.service');
             const folder = `internlink/verification-docs`;
             
-            const uploadResult = await CloudinaryService.uploadDocument(file, {
+            const uploadResult = await CloudinaryService.uploadVerificationDoc(file, {
                 fileType: 'VERIFICATION_DOC',
                 folder,
-                resourceType: 'raw',
             });
 
             if (uploadResult.success) {
                 verificationDocUrl = uploadResult.url!;
+            } else {
+                return sendError(res, uploadResult.error || 'Failed to upload verification document.', 400);
             }
         }
 

@@ -48,7 +48,7 @@ class RegisterPayload {
     this.universityId,
     this.hodId,
     this.employeeId,
-    this.verificationFilePath,
+    this.verificationFileBytes,
     this.verificationFileName,
   });
 
@@ -64,7 +64,7 @@ class RegisterPayload {
   final int? universityId;
   final int? hodId;
   final String? employeeId;
-  /// Local file path for the verification document (PDF/JPG/PNG)
-  final String? verificationFilePath;
+  /// Raw bytes of the verification document
+  final List<int>? verificationFileBytes;
   final String? verificationFileName;
 }
