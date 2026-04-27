@@ -190,3 +190,43 @@ export const getReportsOverview = async (req: AuthRequest, res: Response) => {
         return sendError(res, e.message);
     }
 };
+
+// GET /coordinator-portal/students
+// Returns all students of the coordinator's university with full profile,
+// sorted by department so the mobile app can group them.
+export const getStudents = async (req: AuthRequest, res: Response) => {
+    try {
+        const coord = await getCoordinator(req.user!.userId);
+        if (!coord?.universityId) return sendError(res, 'Not linked to a university.', 403);
+
+        const students = await prisma.student.findMany({
+            where: { universityId: coord.universityId },
+            orderBy: [{ department: 'asc' }, { id: 'desc' }],
+            include: {
+                user: { select: { id: true, full_name: true, email: true } },
+                hod: { select: { department: true } },
+                assignments: {
+                    where: { status: 'ACTIVE' },
+                    select: { id: true, company: { select: { name: true } } },
+                    take: 1,
+                },
+            },
+        });
+
+        const data = students.map((s) => ({
+            id: s.id,
+            userId: s.userId,
+            fullName: s.user.full_name,
+            email: s.user.email,
+            department: s.department ?? s.hod?.department ?? 'Unassigned',
+            studentId: s.studentId,
+            internshipStatus: s.internship_status,
+            hodApprovalStatus: s.hod_approval_status,
+            activeCompany: s.assignments[0]?.company?.name ?? null,
+        }));
+
+        return sendSuccess(res, data);
+    } catch (e: any) {
+        return sendError(res, e.message);
+    }
+};
