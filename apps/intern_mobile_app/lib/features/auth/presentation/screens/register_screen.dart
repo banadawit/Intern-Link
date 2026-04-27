@@ -4,12 +4,56 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/network/api_client.dart';
 import '../../data/models/auth_models.dart';
 import '../providers/auth_controller.dart';
-import '../widgets/auth_button.dart';
-import '../widgets/custom_text_field.dart';
+
+// ─── Data helpers ─────────────────────────────────────────────────────────────
+
+class _University {
+  const _University({required this.id, required this.name, required this.hasCoordinator});
+  final int id;
+  final String name;
+  final bool hasCoordinator;
+}
+
+class _Department {
+  const _Department({required this.id, required this.department});
+  final int id;
+  final String department;
+}
+
+// ─── Providers ────────────────────────────────────────────────────────────────
+
+final _approvedUniversitiesProvider = FutureProvider<List<_University>>((ref) async {
+  final dio = ref.watch(apiClientProvider).dio;
+  final res = await dio.get('/universities/approved');
+  final raw = res.data;
+  final list = raw is List ? raw : (raw is Map ? raw['data'] ?? [] : []);
+  return (list as List)
+      .map((e) => _University(
+            id: e['id'] as int,
+            name: e['name'] as String,
+            hasCoordinator: e['hasCoordinator'] == true,
+          ))
+      .toList();
+});
+
+final _departmentsProvider =
+    FutureProvider.family<List<_Department>, int>((ref, universityId) async {
+  final dio = ref.watch(apiClientProvider).dio;
+  final res = await dio.get('/universities/$universityId/departments');
+  final raw = res.data;
+  final list = raw is List ? raw : (raw is Map ? raw['data'] ?? [] : []);
+  return (list as List)
+      .map((e) => _Department(id: e['id'] as int, department: e['department'] as String))
+      .toList();
+});
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -19,703 +63,1486 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen>
-    with TickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
+    with SingleTickerProviderStateMixin {
+  int _step = 1; // 1 = role, 2 = account details, 3 = role-specific
+  RegistrationRole? _role;
 
-  final _fullNameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  final _universityNameController = TextEditingController();
-  final _companyNameController = TextEditingController();
-  final _departmentController = TextEditingController();
-  final _universityIdController = TextEditingController();
-  final _hodIdController = TextEditingController();
-  final _employeeIdController = TextEditingController();
-  final _studentIdController = TextEditingController();
-  final _positionController = TextEditingController();
+  // Step 2 controllers
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+  bool _obscurePass = true;
+  bool _obscureConfirm = true;
+  int _passStrength = 0;
 
-  RegistrationRole _role = RegistrationRole.student;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-  bool _hasInteracted = false;
+  // Step 3 role-specific
+  final _uniNameCtrl = TextEditingController(); // coordinator
+  final _companyCtrl = TextEditingController(); // supervisor
+  final _positionCtrl = TextEditingController(); // supervisor
+  final _departmentCtrl = TextEditingController(); // hod
+  final _employeeIdCtrl = TextEditingController(); // hod
+  final _studentIdCtrl = TextEditingController(); // student
+  int? _selectedUniversityId;
+  String? _selectedUniversityName;
+  int? _selectedHodId;
+  bool _agreedToTerms = false;
+  bool _uniSearchOpen = false;
+  final _uniSearchCtrl = TextEditingController();
+  // Verification file
+  String? _verificationFilePath;
+  String? _verificationFileName;
 
-  late final AnimationController _animController;
-  late final Animation<Offset> _slide;
+  final _step2Key = GlobalKey<FormState>();
+  final _step3Key = GlobalKey<FormState>();
+  bool _step2Touched = false;
+  bool _step3Touched = false;
+
+  late final AnimationController _anim;
   late final Animation<double> _fade;
-  late final AnimationController _bgAnimationController;
+  late final Animation<Offset> _slide;
 
   @override
   void initState() {
     super.initState();
-    for (final controller in _controllers) {
-      controller.addListener(_onFieldChanged);
-    }
-
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 0.08),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
-    _fade = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _animController.forward();
-
-    _bgAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat(reverse: true);
+    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 400))..forward();
+    _fade = CurvedAnimation(parent: _anim, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
+    _passCtrl.addListener(_updatePassStrength);
   }
 
-  List<TextEditingController> get _controllers => [
-    _fullNameController,
-    _emailController,
-    _passwordController,
-    _confirmPasswordController,
-    _universityNameController,
-    _companyNameController,
-    _departmentController,
-    _universityIdController,
-    _hodIdController,
-    _employeeIdController,
-    _studentIdController,
-    _positionController,
-  ];
-
-  void _onFieldChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+  void _updatePassStrength() {
+    final p = _passCtrl.text;
+    int s = 0;
+    if (p.length >= 8) s++;
+    if (p.contains(RegExp(r'[A-Z]'))) s++;
+    if (p.contains(RegExp(r'[0-9]'))) s++;
+    if (p.contains(RegExp(r'[^A-Za-z0-9]'))) s++;
+    setState(() => _passStrength = s);
   }
 
   @override
   void dispose() {
-    _animController.dispose();
-    _bgAnimationController.dispose();
-    for (final controller in _controllers) {
-      controller
-        ..removeListener(_onFieldChanged)
-        ..dispose();
+    _anim.dispose();
+    for (final c in [
+      _nameCtrl, _emailCtrl, _passCtrl, _confirmCtrl,
+      _uniNameCtrl, _companyCtrl, _positionCtrl, _departmentCtrl,
+      _employeeIdCtrl, _studentIdCtrl, _uniSearchCtrl,
+    ]) {
+      c.dispose();
     }
     super.dispose();
   }
 
-  bool get _isFormReady {
-    if (_fullNameController.text.trim().isEmpty) return false;
-    if (!_isEmailValid(_emailController.text.trim())) return false;
-    if (_passwordController.text.length < 8) return false;
-    if (_passwordController.text != _confirmPasswordController.text) return false;
-
-    switch (_role) {
-      case RegistrationRole.coordinator:
-        return _universityNameController.text.trim().isNotEmpty;
-      case RegistrationRole.supervisor:
-        return _companyNameController.text.trim().isNotEmpty;
-      case RegistrationRole.hod:
-        return _isPositiveInt(_universityIdController.text) &&
-            _departmentController.text.trim().isNotEmpty;
-      case RegistrationRole.student:
-        return _isPositiveInt(_universityIdController.text);
+  void _nextStep() {
+    if (_step == 1) {
+      if (_role == null) return;
+      _animStep(() => _step = 2);
+    } else if (_step == 2) {
+      setState(() => _step2Touched = true);
+      if (_step2Key.currentState!.validate()) {
+        _animStep(() => _step = 3);
+      }
     }
   }
 
-  bool _isEmailValid(String value) {
-    if (value.isEmpty) return false;
-    const pattern = r'^[^\s@]+@([^\s@]+\.)+[^\s@]+$';
-    return RegExp(pattern).hasMatch(value);
-  }
+  void _prevStep() => _animStep(() => _step = _step - 1);
 
-  bool _isPositiveInt(String raw) {
-    final parsed = int.tryParse(raw.trim());
-    return parsed != null && parsed > 0;
-  }
-
-  String? _emailValidator(String? value) {
-    final input = value?.trim() ?? '';
-    if (input.isEmpty) return 'Email is required';
-    if (!_isEmailValid(input)) return 'Enter a valid email address';
-    return null;
-  }
-
-  String? _passwordValidator(String? value) {
-    final input = value ?? '';
-    if (input.isEmpty) return 'Password is required';
-    if (input.length < 8) return 'Password must be at least 8 characters';
-    return null;
-  }
-
-  String? _confirmPasswordValidator(String? value) {
-    final input = value ?? '';
-    if (input.isEmpty) return 'Please confirm your password';
-    if (input != _passwordController.text) return 'Passwords do not match';
-    return null;
-  }
-
-  String? _positiveIntValidator(String? value) {
-    final input = value?.trim() ?? '';
-    if (input.isEmpty) return 'This field is required';
-    if (!_isPositiveInt(input)) return 'Enter a valid positive number';
-    return null;
-  }
-
-  String? _optionalPositiveIntValidator(String? value) {
-    final input = value?.trim() ?? '';
-    if (input.isEmpty) return null;
-    if (!_isPositiveInt(input)) return 'Enter a valid positive number';
-    return null;
+  void _animStep(VoidCallback change) {
+    _anim.reset();
+    setState(change);
+    _anim.forward();
   }
 
   Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
-    setState(() => _hasInteracted = true);
-
-    if (!_formKey.currentState!.validate()) {
+    setState(() => _step3Touched = true);
+    if (!_step3Key.currentState!.validate()) return;
+    if (!_agreedToTerms) {
+      _showSnack('You must agree to the Terms of Service to continue.');
       return;
     }
 
     final payload = RegisterPayload(
-      fullName: _fullNameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      role: _role,
-      universityName: _universityNameController.text.trim(),
-      companyName: _companyNameController.text.trim(),
-      department: _departmentController.text.trim(),
-      studentId: _studentIdController.text.trim(),
-      position: _positionController.text.trim(),
-      universityId: int.tryParse(_universityIdController.text.trim()),
-      hodId: int.tryParse(_hodIdController.text.trim()),
-      employeeId: _employeeIdController.text.trim(),
+      fullName: _nameCtrl.text.trim(),
+      email: _emailCtrl.text.trim(),
+      password: _passCtrl.text,
+      role: _role!,
+      universityName: _uniNameCtrl.text.trim().isEmpty ? null : _uniNameCtrl.text.trim(),
+      companyName: _companyCtrl.text.trim().isEmpty ? null : _companyCtrl.text.trim(),
+      department: _departmentCtrl.text.trim().isEmpty ? null : _departmentCtrl.text.trim(),
+      studentId: _studentIdCtrl.text.trim().isEmpty ? null : _studentIdCtrl.text.trim(),
+      position: _positionCtrl.text.trim().isEmpty ? null : _positionCtrl.text.trim(),
+      universityId: _selectedUniversityId,
+      hodId: _selectedHodId,
+      employeeId: _employeeIdCtrl.text.trim().isEmpty ? null : _employeeIdCtrl.text.trim(),
+      verificationFilePath: _verificationFilePath,
+      verificationFileName: _verificationFileName,
     );
 
-    final ok = await ref
-        .read(authControllerProvider.notifier)
-        .register(payload);
-    if (!mounted || !ok) {
-      return;
-    }
+    final ok = await ref.read(authControllerProvider.notifier).register(payload);
+    if (!mounted || !ok) return;
 
     HapticFeedback.selectionClick();
-    final roleParam = _role.name;
-    final email = Uri.encodeComponent(_emailController.text.trim());
-    context.go('${AppRoutes.verifyEmail}?email=$email&role=$roleParam');
+    final email = Uri.encodeComponent(_emailCtrl.text.trim());
+    context.go('${AppRoutes.verifyEmail}?email=$email&role=${_role!.name}');
   }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ─── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final primary = const Color(0xFF0D9488); // teal-600 matching web
 
     return Scaffold(
-      body: AnimatedPadding(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: Stack(
-          children: [
-            // Animated Background
-            AnimatedBuilder(
-              animation: _bgAnimationController,
-              builder: (context, child) {
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                        Color.lerp(
-                              theme.colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.05),
-                              theme.colorScheme.secondary.withValues(alpha: isDark ? 0.3 : 0.15),
-                              _bgAnimationController.value,
-                            ) ??
-                            theme.colorScheme.surface,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      body: Stack(
+        children: [
+          // Background orbs
+          Positioned(top: -80, right: -60,
+            child: _Orb(color: primary.withOpacity(0.10), size: 300)),
+          Positioned(bottom: -60, left: -60,
+            child: _Orb(color: primary.withOpacity(0.07), size: 260)),
+
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fade,
+              child: SlideTransition(
+                position: _slide,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Back to Home
+                      TextButton.icon(
+                        onPressed: () => context.go(AppRoutes.onboarding),
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 14),
+                        label: const Text('Back to Home'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurface.withOpacity(0.55),
+                          alignment: Alignment.centerLeft,
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Progress bar
+                      _ProgressBar(step: _step, primary: primary),
+                      const SizedBox(height: 28),
+
+                      // Error banner
+                      Consumer(builder: (ctx, ref, _) {
+                        final err = ref.watch(authControllerProvider).errorMessage;
+                        if (err == null) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _Banner(message: err, isError: true),
+                        );
+                      }),
+
+                      // Step content
+                      if (_step == 1) _buildStep1(theme, isDark, primary),
+                      if (_step == 2) _buildStep2(theme, isDark, primary),
+                      if (_step == 3) _buildStep3(theme, isDark, primary),
+
+                      const SizedBox(height: 24),
+
+                      // Footer
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Already have an account?',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          TextButton(
+                            onPressed: () => context.go(AppRoutes.auth),
+                            style: TextButton.styleFrom(foregroundColor: primary),
+                            child: const Text('Sign In',
+                                style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Step 1: Role Selection ────────────────────────────────────────────────
+
+  Widget _buildStep1(ThemeData theme, bool isDark, Color primary) {
+    final roles = [
+      (
+        role: RegistrationRole.student,
+        title: 'Student',
+        desc: 'Apply for internships and track your progress',
+        icon: Icons.school_rounded,
+      ),
+      (
+        role: RegistrationRole.coordinator,
+        title: 'University Coordinator',
+        desc: 'Manage student placements and university partnerships',
+        icon: Icons.account_balance_rounded,
+      ),
+      (
+        role: RegistrationRole.hod,
+        title: 'Head of Department',
+        desc: 'Oversee departmental internship activities and approvals',
+        icon: Icons.business_center_rounded,
+      ),
+      (
+        role: RegistrationRole.supervisor,
+        title: 'Company Supervisor',
+        desc: 'Evaluate students and verify internship reports',
+        icon: Icons.work_rounded,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Choose your role',
+            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        Text('Select how you will be using the InternLink platform',
+            style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.55))),
+        const SizedBox(height: 24),
+
+        ...roles.map((r) => _RoleCard(
+              role: r.role,
+              title: r.title,
+              desc: r.desc,
+              icon: r.icon,
+              selected: _role == r.role,
+              isDark: isDark,
+              primary: primary,
+              onTap: () => setState(() => _role = r.role),
+            )),
+
+        const SizedBox(height: 24),
+        _PrimaryButton(
+          label: 'Continue to Account Details',
+          isLoading: false,
+          enabled: _role != null,
+          primary: primary,
+          onPressed: _nextStep,
+          trailingIcon: Icons.arrow_forward_rounded,
+        ),
+      ],
+    );
+  }
+
+  // ─── Step 2: Account Details ───────────────────────────────────────────────
+
+  Widget _buildStep2(ThemeData theme, bool isDark, Color primary) {
+    return Form(
+      key: _step2Key,
+      autovalidateMode: _step2Touched
+          ? AutovalidateMode.onUserInteraction
+          : AutovalidateMode.disabled,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Account Details',
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text('Enter your official credentials',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.55))),
+          const SizedBox(height: 24),
+
+          _FieldLabel('Full Name'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _nameCtrl,
+            hint: 'John Doe',
+            icon: Icons.person_outline_rounded,
+            isDark: isDark,
+            primary: primary,
+            validator: (v) {
+              if ((v ?? '').trim().isEmpty) return 'Full name is required';
+              if ((v ?? '').trim().length < 3) return 'Name must be at least 3 characters';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          _FieldLabel('Email Address'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _emailCtrl,
+            hint: 'name@university.edu.et',
+            icon: Icons.alternate_email_rounded,
+            isDark: isDark,
+            primary: primary,
+            keyboardType: TextInputType.emailAddress,
+            validator: (v) {
+              final s = v?.trim() ?? '';
+              if (s.isEmpty) return 'Email is required';
+              if (!RegExp(r'^[^\s@]+@([^\s@]+\.)+[^\s@]+$').hasMatch(s)) {
+                return 'Enter a valid email address';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          _FieldLabel('Password'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _passCtrl,
+            hint: '••••••••',
+            icon: Icons.lock_outline_rounded,
+            isDark: isDark,
+            primary: primary,
+            obscureText: _obscurePass,
+            suffix: IconButton(
+              icon: Icon(_obscurePass ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  size: 20),
+              onPressed: () => setState(() => _obscurePass = !_obscurePass),
+            ),
+            validator: (v) {
+              if ((v ?? '').isEmpty) return 'Password is required';
+              if ((v ?? '').length < 8) return 'Password must be at least 8 characters';
+              if (!RegExp(r'[A-Za-z]').hasMatch(v!)) return 'Must contain at least one letter';
+              if (!RegExp(r'[0-9]').hasMatch(v)) return 'Must contain at least one number';
+              return null;
+            },
+          ),
+          if (_passCtrl.text.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _PasswordStrengthBar(strength: _passStrength, primary: primary),
+          ],
+          const SizedBox(height: 16),
+
+          _FieldLabel('Confirm Password'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _confirmCtrl,
+            hint: '••••••••',
+            icon: Icons.lock_reset_rounded,
+            isDark: isDark,
+            primary: primary,
+            obscureText: _obscureConfirm,
+            suffix: IconButton(
+              icon: Icon(_obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  size: 20),
+              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+            ),
+            validator: (v) {
+              if ((v ?? '').isEmpty) return 'Please confirm your password';
+              if (v != _passCtrl.text) return 'Passwords do not match';
+              return null;
+            },
+          ),
+          const SizedBox(height: 28),
+
+          Row(children: [
+            Expanded(
+              child: _SecondaryButton(
+                label: 'Back',
+                leadingIcon: Icons.arrow_back_rounded,
+                onPressed: _prevStep,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: _PrimaryButton(
+                label: 'Next Step',
+                isLoading: false,
+                enabled: true,
+                primary: primary,
+                onPressed: _nextStep,
+                trailingIcon: Icons.arrow_forward_rounded,
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  // ─── Step 3: Role-Specific + Terms ────────────────────────────────────────
+
+  Widget _buildStep3(ThemeData theme, bool isDark, Color primary) {
+    final isLoading = ref.watch(authControllerProvider).isLoading;
+
+    final stepTitle = switch (_role) {
+      RegistrationRole.student => 'Student Information',
+      RegistrationRole.coordinator => 'University Information',
+      RegistrationRole.hod => 'Department Information',
+      RegistrationRole.supervisor => 'Company Information',
+      null => '',
+    };
+
+    return Form(
+      key: _step3Key,
+      autovalidateMode: _step3Touched
+          ? AutovalidateMode.onUserInteraction
+          : AutovalidateMode.disabled,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(stepTitle,
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(_step3Subtitle, style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.55))),
+          const SizedBox(height: 24),
+
+          ..._buildRoleFields(isDark, primary, isLoading),
+
+          const SizedBox(height: 20),
+
+          // Terms checkbox
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: _agreedToTerms,
+                onChanged: (v) => setState(() => _agreedToTerms = v ?? false),
+                activeColor: primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'I agree to the ',
+                      style: theme.textTheme.bodySmall,
+                      children: [
+                        TextSpan(text: 'Terms of Service',
+                            style: TextStyle(color: primary, fontWeight: FontWeight.w600)),
+                        const TextSpan(text: ' and '),
+                        TextSpan(text: 'Privacy Policy',
+                            style: TextStyle(color: primary, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
-                );
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          Row(children: [
+            Expanded(
+              child: _SecondaryButton(
+                label: 'Back',
+                leadingIcon: Icons.arrow_back_rounded,
+                onPressed: _prevStep,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: _PrimaryButton(
+                label: 'Complete Registration',
+                isLoading: isLoading,
+                enabled: !isLoading,
+                primary: primary,
+                onPressed: _submit,
+                leadingIcon: Icons.check_rounded,
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  String get _step3Subtitle => switch (_role) {
+    RegistrationRole.student =>
+      'Enter your academic details',
+    RegistrationRole.coordinator =>
+      'Enter your university details and upload official verification letter',
+    RegistrationRole.hod =>
+      'Select your university and enter your department',
+    RegistrationRole.supervisor =>
+      'Enter your company details',
+    null => '',
+  };
+
+  List<Widget> _buildRoleFields(bool isDark, Color primary, bool isLoading) {
+    final filePicker = _buildFilePicker(isDark, primary);
+
+    switch (_role) {
+      case RegistrationRole.coordinator:
+        return [
+          _FieldLabel('University Name *'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _uniNameCtrl,
+            hint: 'e.g., Haramaya University',
+            icon: Icons.account_balance_rounded,
+            isDark: isDark,
+            primary: primary,
+            enabled: !isLoading,
+            validator: (v) => (v ?? '').trim().isEmpty ? 'University name is required' : null,
+          ),
+          const SizedBox(height: 20),
+          _FieldLabel('Official University Letter with Stamp *'),
+          const SizedBox(height: 8),
+          filePicker,
+        ];
+
+      case RegistrationRole.supervisor:
+        return [
+          _FieldLabel('Company Name *'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _companyCtrl,
+            hint: 'e.g., Ethio Telecom',
+            icon: Icons.business_rounded,
+            isDark: isDark,
+            primary: primary,
+            enabled: !isLoading,
+            validator: (v) => (v ?? '').trim().isEmpty ? 'Company name is required' : null,
+          ),
+          const SizedBox(height: 16),
+          _FieldLabel('Position *'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _positionCtrl,
+            hint: 'e.g., HR Manager',
+            icon: Icons.work_outline_rounded,
+            isDark: isDark,
+            primary: primary,
+            enabled: !isLoading,
+            validator: (v) => (v ?? '').trim().isEmpty ? 'Position is required' : null,
+          ),
+          const SizedBox(height: 20),
+          _FieldLabel('Official Company Letter with Stamp *'),
+          const SizedBox(height: 8),
+          filePicker,
+        ];
+
+      case RegistrationRole.hod:
+        return [
+          _FieldLabel('University *'),
+          const SizedBox(height: 8),
+          _UniversityPicker(
+            selectedId: _selectedUniversityId,
+            selectedName: _selectedUniversityName,
+            searchCtrl: _uniSearchCtrl,
+            isOpen: _uniSearchOpen,
+            isDark: isDark,
+            primary: primary,
+            onToggle: () => setState(() => _uniSearchOpen = !_uniSearchOpen),
+            onSelect: (u) => setState(() {
+              _selectedUniversityId = u.id;
+              _selectedUniversityName = u.name;
+              _uniSearchOpen = false;
+              _uniSearchCtrl.clear();
+            }),
+            validator: (_) => _selectedUniversityId == null ? 'Please select a university' : null,
+          ),
+          const SizedBox(height: 16),
+          _FieldLabel('Department *'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _departmentCtrl,
+            hint: 'e.g., Software Engineering',
+            icon: Icons.school_outlined,
+            isDark: isDark,
+            primary: primary,
+            enabled: !isLoading,
+            validator: (v) => (v ?? '').trim().isEmpty ? 'Department is required' : null,
+          ),
+          const SizedBox(height: 16),
+          _FieldLabel('Employee ID (optional)'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _employeeIdCtrl,
+            hint: 'e.g., EMP-2024-001',
+            icon: Icons.badge_outlined,
+            isDark: isDark,
+            primary: primary,
+            enabled: !isLoading,
+          ),
+          const SizedBox(height: 20),
+          _FieldLabel('Staff ID / Verification Document *'),
+          const SizedBox(height: 8),
+          filePicker,
+        ];
+
+      case RegistrationRole.student:
+        return [
+          _FieldLabel('University *'),
+          const SizedBox(height: 8),
+          _UniversityPicker(
+            selectedId: _selectedUniversityId,
+            selectedName: _selectedUniversityName,
+            searchCtrl: _uniSearchCtrl,
+            isOpen: _uniSearchOpen,
+            isDark: isDark,
+            primary: primary,
+            onToggle: () => setState(() => _uniSearchOpen = !_uniSearchOpen),
+            onSelect: (u) => setState(() {
+              _selectedUniversityId = u.id;
+              _selectedUniversityName = u.name;
+              _selectedHodId = null;
+              _uniSearchOpen = false;
+              _uniSearchCtrl.clear();
+            }),
+            validator: (_) => _selectedUniversityId == null ? 'Please select a university' : null,
+          ),
+          const SizedBox(height: 16),
+          _FieldLabel('Department *'),
+          const SizedBox(height: 8),
+          if (_selectedUniversityId != null)
+            _DepartmentPicker(
+              universityId: _selectedUniversityId!,
+              selectedHodId: _selectedHodId,
+              isDark: isDark,
+              primary: primary,
+              onSelect: (d) => setState(() => _selectedHodId = d.id),
+              validator: (_) => _selectedHodId == null ? 'Please select a department' : null,
+            )
+          else
+            _InputField(
+              controller: TextEditingController(text: ''),
+              hint: 'Select a university first',
+              icon: Icons.school_outlined,
+              isDark: isDark,
+              primary: primary,
+              enabled: false,
+            ),
+          const SizedBox(height: 16),
+          _FieldLabel('Student ID *'),
+          const SizedBox(height: 8),
+          _InputField(
+            controller: _studentIdCtrl,
+            hint: 'e.g., 2122/142',
+            icon: Icons.credit_card_rounded,
+            isDark: isDark,
+            primary: primary,
+            enabled: !isLoading,
+            validator: (v) => (v ?? '').trim().isEmpty ? 'Student ID is required' : null,
+          ),
+          const SizedBox(height: 20),
+          _FieldLabel('Student ID / Verification *'),
+          const SizedBox(height: 8),
+          filePicker,
+        ];
+
+      default:
+        return [];
+    }
+  }
+
+  Widget _buildFilePicker(bool isDark, Color primary) {
+    return _FilePicker(
+      isDark: isDark,
+      primary: primary,
+      fileName: _verificationFileName,
+      onPicked: (path, name) => setState(() {
+        _verificationFilePath = path;
+        _verificationFileName = name;
+      }),
+      onRemoved: () => setState(() {
+        _verificationFilePath = null;
+        _verificationFileName = null;
+      }),
+    );
+  }
+}
+
+// ─── File Picker Widget ───────────────────────────────────────────────────────
+
+class _FilePicker extends StatelessWidget {
+  const _FilePicker({
+    required this.isDark,
+    required this.primary,
+    required this.fileName,
+    required this.onPicked,
+    required this.onRemoved,
+  });
+
+  final bool isDark;
+  final Color primary;
+  final String? fileName;
+  final void Function(String path, String name) onPicked;
+  final VoidCallback onRemoved;
+
+  Future<void> _pick(BuildContext context) async {
+    // Show bottom sheet to choose gallery (image) or files
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: const Text('Choose from Gallery'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final picker = ImagePicker();
+                final file = await picker.pickImage(source: ImageSource.gallery);
+                if (file != null) onPicked(file.path, file.name);
               },
             ),
-            // Background Orbs
-            Positioned(
-              top: -50,
-              right: -100,
-              child: Container(
-                width: 350,
-                height: 350,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take a Photo'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final picker = ImagePicker();
+                final file = await picker.pickImage(source: ImageSource.camera);
+                if (file != null) onPicked(file.path, file.name);
+              },
             ),
-            SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: FadeTransition(
-                  opacity: _fade,
-                  child: SlideTransition(
-                    position: _slide,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: IconButton.filledTonal(
-                            onPressed: () => context.pop(),
-                            icon: const Icon(Icons.arrow_back_rounded),
-                            style: IconButton.styleFrom(
-                              backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Hero(
-                          tag: 'internlink-auth-logo',
-                          child: Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(24),
-                              gradient: LinearGradient(
-                                colors: [
-                                  theme.colorScheme.primary,
-                                  theme.colorScheme.primary.withValues(alpha: 0.8)
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.school_rounded,
-                              color: Colors.white,
-                              size: 38,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Create Account',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Join InternLink and elevate your internship experience.',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        // Glassmorphic Form
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(32),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : Colors.black.withValues(alpha: 0.05),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                                blurRadius: 40,
-                                offset: const Offset(0, 20),
-                              )
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(32),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                              child: Container(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.03)
-                                    : Colors.white.withValues(alpha: 0.7),
-                                padding: const EdgeInsets.all(28),
-                                child: Form(
-                                  key: _formKey,
-                                  autovalidateMode: _hasInteracted
-                                      ? AutovalidateMode.onUserInteraction
-                                      : AutovalidateMode.disabled,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final state = ref.watch(authControllerProvider);
-                                          if (state.errorMessage != null) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(bottom: 20),
-                                              child: _InlineError(message: state.errorMessage!),
-                                            );
-                                          }
-                                          return const SizedBox.shrink();
-                                        },
-                                      ),
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final state = ref.watch(authControllerProvider);
-                                          return DropdownButtonFormField<RegistrationRole>(
-                                            value: _role,
-                                            onChanged: state.isLoading
-                                                ? null
-                                                : (role) {
-                                                    if (role != null) {
-                                                      setState(() => _role = role);
-                                                    }
-                                                  },
-                                            decoration: InputDecoration(
-                                              labelText: 'Role',
-                                              prefixIcon: const Icon(Icons.badge_outlined),
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(16),
-                                              ),
-                                              filled: true,
-                                              fillColor: theme.colorScheme.surface.withValues(alpha: 0.5),
-                                            ),
-                                            items: RegistrationRole.values
-                                                .map(
-                                                  (role) => DropdownMenuItem(
-                                                    value: role,
-                                                    child: Text(role.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                                  ),
-                                                )
-                                                .toList(),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final state = ref.watch(authControllerProvider);
-                                          return CustomTextField(
-                                            controller: _fullNameController,
-                                            label: 'Full Name',
-                                            hint: 'Your full name',
-                                            prefixIcon: Icons.person_outline_rounded,
-                                            enabled: !state.isLoading,
-                                            validator: (value) {
-                                              if ((value ?? '').trim().isEmpty) {
-                                                return 'Full name is required';
-                                              }
-                                              return null;
-                                            },
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final state = ref.watch(authControllerProvider);
-                                          return CustomTextField(
-                                            controller: _emailController,
-                                            label: 'Email',
-                                            hint: 'name@university.edu',
-                                            prefixIcon: Icons.alternate_email_rounded,
-                                            keyboardType: TextInputType.emailAddress,
-                                            enabled: !state.isLoading,
-                                            validator: _emailValidator,
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final state = ref.watch(authControllerProvider);
-                                          return CustomTextField(
-                                            controller: _passwordController,
-                                            label: 'Password',
-                                            hint: 'Minimum 8 characters',
-                                            prefixIcon: Icons.lock_outline_rounded,
-                                            obscureText: _obscurePassword,
-                                            enabled: !state.isLoading,
-                                            validator: _passwordValidator,
-                                            suffix: IconButton(
-                                              onPressed: state.isLoading
-                                                  ? null
-                                                  : () {
-                                                      setState(() {
-                                                        _obscurePassword = !_obscurePassword;
-                                                      });
-                                                    },
-                                              icon: Icon(
-                                                _obscurePassword
-                                                    ? Icons.visibility_outlined
-                                                    : Icons.visibility_off_outlined,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final state = ref.watch(authControllerProvider);
-                                          return CustomTextField(
-                                            controller: _confirmPasswordController,
-                                            label: 'Confirm Password',
-                                            hint: 'Re-enter password',
-                                            prefixIcon: Icons.lock_reset_rounded,
-                                            obscureText: _obscureConfirmPassword,
-                                            enabled: !state.isLoading,
-                                            validator: _confirmPasswordValidator,
-                                            suffix: IconButton(
-                                              onPressed: state.isLoading
-                                                  ? null
-                                                  : () {
-                                                      setState(() {
-                                                        _obscureConfirmPassword = !_obscureConfirmPassword;
-                                                      });
-                                                    },
-                                              icon: Icon(
-                                                _obscureConfirmPassword
-                                                    ? Icons.visibility_outlined
-                                                    : Icons.visibility_off_outlined,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final state = ref.watch(authControllerProvider);
-                                          return Column(
-                                            children: _buildRoleFields(state.isLoading),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 32),
-                                      Consumer(
-                                        builder: (context, ref, child) {
-                                          final state = ref.watch(authControllerProvider);
-                                          return SizedBox(
-                                            height: 56,
-                                            child: AuthButton(
-                                              label: 'Create Account',
-                                              onPressed: _submit,
-                                              isLoading: state.isLoading,
-                                              enabled: _isFormReady,
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Already have an account?',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            TextButton(
-                              onPressed: () => context.pushReplacement(AppRoutes.auth),
-                              style: TextButton.styleFrom(
-                                foregroundColor: theme.colorScheme.primary,
-                              ),
-                              child: const Text(
-                                'Login',
-                                style: TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> _buildRoleFields(bool isLoading) {
-    switch (_role) {
-      case RegistrationRole.coordinator:
-        return [
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _universityNameController,
-            label: 'University Name',
-            hint: 'Enter institution name',
-            prefixIcon: Icons.school_outlined,
-            enabled: !isLoading,
-            validator: (value) {
-              if ((value ?? '').trim().isEmpty) {
-                return 'University name is required';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _positionController,
-            label: 'Position (optional)',
-            hint: 'Coordinator position',
-            prefixIcon: Icons.work_outline_rounded,
-            enabled: !isLoading,
-          ),
-        ];
-      case RegistrationRole.supervisor:
-        return [
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _companyNameController,
-            label: 'Company Name',
-            hint: 'Enter company name',
-            prefixIcon: Icons.business_outlined,
-            enabled: !isLoading,
-            validator: (value) {
-              if ((value ?? '').trim().isEmpty) {
-                return 'Company name is required';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _positionController,
-            label: 'Position (optional)',
-            hint: 'Supervisor position',
-            prefixIcon: Icons.work_outline_rounded,
-            enabled: !isLoading,
-          ),
-        ];
-      case RegistrationRole.hod:
-        return [
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _universityIdController,
-            label: 'University ID',
-            hint: 'e.g. 1',
-            prefixIcon: Icons.tag_rounded,
-            keyboardType: TextInputType.number,
-            enabled: !isLoading,
-            validator: _positiveIntValidator,
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _departmentController,
-            label: 'Department',
-            hint: 'e.g. Software Engineering',
-            prefixIcon: Icons.apartment_rounded,
-            enabled: !isLoading,
-            validator: (value) {
-              if ((value ?? '').trim().isEmpty) {
-                return 'Department is required';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _employeeIdController,
-            label: 'Employee ID (optional)',
-            hint: 'Employee identifier',
-            prefixIcon: Icons.badge_rounded,
-            enabled: !isLoading,
-          ),
-        ];
-      case RegistrationRole.student:
-        return [
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _universityIdController,
-            label: 'University ID',
-            hint: 'e.g. 1',
-            prefixIcon: Icons.tag_rounded,
-            keyboardType: TextInputType.number,
-            enabled: !isLoading,
-            validator: _positiveIntValidator,
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _hodIdController,
-            label: 'HoD ID (optional)',
-            hint: 'e.g. 3',
-            prefixIcon: Icons.badge_outlined,
-            keyboardType: TextInputType.number,
-            enabled: !isLoading,
-            validator: _optionalPositiveIntValidator,
-          ),
-          const SizedBox(height: 16),
-          CustomTextField(
-            controller: _studentIdController,
-            label: 'Student ID (optional)',
-            hint: 'Enter student identifier',
-            prefixIcon: Icons.credit_card_rounded,
-            enabled: !isLoading,
-          ),
-        ];
+  @override
+  Widget build(BuildContext context) {
+    if (fileName != null) {
+      // File selected — show preview card
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: primary.withOpacity(isDark ? 0.12 : 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: primary.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.insert_drive_file_rounded, color: primary, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(fileName!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text('Tap × to remove',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: onRemoved,
+              color: Colors.grey.shade500,
+              iconSize: 20,
+            ),
+          ],
+        ),
+      );
     }
+
+    // No file — show upload zone
+    return GestureDetector(
+      onTap: () => _pick(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFD1D5DB),
+            style: BorderStyle.solid,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.upload_rounded, size: 32, color: Colors.grey.shade400),
+            const SizedBox(height: 10),
+            Text('Click to upload or take a photo',
+                style: TextStyle(fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : const Color(0xFF374151))),
+            const SizedBox(height: 4),
+            Text('PDF, JPG or PNG (max. 5MB)',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            const SizedBox(height: 2),
+            Text('Official document with institutional stamp required',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
-class _InlineError extends StatelessWidget {
-  const _InlineError({required this.message});
+// ─── Shared Widgets ───────────────────────────────────────────────────────────
 
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({required this.step, required this.primary});
+  final int step;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = ['Role Selection', 'Account Details', 'Verification'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Step $step of 3',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                    color: Colors.grey, letterSpacing: 1.2)),
+            Text(labels[step - 1].toUpperCase(),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                    color: Colors.grey, letterSpacing: 1.2)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: step / 3,
+            backgroundColor: Colors.grey.withOpacity(0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(primary),
+            minHeight: 5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoleCard extends StatelessWidget {
+  const _RoleCard({
+    required this.role,
+    required this.title,
+    required this.desc,
+    required this.icon,
+    required this.selected,
+    required this.isDark,
+    required this.primary,
+    required this.onTap,
+  });
+
+  final RegistrationRole role;
+  final String title;
+  final String desc;
+  final IconData icon;
+  final bool selected;
+  final bool isDark;
+  final Color primary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: selected
+                ? primary.withOpacity(isDark ? 0.15 : 0.06)
+                : (isDark ? Colors.white.withOpacity(0.03) : Colors.white),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? primary : (isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE5E7EB)),
+              width: selected ? 2 : 1,
+            ),
+            boxShadow: [
+              if (!isDark && !selected)
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: selected ? primary : (isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF3F4F6)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 22,
+                    color: selected ? Colors.white : (isDark ? Colors.white54 : const Color(0xFF6B7280))),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: selected ? primary : null)),
+                    const SizedBox(height: 2),
+                    Text(desc,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500)),
+                  ],
+                ),
+              ),
+              if (selected)
+                Icon(Icons.check_circle_rounded, color: primary, size: 22)
+              else
+                Icon(Icons.radio_button_unchecked_rounded,
+                    color: Colors.grey.shade400, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UniversityPicker extends ConsumerStatefulWidget {
+  const _UniversityPicker({
+    required this.selectedId,
+    required this.selectedName,
+    required this.searchCtrl,
+    required this.isOpen,
+    required this.isDark,
+    required this.primary,
+    required this.onToggle,
+    required this.onSelect,
+    this.validator,
+  });
+
+  final int? selectedId;
+  final String? selectedName;
+  final TextEditingController searchCtrl;
+  final bool isOpen;
+  final bool isDark;
+  final Color primary;
+  final VoidCallback onToggle;
+  final void Function(_University) onSelect;
+  final String? Function(String?)? validator;
+
+  @override
+  ConsumerState<_UniversityPicker> createState() => _UniversityPickerState();
+}
+
+class _UniversityPickerState extends ConsumerState<_UniversityPicker> {
+  @override
+  Widget build(BuildContext context) {
+    final uniAsync = ref.watch(_approvedUniversitiesProvider);
+    final query = widget.searchCtrl.text.toLowerCase();
+
+    return FormField<String>(
+      validator: widget.validator,
+      builder: (field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            onTap: widget.onToggle,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: widget.isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: field.hasError
+                      ? const Color(0xFFEF4444)
+                      : widget.isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.account_balance_rounded, size: 18,
+                      color: widget.isDark ? Colors.white38 : const Color(0xFF9CA3AF)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.selectedName ?? 'Select your university',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: widget.selectedName != null
+                            ? null
+                            : (widget.isDark ? Colors.white38 : const Color(0xFF9CA3AF)),
+                      ),
+                    ),
+                  ),
+                  Icon(widget.isOpen ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                      color: Colors.grey),
+                ],
+              ),
+            ),
+          ),
+          if (field.hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Text(field.errorText!,
+                  style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
+            ),
+          if (widget.isOpen)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: widget.isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 16, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: TextField(
+                      controller: widget.searchCtrl,
+                      autofocus: true,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: 'Search universities...',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  uniAsync.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
+                    error: (_, __) => const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('Failed to load universities', style: TextStyle(color: Colors.red)),
+                    ),
+                    data: (unis) {
+                      final filtered = unis
+                          .where((u) => u.name.toLowerCase().contains(query))
+                          .toList();
+                      if (filtered.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('No universities found',
+                              style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+                        );
+                      }
+                      return ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: filtered.length,
+                          itemBuilder: (ctx, i) {
+                            final u = filtered[i];
+                            final isSelected = u.id == widget.selectedId;
+                            return ListTile(
+                              dense: true,
+                              title: Text(u.name,
+                                  style: TextStyle(
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                      color: isSelected ? widget.primary : null)),
+                              trailing: isSelected
+                                  ? Icon(Icons.check_rounded, color: widget.primary, size: 18)
+                                  : null,
+                              onTap: () => widget.onSelect(u),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DepartmentPicker extends ConsumerWidget {
+  const _DepartmentPicker({
+    required this.universityId,
+    required this.selectedHodId,
+    required this.isDark,
+    required this.primary,
+    required this.onSelect,
+    this.validator,
+  });
+
+  final int universityId;
+  final int? selectedHodId;
+  final bool isDark;
+  final Color primary;
+  final void Function(_Department) onSelect;
+  final String? Function(String?)? validator;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final deptAsync = ref.watch(_departmentsProvider(universityId));
+
+    return FormField<String>(
+      validator: validator,
+      builder: (field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          deptAsync.when(
+            loading: () => Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB)),
+              ),
+              child: const Row(children: [
+                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                SizedBox(width: 10),
+                Text('Loading departments...', style: TextStyle(color: Colors.grey)),
+              ]),
+            ),
+            error: (_, __) => const Text('Failed to load departments',
+                style: TextStyle(color: Colors.red)),
+            data: (depts) {
+              if (depts.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB)),
+                  ),
+                  child: const Text('No departments available',
+                      style: TextStyle(color: Colors.grey)),
+                );
+              }
+              final selected = depts.where((d) => d.id == selectedHodId).firstOrNull;
+              return DropdownButtonFormField<int>(
+                value: selectedHodId,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.school_outlined, size: 18),
+                  hintText: 'Select your department',
+                  filled: true,
+                  fillColor: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF9FAFB),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                        color: isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                        color: field.hasError
+                            ? const Color(0xFFEF4444)
+                            : (isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB))),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                ),
+                items: depts
+                    .map((d) => DropdownMenuItem(value: d.id, child: Text(d.department)))
+                    .toList(),
+                onChanged: (id) {
+                  if (id != null) {
+                    final dept = depts.firstWhere((d) => d.id == id);
+                    onSelect(dept);
+                  }
+                },
+                validator: (_) => selectedHodId == null ? 'Please select a department' : null,
+              );
+            },
+          ),
+          if (field.hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Text(field.errorText!,
+                  style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PasswordStrengthBar extends StatelessWidget {
+  const _PasswordStrengthBar({required this.strength, required this.primary});
+  final int strength;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [Colors.red, Colors.orange, Colors.yellow.shade700, primary, Colors.green];
+    final labels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+    final color = colors[strength.clamp(0, 4)];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: List.generate(4, (i) => Expanded(
+          child: Container(
+            height: 4,
+            margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
+            decoration: BoxDecoration(
+              color: i < strength ? color : Colors.grey.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ))),
+        const SizedBox(height: 4),
+        Text(labels[strength.clamp(0, 4)],
+            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF374151)));
+  }
+}
+
+class _InputField extends StatelessWidget {
+  const _InputField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    required this.isDark,
+    required this.primary,
+    this.obscureText = false,
+    this.keyboardType,
+    this.textInputAction,
+    this.validator,
+    this.suffix,
+    this.enabled = true,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final bool isDark;
+  final Color primary;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final String? Function(String?)? validator;
+  final Widget? suffix;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      validator: validator,
+      enabled: enabled,
+      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
+            color: isDark ? Colors.white38 : const Color(0xFF9CA3AF), fontSize: 14),
+        prefixIcon: Icon(icon, size: 18,
+            color: isDark ? Colors.white38 : const Color(0xFF9CA3AF)),
+        suffixIcon: suffix,
+        filled: true,
+        fillColor: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF9FAFB),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+              color: isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+              color: isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+              color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF3F4F6)),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+}
+
+class _PrimaryButton extends StatelessWidget {
+  const _PrimaryButton({
+    required this.label,
+    required this.isLoading,
+    required this.enabled,
+    required this.primary,
+    required this.onPressed,
+    this.trailingIcon,
+    this.leadingIcon,
+  });
+
+  final String label;
+  final bool isLoading;
+  final bool enabled;
+  final Color primary;
+  final VoidCallback onPressed;
+  final IconData? trailingIcon;
+  final IconData? leadingIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: ElevatedButton(
+        onPressed: (isLoading || !enabled) ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: primary.withOpacity(0.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 0,
+        ),
+        child: isLoading
+            ? const SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (leadingIcon != null) ...[
+                    Icon(leadingIcon, size: 18),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  if (trailingIcon != null) ...[
+                    const SizedBox(width: 8),
+                    Icon(trailingIcon, size: 18),
+                  ],
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _SecondaryButton extends StatelessWidget {
+  const _SecondaryButton({required this.label, required this.onPressed, this.leadingIcon});
+  final String label;
+  final VoidCallback onPressed;
+  final IconData? leadingIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.grey.shade600,
+          side: BorderSide(color: Colors.grey.shade300),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (leadingIcon != null) ...[
+              Icon(leadingIcon, size: 18),
+              const SizedBox(width: 6),
+            ],
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Banner extends StatelessWidget {
+  const _Banner({required this.message, required this.isError});
   final String message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? const Color(0xFFEF4444) : const Color(0xFF10B981);
+    final bg = isError ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: color, size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message,
+              style: TextStyle(color: color, fontWeight: FontWeight.w500, fontSize: 13))),
+        ],
+      ),
+    );
+  }
+}
+
+class _Orb extends StatelessWidget {
+  const _Orb({required this.color, required this.size});
+  final Color color;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.error_outline_rounded,
-            color: Theme.of(context).colorScheme.error,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.error,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
+      width: size, height: size,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+        child: Container(color: Colors.transparent),
       ),
     );
   }

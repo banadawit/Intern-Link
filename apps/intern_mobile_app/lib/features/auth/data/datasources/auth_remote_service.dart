@@ -50,6 +50,11 @@ class AuthRemoteService {
       if (payload.hodId != null) 'hod_id': payload.hodId.toString(),
       if (payload.employeeId?.trim().isNotEmpty ?? false)
         'employee_id': payload.employeeId!.trim(),
+      if (payload.verificationFilePath != null)
+        'verification_document': await MultipartFile.fromFile(
+          payload.verificationFilePath!,
+          filename: payload.verificationFileName ?? 'verification',
+        ),
     });
 
     try {
