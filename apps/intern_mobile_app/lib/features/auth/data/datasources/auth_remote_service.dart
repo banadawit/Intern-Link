@@ -23,7 +23,9 @@ class AuthRemoteService {
         throw const AuthApiException('Login response did not include a token.');
       }
 
-      return LoginResult(token: token);
+      final mustChangePassword = data?['mustChangePassword'] == true;
+
+      return LoginResult(token: token, mustChangePassword: mustChangePassword);
     } on DioException catch (error) {
       throw _buildException(error);
     }

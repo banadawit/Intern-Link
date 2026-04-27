@@ -540,3 +540,24 @@ model File {
   @@index([organizationId, type])
   @@map("files")
 }
+
+/// Key-value store for platform-wide configuration set by admins.
+model SystemConfig {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId Int
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@index([senderId, receiverId, created_at])
+  @@index([receiverId, is_read])
+}
