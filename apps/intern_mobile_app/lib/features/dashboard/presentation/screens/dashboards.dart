@@ -3385,6 +3385,7 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     super.dispose();
   }
 
+  // ── Approve / Reject ────────────────────────────────────────────────────────
   Future<void> _verify(int userId, String status, {String? reason}) async {
     try {
       await ref.read(coordinatorRepositoryProvider).verifyHod(userId, status, reason: reason);
@@ -3398,11 +3399,7 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -3432,6 +3429,235 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     );
   }
 
+  // ── Add HOD form ────────────────────────────────────────────────────────────
+  void _showAddHodSheet() {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final deptCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final empCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool loading = false;
+    bool showPass = false;
+    String? tempPassword;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            child: tempPassword != null
+                // ── Success state ──────────────────────────────────────────
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 24),
+                          decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), shape: BoxShape.circle),
+                        child: const Icon(Icons.check_circle_rounded, color: Colors.green, size: 48),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('HOD Account Created', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 8),
+                      const Text('The account is auto-approved. Share the temporary password with the HOD.',
+                          textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.key_rounded, color: Colors.orange),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Temporary Password', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                                  Text(tempPassword!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0575E6)),
+                          child: const Text('Done'),
+                        ),
+                      ),
+                    ],
+                  )
+                // ── Form state ─────────────────────────────────────────────
+                : Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Handle
+                        Center(child: Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
+                        // Title
+                        Row(children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: [Color(0xFF00F260), Color(0xFF0575E6)]),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Add Head of Department', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                              Text('Account will be auto-approved', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ]),
+                        const SizedBox(height: 20),
+                        // Full Name
+                        TextFormField(
+                          controller: nameCtrl,
+                          decoration: const InputDecoration(labelText: 'Full Name *', prefixIcon: Icon(Icons.person_outline_rounded), border: OutlineInputBorder()),
+                          validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
+                        ),
+                        const SizedBox(height: 14),
+                        // Email
+                        TextFormField(
+                          controller: emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(labelText: 'Email Address *', prefixIcon: Icon(Icons.alternate_email_rounded), border: OutlineInputBorder()),
+                          validator: (v) {
+                            if ((v ?? '').trim().isEmpty) return 'Required';
+                            if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v!.trim())) return 'Invalid email';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        // Department
+                        TextFormField(
+                          controller: deptCtrl,
+                          decoration: const InputDecoration(labelText: 'Department *', prefixIcon: Icon(Icons.school_outlined), border: OutlineInputBorder()),
+                          validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
+                        ),
+                        const SizedBox(height: 14),
+                        // Password (optional)
+                        TextFormField(
+                          controller: passCtrl,
+                          obscureText: !showPass,
+                          decoration: InputDecoration(
+                            labelText: 'Password (leave blank to auto-generate)',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: Icon(showPass ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                              onPressed: () => setSheetState(() => showPass = !showPass),
+                            ),
+                          ),
+                          validator: (v) {
+                            if ((v ?? '').isNotEmpty && v!.length < 8) return 'Min 8 characters';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        // Employee ID (optional)
+                        TextFormField(
+                          controller: empCtrl,
+                          decoration: const InputDecoration(labelText: 'Employee ID (optional)', prefixIcon: Icon(Icons.badge_outlined), border: OutlineInputBorder()),
+                        ),
+                        const SizedBox(height: 20),
+                        // Info banner
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.07),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.info_outline_rounded, color: Colors.blue, size: 16),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'HODs added by you are auto-approved. HODs who self-register appear in the Pending tab for your review.',
+                                  style: TextStyle(fontSize: 11, color: Colors.blue),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          height: 52,
+                          child: FilledButton.icon(
+                            onPressed: loading ? null : () async {
+                              if (!formKey.currentState!.validate()) return;
+                              setSheetState(() => loading = true);
+                              try {
+                                final result = await ref.read(coordinatorRepositoryProvider).createHod(
+                                  fullName: nameCtrl.text,
+                                  email: emailCtrl.text,
+                                  department: deptCtrl.text,
+                                  password: passCtrl.text.trim().isEmpty ? null : passCtrl.text,
+                                  employeeId: empCtrl.text.trim().isEmpty ? null : empCtrl.text,
+                                );
+                                ref.invalidate(approvedHodsProvider);
+                                ref.invalidate(coordinatorStatsProvider);
+                                final tp = result['temporaryPassword'] as String?;
+                                setSheetState(() {
+                                  loading = false;
+                                  tempPassword = tp ?? '(password set by you)';
+                                });
+                              } catch (e) {
+                                setSheetState(() => loading = false);
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
+                            },
+                            icon: loading
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.person_add_rounded),
+                            label: Text(loading ? 'Creating...' : 'Create HOD Account'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF0575E6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -3439,46 +3665,76 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     final approvedAsync = ref.watch(approvedHodsProvider);
     final rejectedAsync = ref.watch(rejectedHodsProvider);
 
+    // Badge count on Pending tab
+    final pendingCount = pendingAsync.value?.length ?? 0;
+
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: NestedScrollView(
-        headerSliverBuilder: (ctx, _) => [
-          ModernSliverAppBar(
-            title: 'Department Heads',
-            subtitle: 'HOD Management',
-            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
-            gradient: [const Color(0xFF00F260), const Color(0xFF0575E6)],
-            backgroundIcon: Icons.school_rounded,
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: SliverTabBarDelegate(
-              TabBar(
-                controller: _tabCtrl,
-                tabs: const [
-                  Tab(text: 'Pending'),
-                  Tab(text: 'Approved'),
-                  Tab(text: 'Rejected'),
-                ],
-                labelColor: const Color(0xFF0575E6),
-                indicatorColor: const Color(0xFF0575E6),
-                unselectedLabelColor: Colors.grey,
+      child: Stack(
+        children: [
+          NestedScrollView(
+            headerSliverBuilder: (ctx, _) => [
+              ModernSliverAppBar(
+                title: 'Department Heads',
+                subtitle: 'HOD Management',
+                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
+                gradient: [const Color(0xFF00F260), const Color(0xFF0575E6)],
+                backgroundIcon: Icons.school_rounded,
               ),
-              isDark,
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: SliverTabBarDelegate(
+                  TabBar(
+                    controller: _tabCtrl,
+                    tabs: [
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Pending'),
+                            if (pendingCount > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(10)),
+                                child: Text('$pendingCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const Tab(text: 'Approved'),
+                      const Tab(text: 'Rejected'),
+                    ],
+                    labelColor: const Color(0xFF0575E6),
+                    indicatorColor: const Color(0xFF0575E6),
+                    unselectedLabelColor: Colors.grey,
+                  ),
+                  isDark,
+                ),
+              ),
+            ],
+            body: TabBarView(
+              controller: _tabCtrl,
+              children: [
+                _buildHodList(pendingAsync, isDark, showActions: true),
+                _buildHodList(approvedAsync, isDark, statusColor: Colors.green, statusLabel: 'Approved'),
+                _buildHodList(rejectedAsync, isDark, statusColor: Colors.red, statusLabel: 'Rejected'),
+              ],
+            ),
+          ),
+          // FAB — Add HOD
+          Positioned(
+            bottom: 24,
+            right: 24,
+            child: FloatingActionButton.extended(
+              onPressed: _showAddHodSheet,
+              backgroundColor: const Color(0xFF0575E6),
+              icon: const Icon(Icons.person_add_rounded, color: Colors.white),
+              label: const Text('Add HOD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
             ),
           ),
         ],
-        body: TabBarView(
-          controller: _tabCtrl,
-          children: [
-            // Pending
-            _buildHodList(pendingAsync, isDark, showActions: true),
-            // Approved
-            _buildHodList(approvedAsync, isDark, statusColor: Colors.green, statusLabel: 'Approved'),
-            // Rejected
-            _buildHodList(rejectedAsync, isDark, statusColor: Colors.red, statusLabel: 'Rejected'),
-          ],
-        ),
       ),
     );
   }

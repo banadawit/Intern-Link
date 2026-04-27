@@ -83,6 +83,23 @@ class CoordinatorRepository {
     });
   }
 
+  Future<Map<String, dynamic>> createHod({
+    required String fullName,
+    required String email,
+    required String department,
+    String? password,
+    String? employeeId,
+  }) async {
+    final res = await apiClient.dio.post('/coordinator/hods', data: {
+      'fullName': fullName.trim(),
+      'email': email.trim(),
+      'department': department.trim(),
+      if (password != null && password.trim().isNotEmpty) 'password': password.trim(),
+      if (employeeId != null && employeeId.trim().isNotEmpty) 'employeeId': employeeId.trim(),
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
   Future<List<dynamic>> getProposals() async {
     final res = await apiClient.dio.get('/coordinator-portal/proposals/overview');
     final data = res.data;
