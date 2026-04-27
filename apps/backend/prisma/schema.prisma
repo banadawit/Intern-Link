@@ -66,6 +66,10 @@ model User {
   created_at        DateTime       @default(now())
   updated_at        DateTime       @updatedAt
 
+  /// Set to true when account is created by a coordinator/admin with a temp password.
+  /// User must change password on first login before accessing the dashboard.
+  must_change_password Boolean @default(false)
+
   
 
   // Specific Role Relations
