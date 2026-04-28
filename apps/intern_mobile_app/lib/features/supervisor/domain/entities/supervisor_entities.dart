@@ -1,6 +1,14 @@
 import '../../../plans/domain/entities/plan_enums.dart';
 import '../../../plans/domain/entities/weekly_plan.dart';
 
+int _si(dynamic v, [int fb = 0]) {
+  if (v == null) return fb;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fb;
+  return fb;
+}
+
 class SupervisorMe {
   final int id;
   final String fullName;
@@ -19,7 +27,7 @@ class SupervisorMe {
   factory SupervisorMe.fromJson(Map<String, dynamic> json) {
     final s = json['supervisor'] ?? json;
     return SupervisorMe(
-      id: s['id'] ?? 0,
+      id: _si(s['id']),
       fullName: s['user']?['full_name'] ?? 'Supervisor',
       email: s['user']?['email'] ?? '',
       phone: s['phone_number'] ?? '',
@@ -43,10 +51,10 @@ class SupervisorStats {
 
   factory SupervisorStats.fromJson(Map<String, dynamic> json) {
     return SupervisorStats(
-      pendingProposals: json['pendingProposalsCount'] ?? 0,
-      pendingPlans: json['pendingWeeklyPlansCount'] ?? 0,
-      totalStudents: json['placedStudentsCount'] ?? 0,
-      reportsDue: json['reportsDueCount'] ?? 0,
+      pendingProposals: _si(json['pendingProposalsCount']),
+      pendingPlans: _si(json['pendingWeeklyPlansCount']),
+      totalStudents: _si(json['placedStudentsCount']),
+      reportsDue: _si(json['reportsDueCount']),
     );
   }
 }
@@ -74,14 +82,16 @@ class SupervisorAttendanceReport {
 
   factory SupervisorAttendanceReport.fromJson(Map<String, dynamic> json) {
     return SupervisorAttendanceReport(
-      id: json['id'],
-      studentId: json['studentId'],
-      studentName: json['student']['user']['full_name'],
-      weekNumber: json['weeklyPlan']['week_number'],
+      id: _si(json['id']),
+      studentId: _si(json['studentId']),
+      studentName: json['student']?['user']?['full_name'] ?? 'Student',
+      weekNumber: _si(json['weeklyPlan']?['week_number']),
       attendanceStatus: json['attendanceStatus'] ?? 'PENDING',
       executionStatus: json['execution_status'],
       remarks: json['remarks'],
-      submittedAt: DateTime.parse(json['submitted_at']),
+      submittedAt: json['submitted_at'] != null
+          ? DateTime.tryParse(json['submitted_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 }
@@ -99,9 +109,11 @@ class AttendanceHeatmap {
 
   factory AttendanceHeatmap.fromJson(Map<String, dynamic> json) {
     return AttendanceHeatmap(
-      rangeStart: json['rangeStart'],
-      rangeEnd: json['rangeEnd'],
-      students: (json['students'] as List).map((s) => StudentHeatmapData.fromJson(s)).toList(),
+      rangeStart: json['rangeStart']?.toString() ?? '',
+      rangeEnd: json['rangeEnd']?.toString() ?? '',
+      students: (json['students'] as List? ?? [])
+          .map((s) => StudentHeatmapData.fromJson(s))
+          .toList(),
     );
   }
 }
@@ -119,9 +131,9 @@ class StudentHeatmapData {
 
   factory StudentHeatmapData.fromJson(Map<String, dynamic> json) {
     return StudentHeatmapData(
-      studentId: json['studentId'],
-      fullName: json['fullName'],
-      submittedDates: List<String>.from(json['submittedDates']),
+      studentId: _si(json['studentId']),
+      fullName: json['fullName']?.toString() ?? 'Student',
+      submittedDates: List<String>.from(json['submittedDates'] ?? []),
     );
   }
 }

@@ -27,19 +27,26 @@ class CoordinatorStats {
   });
 
   factory CoordinatorStats.fromJson(Map<String, dynamic> json) {
+    int si(dynamic v) {
+      if (v == null) return 0;
+      if (v is int) return v;
+      if (v is double) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
     final rawNotifs = json['recentNotifications'];
     final notifs = rawNotifs is List
         ? rawNotifs.whereType<Map<String, dynamic>>().toList()
         : <Map<String, dynamic>>[];
     return CoordinatorStats(
-      totalStudents: (json['students']?['total'] as num?)?.toInt() ?? 0,
-      totalCompanies: (json['totalCompanies'] as num?)?.toInt() ?? 0,
-      activePlacements: (json['activeAssignments'] as num?)?.toInt() ?? 0,
-      pendingProposals: (json['proposalsPending'] as num?)?.toInt() ?? 0,
-      totalHods: (json['hods']?['total'] as num?)?.toInt() ?? 0,
-      pendingHods: (json['hods']?['pending'] as num?)?.toInt() ?? 0,
-      reportsCount: (json['reportsCount'] as num?)?.toInt() ?? 0,
-      universityName: json['universityName'] as String? ?? 'Your University',
+      totalStudents: si(json['students']?['total']),
+      totalCompanies: si(json['totalCompanies']),
+      activePlacements: si(json['activeAssignments']),
+      pendingProposals: si(json['proposalsPending']),
+      totalHods: si(json['hods']?['total']),
+      pendingHods: si(json['hods']?['pending']),
+      reportsCount: si(json['reportsCount']),
+      universityName: json['universityName']?.toString() ?? 'Your University',
       recentNotifications: notifs,
     );
   }

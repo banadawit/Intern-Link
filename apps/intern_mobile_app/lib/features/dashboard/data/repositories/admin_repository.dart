@@ -45,16 +45,23 @@ class AdminRepository {
     final response = await apiClient.dio.get('/admin/stats');
     final data = response.data;
     if (data != null && data is Map) {
+      int si(dynamic v) {
+        if (v == null) return 0;
+        if (v is int) return v;
+        if (v is double) return v.toInt();
+        if (v is String) return int.tryParse(v) ?? 0;
+        return 0;
+      }
       return AdminStats(
-        totalUsers: (data['totalUsers'] as num?)?.toInt() ?? 0,
-        totalUniversities: ((data['approvedUniversities'] as num?)?.toInt() ?? 0) + ((data['pendingUniversities'] as num?)?.toInt() ?? 0),
-        totalCompanies: ((data['approvedCompanies'] as num?)?.toInt() ?? 0) + ((data['pendingCompanies'] as num?)?.toInt() ?? 0),
-        pendingApprovals: ((data['pendingUniversities'] as num?)?.toInt() ?? 0) + 
-                         ((data['pendingCompanies'] as num?)?.toInt() ?? 0) + 
-                         ((data['pendingCoordinators'] as num?)?.toInt() ?? 0) + 
-                         ((data['pendingSupervisors'] as num?)?.toInt() ?? 0),
-        totalEvaluations: (data['totalEvaluations'] as num?)?.toInt() ?? 0,
-        totalReports: (data['totalReports'] as num?)?.toInt() ?? 0,
+        totalUsers: si(data['totalUsers']),
+        totalUniversities: si(data['approvedUniversities']) + si(data['pendingUniversities']),
+        totalCompanies: si(data['approvedCompanies']) + si(data['pendingCompanies']),
+        pendingApprovals: si(data['pendingUniversities']) +
+            si(data['pendingCompanies']) +
+            si(data['pendingCoordinators']) +
+            si(data['pendingSupervisors']),
+        totalEvaluations: si(data['totalEvaluations']),
+        totalReports: si(data['totalReports']),
       );
     }
     throw Exception('Failed to fetch admin stats');

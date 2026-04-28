@@ -759,6 +759,15 @@ class ModernHeaderIcon extends StatelessWidget {
 
 // --- SHARED ANALYTICS WIDGETS ---
 
+/// Safely converts any JSON numeric value (int, double, String) to int.
+int _parseInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
   String growthTitle = 'User Growth',
   String growthTrend = '+12% this month',
@@ -3890,7 +3899,7 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
             final name = user['full_name'] as String? ?? 'Unknown';
             final email = user['email'] as String? ?? '';
             final dept = hod['department'] as String? ?? 'N/A';
-            final userId = user['id'] as int? ?? 0;
+            final userId = _parseInt(user['id']);
             final approvalStatus = user['institution_access_approval'] as String? ?? '';
 
             return GestureDetector(
@@ -4140,7 +4149,7 @@ class _HodDetailScreenState extends ConsumerState<HodDetailScreen> {
           final phoneNumber = hod['phoneNumber'] as String?;
           final approvalStatus = hod['approvalStatus'] as String? ?? 'PENDING';
           final createdAt = hod['createdAt'] as String? ?? '';
-          final studentCount = (hod['studentCount'] as num?)?.toInt() ?? 0;
+          final studentCount = _parseInt(hod['studentCount']);
 
           final statusColor = approvalStatus == 'APPROVED'
               ? Colors.green
@@ -5499,6 +5508,11 @@ class HodDashboardScreen extends StatelessWidget {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// HOD TABS — fully wired to real backend
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Overview ──────────────────────────────────────────────────────────────────
 class _HodOverviewTab extends ConsumerWidget {
   const _HodOverviewTab();
 
@@ -5561,22 +5575,39 @@ class _HodOverviewTab extends ConsumerWidget {
                     padding: const EdgeInsets.all(24),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
-                        _buildStatGrid(context, stats, isDark),
+                        _buildHodStatGrid(context, stats, isDark),
+                        const SizedBox(height: 24),
+                        // Proposal summary row
+                        Row(children: [
+                          Expanded(child: _hodMiniCard('Pending Proposals', stats.proposals['pending'].toString(), Colors.orange, isDark)),
+                          const SizedBox(width: 12),
+                          Expanded(child: _hodMiniCard('Approved', stats.proposals['approved'].toString(), Colors.green, isDark)),
+                          const SizedBox(width: 12),
+                          Expanded(child: _hodMiniCard('Rejected', stats.proposals['rejected'].toString(), Colors.red, isDark)),
+                        ]),
                         const SizedBox(height: 32),
                         Text('Department Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
                         _buildPlatformAnalytics(context, isDark,
                           growthTitle: 'Students', growthTrend: '${stats.totalStudents} Enrolled',
                           placementTitle: 'Placements', placementSub: '${stats.placedStudents} Placed',
-                          successTitle: 'Submission Rate', successRate: stats.totalStudents > 0 ? (stats.totalReports / (stats.totalStudents * 4)).clamp(0.0, 1.0) : 0.0,
-                          submissionTitle: 'Pending Approvals', submissionSub: '${stats.pendingApprovals} Pending'
+                          successTitle: 'Placement Rate',
+                          successRate: stats.approvedStudents > 0 ? (stats.placedStudents / stats.approvedStudents).clamp(0.0, 1.0) : 0.0,
+                          submissionTitle: 'Pending Approvals', submissionSub: '${stats.pendingApprovals} Pending',
                         ),
                         FeedPreviewSection(),
-                        const SizedBox(height: 32),
-                        Text('Recent Reports', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 16),
-                        _buildActivityItem(context, 'Student Activity', 'Monitoring department progress', 'Just now', Colors.blue),
-                        _buildActivityItem(context, 'Reports', 'Processing weekly submissions', '2h ago', Colors.green),
+                        if (stats.recentPendingStudents.isNotEmpty) ...[
+                          const SizedBox(height: 32),
+                          Text('Pending Student Approvals', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                          const SizedBox(height: 16),
+                          ...stats.recentPendingStudents.map((s) => _buildActivityItem(
+                            context,
+                            s['full_name'] as String? ?? 'Student',
+                            s['email'] as String? ?? '',
+                            'Pending',
+                            Colors.orange,
+                          )),
+                        ],
                         const SizedBox(height: 120),
                       ]),
                     ),
@@ -5590,7 +5621,7 @@ class _HodOverviewTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatGrid(BuildContext context, HodStats stats, bool isDark) {
+  Widget _buildHodStatGrid(BuildContext context, HodStats stats, bool isDark) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -5604,6 +5635,24 @@ class _HodOverviewTab extends ConsumerWidget {
         _statCard('Placed', stats.placedStudents.toString(), Icons.check_circle_rounded, Colors.green, isDark),
         _statCard('Reports', stats.totalReports.toString(), Icons.description_rounded, Colors.purple, isDark),
       ],
+    );
+  }
+
+  Widget _hodMiniCard(String label, String value, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        ],
+      ),
     );
   }
 
@@ -5637,46 +5686,67 @@ class _HodOverviewTab extends ConsumerWidget {
   }
 }
 
-class _HodStudentsTab extends ConsumerWidget {
+// ── Students ──────────────────────────────────────────────────────────────────
+class _HodStudentsTab extends ConsumerStatefulWidget {
   const _HodStudentsTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HodStudentsTab> createState() => _HodStudentsTabState();
+}
+
+class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
+  String _filter = 'all'; // all | pending | approved | rejected | placed
+
+  static const _filters = ['all', 'pending', 'approved', 'rejected'];
+
+  Future<void> _approve(int studentId) async {
+    try {
+      await ref.read(hodRepositoryProvider).approveStudent(studentId);
+      ref.invalidate(hodStudentsProvider(_filter));
+      ref.invalidate(hodStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student approved ✓')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _reject(int studentId) async {
+    final reason = await _askReason(context);
+    if (reason == null) return;
+    try {
+      await ref.read(hodRepositoryProvider).rejectStudent(studentId, reason: reason);
+      ref.invalidate(hodStudentsProvider(_filter));
+      ref.invalidate(hodStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student rejected')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<String?> _askReason(BuildContext ctx) async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: ctx,
+      builder: (d) => AlertDialog(
+        title: const Text('Rejection Reason'),
+        content: TextField(controller: ctrl, decoration: const InputDecoration(hintText: 'Optional reason…'), maxLines: 3),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: const Text('Reject')),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final studentsAsync = ref.watch(hodStudentsProvider(_filter));
+
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF00b09b).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF96c93d).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          CustomScrollView(
-            slivers: [
+      child: CustomScrollView(
+        slivers: [
           ModernSliverAppBar(
             title: 'Students',
             subtitle: 'Department Enrollment',
@@ -5685,55 +5755,85 @@ class _HodStudentsTab extends ConsumerWidget {
             backgroundIcon: Icons.person_search_rounded,
           ),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
             sliver: SliverToBoxAdapter(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 child: Row(
-                  children: [
-                    _filterChip('All', true, isDark),
-                    _filterChip('Pending', false, isDark),
-                    _filterChip('Placed', false, isDark),
-                    _filterChip('Unplaced', false, isDark),
-                  ],
+                  children: _filters.map((f) {
+                    final selected = _filter == f;
+                    return GestureDetector(
+                      onTap: () => setState(() => _filter = f),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected ? const Color(0xFF00b09b) : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: selected ? const Color(0xFF00b09b) : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05))),
+                        ),
+                        child: Text(
+                          f[0].toUpperCase() + f.substring(1),
+                          style: TextStyle(color: selected ? Colors.white : (isDark ? Colors.white70 : Colors.black87), fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _buildStudentItem(context, 'Abebe Bikila', 'PLACED', 'Global Tech Inc.', isDark),
-                _buildStudentItem(context, 'Sara Girma', 'PENDING', 'None', isDark),
-                _buildStudentItem(context, 'Desta Kasaye', 'UNPLACED', 'None', isDark),
-                const SizedBox(height: 120),
-              ]),
-            ),
-          ),
-            ],
+          studentsAsync.when(
+            loading: () => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
+            error: (e, _) => SliverFillRemaining(child: Center(child: Text('Error: $e'))),
+            data: (students) {
+              // Client-side placed filter
+              final list = _filter == 'placed'
+                  ? students.where((s) => (s['internship_status'] as String?) == 'PLACED').toList()
+                  : students;
+              if (list.isEmpty) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.people_outline_rounded, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text('No students found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                    ]),
+                  ),
+                );
+              }
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _buildStudentCard(list[i], isDark),
+                    childCount: list.length,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _filterChip(String label, bool isSelected, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.green : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isSelected ? Colors.green : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05))),
-      ),
-      child: Text(label, style: TextStyle(color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87), fontWeight: FontWeight.bold, fontSize: 12)),
-    );
-  }
+  Widget _buildStudentCard(Map<String, dynamic> s, bool isDark) {
+    final user = s['user'] as Map<String, dynamic>? ?? {};
+    final name = user['full_name'] as String? ?? 'Unknown';
+    final email = user['email'] as String? ?? '';
+    final hodStatus = s['hod_approval_status'] as String? ?? 'PENDING';
+    final internStatus = s['internship_status'] as String? ?? 'PENDING';
+    final studentId = _parseInt(s['id']);
+    final department = s['department'] as String? ?? '';
 
-  Widget _buildStudentItem(BuildContext context, String name, String status, String company, bool isDark) {
-    Color statusColor = status == 'PLACED' ? Colors.green : (status == 'PENDING' ? Colors.orange : Colors.red);
+    Color statusColor = hodStatus == 'APPROVED'
+        ? Colors.green
+        : hodStatus == 'REJECTED'
+            ? Colors.red
+            : Colors.orange;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -5744,6 +5844,7 @@ class _HodStudentsTab extends ConsumerWidget {
         boxShadow: [if (!isDark) BoxShadow(color: statusColor.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -5752,75 +5853,261 @@ class _HodStudentsTab extends ConsumerWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: [statusColor.withOpacity(0.8), statusColor]),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: statusColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
                 ),
-                child: Text(name[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                child: Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
               ),
               const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(company, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500))])),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Text(status, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w900))),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                  const SizedBox(height: 2),
+                  Text(email, style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12), overflow: TextOverflow.ellipsis),
+                  if (department.isNotEmpty) Text(department, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                ]),
+              ),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                  child: Text(hodStatus, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+                if (hodStatus == 'APPROVED') ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: internStatus == 'PLACED' ? Colors.blue.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(internStatus, style: TextStyle(color: internStatus == 'PLACED' ? Colors.blue : Colors.grey, fontSize: 10, fontWeight: FontWeight.w900)),
+                  ),
+                ],
+              ]),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              if (status == 'PENDING') ...[
-                Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('Reject'))),
-                const SizedBox(width: 12),
-                Expanded(child: FilledButton(onPressed: () {}, child: const Text('Approve'))),
-              ] else if (status == 'UNPLACED') ...[
-                Expanded(child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.send_rounded, size: 16), label: const Text('Send Proposal'))),
-              ] else ...[
-                Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('View Profile'))),
-              ],
-            ],
-          ),
+          if (hodStatus == 'PENDING') ...[
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: OutlinedButton(
+                onPressed: () => _reject(studentId),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                child: const Text('Reject'),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: FilledButton(
+                onPressed: () => _approve(studentId),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00b09b)),
+                child: const Text('Approve'),
+              )),
+            ]),
+          ] else if (hodStatus == 'APPROVED' && internStatus != 'PLACED') ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _showSendProposalSheet(context, studentId, name),
+                icon: const Icon(Icons.send_rounded, size: 16),
+                label: const Text('Send Proposal'),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00b09b)),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  void _showSendProposalSheet(BuildContext context, int studentId, String studentName) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _SendProposalSheet(studentId: studentId, studentName: studentName),
+    ).then((_) {
+      ref.invalidate(hodStudentsProvider(_filter));
+      ref.invalidate(hodProposalsProvider);
+      ref.invalidate(hodStatsProvider);
+    });
+  }
 }
 
-class _HodPlacementTab extends ConsumerWidget {
+// ── Send Proposal Bottom Sheet ────────────────────────────────────────────────
+class _SendProposalSheet extends ConsumerStatefulWidget {
+  final int studentId;
+  final String studentName;
+  const _SendProposalSheet({required this.studentId, required this.studentName});
+
+  @override
+  ConsumerState<_SendProposalSheet> createState() => _SendProposalSheetState();
+}
+
+class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
+  int? _selectedCompanyId;
+  String? _selectedCompanyName;
+  final _outcomesCtrl = TextEditingController();
+  int _weeks = 12;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _outcomesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_selectedCompanyId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a company')));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await ref.read(hodRepositoryProvider).sendProposal(
+        studentId: widget.studentId,
+        companyId: _selectedCompanyId!,
+        expectedDurationWeeks: _weeks,
+        expectedOutcomes: _outcomesCtrl.text.trim().isNotEmpty ? _outcomesCtrl.text.trim() : null,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Proposal sent ✓')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final companiesAsync = ref.watch(hodCompaniesProvider(''));
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: 24, right: 24, top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+        const SizedBox(height: 20),
+        Text('Send Proposal', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+        Text('For: ${widget.studentName}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        const SizedBox(height: 20),
+        // Company picker
+        companiesAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('Error loading companies: $e'),
+          data: (companies) => DropdownButtonFormField<int>(
+            value: _selectedCompanyId,
+            decoration: InputDecoration(
+              labelText: 'Select Company',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            items: companies.map((c) => DropdownMenuItem<int>(
+              value: _parseInt(c['id']),
+              child: Text(c['name'] as String? ?? 'Company', overflow: TextOverflow.ellipsis),
+            )).toList(),
+            onChanged: (v) => setState(() {
+              _selectedCompanyId = v;
+              _selectedCompanyName = companies.firstWhere((c) => c['id'] == v)['name'] as String?;
+            }),
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Duration
+        Row(children: [
+          const Text('Duration (weeks):', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Spacer(),
+          IconButton(icon: const Icon(Icons.remove_circle_outline_rounded), onPressed: () { if (_weeks > 4) setState(() => _weeks--); }),
+          Text('$_weeks', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          IconButton(icon: const Icon(Icons.add_circle_outline_rounded), onPressed: () { if (_weeks < 52) setState(() => _weeks++); }),
+        ]),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _outcomesCtrl,
+          decoration: InputDecoration(
+            labelText: 'Expected Outcomes (optional)',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: FilledButton(
+            onPressed: _loading ? null : _submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF00b09b),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Send Proposal'),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Placement ─────────────────────────────────────────────────────────────────
+class _HodPlacementTab extends ConsumerStatefulWidget {
   const _HodPlacementTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HodPlacementTab> createState() => _HodPlacementTabState();
+}
+
+class _HodPlacementTabState extends ConsumerState<_HodPlacementTab>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _approveOpenLetter(int id) async {
+    try {
+      await ref.read(hodRepositoryProvider).updateOpenLetter(id, 'APPROVED');
+      ref.invalidate(hodOpenLettersProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open letter approved ✓')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _rejectOpenLetter(int id) async {
+    try {
+      await ref.read(hodRepositoryProvider).updateOpenLetter(id, 'REJECTED');
+      ref.invalidate(hodOpenLettersProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open letter rejected')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final proposalsAsync = ref.watch(hodProposalsProvider);
+    final openLettersAsync = ref.watch(hodOpenLettersProvider);
+
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFf857a6).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFff5858).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          CustomScrollView(
-            slivers: [
+      child: NestedScrollView(
+        headerSliverBuilder: (ctx, _) => [
           ModernSliverAppBar(
             title: 'Placements',
             subtitle: 'Proposals & Open Letters',
@@ -5828,139 +6115,275 @@ class _HodPlacementTab extends ConsumerWidget {
             gradient: const [Color(0xFFf857a6), Color(0xFFff5858)],
             backgroundIcon: Icons.business_center_rounded,
           ),
-          SliverPadding(
-            padding: const EdgeInsets.all(24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _sectionTitle('Active Proposals'),
-                _buildProposalCard('Software Intern', 'Google Ethiopia', 'Reviewing', Colors.blue, isDark),
-                const SizedBox(height: 24),
-                _sectionTitle('Open Letter Requests'),
-                _buildOpenLetterCard('Abebe Bikila', 'Requesting placement at Ethio Telecom', isDark),
-                const SizedBox(height: 120),
-              ]),
-            ),
-          ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String title) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)));
-
-  Widget _buildProposalCard(String title, String company, String status, Color color, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
-            ),
-            child: const Icon(Icons.work_rounded, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(company, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Text(status, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOpenLetterCard(String student, String reason, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Colors.orangeAccent, Colors.deepOrange]),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: SliverTabBarDelegate(
+              TabBar(
+                controller: _tabCtrl,
+                indicatorSize: TabBarIndicatorSize.label,
+                labelColor: isDark ? Colors.white : Colors.black87,
+                unselectedLabelColor: Colors.grey,
+                indicator: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(student[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                tabs: const [
+                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Proposals'))),
+                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Open Letters'))),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(student, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text('Open Letter Request', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(reason, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14, height: 1.5)),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('Reject'))),
-              const SizedBox(width: 16),
-              Expanded(child: FilledButton(onPressed: () {}, child: const Text('Approve'))),
-            ],
+              isDark,
+            ),
           ),
         ],
+        body: TabBarView(
+          controller: _tabCtrl,
+          children: [
+            // ── Proposals tab ──
+            RefreshIndicator(
+              onRefresh: () async => ref.invalidate(hodProposalsProvider),
+              child: proposalsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (proposals) {
+                  if (proposals.isEmpty) {
+                    return Center(
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.work_off_rounded, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text('No proposals yet', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                      ]),
+                    );
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
+                    itemCount: proposals.length,
+                    itemBuilder: (ctx, i) => _buildProposalCard(proposals[i], isDark),
+                  );
+                },
+              ),
+            ),
+            // ── Open Letters tab ──
+            RefreshIndicator(
+              onRefresh: () async => ref.invalidate(hodOpenLettersProvider),
+              child: openLettersAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (letters) {
+                  if (letters.isEmpty) {
+                    return Center(
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.mail_outline_rounded, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text('No open letter requests', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                      ]),
+                    );
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
+                    itemCount: letters.length,
+                    itemBuilder: (ctx, i) => _buildOpenLetterCard(letters[i], isDark),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildProposalCard(Map<String, dynamic> p, bool isDark) {
+    final student = p['student'] as Map<String, dynamic>? ?? {};
+    final studentUser = student['user'] as Map<String, dynamic>? ?? {};
+    final company = p['company'] as Map<String, dynamic>? ?? {};
+    final status = p['status'] as String? ?? 'PENDING';
+    final type = p['proposal_type'] as String? ?? '';
+    final submittedAt = p['submitted_at'] as String?;
+
+    Color statusColor = status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : Colors.orange;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [statusColor.withOpacity(0.8), statusColor]),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.work_rounded, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(studentUser['full_name'] as String? ?? 'Student', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+            Text(company['name'] as String? ?? 'Company', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13)),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
+          ),
+        ]),
+        if (type.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('Type: $type', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+        if (submittedAt != null) ...[
+          const SizedBox(height: 4),
+          Text('Submitted: ${timeago.format(DateTime.parse(submittedAt))}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
+      ]),
+    );
+  }
+
+  Widget _buildOpenLetterCard(Map<String, dynamic> letter, bool isDark) {
+    final id = _parseInt(letter['id']);
+    final student = letter['student'] as Map<String, dynamic>? ?? {};
+    final studentUser = student['user'] as Map<String, dynamic>? ?? {};
+    final name = studentUser['full_name'] as String? ?? 'Student';
+    final status = letter['status'] as String? ?? 'PENDING';
+    final outcomes = letter['expected_outcomes'] as String? ?? 'Open letter placement request';
+
+    Color statusColor = status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : Colors.orange;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Colors.orangeAccent, Colors.deepOrange]),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+            const Text('Open Letter Request', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Text(outcomes, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14, height: 1.5)),
+        if (status == 'PENDING') ...[
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: OutlinedButton(
+              onPressed: () => _rejectOpenLetter(id),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+              child: const Text('Reject'),
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: FilledButton(
+              onPressed: () => _approveOpenLetter(id),
+              style: FilledButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('Approve'),
+            )),
+          ]),
+        ],
+      ]),
     );
   }
 }
 
-class _HodDirectoryTab extends ConsumerWidget {
+// ── Directory ─────────────────────────────────────────────────────────────────
+class _HodDirectoryTab extends ConsumerStatefulWidget {
   const _HodDirectoryTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HodDirectoryTab> createState() => _HodDirectoryTabState();
+}
+
+class _HodDirectoryTabState extends ConsumerState<_HodDirectoryTab> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _showInviteSheet() {
+    final emailCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Invite Company', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 20),
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Company Name', border: OutlineInputBorder())),
+            const SizedBox(height: 16),
+            TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Official Email', border: OutlineInputBorder()), keyboardType: TextInputType.emailAddress),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton(
+                onPressed: () async {
+                  if (nameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) return;
+                  try {
+                    await ref.read(hodRepositoryProvider).inviteCompany(
+                      email: emailCtrl.text.trim(),
+                      companyName: nameCtrl.text.trim(),
+                    );
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invitation sent ✓')));
+                    }
+                  } catch (e) {
+                    if (ctx.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                child: const Text('Send Invitation'),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final companiesAsync = ref.watch(hodCompaniesProvider(_query));
+
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF1fa2ff).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF12d8fa).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          CustomScrollView(
-            slivers: [
+      child: CustomScrollView(
+        slivers: [
           ModernSliverAppBar(
             title: 'Directory',
             subtitle: 'Company Partners',
@@ -5969,26 +6392,80 @@ class _HodDirectoryTab extends ConsumerWidget {
             backgroundIcon: Icons.corporate_fare_rounded,
           ),
           SliverPadding(
-            padding: const EdgeInsets.all(24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _buildCompanyCard('Ethio Telecom', 'Telecommunications', '5 Active Interns', isDark),
-                _buildCompanyCard('Commercial Bank of Ethiopia', 'Finance', '12 Active Interns', isDark),
-                _buildCompanyCard('SafaryCom', 'Telecom', '8 Active Interns', isDark),
-                const SizedBox(height: 24),
-                SizedBox(width: double.infinity, height: 56, child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.add_rounded), label: const Text('Invite New Company'))),
-                const SizedBox(height: 120),
-              ]),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            sliver: SliverToBoxAdapter(
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _query = v.trim()),
+                decoration: InputDecoration(
+                  hintText: 'Search companies…',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(icon: const Icon(Icons.clear_rounded), onPressed: () { _searchCtrl.clear(); setState(() => _query = ''); })
+                      : null,
+                  filled: true,
+                  fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
             ),
           ),
-            ],
+          companiesAsync.when(
+            loading: () => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
+            error: (e, _) => SliverFillRemaining(child: Center(child: Text('Error: $e'))),
+            data: (companies) {
+              if (companies.isEmpty) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.business_outlined, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text('No companies found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                    ]),
+                  ),
+                );
+              }
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) => _buildCompanyCard(companies[i], isDark),
+                    childCount: companies.length,
+                  ),
+                ),
+              );
+            },
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
+            sliver: SliverToBoxAdapter(
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton.icon(
+                  onPressed: _showInviteSheet,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Invite New Company'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1fa2ff),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCompanyCard(String name, String sector, String interns, bool isDark) {
+  Widget _buildCompanyCard(Map<String, dynamic> c, bool isDark) {
+    final name = c['name'] as String? ?? 'Company';
+    final address = c['address'] as String? ?? '';
+    final status = c['approval_status'] as String? ?? 'PENDING';
+    final supervisors = _parseInt(c['supervisorCount']);
+    final activePlacements = _parseInt(c['activePlacementsCount']);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -5996,28 +6473,45 @@ class _HodDirectoryTab extends ConsumerWidget {
         color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: Colors.blue.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF1fa2ff), Color(0xFF12d8fa)]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
-            ),
-            child: const Icon(Icons.business_rounded, color: Colors.white, size: 20),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF1fa2ff), Color(0xFF12d8fa)]),
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(sector, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(interns, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 11))),
-        ],
-      ),
+          child: const Icon(Icons.business_rounded, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+          if (address.isNotEmpty) Text(address, style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12), overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          Row(children: [
+            Icon(Icons.people_outline_rounded, size: 12, color: Colors.grey.shade500),
+            const SizedBox(width: 4),
+            Text('$supervisors supervisors', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            const SizedBox(width: 12),
+            Icon(Icons.work_outline_rounded, size: 12, color: Colors.grey.shade500),
+            const SizedBox(width: 4),
+            Text('$activePlacements active', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          ]),
+        ])),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: status == 'APPROVED' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(status, style: TextStyle(color: status == 'APPROVED' ? Colors.green : Colors.orange, fontSize: 10, fontWeight: FontWeight.w900)),
+        ),
+      ]),
     );
   }
 }
 
+// ── Tools ─────────────────────────────────────────────────────────────────────
 class _HodToolsTab extends ConsumerStatefulWidget {
   const _HodToolsTab();
 
@@ -6025,7 +6519,8 @@ class _HodToolsTab extends ConsumerStatefulWidget {
   ConsumerState<_HodToolsTab> createState() => _HodToolsTabState();
 }
 
-class _HodToolsTabState extends ConsumerState<_HodToolsTab> with SingleTickerProviderStateMixin {
+class _HodToolsTabState extends ConsumerState<_HodToolsTab>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -6047,97 +6542,87 @@ class _HodToolsTabState extends ConsumerState<_HodToolsTab> with SingleTickerPro
 
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFa18cd1).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
+      child: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          ModernSliverAppBar(
+            title: 'Tools & Insights',
+            subtitle: 'Reports, AI & Messages',
+            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
+            gradient: const [Color(0xFFa18cd1), Color(0xFFfbc2eb)],
+            backgroundIcon: Icons.apps_rounded,
           ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFfbc2eb).withOpacity(0.15), Colors.transparent],
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: SliverTabBarDelegate(
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                indicatorSize: TabBarIndicatorSize.label,
+                labelColor: isDark ? Colors.white : Colors.black87,
+                unselectedLabelColor: Colors.grey,
+                indicator: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                tabs: const [
+                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Reports'))),
+                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Messages'))),
+                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('AI Assistant'))),
+                ],
               ),
-            ),
-          ),
-          NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              ModernSliverAppBar(
-                title: 'Tools & Insights',
-                subtitle: 'Reports, AI & Messages',
-                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
-                gradient: const [Color(0xFFa18cd1), Color(0xFFfbc2eb)],
-                backgroundIcon: Icons.apps_rounded,
-              ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: SliverTabBarDelegate(
-                  TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    labelColor: isDark ? Colors.white : Colors.black87,
-                    unselectedLabelColor: Colors.grey,
-                    indicator: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tabs: const [
-                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Reports'))),
-                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Messages'))),
-                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('AI Assistant'))),
-                    ],
-                  ),
-                  isDark,
-                ),
-              ),
-            ],
-            body: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildReportsView(isDark),
-                _buildMessagesView(isDark),
-                _buildAiAssistantView(isDark),
-              ],
+              isDark,
             ),
           ),
         ],
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildReportsView(isDark),
+            _buildMessagesView(context, isDark),
+            _buildAiAssistantView(context, isDark),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildReportsView(bool isDark) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        const Text('Department Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 16),
-        _buildReportCard('Weekly Placement Report', 'Generated 2 days ago', Icons.pie_chart_rounded, Colors.purple, isDark),
-        _buildReportCard('Final Evaluations (Semester 2)', 'Generated last week', Icons.assessment_rounded, Colors.green, isDark),
-        _buildReportCard('Company Feedback Summary', 'Generated 1 month ago', Icons.feedback_rounded, Colors.orange, isDark),
-        const SizedBox(height: 120),
-      ],
+    final reportsAsync = ref.watch(hodReportsProvider);
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(hodReportsProvider),
+      child: reportsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (reports) {
+          if (reports.isEmpty) {
+            return Center(
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.description_outlined, size: 64, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                Text('No reports yet', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+              ]),
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
+            itemCount: reports.length,
+            itemBuilder: (ctx, i) => _buildReportCard(ctx, reports[i], isDark),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildReportCard(String title, String subtitle, IconData icon, Color color, bool isDark) {
+  Widget _buildReportCard(BuildContext context, Map<String, dynamic> r, bool isDark) {
+    final id = _parseInt(r['id']);
+    final student = r['student'] as Map<String, dynamic>? ?? {};
+    final studentUser = student['user'] as Map<String, dynamic>? ?? {};
+    final name = studentUser['full_name'] as String? ?? 'Student';
+    final pdfUrl = r['pdf_url'] as String?;
+    final stamped = r['stamped'] as bool? ?? false;
+    final generatedAt = r['generated_at'] as String?;
+    final color = Colors.purple;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -6145,77 +6630,91 @@ class _HodToolsTabState extends ConsumerState<_HodToolsTab> with SingleTickerPro
         color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
       ),
-      child: Row(
-        children: [
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(Icons.description_rounded, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+          if (generatedAt != null)
+            Text(timeago.format(DateTime.parse(generatedAt)), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          if (stamped)
+            const Text('Stamped ✓', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+        ])),
+        IconButton(
+          icon: Icon(
+            Icons.download_rounded,
+            color: pdfUrl != null && pdfUrl.isNotEmpty ? color : Colors.grey.shade300,
+          ),
+          onPressed: pdfUrl != null && pdfUrl.isNotEmpty
+              ? () async {
+                  final uri = Uri.parse(pdfUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening report…')));
+                  } else {
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to open report.')));
+                  }
+                }
+              : null,
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildMessagesView(BuildContext context, bool isDark) {
+    // Navigate to the real chat screen
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+              gradient: const LinearGradient(colors: [Color(0xFFa18cd1), Color(0xFFfbc2eb)]),
+              shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
+            child: const Icon(Icons.chat_bubble_rounded, size: 48, color: Colors.white),
           ),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(subtitle, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
-          IconButton(onPressed: () {}, icon: Icon(Icons.download_rounded, color: color)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessagesView(bool isDark) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        const Text('Recent Broadcasts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 16),
-        _buildMessageCard('Important Update: Final Reports Due', 'Please remind all students to submit...', 'Coordinator', Colors.red, isDark),
-        _buildMessageCard('New Company Added to Directory', 'SafaryCom has officially joined...', 'Admin', Colors.blue, isDark),
-        const SizedBox(height: 24),
-        SizedBox(width: double.infinity, height: 56, child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.campaign_rounded), label: const Text('New Broadcast'))),
-        const SizedBox(height: 120),
-      ],
-    );
-  }
-
-  Widget _buildMessageCard(String title, String preview, String sender, Color color, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(sender, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10))),
-              const Spacer(),
-              Text('2h ago', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11)),
-            ],
-          ),
+          const SizedBox(height: 24),
+          const Text('Messages', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-          const SizedBox(height: 4),
-          Text(preview, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14)),
-        ],
+          Text(
+            'Chat with your Coordinator, students, and supervisors.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 15),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: () => context.push(AppRoutes.chat),
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('Open Messages'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFa18cd1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+        ]),
       ),
     );
   }
 
-  Widget _buildAiAssistantView(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+  Widget _buildAiAssistantView(BuildContext context, bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -6228,10 +6727,26 @@ class _HodToolsTabState extends ConsumerState<_HodToolsTab> with SingleTickerPro
           const SizedBox(height: 32),
           const Text('HOD Smart Assistant', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
           const SizedBox(height: 16),
-          const Text('Generate placement reports, draft emails to companies, and analyze student performance instantly.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(
+            'Generate placement reports, draft emails to companies, and analyze student performance instantly.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 16),
+          ),
           const SizedBox(height: 32),
-          SizedBox(width: double.infinity, height: 56, child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.chat_bubble_rounded), label: const Text('Start New Chat'))),
-        ],
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton.icon(
+              onPressed: () => context.push(AppRoutes.aiAssistant),
+              icon: const Icon(Icons.chat_bubble_rounded),
+              label: const Text('Start New Chat'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFa18cd1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -6455,7 +6970,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                     onPressed: () async {
                       try {
                         final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = item['id'] as int;
+                        final id = _parseInt(item['id']);
                         final type = item['type'] as String;
                         if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'REJECTED');
                         else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'REJECTED');
@@ -6474,7 +6989,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                     onPressed: () async {
                       try {
                         final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = item['id'] as int;
+                        final id = _parseInt(item['id']);
                         final type = item['type'] as String;
                         if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'APPROVED');
                         else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'APPROVED');
@@ -7121,7 +7636,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
   Future<void> _updateStatus(WidgetRef ref, Map<String, dynamic> org, String status) async {
     try {
       final repo = ref.read(adminRepositoryProvider);
-      final id = org['id'] as int;
+      final id = _parseInt(org['id']);
       if (org['type'] == 'University') {
         await repo.updateUniversityStatus(id, status);
       } else {
@@ -7638,8 +8153,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   }
 
   Future<void> _approveCoordinator(dynamic coord) async {
-    final userId = (coord['user']?['id'] ?? coord['userId']) as int?;
-    if (userId == null) return;
+    final userId = _parseInt(coord['user']?['id'] ?? coord['userId']);
+    if (userId == 0) return;
     try {
       await ref.read(adminRepositoryProvider).approveCoordinator(userId);
       ref.invalidate(pendingCoordinatorsProvider);
@@ -7653,8 +8168,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   }
 
   Future<void> _rejectCoordinator(dynamic coord) async {
-    final userId = (coord['user']?['id'] ?? coord['userId']) as int?;
-    if (userId == null) return;
+    final userId = _parseInt(coord['user']?['id'] ?? coord['userId']);
+    if (userId == 0) return;
     final name = coord['user']?['full_name'] ?? 'This coordinator';
     final confirmed = await showDialog<bool>(
       context: context,
@@ -7682,8 +8197,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   }
 
   Future<void> _approveSupervisor(dynamic sup) async {
-    final userId = (sup['user']?['id'] ?? sup['userId']) as int?;
-    if (userId == null) return;
+    final userId = _parseInt(sup['user']?['id'] ?? sup['userId']);
+    if (userId == 0) return;
     try {
       await ref.read(adminRepositoryProvider).approveSupervisor(userId);
       ref.invalidate(pendingSupervisorsProvider);
@@ -7697,8 +8212,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   }
 
   Future<void> _rejectSupervisor(dynamic sup) async {
-    final userId = (sup['user']?['id'] ?? sup['userId']) as int?;
-    if (userId == null) return;
+    final userId = _parseInt(sup['user']?['id'] ?? sup['userId']);
+    if (userId == 0) return;
     final name = sup['user']?['full_name'] ?? 'This supervisor';
     final confirmed = await showDialog<bool>(
       context: context,

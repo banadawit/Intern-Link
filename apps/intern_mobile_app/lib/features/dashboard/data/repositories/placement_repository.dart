@@ -26,14 +26,23 @@ class PlacementProposal {
   });
 
   factory PlacementProposal.fromJson(Map<String, dynamic> json) {
+    int si(dynamic v) {
+      if (v == null) return 0;
+      if (v is int) return v;
+      if (v is double) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
     return PlacementProposal(
-      id: json['id'] ?? 0,
-      studentId: json['studentId'] ?? 0,
-      companyId: json['companyId'] ?? 0,
-      status: json['status'] ?? 'PENDING',
-      proposalLetter: json['proposal_letter'],
-      requestedAt: DateTime.parse(json['requested_at'] ?? DateTime.now().toIso8601String()),
-      companyName: json['company']?['name'] ?? 'Unknown Company',
+      id: si(json['id']),
+      studentId: si(json['studentId']),
+      companyId: si(json['companyId']),
+      status: json['status']?.toString() ?? 'PENDING',
+      proposalLetter: json['proposal_letter']?.toString(),
+      requestedAt: json['requested_at'] != null
+          ? DateTime.tryParse(json['requested_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      companyName: json['company']?['name']?.toString() ?? 'Unknown Company',
     );
   }
 }

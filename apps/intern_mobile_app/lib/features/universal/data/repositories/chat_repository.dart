@@ -1,6 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 
+int _safeInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 class ChatPartner {
   final int id;
   final String fullName;
@@ -10,7 +18,7 @@ class ChatPartner {
 
   factory ChatPartner.fromJson(Map<String, dynamic> json) {
     return ChatPartner(
-      id: json['id'] as int,
+      id: _safeInt(json['id']),
       fullName: json['full_name'] as String? ?? 'Unknown',
       role: json['role'] as String? ?? 'USER',
     );
@@ -36,9 +44,9 @@ class ChatMessageModel {
 
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
     return ChatMessageModel(
-      id: json['id'] as int? ?? 0,
-      senderId: json['senderId'] as int? ?? 0,
-      receiverId: json['receiverId'] as int? ?? 0,
+      id: _safeInt(json['id']),
+      senderId: _safeInt(json['senderId']),
+      receiverId: _safeInt(json['receiverId']),
       content: json['content'] as String? ?? '',
       isRead: json['is_read'] as bool? ?? false,
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
@@ -61,7 +69,7 @@ class ConversationModel {
     return ConversationModel(
       partner: ChatPartner.fromJson(json['partner'] ?? {}),
       lastMessage: json['lastMessage'] != null ? ChatMessageModel.fromJson(json['lastMessage']) : null,
-      unreadCount: json['unreadCount'] as int? ?? 0,
+      unreadCount: _safeInt(json['unreadCount']),
     );
   }
 }
