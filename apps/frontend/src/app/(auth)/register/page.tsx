@@ -383,11 +383,15 @@ const RegisterPage = () => {
         verificationDocument: formData.verificationFile,
       };
       
-      await register(registerData);
+      const result = await register(registerData);
       
       // Coordinators and HoDs go to verify-email with role param for proper redirect
       const roleParam = role === 'coordinator' ? '&role=coordinator' : role === 'hod' ? '&role=hod' : role === 'student' ? '&role=student' : role === 'supervisor' ? '&role=supervisor' : '';
-      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}${roleParam}`);
+      if (result?.verificationToken) {
+        router.push(`/verify-email?token=${encodeURIComponent(result.verificationToken)}&email=${encodeURIComponent(formData.email)}${roleParam}`);
+      } else {
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}${roleParam}`);
+      }
       
     } catch (error: unknown) {
       const err = error as { message?: string };

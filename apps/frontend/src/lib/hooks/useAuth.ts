@@ -33,7 +33,7 @@ interface AuthState {
   // Actions
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
-  register: (data: RegisterData) => Promise<void>;
+  register: (data: RegisterData) => Promise<{ verificationToken?: string }>;
   verifyEmail: (token: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
@@ -82,6 +82,14 @@ interface ApiErrorResponse {
   message: string;
   requiresVerification?: boolean;
   email?: string;
+}
+
+interface RegisterResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    verificationToken?: string;
+  };
 }
 
 // Error type for API calls
@@ -186,11 +194,14 @@ export const useAuth = create<AuthState>()(
           }
 
           // Send as multipart/form-data (let browser set Content-Type with boundary)
-          await api.post('/auth/register', formData, {
+          const response = await api.post<RegisterResponse>('/auth/register', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
           
           set({ isLoading: false });
+          return {
+            verificationToken: response.data?.data?.verificationToken,
+          };
           
         } catch (err) {
           const error = err as ApiError;

@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
+import { Prisma } from '@prisma/client';
 import { testEmailConfig } from '../services/email.service';
 import { notifyAllAdmins, NotificationType } from '../services/notification.service';
 
@@ -23,9 +24,26 @@ const DEFAULTS: Record<string, string> = {
   maintenance_message: 'The platform is currently under maintenance. Please check back soon.',
 };
 
+function isMissingSystemConfigTableError(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2021') {
+    return true;
+  }
+  const msg = error instanceof Error ? error.message : String(error ?? '');
+  return msg.includes('SystemConfig') && msg.includes('does not exist');
+}
+
 /** Merge DB rows with defaults so all keys are always present */
 async function getFullConfig(): Promise<Record<string, string>> {
-  const rows = await prisma.systemConfig.findMany();
+  let rows: Array<{ key: string; value: string }> = [];
+  try {
+    rows = await prisma.systemConfig.findMany();
+  } catch (error) {
+    if (!isMissingSystemConfigTableError(error)) {
+      throw error;
+    }
+    // Older databases may not yet have SystemConfig; safely fall back to defaults.
+    return { ...DEFAULTS };
+  }
   const map: Record<string, string> = { ...DEFAULTS };
   for (const row of rows) {
     map[row.key] = row.value;
@@ -153,15 +171,34 @@ export const broadcastAnnouncement = async (req: AuthRequest, res: Response) => 
  */
 export async function isRegistrationOpen(role: string): Promise<boolean> {
   const key = `registration_${role.toLowerCase()}_open`;
-  const row = await prisma.systemConfig.findUnique({ where: { key } });
+  let row: { value: string } | null = null;
+  try {
+    row = await prisma.systemConfig.findUnique({ where: { key } });
+  } catch (error) {
+    if (!isMissingSystemConfigTableError(error)) {
+      throw error;
+    }
+    return (DEFAULTS[key] ?? 'true') === 'true';
+  }
   const value = row?.value ?? DEFAULTS[key] ?? 'true';
   return value === 'true';
 }
 
 export async function isMaintenanceMode(): Promise<{ active: boolean; message: string }> {
-  const rows = await prisma.systemConfig.findMany({
-    where: { key: { in: ['maintenance_mode', 'maintenance_message'] } },
-  });
+  let rows: Array<{ key: string; value: string }> = [];
+  try {
+    rows = await prisma.systemConfig.findMany({
+      where: { key: { in: ['maintenance_mode', 'maintenance_message'] } },
+    });
+  } catch (error) {
+    if (!isMissingSystemConfigTableError(error)) {
+      throw error;
+    }
+    return {
+      active: false,
+      message: DEFAULTS['maintenance_message'],
+    };
+  }
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
     active: (map['maintenance_mode'] ?? 'false') === 'true',
