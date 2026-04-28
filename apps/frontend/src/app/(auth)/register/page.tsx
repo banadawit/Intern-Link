@@ -407,13 +407,13 @@ const RegisterPage = () => {
     <div className="space-y-8 animate-fade-in">
       {/* Progress Header */}
       <div className="space-y-2">
-        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-400">
+        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
           <span>Step {step} of 3</span>
           <span>
             {step === 1 ? 'Role Selection' : step === 2 ? 'Account Details' : 'Verification'}
           </span>
         </div>
-        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden dark:bg-slate-800">
           <div 
             className="h-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-500 ease-out rounded-full" 
             style={{ width: `${(step / 3) * 100}%` }}
@@ -433,8 +433,8 @@ const RegisterPage = () => {
       {step === 1 && (
         <div className="space-y-6 animate-slide-up">
           <div className="text-center lg:text-left">
-            <h1 className="text-3xl font-bold text-slate-900">Choose your role</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Choose your role</h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               Select how you will be using the InternLink platform
             </p>
           </div>
@@ -478,29 +478,29 @@ const RegisterPage = () => {
                   disabled={isClosed}
                   className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left group ${
                     isClosed
-                      ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
+                      ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900'
                       : role === item.id 
-                        ? 'border-primary-600 bg-primary-50/30 shadow-soft' 
-                        : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-soft'
+                        ? 'border-primary-600 bg-primary-50/30 shadow-soft dark:bg-primary-900/20' 
+                        : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-soft dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700'
                   }`}
                 >
                   <div className={`p-3 rounded-xl transition-all ${
                     isClosed
-                      ? 'bg-slate-200 text-slate-400'
+                      ? 'bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
                       : role === item.id 
                         ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' 
-                        : 'bg-slate-100 text-slate-500 group-hover:bg-primary-50 group-hover:text-primary-600'
+                        : 'bg-slate-100 text-slate-500 group-hover:bg-primary-50 group-hover:text-primary-600 dark:bg-slate-900 dark:text-slate-400 dark:group-hover:bg-primary-900/30'
                   }`}>
                     <item.icon className="h-6 w-6" />
                   </div>
                   <div className="flex-1">
-                    <p className={`font-bold ${isClosed ? 'text-slate-400' : 'text-slate-900'}`}>{item.title}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className={`font-bold ${isClosed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>{item.title}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       {isClosed ? 'Registration is currently closed for this role.' : item.desc}
                     </p>
                   </div>
                   {isClosed ? (
-                    <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                    <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                       Closed
                     </span>
                   ) : role === item.id ? (
@@ -526,8 +526,8 @@ const RegisterPage = () => {
       {step === 2 && (
         <div className="space-y-6 animate-slide-up">
           <div className="text-center lg:text-left">
-            <h1 className="text-3xl font-bold text-slate-900">Account Details</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Account Details</h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               Enter your official credentials
             </p>
           </div>
@@ -535,11 +535,11 @@ const RegisterPage = () => {
           <div className="space-y-4">
             {/* Full Name */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Full Name <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
-                <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
                 <input
                   type="text"
                   name="fullName"
@@ -547,11 +547,11 @@ const RegisterPage = () => {
                   onChange={handleInputChange}
                   onBlur={() => handleBlur('fullName')}
                   placeholder="John Doe"
-                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                     focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                     ${errors.fullName && touched.fullName 
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
-                      : 'border-slate-200 hover:border-slate-300'
+                      : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
                     }`}
                 />
               </div>
@@ -565,11 +565,11 @@ const RegisterPage = () => {
 
             {/* Email */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Email Address <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
                 <input
                   type="email"
                   name="email"
@@ -577,11 +577,11 @@ const RegisterPage = () => {
                   onChange={handleInputChange}
                   onBlur={() => handleBlur('email')}
                   placeholder={role === 'coordinator' ? 'name@university.edu.et' : 'name@email.com'}
-                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                     focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                     ${errors.email && touched.email 
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
-                      : 'border-slate-200 hover:border-slate-300'
+                      : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
                     }`}
                 />
               </div>
@@ -595,11 +595,11 @@ const RegisterPage = () => {
 
             {/* Password */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Password <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
@@ -607,17 +607,17 @@ const RegisterPage = () => {
                   onChange={handleInputChange}
                   onBlur={() => handleBlur('password')}
                   placeholder="••••••••"
-                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all
+                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                     focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                     ${errors.password && touched.password 
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
-                      : 'border-slate-200 hover:border-slate-300'
+                      : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
                     }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -639,7 +639,7 @@ const RegisterPage = () => {
                               : passwordStrength.score === 2
                               ? 'bg-yellow-500'
                               : 'bg-orange-500'
-                            : 'bg-slate-200'
+                            : 'bg-slate-200 dark:bg-slate-700'
                         }`}
                       />
                     ))}
@@ -660,11 +660,11 @@ const RegisterPage = () => {
 
             {/* Confirm Password */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Confirm Password <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   name="confirmPassword"
@@ -672,17 +672,17 @@ const RegisterPage = () => {
                   onChange={handleInputChange}
                   onBlur={() => handleBlur('confirmPassword')}
                   placeholder="••••••••"
-                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all
+                  className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                     focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                     ${errors.confirmPassword && touched.confirmPassword 
                       ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
-                      : 'border-slate-200 hover:border-slate-300'
+                      : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
                     }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                 >
                   {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -699,7 +699,7 @@ const RegisterPage = () => {
           <div className="flex gap-4">
             <button
               onClick={prevStep}
-              className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors rounded-xl hover:bg-slate-50"
+              className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors rounded-xl hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-900"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
@@ -719,13 +719,13 @@ const RegisterPage = () => {
       {step === 3 && role && (
         <div className="space-y-6 animate-slide-up">
           <div className="text-center lg:text-left">
-            <h1 className="text-3xl font-bold text-slate-900">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
               {role === 'student' ? 'Student Information' : 
                role === 'coordinator' ? 'University Information' :
                role === 'hod' ? 'Department Information' :
                'Company Information'}
             </h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               {role === 'student' 
                 ? 'Enter your academic details and upload student ID'
                 : role === 'coordinator'
@@ -749,7 +749,7 @@ const RegisterPage = () => {
             {role === 'coordinator' && (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">
+              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     University Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -1053,19 +1053,19 @@ const RegisterPage = () => {
             </label>
             
             {!formData.verificationFile ? (
-              <label className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 hover:border-primary-300 transition-all cursor-pointer group">
+              <label className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 hover:border-primary-300 transition-all cursor-pointer group dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                <div className="h-14 w-14 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400 group-hover:text-primary-600 transition-colors mb-4">
+                <div className="h-14 w-14 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400 group-hover:text-primary-600 transition-colors mb-4 dark:bg-slate-950 dark:text-slate-500">
                   <Upload className="h-7 w-7" />
                 </div>
-                <p className="text-sm font-bold text-slate-900">Click to upload or drag and drop</p>
-                <p className="text-xs text-slate-500 mt-1">PDF, JPG or PNG (max. 5MB)</p>
-                <p className="text-xs text-slate-400 mt-2">Official document with institutional stamp required</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Click to upload or drag and drop</p>
+                <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">PDF, JPG or PNG (max. 5MB)</p>
+                <p className="text-xs text-slate-400 mt-2 dark:text-slate-500">Official document with institutional stamp required</p>
               </label>
             ) : (
               <div className="border-2 border-primary-200 rounded-2xl p-4 bg-primary-50/30">
@@ -1121,7 +1121,7 @@ const RegisterPage = () => {
               onChange={(e) => setAgreedToTerms(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
             />
-            <label htmlFor="terms" className="text-sm text-slate-600">
+            <label htmlFor="terms" className="text-sm text-slate-600 dark:text-slate-400">
               I agree to the{' '}
               <Link href="/terms" className="text-primary-600 hover:text-primary-700 font-medium">
                 Terms of Service
@@ -1136,7 +1136,7 @@ const RegisterPage = () => {
           <div className="flex gap-4 pt-4">
             <button
               onClick={prevStep}
-              className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors rounded-xl hover:bg-slate-50"
+              className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors rounded-xl hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-900"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
@@ -1163,7 +1163,7 @@ const RegisterPage = () => {
       )}
 
       {/* Footer */}
-      <p className="text-center text-sm text-slate-500 pt-4">
+      <p className="text-center text-sm text-slate-500 pt-4 dark:text-slate-400">
         Already have an account?{' '}
         <Link 
           href="/login" 

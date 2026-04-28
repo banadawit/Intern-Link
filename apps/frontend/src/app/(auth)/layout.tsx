@@ -44,13 +44,13 @@ export default function AuthLayout({
   }, []);
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-white">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-slate-950">
       {/* Left Side: The Form */}
       <div className="flex flex-col justify-center px-8 py-12 sm:px-12 lg:px-20 xl:px-32">
         <div className="mb-8">
           <Link 
             href="/" 
-            className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors"
+            className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors dark:text-slate-400"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Home
@@ -63,7 +63,7 @@ export default function AuthLayout({
       </div>
 
       {/* Right Side: Visual/Branding (Hidden on Mobile) */}
-      <div className="hidden lg:block relative bg-slate-900 overflow-hidden">
+      <div className="hidden lg:block relative bg-slate-900 overflow-hidden dark:bg-slate-950">
         {/* Abstract Background Decoration */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary-600/20 to-slate-900 z-10" />
         <div className="absolute inset-0 bg-[url('/assets/images/auth-pattern.svg')] opacity-10" />
@@ -78,7 +78,7 @@ export default function AuthLayout({
             <p className="text-2xl font-medium leading-relaxed">
               &quot;Connecting the brightest minds of Haramaya University with the leading industries of Ethiopia.&quot;
             </p>
-            <footer className="text-slate-400">
+            <footer className="text-slate-400 dark:text-slate-500">
               — Official Career Management Portal
             </footer>
           </blockquote>
