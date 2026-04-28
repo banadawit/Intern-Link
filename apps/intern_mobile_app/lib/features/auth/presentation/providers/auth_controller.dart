@@ -137,6 +137,24 @@ class AuthController extends Notifier<AuthUiState> {
       final sessionService = ref.read(appSessionServiceProvider);
       await sessionService.saveToken(result.token);
 
+      // If backend flagged must_change_password, redirect to force-change screen
+      if (result.mustChangePassword) {
+        // Still need to know the role to redirect after password change
+        String dashboardRoute = AppRoutes.hodDashboard;
+        try {
+          final authDs = ref.read(authRemoteDataSourceProvider);
+          final user = await authDs.fetchCurrentUser(result.token);
+          await sessionService.saveRole(user.role.name.toUpperCase());
+          dashboardRoute = _routeFromRole(user.role);
+        } catch (_) {}
+
+        final forceRoute =
+            '${AppRoutes.forceChangePassword}?next=${Uri.encodeComponent(dashboardRoute)}';
+        ref.invalidate(appStartDecisionProvider);
+        state = state.copyWith(isLoading: false, loggedInRoute: forceRoute);
+        return forceRoute;
+      }
+
       // Fetch the user role to determine the dashboard route.
       String dashboardRoute = AppRoutes.studentDashboard; // safe default
       try {

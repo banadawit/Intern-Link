@@ -74,7 +74,9 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
       extendBody: true,
       extendBodyBehindAppBar: true,
       drawer: _buildDrawer(context, isDark, currentIndex),
-      floatingActionButton: Container(
+      floatingActionButton: widget.tabs[currentIndex].hideGlobalFab
+          ? null
+          : Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
@@ -332,12 +334,15 @@ class _DashboardTab {
   final IconData icon;
   final IconData activeIcon;
   final Widget view;
+  /// When true, hides the global AI FAB (use when the tab has its own FAB).
+  final bool hideGlobalFab;
 
   const _DashboardTab({
     required this.label,
     required this.icon,
     required this.activeIcon,
     required this.view,
+    this.hideGlobalFab = false,
   });
 }
 
@@ -3195,7 +3200,7 @@ class CoordinatorDashboardScreen extends StatelessWidget {
       roleLabel: 'COORDINATOR',
       tabs: [
         _DashboardTab(label: 'Overview', icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, view: _CoordinatorHomeTab()),
-        _DashboardTab(label: 'HODs', icon: Icons.school_outlined, activeIcon: Icons.school_rounded, view: _CoordinatorHodsTab()),
+        _DashboardTab(label: 'HODs', icon: Icons.school_outlined, activeIcon: Icons.school_rounded, view: _CoordinatorHodsTab(), hideGlobalFab: true),
         _DashboardTab(label: 'Students', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _CoordinatorStudentsTab()),
         _DashboardTab(label: 'Placements', icon: Icons.business_center_outlined, activeIcon: Icons.business_center_rounded, view: _CoordinatorPlacementsTab()),
         _DashboardTab(label: 'Companies', icon: Icons.business_outlined, activeIcon: Icons.business_rounded, view: _CoordinatorCompaniesTab()),
@@ -3277,15 +3282,40 @@ class _CoordinatorHomeTab extends ConsumerWidget {
                           growthTitle: 'Enrollment', growthTrend: '${stats.totalStudents} Total',
                           placementTitle: 'Industry Partners', placementSub: '${stats.totalCompanies} Active',
                           successTitle: 'Placement Rate', successRate: stats.totalStudents > 0 ? (stats.activePlacements / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
-                          submissionTitle: 'System Activity', submissionSub: 'Healthy'
+                          submissionTitle: 'Pending HODs', submissionSub: '${stats.pendingHods} Awaiting'
                         ),
+                        const SizedBox(height: 32),
+                        // Quick action cards
+                        Row(children: [
+                          _quickAction(context, Icons.school_rounded, 'HODs', '${stats.pendingHods} pending', Colors.orange, () {}),
+                          const SizedBox(width: 12),
+                          _quickAction(context, Icons.description_rounded, 'Reports', '${stats.reportsCount} total', Colors.teal, () {}),
+                          const SizedBox(width: 12),
+                          _quickAction(context, Icons.business_center_rounded, 'Placements', '${stats.activePlacements} active', Colors.blue, () {}),
+                        ]),
+                        const SizedBox(height: 32),
                         FeedPreviewSection(),
                         const SizedBox(height: 32),
-                        Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 16),
-                        _buildActivityItem(context, 'Weekly Report', 'Reviewing current submissions', 'Just now', Colors.blue),
-                        _buildActivityItem(context, 'Placement', 'New assignment processed', '2h ago', Colors.green),
-                        _buildActivityItem(context, 'New Proposal', 'System updated with new requests', '5h ago', Colors.orange),
+                        // Recent notifications from backend
+                        if (stats.recentNotifications.isNotEmpty) ...[
+                          Text('Recent Activity', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 16),
+                          ...stats.recentNotifications.take(5).map((n) {
+                            final msg = n['message'] as String? ?? '';
+                            final isRead = n['is_read'] as bool? ?? true;
+                            final createdAt = n['created_at'] as String? ?? '';
+                            Color color = Colors.blue;
+                            IconData icon = Icons.notifications_rounded;
+                            if (msg.contains('HOD') || msg.contains('hod')) { color = Colors.orange; icon = Icons.school_rounded; }
+                            else if (msg.contains('placement') || msg.contains('assignment')) { color = Colors.green; icon = Icons.work_rounded; }
+                            else if (msg.contains('proposal')) { color = Colors.purple; icon = Icons.description_rounded; }
+                            else if (msg.contains('report')) { color = Colors.teal; icon = Icons.assessment_rounded; }
+                            final timeStr = createdAt.isNotEmpty
+                                ? timeago.format(DateTime.tryParse(createdAt) ?? DateTime.now())
+                                : '';
+                            return _buildActivityItem(context, isRead ? 'Activity' : '● Activity', msg, timeStr, color);
+                          }),
+                        ],
                         const SizedBox(height: 120),
                       ]),
                     ),
@@ -3326,6 +3356,31 @@ class _CoordinatorHomeTab extends ConsumerWidget {
             Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1)),
             Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _quickAction(BuildContext context, IconData icon, String label, String sub, Color color, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+          decoration: BoxDecoration(
+            color: isDark ? color.withOpacity(0.12) : color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 6),
+              Text(label, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: color)),
+              Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 10), overflow: TextOverflow.ellipsis),
+            ],
+          ),
         ),
       ),
     );
@@ -3433,11 +3488,9 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final deptCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
     final empCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool loading = false;
-    bool showPass = false;
     String? tempPassword;
 
     showModalBottomSheet(
@@ -3561,23 +3614,26 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
                           validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
                         ),
                         const SizedBox(height: 14),
-                        // Password (optional)
-                        TextFormField(
-                          controller: passCtrl,
-                          obscureText: !showPass,
-                          decoration: InputDecoration(
-                            labelText: 'Password (leave blank to auto-generate)',
-                            prefixIcon: const Icon(Icons.lock_outline_rounded),
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: Icon(showPass ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                              onPressed: () => setSheetState(() => showPass = !showPass),
-                            ),
+                        // Password info — always 123456, no field needed
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.07),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange.withOpacity(0.25)),
                           ),
-                          validator: (v) {
-                            if ((v ?? '').isNotEmpty && v!.length < 8) return 'Min 8 characters';
-                            return null;
-                          },
+                          child: const Row(
+                            children: [
+                              Icon(Icons.key_rounded, color: Colors.orange, size: 16),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Temporary password 123456 will be set automatically. The HOD must change it on first login.',
+                                  style: TextStyle(fontSize: 11, color: Colors.orange),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 14),
                         // Employee ID (optional)
@@ -3615,19 +3671,17 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
                               if (!formKey.currentState!.validate()) return;
                               setSheetState(() => loading = true);
                               try {
-                                final result = await ref.read(coordinatorRepositoryProvider).createHod(
+                                await ref.read(coordinatorRepositoryProvider).createHod(
                                   fullName: nameCtrl.text,
                                   email: emailCtrl.text,
                                   department: deptCtrl.text,
-                                  password: passCtrl.text.trim().isEmpty ? null : passCtrl.text,
                                   employeeId: empCtrl.text.trim().isEmpty ? null : empCtrl.text,
                                 );
                                 ref.invalidate(approvedHodsProvider);
                                 ref.invalidate(coordinatorStatsProvider);
-                                final tp = result['temporaryPassword'] as String?;
                                 setSheetState(() {
                                   loading = false;
-                                  tempPassword = tp ?? '(password set by you)';
+                                  tempPassword = '123456';
                                 });
                               } catch (e) {
                                 setSheetState(() => loading = false);
@@ -3722,11 +3776,12 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
               ],
             ),
           ),
-          // FAB — Add HOD
+          // FAB — Add HOD (positioned above bottom nav)
           Positioned(
-            bottom: 24,
+            bottom: MediaQuery.of(context).padding.bottom + 100,
             right: 24,
             child: FloatingActionButton.extended(
+              heroTag: 'coordinator_add_hod_fab',
               onPressed: _showAddHodSheet,
               backgroundColor: const Color(0xFF0575E6),
               icon: const Icon(Icons.person_add_rounded, color: Colors.white),
@@ -3760,15 +3815,51 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
                   showActions ? 'No pending HODs' : 'No ${statusLabel?.toLowerCase() ?? ''} HODs',
                   style: const TextStyle(color: Colors.grey),
                 ),
+                if (showActions) ...[
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      'HODs who self-register and select your university will appear here for approval.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ),
+                ],
               ],
             ),
           );
         }
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
-          itemCount: hods.length,
+          itemCount: showActions ? hods.length + 1 : hods.length,
           itemBuilder: (ctx, i) {
-            final hod = hods[i] as Map<String, dynamic>;
+            // Info banner as first item in pending list
+            if (showActions && i == 0) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: Colors.blue, size: 16),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'These HODs self-registered and selected your university. Review their credentials and approve or reject.',
+                        style: TextStyle(fontSize: 11, color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final idx = showActions ? i - 1 : i;
+            final hod = hods[idx] as Map<String, dynamic>;
             final user = hod['user'] as Map<String, dynamic>? ?? {};
             final name = user['full_name'] as String? ?? 'Unknown';
             final email = user['email'] as String? ?? '';
@@ -3880,7 +3971,7 @@ class _CoordinatorStudentsTab extends ConsumerStatefulWidget {
 }
 
 class _CoordinatorStudentsTabState extends ConsumerState<_CoordinatorStudentsTab>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   TabController? _tabCtrl;
   List<String> _departments = [];
   String _search = '';
@@ -3892,10 +3983,12 @@ class _CoordinatorStudentsTabState extends ConsumerState<_CoordinatorStudentsTab
   }
 
   void _buildTabs(List<String> depts) {
-    if (_departments == depts) return;
+    // Only rebuild if departments actually changed
+    if (_departments.length == depts.length &&
+        _departments.every((d) => depts.contains(d))) return;
     _tabCtrl?.dispose();
-    _departments = depts;
-    _tabCtrl = TabController(length: depts.length + 1, vsync: this); // +1 for "All"
+    _departments = List.from(depts);
+    _tabCtrl = TabController(length: depts.length + 1, vsync: this);
     setState(() {});
   }
 
@@ -4646,7 +4739,7 @@ class _CoordinatorToolsTabState extends ConsumerState<_CoordinatorToolsTab> with
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -4661,43 +4754,56 @@ class _CoordinatorToolsTabState extends ConsumerState<_CoordinatorToolsTab> with
 
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          ModernSliverAppBar(
-            title: 'Tools & Insights',
-            subtitle: 'Reports, Messages & AI',
-            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
-            gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
-            backgroundIcon: Icons.apps_rounded,
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: SliverTabBarDelegate(
-              TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                indicatorSize: TabBarIndicatorSize.label,
-                labelColor: const Color(0xFF11998e),
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: const Color(0xFF11998e),
-                tabs: const [
-                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Reports'))),
-                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Messages'))),
-                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('AI Assistant'))),
-                ],
+      child: Stack(
+        children: [
+          NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              ModernSliverAppBar(
+                title: 'Tools & Insights',
+                subtitle: 'Reports & Analytics',
+                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
+                gradient: const [Color(0xFF11998e), Color(0xFF38ef7d)],
+                backgroundIcon: Icons.apps_rounded,
               ),
-              isDark,
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: SliverTabBarDelegate(
+                  TabBar(
+                    controller: _tabController,
+                    labelColor: const Color(0xFF11998e),
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: const Color(0xFF11998e),
+                    indicatorSize: TabBarIndicatorSize.label,
+                    tabs: const [
+                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Reports'))),
+                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Analytics'))),
+                    ],
+                  ),
+                  isDark,
+                ),
+              ),
+            ],
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                _ReportsView(isDark: isDark),
+                _AnalyticsView(isDark: isDark),
+              ],
+            ),
+          ),
+          // AI Assistant FAB — bottom-left to avoid overlapping other FABs
+          Positioned(
+            bottom: 24,
+            left: 24,
+            child: FloatingActionButton.extended(
+              heroTag: 'coordinator_ai_fab',
+              onPressed: () => context.push(AppRoutes.aiAssistant),
+              backgroundColor: const Color(0xFF11998e),
+              icon: const Icon(Icons.smart_toy_rounded, color: Colors.white),
+              label: const Text('AI Assistant', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
             ),
           ),
         ],
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _ReportsView(isDark: isDark),
-            _MessagesView(isDark: isDark),
-            _AiView(isDark: isDark),
-          ],
-        ),
       ),
     );
   }
@@ -4796,145 +4902,204 @@ class _ReportsView extends ConsumerWidget {
   }
 }
 
-// ── Messages sub-view ─────────────────────────────────────────────────────────
-class _MessagesView extends ConsumerWidget {
-  const _MessagesView({required this.isDark});
+// ── Analytics sub-view ────────────────────────────────────────────────────────
+class _AnalyticsView extends ConsumerWidget {
+  const _AnalyticsView({required this.isDark});
   final bool isDark;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final conversationsAsync = ref.watch(conversationsProvider);
+    final statsAsync = ref.watch(coordinatorStatsProvider);
+    final assignmentsAsync = ref.watch(coordinatorAssignmentsProvider);
+    final proposalsAsync = ref.watch(coordinatorProposalsProvider);
 
-    return conversationsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
-      data: (conversations) {
-        if (conversations.isEmpty) {
-          return Center(
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.chat_bubble_outline_rounded, size: 48, color: Colors.grey.withOpacity(0.4)),
-              const SizedBox(height: 12),
-              const Text('No messages yet', style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () => context.push(AppRoutes.chat),
-                icon: const Icon(Icons.chat_rounded),
-                label: const Text('Open Messages'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF11998e)),
-              ),
-            ]),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(conversationsProvider),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
-            children: [
-              ...conversations.take(5).map((conv) {
-                return InkWell(
-                  onTap: () => context.push(AppRoutes.chat),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04)),
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(coordinatorStatsProvider);
+        ref.invalidate(coordinatorAssignmentsProvider);
+        ref.invalidate(coordinatorProposalsProvider);
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
+        children: [
+          // Placement rate card
+          statsAsync.maybeWhen(
+            data: (stats) => _sectionCard(
+              isDark,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Placement Overview', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    _metricBox('Total Students', stats.totalStudents.toString(), Colors.blue, isDark),
+                    const SizedBox(width: 10),
+                    _metricBox('Placed', stats.activePlacements.toString(), Colors.green, isDark),
+                    const SizedBox(width: 10),
+                    _metricBox('Pending', (stats.totalStudents - stats.activePlacements).toString(), Colors.orange, isDark),
+                  ]),
+                  const SizedBox(height: 16),
+                  // Placement rate bar
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Placement Rate', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text(
+                      stats.totalStudents > 0
+                          ? '${((stats.activePlacements / stats.totalStudents) * 100).toStringAsFixed(1)}%'
+                          : '0%',
+                      style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.green, fontSize: 13),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44, height: 44,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [Color(0xFF11998e), Color(0xFF38ef7d)]),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Center(child: Text(
-                            conv.partner.fullName.isNotEmpty ? conv.partner.fullName[0].toUpperCase() : '?',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-                          )),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(conv.partner.fullName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                              Text(conv.lastMessage?.content ?? '', style: TextStyle(color: Colors.grey.shade500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                        if (conv.unreadCount > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(color: const Color(0xFF11998e), borderRadius: BorderRadius.circular(10)),
-                            child: Text(conv.unreadCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-                          ),
-                      ],
+                  ]),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: stats.totalStudents > 0 ? (stats.activePlacements / stats.totalStudents).clamp(0.0, 1.0) : 0.0,
+                      backgroundColor: Colors.green.withOpacity(0.1),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                      minHeight: 8,
                     ),
                   ),
-                );
-              }),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => context.push(AppRoutes.chat),
-                icon: const Icon(Icons.open_in_new_rounded),
-                label: const Text('View All Messages'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── AI sub-view ───────────────────────────────────────────────────────────────
-class _AiView extends StatelessWidget {
-  const _AiView({required this.isDark});
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF11998e), Color(0xFF38ef7d)]),
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: const Color(0xFF38ef7d).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
-            ),
-            child: const Icon(Icons.smart_toy_rounded, size: 56, color: Colors.white),
-          ),
-          const SizedBox(height: 28),
-          const Text('Coordinator AI Assistant', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 12),
-          const Text(
-            'Generate placement analytics, summarize HOD performance, and draft university announcements.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 15),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: FilledButton.icon(
-              onPressed: () => context.push(AppRoutes.aiAssistant),
-              icon: const Icon(Icons.chat_bubble_rounded),
-              label: const Text('Open AI Assistant', style: TextStyle(fontWeight: FontWeight.w700)),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF11998e),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ],
               ),
             ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 16),
+
+          // HOD stats
+          statsAsync.maybeWhen(
+            data: (stats) => _sectionCard(
+              isDark,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('HOD Status', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    _metricBox('Total', stats.totalHods.toString(), Colors.blue, isDark),
+                    const SizedBox(width: 10),
+                    _metricBox('Pending', stats.pendingHods.toString(), Colors.orange, isDark),
+                    const SizedBox(width: 10),
+                    _metricBox('Approved', (stats.totalHods - stats.pendingHods).toString(), Colors.green, isDark),
+                  ]),
+                ],
+              ),
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 16),
+
+          // Proposals breakdown
+          proposalsAsync.when(
+            loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (proposals) {
+              final pending = proposals.where((p) => (p as Map)['status'] == 'PENDING').length;
+              final approved = proposals.where((p) => (p as Map)['status'] == 'APPROVED').length;
+              final rejected = proposals.where((p) => (p as Map)['status'] == 'REJECTED').length;
+              return _sectionCard(
+                isDark,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Proposals Breakdown', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(height: 16),
+                    Row(children: [
+                      _metricBox('Total', proposals.length.toString(), Colors.purple, isDark),
+                      const SizedBox(width: 10),
+                      _metricBox('Pending', pending.toString(), Colors.orange, isDark),
+                      const SizedBox(width: 10),
+                      _metricBox('Approved', approved.toString(), Colors.green, isDark),
+                    ]),
+                    if (rejected > 0) ...[
+                      const SizedBox(height: 8),
+                      Text('$rejected rejected', style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Company distribution from assignments
+          assignmentsAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (assignments) {
+              final companyMap = <String, int>{};
+              for (final a in assignments) {
+                final name = (a as Map)['company']?['name'] as String? ?? 'Unknown';
+                companyMap[name] = (companyMap[name] ?? 0) + 1;
+              }
+              if (companyMap.isEmpty) return const SizedBox.shrink();
+              final sorted = companyMap.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+              return _sectionCard(
+                isDark,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Top Partner Companies', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(height: 14),
+                    ...sorted.take(5).map((e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis)),
+                            Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF11998e), fontSize: 13)),
+                          ]),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value: assignments.isNotEmpty ? e.value / assignments.length : 0,
+                              backgroundColor: const Color(0xFF11998e).withOpacity(0.1),
+                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF11998e)),
+                              minHeight: 5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+                ),
+              );
+            },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _sectionCard(bool isDark, {required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04)),
+        boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _metricBox(String label, String value, Color color, bool isDark) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(isDark ? 0.12 : 0.07),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }
