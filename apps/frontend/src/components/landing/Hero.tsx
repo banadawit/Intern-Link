@@ -95,12 +95,12 @@ const Hero = () => {
   return (
     <section 
       ref={ref}
-      className="relative overflow-hidden bg-white pb-14 pt-20 sm:pb-16 sm:pt-24 lg:pb-24 lg:pt-32"
+      className="relative overflow-hidden bg-white pb-14 pt-20 sm:pb-16 sm:pt-24 lg:pb-24 lg:pt-32 dark:bg-slate-950"
     >
       {/* Animated Background Elements */}
       <div className="absolute inset-0 -z-10">
         {/* Grid Pattern */}
-        <div className="absolute inset-0 bg-white bg-[linear-gradient(to_right,#f1f5f9_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f9_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        <div className="absolute inset-0 bg-white bg-[linear-gradient(to_right,#f1f5f9_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f9_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] dark:bg-slate-950 dark:bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)]" />
         
         {/* Gradient Blobs */}
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-teal-100/40 blur-3xl" />
@@ -131,7 +131,7 @@ const Hero = () => {
 
             <motion.h1 
               variants={itemVariants}
-              className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl"
+              className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl dark:text-slate-100"
             >
               Digitizing the Future of{' '}
               <span className="relative inline-block">
@@ -153,22 +153,22 @@ const Hero = () => {
                 </svg>
               </span>
               <br />
-              <span className="text-slate-900">in Ethiopia</span>
+              <span className="text-slate-900 dark:text-slate-100">in Ethiopia</span>
             </motion.h1>
 
             <motion.p 
               variants={itemVariants}
-              className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg lg:mx-0"
+              className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg lg:mx-0 dark:text-slate-300"
             >
               A smart, centralized ecosystem connecting{' '}
-              <span className="font-semibold text-slate-900">Students</span>,{' '}
-              <span className="font-semibold text-slate-900">Coordinators</span>, and{' '}
-              <span className="font-semibold text-slate-900">Industry Partners</span>{' '}
+              <span className="font-semibold text-slate-900 dark:text-slate-100">Students</span>,{' '}
+              <span className="font-semibold text-slate-900 dark:text-slate-100">Coordinators</span>, and{' '}
+              <span className="font-semibold text-slate-900 dark:text-slate-100">Industry Partners</span>{' '}
               for seamless placement, supervision, and evaluation.
             </motion.p>
 
             <motion.div variants={itemVariants} className="mt-5">
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                 <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                 Live workflow for all major roles
               </div>
@@ -224,7 +224,7 @@ const Hero = () => {
 
               <a
                 href="#features"
-                className="group w-full sm:w-auto rounded-lg border border-slate-200 bg-white px-8 py-4 text-sm font-semibold text-slate-700 shadow-soft transition-all duration-300 hover:border-teal-200 hover:bg-slate-50 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                className="group w-full sm:w-auto rounded-lg border border-slate-200 bg-white px-8 py-4 text-sm font-semibold text-slate-700 shadow-soft transition-all duration-300 hover:border-teal-200 hover:bg-slate-50 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 <span className="flex items-center justify-center gap-2">
                   Explore Companies
@@ -248,13 +248,13 @@ const Hero = () => {
             {/* Enhanced Stats Section */}
             <motion.div 
               variants={itemVariants}
-              className="mt-12 flex flex-wrap items-center justify-center gap-6 border-t border-slate-100 pt-8 lg:justify-start"
+              className="mt-12 flex flex-wrap items-center justify-center gap-6 border-t border-slate-100 pt-8 lg:justify-start dark:border-slate-800"
             >
               {stats.map((stat, idx) => (
                 <div key={idx} className="flex items-center gap-3">
                   <div>
-                    <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                    <p className="text-sm text-slate-500">{stat.label}</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stat.value}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{stat.label}</p>
                   </div>
                   {idx < stats.length - 1 && (
                     <div className="hidden sm:block h-8 w-px bg-slate-200" />
@@ -270,7 +270,7 @@ const Hero = () => {
               {['Smart Matching', 'Live Approvals', 'Report Automation'].map((pill) => (
                 <span
                   key={pill}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-soft transition-colors hover:border-teal-300 hover:text-teal-700"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-soft transition-colors hover:border-teal-300 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                 >
                   {pill}
                 </span>
@@ -291,7 +291,7 @@ const Hero = () => {
                 ))}
               </div>
               <p className="text-sm text-slate-500">
-                Trusted by <span className="font-semibold text-slate-700">15+ universities</span>
+                Trusted by <span className="font-semibold text-slate-700 dark:text-slate-200">15+ universities</span>
               </p>
             </motion.div>
           </div>
@@ -304,7 +304,7 @@ const Hero = () => {
             onMouseLeave={handleMockupMouseLeave}
           >
             <div
-              className="relative rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-xl transition-all duration-300 hover:shadow-2xl"
+              className="relative rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-xl transition-all duration-300 hover:shadow-2xl dark:border-slate-700 dark:bg-slate-900"
               style={{
                 transform: `perspective(1200px) rotateX(${mockupTilt.x}deg) rotateY(${mockupTilt.y}deg)`,
               }}
@@ -315,9 +315,9 @@ const Hero = () => {
                   background: `radial-gradient(320px circle at ${spotlight.x}% ${spotlight.y}%, rgba(13,148,136,0.16), transparent 55%)`,
                 }}
               />
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
                 {/* Mockup Header with Dynamic Elements */}
-                <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3 dark:border-slate-800 dark:from-slate-900 dark:to-slate-950">
                   <div className="flex gap-1.5">
                     <div className="h-3 w-3 rounded-full bg-red-500 transition-colors cursor-pointer hover:bg-red-600" />
                     <div className="h-3 w-3 rounded-full bg-yellow-500 transition-colors cursor-pointer hover:bg-yellow-600" />
@@ -327,7 +327,7 @@ const Hero = () => {
                     <div className="h-6 w-6 rounded-full bg-teal-100 p-1">
                       <div className="h-full w-full rounded-full bg-teal-600" />
                     </div>
-                    <div className="h-4 w-24 rounded bg-slate-200" />
+                    <div className="h-4 w-24 rounded bg-slate-200 dark:bg-slate-700" />
                   </div>
                 </div>
 
@@ -336,35 +336,32 @@ const Hero = () => {
                   <div className="space-y-4">
                     {/* Dashboard Header */}
                     <div className="flex items-center justify-between">
-                      <div className="h-6 w-32 rounded bg-slate-100 animate-pulse" />
+                      <div className="h-6 w-32 rounded bg-slate-100 animate-pulse dark:bg-slate-800" />
                       <div className="flex gap-2">
-                        <div className="h-8 w-8 rounded bg-slate-50 border border-slate-200" />
-                        <div className="h-8 w-8 rounded bg-slate-50 border border-slate-200" />
+                        <div className="h-8 w-8 rounded bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700" />
+                        <div className="h-8 w-8 rounded bg-slate-50 border border-slate-200 dark:bg-slate-800 dark:border-slate-700" />
                       </div>
                     </div>
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-3 gap-3">
                       {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="h-20 rounded-lg border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-2"
-                        >
-                          <div className="h-2 w-12 rounded bg-slate-200 mb-2" />
-                          <div className="h-6 w-16 rounded bg-slate-100" />
+                        <div key={i} className="h-20 rounded-lg border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-2 dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
+                          <div className="h-2 w-12 rounded bg-slate-200 mb-2 dark:bg-slate-700" />
+                          <div className="h-6 w-16 rounded bg-slate-100 dark:bg-slate-800" />
                         </div>
                       ))}
                     </div>
 
                     {/* Activity Feed */}
-                    <div className="rounded-lg border border-teal-100 bg-teal-50/30 p-4">
+                    <div className="rounded-lg border border-teal-100 bg-teal-50/30 p-4 dark:border-teal-900/50 dark:bg-teal-950/20">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-teal-100 flex items-center justify-center">
                           <div className="h-2 w-2 rounded-full bg-teal-600" />
                         </div>
                         <div className="flex-1">
-                          <div className="h-3 w-3/4 rounded bg-teal-100 mb-2" />
-                          <div className="h-2 w-1/2 rounded bg-teal-50" />
+                          <div className="h-3 w-3/4 rounded bg-teal-100 mb-2 dark:bg-teal-900/60" />
+                          <div className="h-2 w-1/2 rounded bg-teal-50 dark:bg-teal-900/40" />
                         </div>
                       </div>
                     </div>
@@ -374,13 +371,13 @@ const Hero = () => {
                       <div className="flex items-center gap-3">
                         <div className="h-6 w-6 rounded-full bg-green-100" />
                         <div className="flex-1">
-                          <div className="h-2 w-full rounded bg-slate-100" />
+                          <div className="h-2 w-full rounded bg-slate-100 dark:bg-slate-700" />
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="h-6 w-6 rounded-full bg-yellow-100" />
                         <div className="flex-1">
-                          <div className="h-2 w-3/4 rounded bg-slate-100" />
+                          <div className="h-2 w-3/4 rounded bg-slate-100 dark:bg-slate-700" />
                         </div>
                       </div>
                     </div>
@@ -393,7 +390,7 @@ const Hero = () => {
                 initial={{ opacity: 0, x: 20, y: -20 }}
                 animate={{ opacity: 1, x: 0, y: 0 }}
                 transition={{ delay: 0.5, duration: 0.5 }}
-                className="absolute -top-6 -right-6 rounded-xl bg-white p-3 shadow-modal border border-slate-100 hidden md:block"
+                className="absolute -top-6 -right-6 rounded-xl bg-white p-3 shadow-modal border border-slate-100 hidden md:block dark:bg-slate-900 dark:border-slate-700"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-600">
@@ -402,8 +399,8 @@ const Hero = () => {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-slate-500">Final Report</p>
-                    <p className="text-sm font-bold text-slate-900">Verified & Stamped</p>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Final Report</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Verified & Stamped</p>
                   </div>
                 </div>
               </motion.div>
@@ -412,7 +409,7 @@ const Hero = () => {
                 initial={{ opacity: 0, x: -20, y: 20 }}
                 animate={{ opacity: 1, x: 0, y: 0 }}
                 transition={{ delay: 0.7, duration: 0.5 }}
-                className="absolute -bottom-6 -left-6 rounded-xl bg-white p-3 shadow-modal border border-slate-100 hidden md:block"
+                className="absolute -bottom-6 -left-6 rounded-xl bg-white p-3 shadow-modal border border-slate-100 hidden md:block dark:bg-slate-900 dark:border-slate-700"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-teal-600">
@@ -421,8 +418,8 @@ const Hero = () => {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-slate-500">Weekly Plan</p>
-                    <p className="text-sm font-bold text-slate-900">Submitted & Approved</p>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Weekly Plan</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Submitted & Approved</p>
                   </div>
                 </div>
               </motion.div>

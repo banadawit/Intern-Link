@@ -49,7 +49,7 @@ const CTASection = () => {
   };
 
   return (
-    <section className="relative py-24 sm:py-32 overflow-hidden bg-white">
+    <section className="relative py-24 sm:py-32 overflow-hidden bg-white dark:bg-slate-950">
       {/* Background Decorations */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-teal-100/50 rounded-full blur-3xl" />
@@ -275,19 +275,19 @@ const CTASection = () => {
           transition={{ delay: 1, duration: 0.5 }}
           className="mt-8 flex flex-wrap items-center justify-center gap-4"
         >
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             <span>Live chat support</span>
           </div>
-          <div className="w-1 h-1 rounded-full bg-slate-300" />
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
             <Mail className="w-4 h-4" />
             <span>support@internlink.com</span>
           </div>
-          <div className="w-1 h-1 rounded-full bg-slate-300" />
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
             <Shield className="w-4 h-4" />
             <span>100% satisfaction guaranteed</span>
           </div>
