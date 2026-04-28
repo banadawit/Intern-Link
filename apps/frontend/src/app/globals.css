@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --surface-base: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-elevated: #ffffff;
+  --border-default: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+}
+
+.dark {
+  --surface-base: #020617;
+  --surface-muted: #0f172a;
+  --surface-elevated: #111827;
+  --border-default: #1f2937;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+}
+
 /* Contribution heatmap: stretch to card width so cells scale with the dashboard */
 .github-contribution-wrap svg.react-calendar-heatmap {
   display: block;
@@ -59,7 +79,9 @@
 }
 
 body {
-  @apply bg-slate-50 text-slate-800;
+  @apply transition-colors;
+  background-color: var(--surface-muted);
+  color: var(--text-secondary);
 }
 
 @keyframes fade-in {
@@ -112,8 +134,36 @@ body {
 
 /* Dashboard component classes (semantic tokens used across Student / Admin UIs) */
 @layer components {
+  .surface-base {
+    background-color: var(--surface-base);
+  }
+
+  .surface-muted {
+    background-color: var(--surface-muted);
+  }
+
+  .surface-elevated {
+    background-color: var(--surface-elevated);
+  }
+
+  .text-primary-token {
+    color: var(--text-primary);
+  }
+
+  .text-secondary-token {
+    color: var(--text-secondary);
+  }
+
+  .text-muted-token {
+    color: var(--text-muted);
+  }
+
+  .border-token {
+    border-color: var(--border-default);
+  }
+
   .card {
-    @apply rounded-2xl border border-slate-200 bg-white shadow-card;
+    @apply rounded-2xl border border-slate-200 bg-white shadow-card dark:border-slate-800 dark:bg-slate-900;
   }
 
   .btn-primary {
@@ -121,7 +171,7 @@ body {
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 placeholder:text-slate-400 transition-colors focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20;
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 placeholder:text-slate-400 transition-colors focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500;
   }
 }
 

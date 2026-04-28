@@ -17,21 +17,21 @@ export default function VerificationPendingPage() {
         <div className="h-16 w-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-6">
           <Clock3 className="h-8 w-8 text-amber-600" />
         </div>
-        <h1 className="text-3xl font-bold text-slate-900">Approval pending</h1>
-        <p className="mt-2 text-sm text-slate-500 max-w-md">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Approval pending</h1>
+        <p className="mt-2 text-sm text-slate-500 max-w-md dark:text-slate-400">
           Your account is verified, but organization approval is still in progress.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6">
-        <div className="flex items-start gap-3 text-amber-800">
+      <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 dark:border-amber-900/60 dark:bg-amber-900/20">
+        <div className="flex items-start gap-3 text-amber-800 dark:text-amber-200">
           <ShieldAlert className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <p className="text-sm">{message}</p>
         </div>
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           You can check back later or contact your university/company administrator.
         </p>
         <Link

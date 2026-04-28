@@ -5,6 +5,7 @@ import { CheckCircle, XCircle, FileText, User, Building, Loader2 } from "lucide-
 import { format } from "date-fns";
 import Link from "next/link";
 import api from "@/lib/api/client";
+import { AxiosError } from "axios";
 import AdminPageHero from "./AdminPageHero";
 import { getViewerUrl } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState<{ userId: number; reason: string } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,11 +49,19 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
 
   const handleApprove = async (userId: number) => {
     setActionLoading(userId);
+    setErrorMessage("");
     try {
       await api.post(`/admin/coordinators/${userId}/approve`);
       await load();
       onActionComplete?.();
     } catch (e) {
+      const err = e as AxiosError<{ error?: string; message?: string }>;
+      setErrorMessage(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to approve coordinator."
+      );
       console.error(e);
     } finally {
       setActionLoading(null);
@@ -61,12 +71,20 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
   const handleReject = async () => {
     if (!rejectReason) return;
     setActionLoading(rejectReason.userId);
+    setErrorMessage("");
     try {
       await api.post(`/admin/coordinators/${rejectReason.userId}/reject`, { reason: rejectReason.reason });
       setRejectReason(null);
       await load();
       onActionComplete?.();
     } catch (e) {
+      const err = e as AxiosError<{ error?: string; message?: string }>;
+      setErrorMessage(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to reject coordinator."
+      );
       console.error(e);
     } finally {
       setActionLoading(null);
@@ -86,6 +104,12 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
 
       {loading && (
         <p className="text-sm text-slate-500" role="status">Loading pending coordinators…</p>
+      )}
+
+      {!loading && errorMessage && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMessage}
+        </div>
       )}
 
       <div className="card overflow-hidden">

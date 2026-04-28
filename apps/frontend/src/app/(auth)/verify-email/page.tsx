@@ -115,16 +115,16 @@ function VerifyEmailContent() {
           <div className="h-16 w-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-6">
             <Loader2 className="h-8 w-8 text-primary-600 animate-spin" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">Verifying your email</h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Verifying your email</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             Please wait while we verify your email address...
           </p>
         </div>
         
-        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
+        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-center gap-3">
             <Loader2 className="h-5 w-5 text-primary-600 animate-spin" />
-            <span className="text-sm text-slate-600">Verifying...</span>
+            <span className="text-sm text-slate-600 dark:text-slate-300">Verifying...</span>
           </div>
         </div>
       </div>
@@ -138,8 +138,8 @@ function VerifyEmailContent() {
           <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-6">
             <PartyPopper className="h-8 w-8 text-emerald-600" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">Email verified! 🎉</h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Email verified! 🎉</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             {roleParam === 'coordinator' || roleParam === 'hod' || roleParam === 'student' || roleParam === 'supervisor'
               ? 'Your email is confirmed. Redirecting to your submission status...'
               : 'Your email has been successfully verified. Redirecting to login...'}
@@ -164,7 +164,7 @@ function VerifyEmailContent() {
           )}
         </div>
 
-        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden dark:bg-slate-800">
           <div className="h-full bg-emerald-500 rounded-full animate-progress-fast" style={{ width: '100%' }} />
         </div>
 
@@ -187,8 +187,8 @@ function VerifyEmailContent() {
           <div className="h-16 w-16 rounded-2xl bg-red-50 flex items-center justify-center mb-6">
             <XCircle className="h-8 w-8 text-red-600" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">Verification failed</h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Verification failed</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             We couldn&apos;t verify your email address
           </p>
         </div>
@@ -205,17 +205,17 @@ function VerifyEmailContent() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 dark:text-slate-500" />
               <input
                 type="email"
                 value={resendEmail}
                 onChange={(e) => setResendEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </div>
           </div>
@@ -242,7 +242,7 @@ function VerifyEmailContent() {
 
           <Link
             href="/login"
-            className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+            className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors dark:text-slate-400 dark:hover:text-slate-200"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Login
@@ -260,8 +260,8 @@ function VerifyEmailContent() {
           <div className="h-16 w-16 rounded-2xl bg-yellow-50 flex items-center justify-center mb-6">
             <Clock className="h-8 w-8 text-yellow-600" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">Verification link expired</h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Verification link expired</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             The verification link has expired. Request a new one below.
           </p>
         </div>
@@ -274,17 +274,17 @@ function VerifyEmailContent() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 dark:text-slate-500" />
               <input
                 type="email"
                 value={resendEmail}
                 onChange={(e) => setResendEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </div>
           </div>
@@ -311,7 +311,7 @@ function VerifyEmailContent() {
 
           <Link
             href="/login"
-            className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+            className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors dark:text-slate-400 dark:hover:text-slate-200"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Login
@@ -329,8 +329,8 @@ function VerifyEmailContent() {
         <div className="h-16 w-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-6 animate-pulse-slow">
           <Mail className="h-8 w-8 text-primary-600" />
         </div>
-        <h1 className="text-3xl font-bold text-slate-900">Check your email</h1>
-        <p className="mt-2 text-sm text-slate-500 max-w-sm">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Check your email</h1>
+        <p className="mt-2 text-sm text-slate-500 max-w-sm dark:text-slate-400">
           We&apos;ve sent a verification link to{' '}
           <span className="font-medium text-primary-600">
             {resendEmail || 'your email address'}
@@ -349,19 +349,19 @@ function VerifyEmailContent() {
       </div>
 
       {/* Verification Status Card */}
-      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-3 text-sm text-slate-600">
+      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 space-y-4 dark:bg-slate-900 dark:border-slate-800">
+        <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
           <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
           <span>Verification email sent</span>
         </div>
-        <div className="flex items-center gap-3 text-sm text-slate-600">
+        <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
           <div className="h-5 w-5 rounded-full border-2 border-slate-200 border-t-primary-600 animate-spin" />
           <span>Awaiting your confirmation...</span>
         </div>
         
         {/* Tip for users */}
-        <div className="mt-4 pt-4 border-t border-slate-200">
-          <p className="text-xs text-slate-500 flex items-start gap-2">
+        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <p className="text-xs text-slate-500 flex items-start gap-2 dark:text-slate-400">
             <AlertCircle className="h-3 w-3 flex-shrink-0 mt-0.5" />
             Didn&apos;t receive the email? Check your spam folder or request a new link below.
           </p>
@@ -371,17 +371,17 @@ function VerifyEmailContent() {
       {/* Email Input for Resend (if email not in URL) */}
       {!emailParam && (
         <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-700">
+          <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
             Didn&apos;t receive the email?
           </label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 dark:text-slate-500" />
             <input
               type="email"
               value={resendEmail}
               onChange={(e) => setResendEmail(e.target.value)}
               placeholder="Enter your email to resend"
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </div>
         </div>
@@ -392,7 +392,7 @@ function VerifyEmailContent() {
         <button
           onClick={handleResend}
           disabled={isResending || countdown > 0 || !resendEmail}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white py-4 text-sm font-bold text-slate-700 transition-all hover:border-primary-600 hover:text-primary-600 disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:text-slate-700"
+          className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white py-4 text-sm font-bold text-slate-700 transition-all hover:border-primary-600 hover:text-primary-600 disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:disabled:hover:border-slate-700 dark:disabled:hover:text-slate-200"
         >
           {isResending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -411,7 +411,7 @@ function VerifyEmailContent() {
 
         <Link
           href="/login"
-          className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+          className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors dark:text-slate-400 dark:hover:text-slate-200"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Login
@@ -419,10 +419,10 @@ function VerifyEmailContent() {
       </div>
 
       {/* Institutional Footer */}
-      <div className="pt-8 border-t border-slate-100">
-        <p className="text-xs text-slate-400 leading-relaxed">
+      <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
+        <p className="text-xs text-slate-400 leading-relaxed dark:text-slate-500">
           Need help? Contact the{' '}
-          <span className="font-bold text-slate-600">Haramaya University ICT Office</span>{' '}
+          <span className="font-bold text-slate-600 dark:text-slate-300">Haramaya University ICT Office</span>{' '}
           or email{' '}
           <a href="mailto:support@internlink.com" className="text-primary-600 hover:underline">
             support@internlink.com
@@ -441,8 +441,8 @@ function VerifyEmailFallback() {
         <div className="h-16 w-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-6">
           <Loader2 className="h-8 w-8 text-primary-600 animate-spin" />
         </div>
-        <h1 className="text-3xl font-bold text-slate-900">Loading...</h1>
-        <p className="mt-2 text-sm text-slate-500">Please wait while we prepare your verification</p>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Loading...</h1>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Please wait while we prepare your verification</p>
       </div>
     </div>
   );

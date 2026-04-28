@@ -148,7 +148,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, delay: index * 0.1 }}
       whileHover={{ y: -10, scale: 1.01 }}
-      className={`group relative overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-slate-200 transition-all duration-300 hover:shadow-card-hover ${styles.hoverRing}`}
+      className={`group relative overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-slate-200 transition-all duration-300 hover:shadow-card-hover dark:bg-slate-900 dark:ring-slate-700 ${styles.hoverRing}`}
     >
       <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${styles.borderTop}`} />
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${styles.hoverTint} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
@@ -171,19 +171,19 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
         </div>
         
         {/* Title */}
-        <h3 className="text-xl font-bold text-slate-900 mb-3 transition-colors group-hover:text-slate-800">
+        <h3 className="text-xl font-bold text-slate-900 mb-3 transition-colors group-hover:text-slate-800 dark:text-slate-100 dark:group-hover:text-slate-100">
           {feature.title}
         </h3>
         
         {/* Description */}
-        <p className="text-slate-600 text-sm leading-relaxed mb-6">
+        <p className="text-slate-600 text-sm leading-relaxed mb-6 dark:text-slate-300">
           {feature.description}
         </p>
         
         {/* Benefits List */}
         <div className="space-y-2">
           {feature.benefits.map((benefit, idx) => (
-            <div key={idx} className="flex items-center gap-2 text-sm text-slate-600">
+            <div key={idx} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${styles.check}`} />
               <span>{benefit}</span>
             </div>
@@ -191,7 +191,7 @@ const FeatureCard = ({ feature, index }: { feature: typeof features[0], index: n
         </div>
         
         {/* Hover Action */}
-        <div className="mt-6 pt-4 border-t border-slate-100">
+        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
           <button className={`inline-flex items-center gap-1 text-sm font-semibold transition-all group-hover:gap-2 ${styles.action}`}>
             Learn more
             <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -209,7 +209,7 @@ const Features = () => {
   const isHeaderInView = useInView(headerRef, { once: true });
 
   return (
-    <section id="features" className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-white py-20 sm:py-24 lg:py-28">
+    <section id="features" className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-white py-20 sm:py-24 lg:py-28 dark:from-slate-900 dark:to-slate-950">
       {/* Background decoration */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-100/30 rounded-full blur-3xl" />
@@ -232,13 +232,13 @@ const Features = () => {
           </div>
           
           {/* Title */}
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl dark:text-slate-100">
             One Platform,
             <span className="bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent"> Four Unified Roles</span>
           </h2>
           
           {/* Description */}
-          <p className="mt-6 text-lg leading-relaxed text-slate-600">
+          <p className="mt-6 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
             InternLink connects every stakeholder in the internship lifecycle, replacing manual paperwork 
             with a secure, automated digital workflow that saves time and ensures accuracy.
           </p>
@@ -251,7 +251,7 @@ const Features = () => {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="mb-20"
         >
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft sm:p-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft sm:p-6 dark:border-slate-700 dark:bg-slate-900">
             <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
               {stats.map((stat, idx) => {
                 const Icon = stat.icon;
@@ -261,8 +261,8 @@ const Features = () => {
                     <div className={`mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl ${statStyles.statIconBox}`}>
                       <Icon className={`h-6 w-6 ${statStyles.statIcon}`} />
                     </div>
-                    <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                    <p className="text-sm text-slate-500">{stat.label}</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stat.value}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{stat.label}</p>
                   </div>
                 );
               })}

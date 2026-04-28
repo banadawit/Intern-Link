@@ -194,10 +194,10 @@ const LoginPage = () => {
     <div className="space-y-8 animate-fade-in">
       {/* Header Section */}
       <div className="text-center lg:text-left">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
           Welcome Back
         </h1>
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           Please enter your credentials to access your dashboard
         </p>
       </div>
@@ -224,12 +224,12 @@ const LoginPage = () => {
         <div className="space-y-2">
           <label 
             htmlFor="email" 
-            className="text-sm font-semibold text-slate-700"
+            className="text-sm font-semibold text-slate-700 dark:text-slate-200"
           >
             Email Address
           </label>
           <div className="relative group">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
             <input
               id="email"
               name="email"
@@ -237,11 +237,11 @@ const LoginPage = () => {
               autoComplete="email"
               required
               placeholder="name@university.edu.et"
-              className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all duration-200
+              className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all duration-200 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                 ${errors.email && touched.email
                   ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
-                  : 'border-slate-200 hover:border-slate-300'
+                  : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
                 }`}
               value={formData.email}
               onChange={handleInputChange}
@@ -264,7 +264,7 @@ const LoginPage = () => {
           <div className="flex items-center justify-between">
             <label 
               htmlFor="password" 
-              className="text-sm font-semibold text-slate-700"
+              className="text-sm font-semibold text-slate-700 dark:text-slate-200"
             >
               Password
             </label>
@@ -276,7 +276,7 @@ const LoginPage = () => {
             </Link>
           </div>
           <div className="relative group">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
             <input
               id="password"
               name="password"
@@ -284,11 +284,11 @@ const LoginPage = () => {
               autoComplete="current-password"
               required
               placeholder="••••••••"
-              className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all duration-200
+              className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all duration-200 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                 ${errors.password && touched.password
                   ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
-                  : 'border-slate-200 hover:border-slate-300'
+                  : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
                 }`}
               value={formData.password}
               onChange={handleInputChange}
@@ -300,7 +300,7 @@ const LoginPage = () => {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg p-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg p-1 dark:text-slate-500 dark:hover:text-slate-300"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -324,7 +324,7 @@ const LoginPage = () => {
               className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
               disabled={isLoading}
             />
-            <span className="text-sm text-slate-500 group-hover:text-slate-700 transition-colors">
+            <span className="text-sm text-slate-500 group-hover:text-slate-700 transition-colors dark:text-slate-400 dark:group-hover:text-slate-200">
               Remember me
             </span>
           </label>
@@ -333,45 +333,45 @@ const LoginPage = () => {
           <div className="relative group">
             <button
               type="button"
-              className="text-xs text-slate-400 hover:text-primary-600 transition-colors"
+              className="text-xs text-slate-400 hover:text-primary-600 transition-colors dark:text-slate-500"
               aria-label="Demo login options"
             >
               Demo Login
             </button>
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 dark:bg-slate-900 dark:border-slate-700">
               <div className="py-2">
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('Student')}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   🎓 Login as Student
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('Coordinator')}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   🏛️ Login as Coordinator
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('HOD')}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   📚 Login as HOD
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('Supervisor')}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   💼 Login as Supervisor
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('Admin')}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   ⚙️ Login as Admin
                 </button>
@@ -399,7 +399,7 @@ const LoginPage = () => {
 
       {/* Footer Note */}
       <div className="pt-4 text-center">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Don&apos;t have an account?{' '}
           <Link 
             href="/register" 
@@ -412,7 +412,7 @@ const LoginPage = () => {
 
       {/* Help Text */}
       <div className="text-center">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-400 dark:text-slate-500">
           By signing in, you agree to our{' '}
           <Link href="/terms" className="hover:text-primary-600 transition-colors">
             Terms of Service

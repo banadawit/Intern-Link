@@ -722,11 +722,31 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
 
         // Enforce one coordinator per university
         const existingCoordinator = await prisma.coordinator.findFirst({
-            where: { universityId: university.id },
+            where: {
+                universityId: university.id,
+                user: {
+                    institution_access_approval: 'APPROVED',
+                },
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                    },
+                },
+            },
         });
         if (existingCoordinator && existingCoordinator.userId !== userId) {
             return res.status(409).json({
-                error: `University "${university.name}" already has an approved coordinator. Each university can only have one coordinator.`,
+                error: `University "${university.name}" already has an approved coordinator: ${existingCoordinator.user.full_name} (${existingCoordinator.user.email}). Suspend or reject the current coordinator before approving another one.`,
+                code: 'UNIVERSITY_COORDINATOR_ALREADY_ASSIGNED',
+                existingCoordinator: {
+                    userId: existingCoordinator.user.id,
+                    fullName: existingCoordinator.user.full_name,
+                    email: existingCoordinator.user.email,
+                },
             });
         }
 

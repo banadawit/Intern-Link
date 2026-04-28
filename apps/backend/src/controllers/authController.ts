@@ -13,6 +13,15 @@ import { isRegistrationOpen, isMaintenanceMode } from './systemConfigController'
 import { sendSuccess, sendError } from '../utils/responseHelper';
 import { notifyAllAdmins, NotificationType } from '../services/notification.service';
 
+const getJwtSecret = (): string => {
+    const secret = (process.env.JWT_SECRET || '').trim();
+    if (secret) return secret;
+    if (process.env.NODE_ENV !== 'production') {
+        return 'dev_jwt_secret_change_me';
+    }
+    throw new Error('JWT_SECRET is not configured');
+};
+
 // ============================================
 // REGISTER - with email verification
 // ============================================
@@ -287,6 +296,8 @@ export const register = async (req: Request, res: Response) => {
             userId: newUser.id,
             email: newUser.email,
             requiresVerification: true,
+            verificationToken:
+                process.env.NODE_ENV !== 'production' ? verificationToken : undefined,
         };
 
         if (emailSendError) {
@@ -465,7 +476,7 @@ export const login = async (req: Request, res: Response) => {
         // Generate JWT
         const token = jwt.sign(
             { userId: user.id, role: user.role, email: user.email },
-            process.env.JWT_SECRET as string,
+            getJwtSecret(),
             // { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
             { expiresIn: '7d' } as jwt.SignOptions
         );

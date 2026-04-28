@@ -112,24 +112,24 @@ const TestimonialCard = ({ testimonial, index }: { testimonial: typeof testimoni
       whileHover={{ y: -8 }}
       className="group relative"
     >
-      <div className="relative h-full bg-white rounded-2xl shadow-card hover:shadow-card-hover transition-all duration-300 overflow-hidden border border-slate-100">
+      <div className="relative h-full bg-white rounded-2xl shadow-card hover:shadow-card-hover transition-all duration-300 overflow-hidden border border-slate-100 dark:bg-slate-900 dark:border-slate-700">
         {/* Gradient Border Effect */}
         <div className="absolute inset-0 bg-gradient-to-r from-primary-500/0 via-primary-500/5 to-primary-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         
         {/* Quote Icon */}
         <div className="absolute top-6 right-6 opacity-10 group-hover:opacity-20 transition-opacity">
-          <Quote className="w-12 h-12 text-slate-400" />
+          <Quote className="w-12 h-12 text-slate-400 dark:text-slate-600" />
         </div>
         
         <div className="p-6 md:p-8">
           {/* Rating and Date */}
           <div className="flex items-center justify-between mb-4">
             <StarRating rating={testimonial.rating} />
-            <span className="text-xs text-slate-400">{testimonial.date}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">{testimonial.date}</span>
           </div>
           
           {/* Content */}
-          <blockquote className="text-slate-600 text-base leading-relaxed mb-6 relative z-10 line-clamp-4">
+          <blockquote className="text-slate-600 text-base leading-relaxed mb-6 relative z-10 line-clamp-4 dark:text-slate-300">
             “{testimonial.content}”
           </blockquote>
           
@@ -142,17 +142,17 @@ const TestimonialCard = ({ testimonial, index }: { testimonial: typeof testimoni
           </div>
           
           {/* Author Info */}
-          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100">
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
             <div className="relative">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-bold shadow-md">
                 {testimonial.avatar}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-success-500 border-2 border-white" />
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-success-500 border-2 border-white dark:border-slate-900" />
             </div>
             <div className="flex-1">
-              <div className="text-sm font-bold text-slate-900">{testimonial.author}</div>
+              <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{testimonial.author}</div>
               <div className="text-xs text-primary-600 font-medium">{testimonial.role}</div>
-              <div className="text-xs text-slate-400">{testimonial.university}</div>
+              <div className="text-xs text-slate-400 dark:text-slate-500">{testimonial.university}</div>
             </div>
           </div>
         </div>
@@ -193,12 +193,12 @@ const Testimonials = () => {
   const overallRating = (testimonials.reduce((acc, t) => acc + t.rating, 0) / testimonials.length).toFixed(1);
 
   return (
-    <section id="testimonials" className="relative bg-gradient-to-b from-white to-slate-50 py-24 sm:py-32 overflow-hidden">
+    <section id="testimonials" className="relative bg-gradient-to-b from-white to-slate-50 py-24 sm:py-32 overflow-hidden dark:from-slate-950 dark:to-slate-900">
       {/* Background Decoration */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary-100/20 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-success-100/20 rounded-full blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] bg-[size:20px_20px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,#000_60%,transparent_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] bg-[size:20px_20px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,#000_60%,transparent_100%)] dark:bg-[radial-gradient(#334155_1px,transparent_1px)]" />
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -216,14 +216,14 @@ const Testimonials = () => {
             {overallRating} / 5.0 Rating
           </div>
           
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl dark:text-slate-100">
             Trusted by{' '}
             <span className="bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent">
               Students & Professionals
             </span>
           </h2>
           
-          <p className="mt-4 text-lg leading-relaxed text-slate-600">
+          <p className="mt-4 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
             Join hundreds of satisfied users who have transformed their internship management experience
           </p>
         </motion.div>
@@ -236,20 +236,20 @@ const Testimonials = () => {
           className="mb-12 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-8"
         >
           <div className="flex items-center gap-3">
-            <div className="text-4xl font-bold text-slate-900">{overallRating}</div>
+            <div className="text-4xl font-bold text-slate-900 dark:text-slate-100">{overallRating}</div>
             <div>
               <StarRating rating={5} />
-              <p className="text-xs text-slate-500">Based on {testimonials.length} reviews</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Based on {testimonials.length} reviews</p>
             </div>
           </div>
-          <div className="hidden sm:block h-8 w-px bg-slate-200" />
+          <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700" />
           <div className="flex items-center gap-2">
             <div className="flex -space-x-2">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 ring-2 ring-white" />
+                <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 ring-2 ring-white dark:ring-slate-900" />
               ))}
             </div>
-            <span className="text-sm text-slate-600">
+            <span className="text-sm text-slate-600 dark:text-slate-300">
               <span className="font-semibold text-primary-600">500+</span> active users
             </span>
           </div>
@@ -272,7 +272,7 @@ const Testimonials = () => {
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
                   isActive
                     ? 'bg-primary-600 text-white shadow-md'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:border-slate-700'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -304,7 +304,7 @@ const Testimonials = () => {
             <button
               onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
               disabled={currentPage === 0}
-              className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -316,7 +316,7 @@ const Testimonials = () => {
                   className={`transition-all ${
                     currentPage === idx
                       ? 'w-6 h-2 bg-primary-600 rounded-full'
-                      : 'w-2 h-2 bg-slate-300 rounded-full hover:bg-slate-400'
+                      : 'w-2 h-2 bg-slate-300 rounded-full hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500'
                   }`}
                 />
               ))}
@@ -324,7 +324,7 @@ const Testimonials = () => {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
               disabled={currentPage === totalPages - 1}
-              className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -338,9 +338,9 @@ const Testimonials = () => {
           transition={{ duration: 0.5, delay: 0.6 }}
           className="mt-12 text-center"
         >
-          <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-soft border border-slate-100">
+          <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-soft border border-slate-100 dark:bg-slate-900 dark:border-slate-700">
             <MessageSquare className="w-4 h-4 text-primary-600" />
-            <span className="text-sm text-slate-600">Share your experience</span>
+            <span className="text-sm text-slate-600 dark:text-slate-300">Share your experience</span>
             <button className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors">
               Write a review
             </button>

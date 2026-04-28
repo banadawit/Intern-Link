@@ -2,6 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Role } from '@prisma/client';
 
+const getJwtSecret = (): string => {
+    const secret = (process.env.JWT_SECRET || '').trim();
+    if (secret) return secret;
+    if (process.env.NODE_ENV !== 'production') {
+        return 'dev_jwt_secret_change_me';
+    }
+    throw new Error('JWT_SECRET is not configured');
+};
+
 // Custom interface to extend Express Request
 export interface AuthRequest extends Request {
     user?: {
@@ -28,7 +37,7 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
 
         const token = authHeader.split(' ')[1];
         
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
+        const decoded = jwt.verify(token, getJwtSecret()) as {
             userId: number;
             role: Role;
             email: string;
@@ -85,7 +94,7 @@ export const optionalAuth = (req: AuthRequest, res: Response, next: NextFunction
         
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
+            const decoded = jwt.verify(token, getJwtSecret()) as {
                 userId: number;
                 role: Role;
                 email: string;
