@@ -57,7 +57,7 @@ interface RegisterData {
   studentId?: string;
   employeeId?: string;
   position?: string;
-  verificationDocument?: File;
+  verificationDocument?: File | string;
 }
 
 // API Response Types
@@ -188,9 +188,11 @@ export const useAuth = create<AuthState>()(
             if (data.studentId) formData.append('student_id', data.studentId);
           }
 
-          // Append file if provided
-          if (data.verificationDocument) {
+          // Accept either a File upload or a pre-uploaded URL string
+          if (data.verificationDocument instanceof File) {
             formData.append('verification_document', data.verificationDocument);
+          } else if (typeof data.verificationDocument === 'string' && data.verificationDocument.trim()) {
+            formData.append('verification_document', data.verificationDocument.trim());
           }
 
           // Send as multipart/form-data (let browser set Content-Type with boundary)

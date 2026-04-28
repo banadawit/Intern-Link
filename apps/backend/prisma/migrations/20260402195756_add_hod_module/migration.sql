@@ -1,4 +1,4 @@
--- AlterEnum
+-- AlterEnum (safe if HOD role already exists)
 ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'HOD';
 
 -- AlterTable
