@@ -1,5 +1,5 @@
 -- AlterEnum
-ALTER TYPE "Role" ADD VALUE 'HOD';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'HOD';
 
 -- AlterTable
 ALTER TABLE "InternshipProposal" ADD COLUMN     "expected_duration_weeks" INTEGER,

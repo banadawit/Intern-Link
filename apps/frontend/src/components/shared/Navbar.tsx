@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import ThemeToggle from '../theme/ThemeToggle';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -82,7 +83,7 @@ const Navbar = () => {
         }`}
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             
             {/* Logo Section */}
             <Link href="/#home" onClick={handleLogoClick} className="flex items-center gap-2 group">
@@ -98,8 +99,8 @@ const Navbar = () => {
               </span>
             </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-6 lg:gap-8">
+            {/* Desktop Navigation + Auth actions (left-center cluster) */}
+            <div className="hidden md:flex flex-1 items-center justify-center gap-6 lg:gap-8">
               {navLinks.map((link) => (
                 <a
                   key={link.href}
@@ -111,25 +112,34 @@ const Navbar = () => {
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-primary-700 transition-all duration-300 group-hover:w-full" />
                 </a>
               ))}
+
+              <div className="ml-[4rem] lg:ml-[4.25rem] flex items-center gap-3 lg:gap-4">
+                <Link 
+                  href="/login" 
+                  className="text-sm font-semibold text-slate-700 hover:text-primary-600 transition-all duration-300 relative group"
+                >
+                  Sign in
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary-600 transition-all duration-300 group-hover:w-full" />
+                </Link>
+                <Link 
+                  href="/register" 
+                  className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-2 text-xs font-semibold text-white shadow-soft transition-all duration-300 hover:shadow-lg hover:from-primary-700 hover:to-primary-800 active:scale-95 sm:px-5 sm:py-2.5 sm:text-sm"
+                >
+                  <span className="relative z-10">Get Started</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-primary-600 translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
+                </Link>
+              </div>
             </div>
 
-            {/* Auth Actions */}
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Link 
-                href="/login" 
-                className="hidden sm:block text-sm font-semibold text-slate-700 hover:text-primary-600 transition-all duration-300 relative group"
-              >
-                Sign in
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary-600 transition-all duration-300 group-hover:w-full" />
-              </Link>
-              <Link 
-                href="/register" 
-                className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-2 text-xs font-semibold text-white shadow-soft transition-all duration-300 hover:shadow-lg hover:from-primary-700 hover:to-primary-800 active:scale-95 sm:px-5 sm:py-2.5 sm:text-sm"
-              >
-                <span className="relative z-10">Get Started</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-primary-600 translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
-              </Link>
-              
+            {/* Theme toggle + mobile controls on right */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="hidden md:block">
+                <ThemeToggle variant="inline" />
+              </div>
+              <div className="md:hidden">
+                <ThemeToggle variant="inline" className="px-2.5 py-2 [&>span]:hidden" />
+              </div>
+
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
