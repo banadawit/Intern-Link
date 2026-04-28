@@ -1,9 +1,10 @@
 import React, { useState } from "react";
+import Link from "next/link";
 import { X, FileText, ExternalLink, CheckCircle, XCircle, Info, Sparkles, Timer, Ban, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { VerificationProposal } from "@/lib/superadmin/types";
 import { getPendingVerificationSla } from "@/lib/superadmin/verificationSla";
-import { cn } from "@/lib/utils";
+import { cn, getViewerUrl } from "@/lib/utils";
 
 interface Props {
   proposal: VerificationProposal | null;
@@ -115,7 +116,11 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Verification Documents</h3>
             <div className="space-y-3">
               {proposal.documents.map((doc, index) => (
-                <a key={index} href={doc} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-teal-600 hover:bg-teal-50 transition-all group">
+                <Link 
+                  key={index} 
+                  href={getViewerUrl(doc)}
+                  className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-teal-600 hover:bg-teal-50 transition-all group"
+                >
                   <div className="flex items-center gap-3">
                     <div className="bg-slate-100 p-2 rounded-lg group-hover:bg-teal-50">
                       <FileText className="w-5 h-5 text-slate-500 group-hover:text-teal-600" />
@@ -123,7 +128,7 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
                     <span className="text-sm font-medium text-slate-900">Verification_Credential_{index + 1}.pdf</span>
                   </div>
                   <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-teal-600" />
-                </a>
+                </Link>
               ))}
             </div>
           </section>
@@ -238,6 +243,7 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
           </footer>
         )}
       </div>
+
     </div>
   );
 };

@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
-import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail } from '../services/email.service';
+import bcrypt from 'bcryptjs';
+import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail, sendHodWelcomeEmail } from '../services/email.service';
 
 const hodInclude = {
     user: {
@@ -156,5 +157,93 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * POST /coordinator/hods
+ * Coordinator manually creates an HoD account for their university.
+ * - Default password is "123456" (or coordinator-supplied password)
+ * - Account is auto-approved (coordinator vouches for them)
+ * - must_change_password = true forces password change on first login
+ * - Welcome email with credentials is sent to the HoD
+ */
+export const createHod = async (req: AuthRequest, res: Response) => {
+    try {
+        const coordinatorProfile = await prisma.coordinator.findUnique({
+            where: { userId: req.user!.userId },
+            include: { university: true, user: { select: { full_name: true } } },
+        });
+
+        if (!coordinatorProfile?.universityId) {
+            return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+        }
+
+        const { fullName, email, department, employeeId } = req.body as {
+            fullName?: string;
+            email?: string;
+            department?: string;
+            employeeId?: string;
+        };
+
+        if (!fullName?.trim() || !email?.trim() || !department?.trim()) {
+            return res.status(400).json({ error: 'fullName, email, and department are required.' });
+        }
+
+        const emailLower = email.trim().toLowerCase();
+
+        const existing = await prisma.user.findUnique({ where: { email: emailLower } });
+        if (existing) {
+            return res.status(409).json({ error: 'An account with this email already exists.' });
+        }
+
+        // Always use "123456" as the default temporary password
+        const temporaryPassword = '123456';
+        const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+        // Create user + HOD profile — auto-approved, must change password on first login
+        const newUser = await prisma.user.create({
+            data: {
+                full_name: fullName.trim(),
+                email: emailLower,
+                password_hash: passwordHash,
+                role: 'HOD',
+                verification_status: 'APPROVED',
+                institution_access_approval: 'APPROVED',
+                must_change_password: true,
+                hodProfile: {
+                    create: {
+                        universityId: coordinatorProfile.universityId,
+                        department: department.trim(),
+                        phone_number: employeeId?.trim() || null,
+                    },
+                },
+            },
+            select: {
+                id: true,
+                full_name: true,
+                email: true,
+                role: true,
+                must_change_password: true,
+                hodProfile: { select: { id: true, department: true } },
+            },
+        });
+
+        // Send welcome email with credentials (non-fatal)
+        await sendHodWelcomeEmail({
+            to: emailLower,
+            hodName: fullName.trim(),
+            department: department.trim(),
+            universityName: coordinatorProfile.university!.name,
+            temporaryPassword,
+            coordinatorName: coordinatorProfile.user.full_name,
+        });
+
+        return res.status(201).json({
+            message: 'HoD account created successfully. A welcome email with login credentials has been sent.',
+            user: newUser,
+        });
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
     }
 };

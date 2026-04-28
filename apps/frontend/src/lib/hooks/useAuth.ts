@@ -157,19 +157,40 @@ export const useAuth = create<AuthState>()(
         localStorage.removeItem('auth-storage');
       },
 
-      // ============================================
-      // REGISTER - Real API Call (multipart/form-data)
-      // ============================================
-      register: async (data: RegisterData) => {
-        set({ isLoading: true, error: null });
+  // ============================================
+  // REGISTER - Real API Call (JSON with Cloudinary URL)
+  // ============================================
+  register: async (data: RegisterData) => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      const payload = {
+        full_name: data.fullName,
+        email: data.email,
+        password: data.password,
+        role: data.role.toUpperCase(),
+        verification_document: data.verificationDocument, // Now a string URL
         
-        try {
-          // Use FormData to support file upload
-          const formData = new FormData();
-          formData.append('full_name', data.fullName);
-          formData.append('email', data.email);
-          formData.append('password', data.password);
-          formData.append('role', data.role.toUpperCase());
+        // Role-specific fields
+        ...(data.role === 'coordinator' && {
+          university_name: data.universityName,
+          position: data.position,
+        }),
+        ...(data.role === 'hod' && {
+          university_id: data.universityId,
+          department: data.department,
+          employee_id: data.employeeId,
+        }),
+        ...(data.role === 'supervisor' && {
+          company_name: data.companyName,
+          position: data.position,
+        }),
+        ...(data.role === 'student' && {
+          university_id: data.universityId,
+          hod_id: data.hodId,
+          student_id: data.studentId,
+        }),
+      };
 
           // Add role-specific fields
           if (data.role === 'coordinator') {

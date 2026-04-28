@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle, XCircle, User, Building, FileText, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { cn, getViewerUrl } from "@/lib/utils";
 import api from "@/lib/api/client";
 import CoordinatorPageHero from "../CoordinatorPageHero";
 
@@ -31,7 +32,6 @@ export default function CoordinatorApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:5000";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -149,16 +149,14 @@ export default function CoordinatorApprovalsPage() {
                     </td>
                     <td className="px-6 py-4">
                       {h.user.verification_document ? (
-                        <a
-                          href={`${backendUrl}/${h.user.verification_document.replace(/\\/g, "/")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <Link
+                          href={getViewerUrl(h.user.verification_document)}
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           <FileText className="w-4 h-4" />
                           View Doc
                           <ExternalLink className="w-3 h-3" />
-                        </a>
+                        </Link>
                       ) : (
                         <span className="text-xs text-slate-400 italic">No document</span>
                       )}

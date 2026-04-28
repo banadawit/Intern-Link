@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/api/client";
 import { AlertCircle, X } from "lucide-react";
+import { getFileUrl } from "@/lib/utils";
 
 type WeeklyPlanRow = {
   id: number;
@@ -19,10 +20,6 @@ type WeeklyPlanRow = {
   presentation: { file_url: string } | null;
 };
 
-const apiOrigin = () => {
-  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-  return base.replace(/\/api\/?$/, "");
-};
 
 export default function SupervisorPlansPage() {
   const [rows, setRows] = useState<WeeklyPlanRow[]>([]);
@@ -195,7 +192,7 @@ export default function SupervisorPlansPage() {
               <p className="text-sm text-slate-700 whitespace-pre-wrap">{selected.plan_description}</p>
               {selected.presentation?.file_url && (
                 <a
-                  href={`${apiOrigin()}/${selected.presentation.file_url.replace(/^\//, "")}`}
+                  href={getFileUrl(selected.presentation?.file_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block text-sm font-semibold text-primary-600 hover:underline"

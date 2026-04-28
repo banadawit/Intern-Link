@@ -15,11 +15,12 @@ class HodStats {
   });
 
   factory HodStats.fromJson(Map<String, dynamic> json) {
+    // Backend returns flat fields: totalStudents, pendingApprovals, placedStudents, reports (int)
     return HodStats(
-      totalStudents: (json['students']?['total'] as num?)?.toInt() ?? 0,
-      pendingApprovals: (json['students']?['pending'] as num?)?.toInt() ?? 0,
-      placedStudents: (json['students']?['placed'] as num?)?.toInt() ?? 0,
-      totalReports: (json['reports']?['total'] as num?)?.toInt() ?? 0,
+      totalStudents: (json['totalStudents'] as num?)?.toInt() ?? 0,
+      pendingApprovals: (json['pendingApprovals'] as num?)?.toInt() ?? 0,
+      placedStudents: (json['placedStudents'] as num?)?.toInt() ?? 0,
+      totalReports: (json['reports'] as num?)?.toInt() ?? 0,
     );
   }
 }

@@ -29,9 +29,9 @@ extension RegistrationRoleX on RegistrationRole {
 }
 
 class LoginResult {
-  const LoginResult({required this.token});
-
+  const LoginResult({required this.token, this.mustChangePassword = false});
   final String token;
+  final bool mustChangePassword;
 }
 
 class RegisterPayload {
@@ -48,6 +48,8 @@ class RegisterPayload {
     this.universityId,
     this.hodId,
     this.employeeId,
+    this.verificationFileBytes,
+    this.verificationFileName,
   });
 
   final String fullName;
@@ -62,4 +64,7 @@ class RegisterPayload {
   final int? universityId;
   final int? hodId;
   final String? employeeId;
+  /// Raw bytes of the verification document
+  final List<int>? verificationFileBytes;
+  final String? verificationFileName;
 }
