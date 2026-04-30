@@ -556,7 +556,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Text(time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
                       ],
                     ),
@@ -568,9 +576,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               if (unread > 0)
                 Container(
                   margin: const EdgeInsets.only(left: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFF0EA5E9), borderRadius: BorderRadius.circular(10)),
-                  child: Text(unread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
             ],
           ),
@@ -931,7 +942,8 @@ class AiMessagesNotifier extends AsyncNotifier<List<AiMessageModel>> {
     ]);
 
     try {
-      final response = await repo.sendMessage(text);
+      // Pass full conversation history so the AI has context
+      final response = await repo.sendMessage(text, history: state.value ?? []);
       state = AsyncData([
         ...state.value!,
         response,
@@ -939,7 +951,7 @@ class AiMessagesNotifier extends AsyncNotifier<List<AiMessageModel>> {
     } catch (e) {
       state = AsyncData([
         ...state.value!,
-        AiMessageModel(speaker: 'assistant', content: 'Sorry, I encountered an error: $e'),
+        AiMessageModel(speaker: 'assistant', content: 'Sorry, I encountered an error. Please try again.'),
       ]);
     }
   }

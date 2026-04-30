@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/session_service.dart';
@@ -293,15 +294,9 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
           _buildDrawerItem(
             Icons.logout_rounded,
             'Sign Out',
-            () async {
-              Navigator.pop(context);
-              // Reset navigation index before clearing session
-              ref.read(dashboardIndexProvider.notifier).state = 0;
-              await ref.read(appSessionServiceProvider).clearSession();
-              // Invalidate cached profile so the next login fetches fresh data
-              ref.invalidate(userProfileProvider);
-              ref.invalidate(appStartDecisionProvider);
-              if (context.mounted) context.go(AppRoutes.auth);
+            () {
+              Navigator.pop(context); // close drawer first
+              _showLogoutConfirmation(context, ref);
             },
             isDestructive: true,
           ),
@@ -763,6 +758,24 @@ class ModernHeaderIcon extends StatelessWidget {
 }
 
 // --- SHARED ANALYTICS WIDGETS ---
+
+/// Safely converts any JSON numeric value (int, double, String) to int.
+int _parseInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
+/// Safely converts any JSON boolean value (bool, int, String) to bool.
+bool _parseBool(dynamic v) {
+  if (v == null) return false;
+  if (v is bool) return v;
+  if (v is int) return v != 0;
+  if (v is String) return v == 'true' || v == '1';
+  return false;
+}
 
 Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
   String growthTitle = 'User Growth',
@@ -3302,7 +3315,7 @@ class _CoordinatorHomeTab extends ConsumerWidget {
                           const SizedBox(height: 16),
                           ...stats.recentNotifications.take(5).map((n) {
                             final msg = n['message'] as String? ?? '';
-                            final isRead = n['is_read'] as bool? ?? true;
+                            final isRead = _parseBool(n['is_read']);
                             final createdAt = n['created_at'] as String? ?? '';
                             Color color = Colors.blue;
                             IconData icon = Icons.notifications_rounded;
@@ -3450,6 +3463,37 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('HOD ${status.toLowerCase()} successfully.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  // ── Suspend / Activate ──────────────────────────────────────────────────────
+  Future<void> _suspend(int userId) async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).suspendHod(userId);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HOD account suspended.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _activate(int userId) async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).activateHod(userId);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HOD account activated.')),
         );
       }
     } catch (e) {
@@ -3802,7 +3846,17 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
   }) {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Error: $e\n\nCheck terminal for details.', textAlign: TextAlign.center),
+          ),
+        ],
+      )),
       data: (hods) {
         if (hods.isEmpty) {
           return Center(
@@ -3864,9 +3918,15 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
             final name = user['full_name'] as String? ?? 'Unknown';
             final email = user['email'] as String? ?? '';
             final dept = hod['department'] as String? ?? 'N/A';
-            final userId = user['id'] as int? ?? 0;
+            final userId = _parseInt(user['id']);
+            final approvalStatus = user['institution_access_approval'] as String? ?? '';
 
-            return Container(
+            return GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => HodDetailScreen(userId: userId)),
+              ),
+              child: Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -3954,12 +4014,293 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
                       ],
                     ),
                   ],
+                  if (!showActions && approvalStatus == 'APPROVED') ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => _suspend(userId),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                        child: const Text('Suspend'),
+                      ),
+                    ),
+                  ],
+                  if (!showActions && approvalStatus == 'SUSPENDED') ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => _activate(userId),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                        child: const Text('Activate'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
+            ),
             );
           },
         );
       },
+    );
+  }
+}
+
+// ── HOD Detail Screen ─────────────────────────────────────────────────────────
+class HodDetailScreen extends ConsumerStatefulWidget {
+  const HodDetailScreen({super.key, required this.userId});
+  final int userId;
+
+  @override
+  ConsumerState<HodDetailScreen> createState() => _HodDetailScreenState();
+}
+
+class _HodDetailScreenState extends ConsumerState<HodDetailScreen> {
+  Future<void> _suspend() async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).suspendHod(widget.userId);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      ref.invalidate(hodDetailProvider(widget.userId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HOD account suspended.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _activate() async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).activateHod(widget.userId);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      ref.invalidate(hodDetailProvider(widget.userId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HOD account activated.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _verify(String status, {String? reason}) async {
+    try {
+      await ref.read(coordinatorRepositoryProvider).verifyHod(widget.userId, status, reason: reason);
+      ref.invalidate(pendingHodsProvider);
+      ref.invalidate(approvedHodsProvider);
+      ref.invalidate(rejectedHodsProvider);
+      ref.invalidate(coordinatorStatsProvider);
+      ref.invalidate(hodDetailProvider(widget.userId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('HOD ${status.toLowerCase()} successfully.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _showRejectDialog() {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject HOD'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Reason (optional)'),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _verify('REJECTED', reason: ctrl.text.trim().isEmpty ? null : ctrl.text.trim());
+            },
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final detailAsync = ref.watch(hodDetailProvider(widget.userId));
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      body: detailAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.withOpacity(0.6)),
+              const SizedBox(height: 12),
+              Text('Error: $e', textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => ref.invalidate(hodDetailProvider(widget.userId)),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+        data: (hod) {
+          final fullName = hod['fullName'] as String? ?? 'Unknown';
+          final email = hod['email'] as String? ?? '';
+          final department = hod['department'] as String? ?? 'N/A';
+          final phoneNumber = hod['phoneNumber'] as String?;
+          final approvalStatus = hod['approvalStatus'] as String? ?? 'PENDING';
+          final createdAt = hod['createdAt'] as String? ?? '';
+          final studentCount = _parseInt(hod['studentCount']);
+
+          final statusColor = approvalStatus == 'APPROVED'
+              ? Colors.green
+              : approvalStatus == 'SUSPENDED'
+                  ? Colors.orange
+                  : approvalStatus == 'REJECTED'
+                      ? Colors.red
+                      : Colors.blue;
+
+          return NestedScrollView(
+            headerSliverBuilder: (ctx, _) => [
+              ModernSliverAppBar(
+                title: fullName,
+                subtitle: 'HOD Profile',
+                profileName: fullName,
+                gradient: const [Color(0xFF00F260), const Color(0xFF0575E6)],
+                backgroundIcon: Icons.school_rounded,
+              ),
+            ],
+            body: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 100),
+              children: [
+                // Status badge
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: statusColor.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      approvalStatus,
+                      style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, fontSize: 13),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Profile info card
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04)),
+                    boxShadow: [if (!isDark) BoxShadow(color: Colors.blue.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 6))],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Profile Information', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      const SizedBox(height: 16),
+                      _detailRow(Icons.person_rounded, 'Full Name', fullName, isDark),
+                      _detailRow(Icons.alternate_email_rounded, 'Email', email, isDark),
+                      _detailRow(Icons.school_rounded, 'Department', department, isDark),
+                      if (phoneNumber != null && phoneNumber.isNotEmpty)
+                        _detailRow(Icons.badge_outlined, 'Employee ID / Phone', phoneNumber, isDark),
+                      _detailRow(Icons.people_rounded, 'Students', '$studentCount', isDark),
+                      if (createdAt.isNotEmpty)
+                        _detailRow(Icons.calendar_today_rounded, 'Joined', createdAt.substring(0, 10), isDark),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Action buttons
+                if (approvalStatus == 'APPROVED')
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _suspend,
+                      icon: const Icon(Icons.block_rounded),
+                      label: const Text('Suspend Account'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                    ),
+                  ),
+                if (approvalStatus == 'SUSPENDED')
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _activate,
+                      icon: const Icon(Icons.check_circle_rounded),
+                      label: const Text('Activate Account'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                    ),
+                  ),
+                if (approvalStatus == 'PENDING') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _showRejectDialog,
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+                          child: const Text('Reject'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => _verify('APPROVED'),
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0575E6)),
+                          child: const Text('Approve'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey.shade500),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4421,18 +4762,21 @@ class _CoordinatorPlacementsTab extends ConsumerStatefulWidget {
 }
 
 class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacementsTab>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabCtrl;
+  late TabController _assignmentTabCtrl;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
+    _assignmentTabCtrl = TabController(length: 3, vsync: this);
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _assignmentTabCtrl.dispose();
     super.dispose();
   }
 
@@ -4470,8 +4814,32 @@ class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacement
         body: TabBarView(
           controller: _tabCtrl,
           children: [
-            // Active assignments
-            _buildAssignmentsList(assignmentsAsync, isDark, 'ACTIVE'),
+            // Active assignments — nested sub-tabs
+            NestedScrollView(
+              headerSliverBuilder: (ctx, _) => [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: SliverTabBarDelegate(
+                    TabBar(
+                      controller: _assignmentTabCtrl,
+                      tabs: const [Tab(text: 'Active'), Tab(text: 'Completed'), Tab(text: 'Terminated')],
+                      labelColor: const Color(0xFFFC466B),
+                      indicatorColor: const Color(0xFFFC466B),
+                      unselectedLabelColor: Colors.grey,
+                    ),
+                    isDark,
+                  ),
+                ),
+              ],
+              body: TabBarView(
+                controller: _assignmentTabCtrl,
+                children: [
+                  _buildAssignmentsList(assignmentsAsync, isDark, 'ACTIVE'),
+                  _buildAssignmentsList(assignmentsAsync, isDark, 'COMPLETED'),
+                  _buildAssignmentsList(assignmentsAsync, isDark, 'TERMINATED'),
+                ],
+              ),
+            ),
             // Proposals
             _buildProposalsList(proposalsAsync, isDark),
             // Analytics
@@ -4493,11 +4861,16 @@ class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacement
         }).toList();
 
         if (filtered.isEmpty) {
+          final emptyMsg = statusFilter == 'ACTIVE'
+              ? 'No active placements'
+              : statusFilter == 'COMPLETED'
+                  ? 'No completed placements yet'
+                  : 'No terminated placements';
           return Center(
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.work_off_rounded, size: 48, color: Colors.grey.withOpacity(0.4)),
               const SizedBox(height: 12),
-              const Text('No active placements', style: TextStyle(color: Colors.grey)),
+              Text(emptyMsg, style: const TextStyle(color: Colors.grey)),
             ]),
           );
         }
@@ -4517,7 +4890,11 @@ class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacement
               final companyName = company['name'] as String? ?? 'N/A';
               final status = a['status'] as String? ?? 'ACTIVE';
               final startDate = a['start_date'] as String? ?? '';
-              final statusColor = status == 'ACTIVE' ? Colors.green : status == 'COMPLETED' ? Colors.blue : Colors.red;
+              final statusColor = status == 'ACTIVE'
+                  ? Colors.green
+                  : status == 'COMPLETED'
+                      ? Colors.blue
+                      : Colors.red;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 14),
@@ -4845,8 +5222,9 @@ class _ReportsView extends ConsumerWidget {
               final studentUser = student['user'] as Map<String, dynamic>? ?? {};
               final name = studentUser['full_name'] as String? ?? 'Unknown';
               final dept = student['department'] as String? ?? 'N/A';
-              final stamped = r['stamped'] as bool? ?? false;
+              final stamped = _parseBool(r['stamped']);
               final generatedAt = r['generated_at'] as String? ?? '';
+              final pdfUrl = r['pdf_url'] as String?;
               final color = colors[i % colors.length];
 
               return Container(
@@ -4890,6 +5268,31 @@ class _ReportsView extends ConsumerWidget {
                         stamped ? 'Stamped' : 'Pending',
                         style: TextStyle(color: stamped ? Colors.green : Colors.orange, fontSize: 10, fontWeight: FontWeight.w800),
                       ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.download_rounded,
+                        color: pdfUrl != null && pdfUrl.isNotEmpty ? color : Colors.grey.shade300,
+                      ),
+                      onPressed: pdfUrl != null && pdfUrl.isNotEmpty
+                          ? () async {
+                              final uri = Uri.parse(pdfUrl);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Opening report…')),
+                                  );
+                                }
+                              } else {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Unable to open report. The file may not be available.')),
+                                  );
+                                }
+                              }
+                            }
+                          : null,
                     ),
                   ],
                 ),
@@ -5116,14 +5519,22 @@ class HodDashboardScreen extends StatelessWidget {
       tabs: [
         _DashboardTab(label: 'Overview', icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, view: _HodOverviewTab()),
         _DashboardTab(label: 'Students', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _HodStudentsTab()),
-        _DashboardTab(label: 'Placement', icon: Icons.business_center_outlined, activeIcon: Icons.business_center_rounded, view: _HodPlacementTab()),
-        _DashboardTab(label: 'Directory', icon: Icons.corporate_fare_rounded, activeIcon: Icons.corporate_fare_rounded, view: _HodDirectoryTab()),
-        _DashboardTab(label: 'Tools', icon: Icons.apps_rounded, activeIcon: Icons.apps_rounded, view: _HodToolsTab()),
+        _DashboardTab(label: 'Proposals', icon: Icons.send_outlined, activeIcon: Icons.send_rounded, view: _HodProposalsTab(), hideGlobalFab: true),
+        _DashboardTab(label: 'Tracking', icon: Icons.track_changes_outlined, activeIcon: Icons.track_changes_rounded, view: _HodTrackingTab()),
+        _DashboardTab(label: 'Reports', icon: Icons.description_outlined, activeIcon: Icons.description_rounded, view: _HodReportsTab()),
       ],
     );
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// HOD TABS — fully wired to real backend
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HOD TABS — fully wired to real backend
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Overview ──────────────────────────────────────────────────────────────────
 class _HodOverviewTab extends ConsumerWidget {
   const _HodOverviewTab();
 
@@ -5131,7 +5542,7 @@ class _HodOverviewTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final statsAsync = ref.watch(hodStatsProvider);
+    final statsAsync = ref.watch(hodEnhancedStatsProvider);
     final profileAsync = ref.watch(userProfileProvider);
 
     return Material(
@@ -5142,80 +5553,44 @@ class _HodOverviewTab extends ConsumerWidget {
         data: (profile) => statsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
-          data: (stats) => Stack(
-            children: [
-              Positioned(
-                top: -100,
-                left: -50,
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [const Color(0xFF8E2DE2).withOpacity(0.15), Colors.transparent],
-                    ),
+          data: (stats) => RefreshIndicator(
+            onRefresh: () async => ref.invalidate(hodEnhancedStatsProvider),
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                ModernSliverAppBar(
+                  title: 'Dashboard',
+                  subtitle: 'Department Level Insights',
+                  profileName: profile.fullName,
+                  gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                  backgroundIcon: Icons.analytics_rounded,
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildStatGrid(context, stats, isDark),
+                      const SizedBox(height: 16),
+                      _buildRateRow(context, stats, isDark),
+                      const SizedBox(height: 24),
+                      _buildAlertsSection(context, ref, stats, isDark),
+                      const SizedBox(height: 24),
+                      _buildTrendChart(context, stats, isDark),
+                      const SizedBox(height: 24),
+                      FeedPreviewSection(),
+                      const SizedBox(height: 120),
+                    ]),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: -50,
-                right: -50,
-                child: Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [const Color(0xFF4A00E0).withOpacity(0.15), Colors.transparent],
-                    ),
-                  ),
-                ),
-              ),
-              CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  ModernSliverAppBar(
-                    title: 'Dashboard',
-                    subtitle: 'Department Level Insights',
-                    profileName: profile.fullName,
-                    gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-                    backgroundIcon: Icons.analytics_rounded,
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.all(24),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        _buildStatGrid(context, stats, isDark),
-                        const SizedBox(height: 32),
-                        Text('Department Analytics', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 16),
-                        _buildPlatformAnalytics(context, isDark,
-                          growthTitle: 'Students', growthTrend: '${stats.totalStudents} Enrolled',
-                          placementTitle: 'Placements', placementSub: '${stats.placedStudents} Placed',
-                          successTitle: 'Submission Rate', successRate: stats.totalStudents > 0 ? (stats.totalReports / (stats.totalStudents * 4)).clamp(0.0, 1.0) : 0.0,
-                          submissionTitle: 'Pending Approvals', submissionSub: '${stats.pendingApprovals} Pending'
-                        ),
-                        FeedPreviewSection(),
-                        const SizedBox(height: 32),
-                        Text('Recent Reports', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 16),
-                        _buildActivityItem(context, 'Student Activity', 'Monitoring department progress', 'Just now', Colors.blue),
-                        _buildActivityItem(context, 'Reports', 'Processing weekly submissions', '2h ago', Colors.green),
-                        const SizedBox(height: 120),
-                      ]),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatGrid(BuildContext context, HodStats stats, bool isDark) {
+  Widget _buildStatGrid(BuildContext context, HodEnhancedStats stats, bool isDark) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -5232,6 +5607,130 @@ class _HodOverviewTab extends ConsumerWidget {
     );
   }
 
+  Widget _buildRateRow(BuildContext context, HodEnhancedStats stats, bool isDark) {
+    return Row(children: [
+      Expanded(child: _rateCard('Placement', '${stats.placementRate.toStringAsFixed(1)}%', Colors.teal, isDark)),
+      const SizedBox(width: 10),
+      Expanded(child: _rateCard('Approval', '${stats.approvalSuccessRate.toStringAsFixed(1)}%', Colors.indigo, isDark)),
+      const SizedBox(width: 10),
+      Expanded(child: _rateCard('Reports', '${stats.reportsCompletionRate.toStringAsFixed(1)}%', Colors.deepOrange, isDark)),
+    ]);
+  }
+
+  Widget _rateCard(String label, String value, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(children: [
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold)),
+      ]),
+    );
+  }
+
+  Widget _buildAlertsSection(BuildContext context, WidgetRef ref, HodEnhancedStats stats, bool isDark) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.notifications_active_rounded, size: 18, color: Colors.orange),
+        const SizedBox(width: 8),
+        Text('Alerts', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        const Spacer(),
+        if (stats.alerts.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(10)),
+            child: Text('${stats.alerts.length}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+          ),
+      ]),
+      const SizedBox(height: 12),
+      if (stats.alerts.isEmpty)
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.green.withOpacity(0.2)),
+          ),
+          child: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Colors.green, size: 18),
+            SizedBox(width: 10),
+            Text('All clear — no alerts', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+          ]),
+        )
+      else
+        ...stats.alerts.map((a) => _buildAlertCard(context, ref, a, isDark)),
+    ]);
+  }
+
+  Widget _buildAlertCard(BuildContext context, WidgetRef ref, HodAlert alert, bool isDark) {
+    final color = alert.type == 'UNPLACED' ? Colors.orange
+        : alert.type == 'NEEDS_REASSIGNMENT' ? Colors.red
+        : alert.type == 'INACTIVE' ? Colors.blue
+        : Colors.purple;
+    final icon = alert.type == 'UNPLACED' ? Icons.person_off_rounded
+        : alert.type == 'NEEDS_REASSIGNMENT' ? Icons.assignment_late_rounded
+        : alert.type == 'INACTIVE' ? Icons.bedtime_rounded
+        : Icons.schedule_rounded;
+    final tabIndex = (alert.type == 'UNPLACED' || alert.type == 'NEEDS_REASSIGNMENT') ? 1 : 3;
+
+    return GestureDetector(
+      onTap: () => ref.read(dashboardIndexProvider.notifier).state = tabIndex,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 10),
+          Expanded(child: Text(alert.message, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600))),
+          Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.5), size: 16),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildTrendChart(BuildContext context, HodEnhancedStats stats, bool isDark) {
+    if (stats.weeklyPlacementTrend.isEmpty) return const SizedBox.shrink();
+    final maxCount = stats.weeklyPlacementTrend.map((p) => p.count).fold(0, (a, b) => a > b ? a : b);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Weekly Placement Trend', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 12),
+      SizedBox(
+        height: 90,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: stats.weeklyPlacementTrend.map((p) {
+            final ratio = maxCount > 0 ? p.count / maxCount : 0.0;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  if (p.count > 0) Text('${p.count}', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.teal)),
+                  const SizedBox(height: 2),
+                  Container(
+                    height: 70 * ratio + 4,
+                    decoration: BoxDecoration(color: Colors.teal.withOpacity(0.7), borderRadius: BorderRadius.circular(3)),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(p.weekLabel, style: const TextStyle(fontSize: 8, color: Colors.grey)),
+                ]),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    ]);
+  }
+
   Widget _statCard(String label, String value, IconData icon, Color color, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -5241,627 +5740,1312 @@ class _HodOverviewTab extends ConsumerWidget {
         border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
         boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
-            ),
-            child: Icon(icon, color: Colors.white, size: 20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+            borderRadius: BorderRadius.circular(14),
           ),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1)),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
-        ],
-      ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+        const Spacer(),
+        Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1)),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+      ]),
     );
   }
 }
 
-class _HodStudentsTab extends ConsumerWidget {
+// ── Students ──────────────────────────────────────────────────────────────────
+class _HodStudentsTab extends ConsumerStatefulWidget {
   const _HodStudentsTab();
+  @override
+  ConsumerState<_HodStudentsTab> createState() => _HodStudentsTabState();
+}
+
+class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
+  String _filter = 'all';
+  bool _selectMode = false;
+  final Set<int> _selected = {};
+  static const _filters = ['all', 'pending', 'approved', 'rejected'];
+
+  Future<void> _approve(int studentId) async {
+    try {
+      await ref.read(hodRepositoryProvider).approveStudent(studentId);
+      ref.invalidate(hodStudentsProvider(_filter));
+      ref.invalidate(hodEnhancedStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student approved ✓')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _reject(int studentId) async {
+    final ctrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Rejection Reason'),
+        content: TextField(controller: ctrl, decoration: const InputDecoration(hintText: 'Optional reason…'), maxLines: 3),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: const Text('Reject')),
+        ],
+      ),
+    );
+    if (reason == null) return;
+    try {
+      await ref.read(hodRepositoryProvider).rejectStudent(studentId, reason: reason);
+      ref.invalidate(hodStudentsProvider(_filter));
+      ref.invalidate(hodEnhancedStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student rejected')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _bulkApprove() async {
+    if (_selected.isEmpty) return;
+    try {
+      final result = await ref.read(hodRepositoryProvider).bulkApproveStudents(_selected.toList());
+      final approved = (result['approved'] as List?)?.length ?? 0;
+      ref.invalidate(hodStudentsProvider(_filter));
+      ref.invalidate(hodEnhancedStatsProvider);
+      setState(() { _selected.clear(); _selectMode = false; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$approved students approved ✓')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _reprocess(int studentId) async {
+    try {
+      await ref.read(hodRepositoryProvider).reprocessStudent(studentId);
+      ref.invalidate(hodStudentsProvider(_filter));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student reset to Pending')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _showFlagSheet(int studentId, String? currentFlag) {
+    final noteCtrl = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Flag Student', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 16),
+            if (currentFlag != null)
+              ListTile(
+                leading: const Icon(Icons.flag_outlined, color: Colors.grey),
+                title: const Text('Remove Flag'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ref.read(hodRepositoryProvider).unflagStudent(studentId);
+                  ref.invalidate(hodStudentsProvider(_filter));
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.trending_down_rounded, color: Colors.orange),
+              title: const Text('Low Performance'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await ref.read(hodRepositoryProvider).flagStudent(studentId, 'LOW_PERFORMANCE', note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim());
+                ref.invalidate(hodStudentsProvider(_filter));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bedtime_rounded, color: Colors.blue),
+              title: const Text('Inactive'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await ref.read(hodRepositoryProvider).flagStudent(studentId, 'INACTIVE', note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim());
+                ref.invalidate(hodStudentsProvider(_filter));
+              },
+            ),
+            TextField(controller: noteCtrl, decoration: const InputDecoration(hintText: 'Optional note…', border: OutlineInputBorder()), maxLines: 2),
+            const SizedBox(height: 8),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _showTimeline(int studentId, String studentName) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final timelineAsync = ref.watch(hodStudentTimelineProvider(studentId));
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Timeline: $studentName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: timelineAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (events) => ListView.builder(
+                    itemCount: events.length,
+                    itemBuilder: (ctx, i) {
+                      final e = events[i];
+                      final state = e['state']?.toString() ?? '';
+                      final ts = e['timestamp']?.toString() ?? '';
+                      final dt = DateTime.tryParse(ts);
+                      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Column(children: [
+                          Container(width: 12, height: 12, decoration: const BoxDecoration(color: Colors.teal, shape: BoxShape.circle)),
+                          if (i < events.length - 1) Container(width: 2, height: 40, color: Colors.teal.withOpacity(0.3)),
+                        ]),
+                        const SizedBox(width: 12),
+                        Expanded(child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(state, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                            if (dt != null) Text(timeago.format(dt), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          ]),
+                        )),
+                      ]);
+                    },
+                  ),
+                ),
+              ),
+            ]),
+          );
+        },
+      ),
+    );
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final studentsAsync = ref.watch(hodStudentsProvider(_filter));
+
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF00b09b).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF96c93d).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          CustomScrollView(
-            slivers: [
+      child: CustomScrollView(
+        slivers: [
           ModernSliverAppBar(
             title: 'Students',
             subtitle: 'Department Enrollment',
             profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
             gradient: const [Color(0xFF00b09b), Color(0xFF96c93d)],
             backgroundIcon: Icons.person_search_rounded,
+            actions: [
+              if (_selectMode)
+                TextButton(
+                  onPressed: _bulkApprove,
+                  child: Text('Approve (${_selected.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                ),
+              IconButton(
+                icon: Icon(_selectMode ? Icons.close_rounded : Icons.checklist_rounded, color: Colors.white),
+                onPressed: () => setState(() { _selectMode = !_selectMode; _selected.clear(); }),
+              ),
+            ],
           ),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
             sliver: SliverToBoxAdapter(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
                 child: Row(
-                  children: [
-                    _filterChip('All', true, isDark),
-                    _filterChip('Pending', false, isDark),
-                    _filterChip('Placed', false, isDark),
-                    _filterChip('Unplaced', false, isDark),
-                  ],
+                  children: _filters.map((f) {
+                    final sel = _filter == f;
+                    return GestureDetector(
+                      onTap: () => setState(() => _filter = f),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: sel ? const Color(0xFF00b09b) : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: sel ? const Color(0xFF00b09b) : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05))),
+                        ),
+                        child: Text(f[0].toUpperCase() + f.substring(1), style: TextStyle(color: sel ? Colors.white : (isDark ? Colors.white70 : Colors.black87), fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _buildStudentItem(context, 'Abebe Bikila', 'PLACED', 'Global Tech Inc.', isDark),
-                _buildStudentItem(context, 'Sara Girma', 'PENDING', 'None', isDark),
-                _buildStudentItem(context, 'Desta Kasaye', 'UNPLACED', 'None', isDark),
-                const SizedBox(height: 120),
-              ]),
-            ),
-          ),
-            ],
+          studentsAsync.when(
+            loading: () => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
+            error: (e, _) => SliverFillRemaining(child: Center(child: Text('Error: $e'))),
+            data: (students) {
+              if (students.isEmpty) {
+                return SliverFillRemaining(child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.people_outline_rounded, size: 64, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text('No students found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                ])));
+              }
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
+                sliver: SliverList(delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => _buildStudentCard(students[i], isDark),
+                  childCount: students.length,
+                )),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _filterChip(String label, bool isSelected, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.green : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isSelected ? Colors.green : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05))),
-      ),
-      child: Text(label, style: TextStyle(color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87), fontWeight: FontWeight.bold, fontSize: 12)),
-    );
-  }
+  Widget _buildStudentCard(Map<String, dynamic> s, bool isDark) {
+    try {
+    final user = s['user'] as Map<String, dynamic>? ?? {};
+    final name = (user['full_name'] ?? '').toString();
+    final email = (user['email'] ?? '').toString();
+    final hodStatus = (s['hod_approval_status'] ?? 'PENDING').toString();
+    final internStatus = (s['internship_status'] ?? 'PENDING').toString();
+    final studentId = _parseInt(s['id']);
+    final department = (s['department'] ?? '').toString();
+    final flagType = s['flag_type']?.toString();
 
-  Widget _buildStudentItem(BuildContext context, String name, String status, String company, bool isDark) {
-    Color statusColor = status == 'PLACED' ? Colors.green : (status == 'PENDING' ? Colors.orange : Colors.red);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: statusColor.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
+    Color statusColor = hodStatus == 'APPROVED' ? Colors.green : hodStatus == 'REJECTED' ? Colors.red : Colors.orange;
+    final isSelected = _selected.contains(studentId);
+
+    return GestureDetector(
+      onTap: _selectMode ? () => setState(() { if (isSelected) _selected.remove(studentId); else _selected.add(studentId); }) : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.teal.withOpacity(0.1) : (isDark ? Colors.white.withOpacity(0.03) : Colors.white),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: isSelected ? Colors.teal : (isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05))),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            if (_selectMode)
+              Checkbox(value: isSelected, onChanged: (v) => setState(() { if (v == true) _selected.add(studentId); else _selected.remove(studentId); }))
+            else
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [statusColor.withOpacity(0.8), statusColor]),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: statusColor.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
-                ),
-                child: Text(name[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(gradient: LinearGradient(colors: [statusColor.withOpacity(0.8), statusColor]), borderRadius: BorderRadius.circular(14)),
+                child: Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
               ),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(company, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 13, fontWeight: FontWeight.w500))])),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Text(status, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w900))),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              if (status == 'PENDING') ...[
-                Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('Reject'))),
-                const SizedBox(width: 12),
-                Expanded(child: FilledButton(onPressed: () {}, child: const Text('Approve'))),
-              ] else if (status == 'UNPLACED') ...[
-                Expanded(child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.send_rounded, size: 16), label: const Text('Send Proposal'))),
-              ] else ...[
-                Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('View Profile'))),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HodPlacementTab extends ConsumerWidget {
-  const _HodPlacementTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFf857a6).withOpacity(0.15), Colors.transparent],
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+              Text(email, style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 11), overflow: TextOverflow.ellipsis),
+              if (department.isNotEmpty) Text(department, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+            ])),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(hodStatus, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900))),
+              const SizedBox(height: 4),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(
+                  icon: Icon(flagType != null ? Icons.flag_rounded : Icons.flag_outlined, size: 16, color: flagType != null ? Colors.orange : Colors.grey),
+                  onPressed: () => _showFlagSheet(studentId, flagType),
+                  padding: EdgeInsets.zero, constraints: const BoxConstraints(),
                 ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFff5858).withOpacity(0.15), Colors.transparent],
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.timeline_rounded, size: 16, color: Colors.teal),
+                  onPressed: () => _showTimeline(studentId, name),
+                  padding: EdgeInsets.zero, constraints: const BoxConstraints(),
                 ),
-              ),
-            ),
-          ),
-          CustomScrollView(
-            slivers: [
-          ModernSliverAppBar(
-            title: 'Placements',
-            subtitle: 'Proposals & Open Letters',
-            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
-            gradient: const [Color(0xFFf857a6), Color(0xFFff5858)],
-            backgroundIcon: Icons.business_center_rounded,
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _sectionTitle('Active Proposals'),
-                _buildProposalCard('Software Intern', 'Google Ethiopia', 'Reviewing', Colors.blue, isDark),
-                const SizedBox(height: 24),
-                _sectionTitle('Open Letter Requests'),
-                _buildOpenLetterCard('Abebe Bikila', 'Requesting placement at Ethio Telecom', isDark),
-                const SizedBox(height: 120),
               ]),
-            ),
-          ),
-            ],
-          ),
-        ],
+            ]),
+          ]),
+          if (!_selectMode) ...[
+            const SizedBox(height: 12),
+            if (hodStatus == 'PENDING')
+              Row(children: [
+                Expanded(child: OutlinedButton(onPressed: () => _reject(studentId), style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)), child: const Text('Reject'))),
+                const SizedBox(width: 10),
+                Expanded(child: FilledButton(onPressed: () => _approve(studentId), style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00b09b)), child: const Text('Approve'))),
+              ])
+            else if (hodStatus == 'APPROVED' && internStatus != 'PLACED')
+              SizedBox(width: double.infinity, child: FilledButton.icon(
+                onPressed: () => _showSendProposalSheet(context, studentId, name),
+                icon: const Icon(Icons.send_rounded, size: 14),
+                label: const Text('Send Proposal'),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00b09b)),
+              ))
+            else if (hodStatus == 'REJECTED')
+              SizedBox(width: double.infinity, child: OutlinedButton(
+                onPressed: () => _reprocess(studentId),
+                child: const Text('Reprocess (Reset to Pending)'),
+              )),
+          ],
+        ]),
       ),
     );
+    } catch (e) {
+      return Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Text('Parse error: $e', style: const TextStyle(fontSize: 11, color: Colors.red)));
+    }
   }
 
-  Widget _sectionTitle(String title) => Padding(padding: const EdgeInsets.only(bottom: 16), child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)));
-
-  Widget _buildProposalCard(String title, String company, String status, Color color, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
-            ),
-            child: const Icon(Icons.work_rounded, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(company, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Text(status, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOpenLetterCard(String student, String reason, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Colors.orangeAccent, Colors.deepOrange]),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
-                ),
-                child: Text(student[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(student, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text('Open Letter Request', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(reason, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14, height: 1.5)),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: OutlinedButton(onPressed: () {}, child: const Text('Reject'))),
-              const SizedBox(width: 16),
-              Expanded(child: FilledButton(onPressed: () {}, child: const Text('Approve'))),
-            ],
-          ),
-        ],
-      ),
-    );
+  void _showSendProposalSheet(BuildContext context, int studentId, String studentName) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _SendProposalSheet(studentId: studentId, studentName: studentName),
+    ).then((_) {
+      ref.invalidate(hodStudentsProvider(_filter));
+      ref.invalidate(hodProposalsProvider);
+      ref.invalidate(hodEnhancedStatsProvider);
+    });
   }
 }
 
-class _HodDirectoryTab extends ConsumerWidget {
-  const _HodDirectoryTab();
-
+// ── Send Proposal Bottom Sheet ────────────────────────────────────────────────
+class _SendProposalSheet extends ConsumerStatefulWidget {
+  /// For individual proposals from Students tab, pass studentId + studentName.
+  /// For team proposals from Proposals tab FAB, pass studentId=0 and studentName=''.
+  final int studentId;
+  final String studentName;
+  const _SendProposalSheet({required this.studentId, required this.studentName});
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF1fa2ff).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF12d8fa).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          CustomScrollView(
-            slivers: [
-          ModernSliverAppBar(
-            title: 'Directory',
-            subtitle: 'Company Partners',
-            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
-            gradient: const [Color(0xFF1fa2ff), Color(0xFF12d8fa)],
-            backgroundIcon: Icons.corporate_fare_rounded,
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _buildCompanyCard('Ethio Telecom', 'Telecommunications', '5 Active Interns', isDark),
-                _buildCompanyCard('Commercial Bank of Ethiopia', 'Finance', '12 Active Interns', isDark),
-                _buildCompanyCard('SafaryCom', 'Telecom', '8 Active Interns', isDark),
-                const SizedBox(height: 24),
-                SizedBox(width: double.infinity, height: 56, child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.add_rounded), label: const Text('Invite New Company'))),
-                const SizedBox(height: 120),
-              ]),
-            ),
-          ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompanyCard(String name, String sector, String interns, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: Colors.blue.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF1fa2ff), Color(0xFF12d8fa)]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
-            ),
-            child: const Icon(Icons.business_rounded, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(sector, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(interns, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 11))),
-        ],
-      ),
-    );
-  }
+  ConsumerState<_SendProposalSheet> createState() => _SendProposalSheetState();
 }
 
-class _HodToolsTab extends ConsumerStatefulWidget {
-  const _HodToolsTab();
-
-  @override
-  ConsumerState<_HodToolsTab> createState() => _HodToolsTabState();
-}
-
-class _HodToolsTabState extends ConsumerState<_HodToolsTab> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
+class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
+  bool _isTeam = false;
+  int? _selectedCompanyId;
+  int? _selectedLeadStudentId;
+  String _selectedLeadStudentName = '';
+  final List<Map<String, dynamic>> _teamMembers = []; // additional members
+  final _teamNameCtrl = TextEditingController();
+  final _outcomesCtrl = TextEditingController();
+  int _weeks = 12;
+  bool _loading = false;
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _outcomesCtrl.dispose();
+    _teamNameCtrl.dispose();
     super.dispose();
+  }
+
+  bool get _isIndividualMode => widget.studentId > 0 && !_isTeam;
+
+  Future<void> _submit() async {
+    if (_selectedCompanyId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a company')));
+      return;
+    }
+
+    if (_isTeam) {
+      // Team proposal: need lead + at least 1 more member
+      final leadId = _selectedLeadStudentId ?? (widget.studentId > 0 ? widget.studentId : null);
+      if (leadId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a lead student')));
+        return;
+      }
+      if (_teamMembers.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least one more team member')));
+        return;
+      }
+      final allIds = [leadId, ..._teamMembers.map((m) => _parseInt(m['id']))];
+      setState(() => _loading = true);
+      try {
+        await ref.read(hodRepositoryProvider).sendTeamProposal(
+          studentIds: allIds,
+          companyId: _selectedCompanyId!,
+          teamName: _teamNameCtrl.text.trim().isNotEmpty ? _teamNameCtrl.text.trim() : 'Team Proposal',
+          expectedDurationWeeks: _weeks,
+          expectedOutcomes: _outcomesCtrl.text.trim().isNotEmpty ? _outcomesCtrl.text.trim() : null,
+        );
+        if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Team proposal sent ✓'))); }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
+    } else {
+      // Individual proposal
+      final sid = widget.studentId > 0 ? widget.studentId : _selectedLeadStudentId;
+      if (sid == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a student')));
+        return;
+      }
+      setState(() => _loading = true);
+      try {
+        await ref.read(hodRepositoryProvider).sendProposal(
+          studentId: sid,
+          companyId: _selectedCompanyId!,
+          expectedDurationWeeks: _weeks,
+          expectedOutcomes: _outcomesCtrl.text.trim().isNotEmpty ? _outcomesCtrl.text.trim() : null,
+        );
+        if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Proposal sent ✓'))); }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
+    }
+  }
+
+  void _showStudentPicker({required bool isLead}) {
+    final studentsAsync = ref.read(hodStudentsProvider('approved'));
+    studentsAsync.whenData((students) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(isLead ? 'Select Lead Student' : 'Add Team Member', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: students.length,
+                itemBuilder: (ctx, i) {
+                  final s = students[i];
+                  final user = s['user'] as Map<String, dynamic>? ?? {};
+                  final name = user['full_name']?.toString() ?? 'Student';
+                  final sid = _parseInt(s['id']);
+                  // Skip already selected members
+                  final alreadyAdded = _teamMembers.any((m) => _parseInt(m['id']) == sid) || sid == _selectedLeadStudentId;
+                  if (alreadyAdded) return const SizedBox.shrink();
+                  return ListTile(
+                    leading: CircleAvatar(child: Text(name.isNotEmpty ? name[0] : '?')),
+                    title: Text(name),
+                    subtitle: Text(s['department']?.toString() ?? ''),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        if (isLead) {
+                          _selectedLeadStudentId = sid;
+                          _selectedLeadStudentName = name;
+                        } else {
+                          _teamMembers.add({'id': sid, 'name': name});
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ]),
+        ),
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final companiesAsync = ref.watch(hodCompaniesProvider(''));
 
-    return Material(
-      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFa18cd1).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFfbc2eb).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              ModernSliverAppBar(
-                title: 'Tools & Insights',
-                subtitle: 'Reports, AI & Messages',
-                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
-                gradient: const [Color(0xFFa18cd1), Color(0xFFfbc2eb)],
-                backgroundIcon: Icons.apps_rounded,
-              ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: SliverTabBarDelegate(
-                  TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    labelColor: isDark ? Colors.white : Colors.black87,
-                    unselectedLabelColor: Colors.grey,
-                    indicator: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tabs: const [
-                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Reports'))),
-                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Messages'))),
-                      Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('AI Assistant'))),
-                    ],
+    return Container(
+      padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(context).viewInsets.bottom + 24),
+      decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 16),
+          const Text('New Proposal', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 12),
+
+          // Individual / Team toggle (only show when not pre-filled with a student)
+          if (widget.studentId <= 0) ...[
+            Row(children: [
+              Expanded(child: GestureDetector(
+                onTap: () => setState(() => _isTeam = false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: !_isTeam ? const Color(0xFF00b09b) : Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  isDark,
+                  child: Center(child: Text('Individual', style: TextStyle(color: !_isTeam ? Colors.white : Colors.grey, fontWeight: FontWeight.bold))),
                 ),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: GestureDetector(
+                onTap: () => setState(() => _isTeam = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _isTeam ? const Color(0xFFf857a6) : Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(child: Text('Team / Group', style: TextStyle(color: _isTeam ? Colors.white : Colors.grey, fontWeight: FontWeight.bold))),
+                ),
+              )),
+            ]),
+            const SizedBox(height: 16),
+          ],
+
+          // Student display (pre-filled individual)
+          if (widget.studentId > 0 && !_isTeam)
+            Text('For: ${widget.studentName}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+
+          // Lead student picker (when from Proposals FAB)
+          if (widget.studentId <= 0) ...[
+            GestureDetector(
+              onTap: () => _showStudentPicker(isLead: true),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.person_rounded, color: Colors.grey, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(
+                    _selectedLeadStudentName.isNotEmpty ? _selectedLeadStudentName : (_isTeam ? 'Select Lead Student *' : 'Select Student *'),
+                    style: TextStyle(color: _selectedLeadStudentName.isNotEmpty ? null : Colors.grey),
+                  )),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
+                ]),
               ),
-            ],
-            body: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildReportsView(isDark),
-                _buildMessagesView(isDark),
-                _buildAiAssistantView(isDark),
-              ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            const SizedBox(height: 12),
+          ],
 
-  Widget _buildReportsView(bool isDark) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        const Text('Department Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 16),
-        _buildReportCard('Weekly Placement Report', 'Generated 2 days ago', Icons.pie_chart_rounded, Colors.purple, isDark),
-        _buildReportCard('Final Evaluations (Semester 2)', 'Generated last week', Icons.assessment_rounded, Colors.green, isDark),
-        _buildReportCard('Company Feedback Summary', 'Generated 1 month ago', Icons.feedback_rounded, Colors.orange, isDark),
-        const SizedBox(height: 120),
-      ],
-    );
-  }
-
-  Widget _buildReportCard(String title, String subtitle, IconData icon, Color color, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+          // Team name + members (team mode)
+          if (_isTeam) ...[
+            TextField(
+              controller: _teamNameCtrl,
+              decoration: InputDecoration(labelText: 'Team Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)), const SizedBox(height: 4), Text(subtitle, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13, fontWeight: FontWeight.w500))])),
-          IconButton(onPressed: () {}, icon: Icon(Icons.download_rounded, color: color)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessagesView(bool isDark) {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        const Text('Recent Broadcasts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 16),
-        _buildMessageCard('Important Update: Final Reports Due', 'Please remind all students to submit...', 'Coordinator', Colors.red, isDark),
-        _buildMessageCard('New Company Added to Directory', 'SafaryCom has officially joined...', 'Admin', Colors.blue, isDark),
-        const SizedBox(height: 24),
-        SizedBox(width: double.infinity, height: 56, child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.campaign_rounded), label: const Text('New Broadcast'))),
-        const SizedBox(height: 120),
-      ],
-    );
-  }
-
-  Widget _buildMessageCard(String title, String preview, String sender, Color color, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(sender, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10))),
-              const Spacer(),
-              Text('2h ago', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11)),
+            const SizedBox(height: 12),
+            // Team members list
+            if (_teamMembers.isNotEmpty) ...[
+              const Text('Team Members:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              ..._teamMembers.map((m) => Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(color: const Color(0xFFf857a6).withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+                child: Row(children: [
+                  const Icon(Icons.person_rounded, size: 14, color: Color(0xFFf857a6)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(m['name']?.toString() ?? 'Student', style: const TextStyle(fontSize: 13))),
+                  GestureDetector(
+                    onTap: () => setState(() => _teamMembers.remove(m)),
+                    child: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
+                  ),
+                ]),
+              )),
+              const SizedBox(height: 6),
             ],
+            OutlinedButton.icon(
+              onPressed: () => _showStudentPicker(isLead: false),
+              icon: const Icon(Icons.person_add_rounded, size: 16),
+              label: const Text('Add Team Member'),
+              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFf857a6), side: const BorderSide(color: Color(0xFFf857a6))),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Company picker
+          companiesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('Error: $e'),
+            data: (companies) => DropdownButtonFormField<int>(
+              value: _selectedCompanyId,
+              decoration: InputDecoration(labelText: 'Select Company', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+              items: companies.map((c) => DropdownMenuItem<int>(value: _parseInt(c['id']), child: Text(c['name']?.toString() ?? 'Company', overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (v) => setState(() => _selectedCompanyId = v),
+            ),
           ),
           const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-          const SizedBox(height: 4),
-          Text(preview, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14)),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildAiAssistantView(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFa18cd1), Color(0xFFfbc2eb)]),
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: const Color(0xFFfbc2eb).withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 10))],
-            ),
-            child: const Icon(Icons.smart_toy_rounded, size: 64, color: Colors.white),
-          ),
-          const SizedBox(height: 32),
-          const Text('HOD Smart Assistant', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+          // Duration
+          Row(children: [
+            const Text('Duration (weeks):', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Spacer(),
+            IconButton(icon: const Icon(Icons.remove_circle_outline_rounded), onPressed: () { if (_weeks > 4) setState(() => _weeks--); }),
+            Text('$_weeks', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            IconButton(icon: const Icon(Icons.add_circle_outline_rounded), onPressed: () { if (_weeks < 52) setState(() => _weeks++); }),
+          ]),
+
+          TextField(controller: _outcomesCtrl, decoration: InputDecoration(labelText: 'Expected Outcomes (optional)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), maxLines: 2),
           const SizedBox(height: 16),
-          const Text('Generate placement reports, draft emails to companies, and analyze student performance instantly.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 16)),
-          const SizedBox(height: 32),
-          SizedBox(width: double.infinity, height: 56, child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.chat_bubble_rounded), label: const Text('Start New Chat'))),
-        ],
+
+          SizedBox(width: double.infinity, height: 52, child: FilledButton(
+            onPressed: _loading ? null : _submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: _isTeam ? const Color(0xFFf857a6) : const Color(0xFF00b09b),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: _loading
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text(_isTeam ? 'Send Team Proposal' : 'Send Proposal'),
+          )),
+        ]),
       ),
     );
   }
 }
 
+// ── Proposals ─────────────────────────────────────────────────────────────────
+class _HodProposalsTab extends ConsumerStatefulWidget {
+  const _HodProposalsTab();
+  @override
+  ConsumerState<_HodProposalsTab> createState() => _HodProposalsTabState();
+}
+
+class _HodProposalsTabState extends ConsumerState<_HodProposalsTab> {
+  String _statusFilter = 'ALL';
+  static const _statuses = ['ALL', 'DRAFT', 'SENT', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+
+  Future<void> _transition(int proposalId, String targetState) async {
+    try {
+      await ref.read(hodRepositoryProvider).transitionProposalState(proposalId, targetState);
+      ref.invalidate(hodProposalsFilteredProvider(_statusFilter));
+      ref.invalidate(hodEnhancedStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Proposal → $targetState ✓')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _approveOpenLetter(int id) async {
+    try {
+      await ref.read(hodRepositoryProvider).updateOpenLetter(id, 'APPROVED');
+      ref.invalidate(hodProposalsFilteredProvider(_statusFilter));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open letter approved ✓')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _rejectOpenLetter(int id) async {
+    try {
+      await ref.read(hodRepositoryProvider).updateOpenLetter(id, 'REJECTED');
+      ref.invalidate(hodProposalsFilteredProvider(_statusFilter));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open letter rejected')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _showProposalDetail(Map<String, dynamic> p, bool isDark) {
+    final id = _parseInt(p['id']);
+    final status = (p['status'] ?? 'PENDING').toString();
+    final isOpenLetter = (p['proposal_type'] ?? '').toString() == 'Open_Letter';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.55,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 16),
+          Text('Proposal Details', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          Text('Status: $status', style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 16),
+          const Text('Actions', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          if (isOpenLetter && status == 'PENDING') ...[
+            Row(children: [
+              Expanded(child: OutlinedButton(onPressed: () { Navigator.pop(ctx); _rejectOpenLetter(id); }, style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)), child: const Text('Reject'))),
+              const SizedBox(width: 12),
+              Expanded(child: FilledButton(onPressed: () { Navigator.pop(ctx); _approveOpenLetter(id); }, style: FilledButton.styleFrom(backgroundColor: Colors.green), child: const Text('Approve'))),
+            ]),
+          ] else ...[
+            if (status == 'DRAFT') ...[
+              Row(children: [
+                Expanded(child: OutlinedButton(onPressed: () { Navigator.pop(ctx); _transition(id, 'CANCELLED'); }, child: const Text('Cancel'))),
+                const SizedBox(width: 12),
+                Expanded(child: FilledButton(onPressed: () { Navigator.pop(ctx); _transition(id, 'SENT'); }, child: const Text('Send'))),
+              ]),
+            ],
+            if (status == 'SENT')
+              SizedBox(width: double.infinity, child: OutlinedButton(onPressed: () { Navigator.pop(ctx); _transition(id, 'CANCELLED'); }, style: OutlinedButton.styleFrom(foregroundColor: Colors.red), child: const Text('Cancel Proposal'))),
+            if (status == 'REJECTED' || status == 'CANCELLED')
+              SizedBox(width: double.infinity, child: FilledButton(onPressed: () { Navigator.pop(ctx); }, child: const Text('Resend (New Proposal)'))),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final proposalsAsync = ref.watch(hodProposalsFilteredProvider(_statusFilter == 'ALL' ? null : _statusFilter));
+
+    return Material(
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: Stack(children: [
+        NestedScrollView(
+          headerSliverBuilder: (ctx, _) => [
+            ModernSliverAppBar(
+              title: 'Proposals',
+              subtitle: 'Proposal Pipeline',
+              profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
+              gradient: const [Color(0xFFf857a6), Color(0xFFff5858)],
+              backgroundIcon: Icons.send_rounded,
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _statuses.map((s) {
+                      final sel = _statusFilter == s;
+                      return GestureDetector(
+                        onTap: () => setState(() => _statusFilter = s),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: sel ? const Color(0xFFf857a6) : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: sel ? const Color(0xFFf857a6) : Colors.grey.withOpacity(0.2)),
+                          ),
+                          child: Text(s, style: TextStyle(color: sel ? Colors.white : Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          body: RefreshIndicator(
+            onRefresh: () async => ref.invalidate(hodProposalsFilteredProvider(_statusFilter == 'ALL' ? null : _statusFilter)),
+            child: proposalsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (proposals) {
+                if (proposals.isEmpty) {
+                  return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.work_off_rounded, size: 64, color: Colors.grey.shade300),
+                    const SizedBox(height: 16),
+                    Text('No proposals', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                  ]));
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
+                  itemCount: proposals.length,
+                  itemBuilder: (ctx, i) => _buildProposalCard(proposals[i], isDark),
+                );
+              },
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 90,
+          right: 24,
+          child: FloatingActionButton.extended(
+            heroTag: 'hod_proposals_fab',
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (ctx) => _SendProposalSheet(studentId: 0, studentName: 'Select Student'),
+            ).then((_) => ref.invalidate(hodProposalsFilteredProvider(null))),
+            backgroundColor: const Color(0xFFf857a6),
+            icon: const Icon(Icons.add_rounded, color: Colors.white),
+            label: const Text('New Proposal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildProposalCard(Map<String, dynamic> p, bool isDark) {
+    final student = p['student'] as Map<String, dynamic>? ?? {};
+    final studentUser = student['user'] as Map<String, dynamic>? ?? {};
+    final company = p['company'] as Map<String, dynamic>? ?? {};
+    final status = (p['status'] ?? 'PENDING').toString();
+    final type = (p['proposal_type'] ?? '').toString();
+    final submittedAt = p['submitted_at']?.toString();
+    final isOpenLetter = type == 'Open_Letter';
+
+    Color statusColor = status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : status == 'CANCELLED' ? Colors.grey : status == 'DRAFT' ? Colors.blue : Colors.orange;
+
+    return GestureDetector(
+      onTap: () => _showProposalDetail(p, isDark),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04)),
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(gradient: LinearGradient(colors: [statusColor.withOpacity(0.8), statusColor]), borderRadius: BorderRadius.circular(12)),
+            child: Icon(isOpenLetter ? Icons.mail_rounded : Icons.work_rounded, color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(studentUser['full_name']?.toString() ?? 'Student', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            Text(company['name']?.toString() ?? 'Company', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12)),
+            if (submittedAt != null) Text(timeago.format(DateTime.tryParse(submittedAt) ?? DateTime.now()), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(status, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900))),
+            if (isOpenLetter) const SizedBox(height: 4),
+            if (isOpenLetter) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(6)), child: const Text('Open Letter', style: TextStyle(color: Colors.orange, fontSize: 8, fontWeight: FontWeight.bold))),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Tracking ──────────────────────────────────────────────────────────────────
+class _HodTrackingTab extends ConsumerStatefulWidget {
+  const _HodTrackingTab();
+  @override
+  ConsumerState<_HodTrackingTab> createState() => _HodTrackingTabState();
+}
+
+class _HodTrackingTabState extends ConsumerState<_HodTrackingTab> with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+
+  @override
+  void initState() { super.initState(); _tabCtrl = TabController(length: 3, vsync: this); }
+  @override
+  void dispose() { _tabCtrl.dispose(); super.dispose(); }
+
+  Future<void> _forceEnd(int placementId, String studentName) async {
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: Text('Force End — $studentName'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('This will terminate the internship. Enter a reason:'),
+          const SizedBox(height: 12),
+          TextField(controller: reasonCtrl, decoration: const InputDecoration(hintText: 'Reason…', border: OutlineInputBorder()), maxLines: 2),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(d, true), style: FilledButton.styleFrom(backgroundColor: Colors.red), child: const Text('Force End')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(hodRepositoryProvider).forceEndPlacement(placementId, reasonCtrl.text.trim());
+      ref.invalidate(hodPlacementsProvider(null));
+      ref.invalidate(hodPlacementsProvider('ACTIVE'));
+      ref.invalidate(hodEnhancedStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Placement terminated')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final allAsync = ref.watch(hodPlacementsProvider(null));
+
+    return Material(
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: NestedScrollView(
+        headerSliverBuilder: (ctx, _) => [
+          ModernSliverAppBar(
+            title: 'Tracking',
+            subtitle: 'Placement Management',
+            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
+            gradient: const [Color(0xFF1fa2ff), Color(0xFF12d8fa)],
+            backgroundIcon: Icons.track_changes_rounded,
+          ),
+          SliverToBoxAdapter(
+            child: allAsync.maybeWhen(
+              data: (all) {
+                final active = all.where((p) => p['status'] == 'ACTIVE').length;
+                final completed = all.where((p) => p['status'] == 'COMPLETED').length;
+                final failed = all.where((p) => p['status'] == 'TERMINATED').length;
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: Row(children: [
+                    _summaryChip('Active', active, Colors.green),
+                    const SizedBox(width: 10),
+                    _summaryChip('Completed', completed, Colors.blue),
+                    const SizedBox(width: 10),
+                    _summaryChip('Failed', failed, Colors.red),
+                  ]),
+                );
+              },
+              orElse: () => const SizedBox.shrink(),
+            ),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: SliverTabBarDelegate(
+              TabBar(
+                controller: _tabCtrl,
+                labelColor: const Color(0xFF1fa2ff),
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: const Color(0xFF1fa2ff),
+                tabs: const [Tab(text: 'Active'), Tab(text: 'Completed'), Tab(text: 'Failed')],
+              ),
+              isDark,
+            ),
+          ),
+        ],
+        body: TabBarView(
+          controller: _tabCtrl,
+          children: [
+            _buildPlacementList('ACTIVE', isDark),
+            _buildPlacementList('COMPLETED', isDark),
+            _buildPlacementList('TERMINATED', isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryChip(String label, int count, Color color) {
+    return Expanded(child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.2))),
+      child: Column(children: [
+        Text('$count', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color)),
+        Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+      ]),
+    ));
+  }
+
+  Widget _buildPlacementList(String status, bool isDark) {
+    final placementsAsync = ref.watch(hodPlacementsProvider(status));
+    return RefreshIndicator(
+      onRefresh: () async { ref.invalidate(hodPlacementsProvider(status)); ref.invalidate(hodPlacementsProvider(null)); },
+      child: placementsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (placements) {
+          if (placements.isEmpty) {
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.work_off_rounded, size: 48, color: Colors.grey.shade300),
+              const SizedBox(height: 12),
+              Text('No ${status.toLowerCase()} placements', style: TextStyle(color: Colors.grey.shade500)),
+            ]));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
+            itemCount: placements.length,
+            itemBuilder: (ctx, i) => _buildPlacementCard(placements[i], status, isDark),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPlacementCard(Map<String, dynamic> p, String status, bool isDark) {
+    final id = _parseInt(p['id']);
+    final studentName = p['studentName']?.toString() ?? 'Student';
+    final companyName = p['companyName']?.toString() ?? 'Company';
+    final startDate = p['startDate']?.toString();
+    final endDate = p['endDate']?.toString();
+    final color = status == 'ACTIVE' ? Colors.green : status == 'COMPLETED' ? Colors.blue : Colors.red;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(gradient: LinearGradient(colors: [color.withOpacity(0.8), color]), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.work_rounded, color: Colors.white, size: 16)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(studentName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            Text(companyName, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12)),
+            if (startDate != null) Text('Started: ${startDate.substring(0, 10)}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            if (endDate != null) Text('Ended: ${endDate.substring(0, 10)}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          ])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(status, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900))),
+        ]),
+        const SizedBox(height: 12),
+        if (status == 'ACTIVE')
+          SizedBox(width: double.infinity, child: OutlinedButton(
+            onPressed: () => _forceEnd(id, studentName),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+            child: const Text('Force End'),
+          ))
+        else if (status == 'TERMINATED')
+          SizedBox(width: double.infinity, child: FilledButton.icon(
+            onPressed: () => ref.read(dashboardIndexProvider.notifier).state = 2,
+            icon: const Icon(Icons.send_rounded, size: 14),
+            label: const Text('Reassign Student'),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1fa2ff)),
+          )),
+      ]),
+    );
+  }
+}
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+class _HodReportsTab extends ConsumerStatefulWidget {
+  const _HodReportsTab();
+  @override
+  ConsumerState<_HodReportsTab> createState() => _HodReportsTabState();
+}
+
+class _HodReportsTabState extends ConsumerState<_HodReportsTab> with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+  String _attendanceFilter = 'ALL';
+  int? _weekFilter;
+  final _weekCtrl = TextEditingController();
+
+  @override
+  void initState() { super.initState(); _tabCtrl = TabController(length: 2, vsync: this); }
+  @override
+  void dispose() { _tabCtrl.dispose(); _weekCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final summaryAsync = ref.watch(hodReportsSummaryProvider);
+
+    return Material(
+      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+      child: NestedScrollView(
+        headerSliverBuilder: (ctx, _) => [
+          ModernSliverAppBar(
+            title: 'Reports',
+            subtitle: 'Department Monitoring',
+            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
+            gradient: const [Color(0xFFa18cd1), Color(0xFFfbc2eb)],
+            backgroundIcon: Icons.description_rounded,
+          ),
+          SliverToBoxAdapter(
+            child: summaryAsync.maybeWhen(
+              data: (summary) => Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                child: _buildSummaryCard(summary, isDark),
+              ),
+              orElse: () => const SizedBox.shrink(),
+            ),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: SliverTabBarDelegate(
+              TabBar(
+                controller: _tabCtrl,
+                labelColor: const Color(0xFFa18cd1),
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: const Color(0xFFa18cd1),
+                tabs: const [Tab(text: 'Weekly Reports'), Tab(text: 'Final Reports')],
+              ),
+              isDark,
+            ),
+          ),
+        ],
+        body: TabBarView(
+          controller: _tabCtrl,
+          children: [
+            _buildWeeklyReportsView(isDark),
+            _buildFinalReportsView(isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(Map<String, dynamic> summary, bool isDark) {
+    final attendance = summary['attendance'] as Map<String, dynamic>? ?? {};
+    final present = _parseInt(attendance['PRESENT']);
+    final absent = _parseInt(attendance['ABSENT']);
+    final late = _parseInt(attendance['LATE']);
+    final avgTech = summary['averageTechnicalScore'];
+    final avgSoft = summary['averageSoftSkillScore'];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Department Summary', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+        const SizedBox(height: 12),
+        Row(children: [
+          _summaryItem('Total Reports', '${_parseInt(summary['totalWeeklyReports'])}', Colors.purple),
+          _summaryItem('Present', '$present', Colors.green),
+          _summaryItem('Absent', '$absent', Colors.red),
+          _summaryItem('Late', '$late', Colors.orange),
+        ]),
+        if (avgTech != null || avgSoft != null) ...[
+          const SizedBox(height: 8),
+          Row(children: [
+            if (avgTech != null) _summaryItem('Avg Tech', '${(avgTech as num).toStringAsFixed(1)}', Colors.blue),
+            if (avgSoft != null) _summaryItem('Avg Soft', '${(avgSoft as num).toStringAsFixed(1)}', Colors.teal),
+          ]),
+        ],
+      ]),
+    );
+  }
+
+  Widget _summaryItem(String label, String value, Color color) {
+    return Expanded(child: Column(children: [
+      Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+    ]));
+  }
+
+  Widget _buildWeeklyReportsView(bool isDark) {
+    final filter = WeeklyReportFilter(weekNumber: _weekFilter, attendanceStatus: _attendanceFilter == 'ALL' ? null : _attendanceFilter);
+    final reportsAsync = ref.watch(hodWeeklyReportsProvider(filter));
+    const statuses = ['ALL', 'PRESENT', 'ABSENT', 'LATE'];
+
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+        child: Row(children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: statuses.map((s) {
+                final sel = _attendanceFilter == s;
+                return GestureDetector(
+                  onTap: () => setState(() => _attendanceFilter = s),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: sel ? const Color(0xFFa18cd1) : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: sel ? const Color(0xFFa18cd1) : Colors.grey.withOpacity(0.2)),
+                    ),
+                    child: Text(s, style: TextStyle(color: sel ? Colors.white : Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
+                  ),
+                );
+              }).toList()),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 60,
+            child: TextField(
+              controller: _weekCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(hintText: 'Wk', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6), isDense: true),
+              onChanged: (v) => setState(() => _weekFilter = int.tryParse(v)),
+            ),
+          ),
+        ]),
+      ),
+      Expanded(
+        child: RefreshIndicator(
+          onRefresh: () async => ref.invalidate(hodWeeklyReportsProvider(filter)),
+          child: reportsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (reports) {
+              if (reports.isEmpty) return Center(child: Text('No reports', style: TextStyle(color: Colors.grey.shade500)));
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
+                itemCount: reports.length,
+                itemBuilder: (ctx, i) {
+                  final r = reports[i];
+                  final name = r['studentName']?.toString() ?? 'Student';
+                  final week = r['weekNumber'];
+                  final att = r['attendanceStatus']?.toString() ?? '';
+                  final attColor = att == 'PRESENT' ? Colors.green : att == 'ABSENT' ? Colors.red : Colors.orange;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.03) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04))),
+                    child: Row(children: [
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                        if (week != null) Text('Week $week', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                      ])),
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: attColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(att, style: TextStyle(color: attColor, fontSize: 9, fontWeight: FontWeight.w900))),
+                    ]),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildFinalReportsView(bool isDark) {
+    final reportsAsync = ref.watch(hodReportsProvider);
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(hodReportsProvider),
+      child: reportsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (reports) {
+          if (reports.isEmpty) return Center(child: Text('No final reports', style: TextStyle(color: Colors.grey.shade500)));
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 100),
+            itemCount: reports.length,
+            itemBuilder: (ctx, i) {
+              final r = reports[i];
+              final id = _parseInt(r['id']);
+              final student = r['student'] as Map<String, dynamic>? ?? {};
+              final studentUser = student['user'] as Map<String, dynamic>? ?? {};
+              final name = studentUser['full_name']?.toString() ?? 'Student';
+              final pdfUrl = r['pdf_url']?.toString();
+              final stamped = _parseBool(r['stamped']);
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.03) : Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04))),
+                child: Row(children: [
+                  const Icon(Icons.description_rounded, color: Colors.purple, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                    if (stamped) const Text('Stamped ✓', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ])),
+                  IconButton(
+                    icon: Icon(Icons.download_rounded, color: pdfUrl != null && pdfUrl.isNotEmpty ? Colors.purple : Colors.grey.shade300),
+                    onPressed: pdfUrl != null && pdfUrl.isNotEmpty ? () async {
+                      final uri = Uri.parse(pdfUrl);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } else {
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to open report.')));
+                      }
+                    } : null,
+                  ),
+                ]),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
@@ -6080,7 +7264,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                     onPressed: () async {
                       try {
                         final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = item['id'] as int;
+                        final id = _parseInt(item['id']);
                         final type = item['type'] as String;
                         if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'REJECTED');
                         else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'REJECTED');
@@ -6099,7 +7283,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                     onPressed: () async {
                       try {
                         final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = item['id'] as int;
+                        final id = _parseInt(item['id']);
                         final type = item['type'] as String;
                         if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'APPROVED');
                         else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'APPROVED');
@@ -6746,7 +7930,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
   Future<void> _updateStatus(WidgetRef ref, Map<String, dynamic> org, String status) async {
     try {
       final repo = ref.read(adminRepositoryProvider);
-      final id = org['id'] as int;
+      final id = _parseInt(org['id']);
       if (org['type'] == 'University') {
         await repo.updateUniversityStatus(id, status);
       } else {
@@ -7263,8 +8447,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   }
 
   Future<void> _approveCoordinator(dynamic coord) async {
-    final userId = (coord['user']?['id'] ?? coord['userId']) as int?;
-    if (userId == null) return;
+    final userId = _parseInt(coord['user']?['id'] ?? coord['userId']);
+    if (userId == 0) return;
     try {
       await ref.read(adminRepositoryProvider).approveCoordinator(userId);
       ref.invalidate(pendingCoordinatorsProvider);
@@ -7278,8 +8462,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   }
 
   Future<void> _rejectCoordinator(dynamic coord) async {
-    final userId = (coord['user']?['id'] ?? coord['userId']) as int?;
-    if (userId == null) return;
+    final userId = _parseInt(coord['user']?['id'] ?? coord['userId']);
+    if (userId == 0) return;
     final name = coord['user']?['full_name'] ?? 'This coordinator';
     final confirmed = await showDialog<bool>(
       context: context,
@@ -7307,8 +8491,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   }
 
   Future<void> _approveSupervisor(dynamic sup) async {
-    final userId = (sup['user']?['id'] ?? sup['userId']) as int?;
-    if (userId == null) return;
+    final userId = _parseInt(sup['user']?['id'] ?? sup['userId']);
+    if (userId == 0) return;
     try {
       await ref.read(adminRepositoryProvider).approveSupervisor(userId);
       ref.invalidate(pendingSupervisorsProvider);
@@ -7322,8 +8506,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   }
 
   Future<void> _rejectSupervisor(dynamic sup) async {
-    final userId = (sup['user']?['id'] ?? sup['userId']) as int?;
-    if (userId == null) return;
+    final userId = _parseInt(sup['user']?['id'] ?? sup['userId']);
+    if (userId == 0) return;
     final name = sup['user']?['full_name'] ?? 'This supervisor';
     final confirmed = await showDialog<bool>(
       context: context,

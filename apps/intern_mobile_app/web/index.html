@@ -29,8 +29,20 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>intern_mobile_app</title>
+  <title>InternLink</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Prevent WebGL context loss from crashing Flutter Web during hot restart
+    (function() {
+      const origGetContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(type, attrs) {
+        if (type === 'webgl' || type === 'webgl2') {
+          attrs = Object.assign({ powerPreference: 'high-performance' }, attrs || {});
+        }
+        return origGetContext.call(this, type, attrs);
+      };
+    })();
+  </script>
 </head>
 <body>
   <!--

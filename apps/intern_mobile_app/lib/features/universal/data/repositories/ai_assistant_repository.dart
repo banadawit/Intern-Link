@@ -35,15 +35,38 @@ class AiAssistantRepository {
     return [];
   }
 
-  Future<AiMessageModel> sendMessage(String message) async {
-    final response = await apiClient.dio.post('/ai/chat', data: {'message': message});
+  Future<AiMessageModel> sendMessage(
+    String message, {
+    List<AiMessageModel> history = const [],
+  }) async {
+    // Build conversation history for context (exclude the welcome message)
+    final historyPayload = history
+        .where((m) => m.content != 'Hello! I am your Intern-Link AI Assistant. How can I help you today?')
+        .map((m) => {'role': m.speaker == 'assistant' ? 'assistant' : 'user', 'content': m.content})
+        .toList();
+
+    final response = await apiClient.dio.post('/ai/chat', data: {
+      'message': message,
+      if (historyPayload.isNotEmpty) 'history': historyPayload,
+    });
+
     final data = response.data;
-    final reply = data is Map ? (data['reply'] as String?) : null;
+    // After apiClient interceptor unwraps success wrapper, data = { reply: "..." }
+    String? reply;
+    if (data is Map) {
+      reply = (data['reply'] as String?)?.trim();
+      // Fallback: sometimes nested under data key
+      if (reply == null || reply.isEmpty) {
+        final inner = data['data'];
+        if (inner is Map) reply = (inner['reply'] as String?)?.trim();
+      }
+    }
+
     return AiMessageModel(
       speaker: 'assistant',
-      content: (reply != null && reply.trim().isNotEmpty)
+      content: (reply != null && reply.isNotEmpty)
           ? reply
-          : 'I could not generate a response right now.',
+          : 'I could not generate a response right now. Please try again.',
     );
   }
 
