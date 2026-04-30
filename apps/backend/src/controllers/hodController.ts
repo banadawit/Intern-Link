@@ -310,44 +310,100 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
         const hod = await getHodOr403(uid!);
         if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
-        const { studentId, companyId, proposal_type, expected_duration_weeks, expected_outcomes } = req.body;
-        const sid = parseInt(String(studentId), 10);
+        const {
+            studentId,
+            studentIds,
+            companyId,
+            proposal_type,
+            proposal_kind,
+            team_name,
+            expected_duration_weeks,
+            expected_outcomes,
+        } = req.body;
+
         const cid = parseInt(String(companyId), 10);
+        const kind: 'INDIVIDUAL' | 'TEAM' = proposal_kind === 'TEAM' ? 'TEAM' : 'INDIVIDUAL';
 
-        const student = await prisma.student.findUnique({ where: { id: sid } });
-        if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
-            return sendError(res, 'Student not found in your department.', 400);
-        }
-        
-        if (student.hod_approval_status !== 'APPROVED') {
-            return sendError(res, 'Student must be approved by HOD before placement.', 400);
+        // ── Resolve student list ──────────────────────────────────────────────
+        let allStudentIds: number[];
+        if (kind === 'TEAM') {
+            if (!Array.isArray(studentIds) || studentIds.length < 2) {
+                return sendError(res, 'TEAM proposals require at least 2 studentIds.', 400);
+            }
+            allStudentIds = studentIds.map((id: any) => parseInt(String(id), 10));
+        } else {
+            const sid = parseInt(String(studentId), 10);
+            if (isNaN(sid)) return sendError(res, 'studentId is required for INDIVIDUAL proposals.', 400);
+            allStudentIds = [sid];
         }
 
-        if (student.internship_status === 'PLACED') {
-            return sendError(res, 'This student already has an active internship placement.', 400);
-        }
-
+        // ── Validate company ──────────────────────────────────────────────────
         const company = await prisma.company.findUnique({ where: { id: cid } });
         if (!company || company.approval_status !== 'APPROVED') {
             return sendError(res, 'Company must be verified (approved).', 400);
         }
 
-        const pendingDup = await prisma.internshipProposal.findFirst({
-            where: { studentId: sid, companyId: cid, status: 'PENDING' },
+        // ── Validate all students ─────────────────────────────────────────────
+        const students = await prisma.student.findMany({
+            where: { id: { in: allStudentIds } },
         });
-        if (pendingDup) {
-            return sendError(res, 'A pending proposal already exists.', 400);
+
+        if (students.length !== allStudentIds.length) {
+            return sendError(res, 'One or more students not found.', 400);
         }
 
-        const proposal = await prisma.internshipProposal.create({
+        const errors: string[] = [];
+        for (const s of students) {
+            if (s.universityId !== hod.universityId || !departmentsMatch(s.department, hod.department)) {
+                errors.push(`Student ${s.id} is not in your department.`);
+            } else if (s.hod_approval_status !== 'APPROVED') {
+                errors.push(`Student ${s.id} must be approved by HOD before placement.`);
+            } else if (s.internship_status === 'PLACED') {
+                errors.push(`Student ${s.id} already has an active internship placement.`);
+            }
+        }
+        if (errors.length > 0) return sendError(res, errors.join(' '), 400);
+
+        // ── Duplicate check for each student ──────────────────────────────────
+        for (const sid of allStudentIds) {
+            const dup = await prisma.internshipProposal.findFirst({
+                where: { studentId: sid, companyId: cid, status: { in: ['PENDING', 'SENT', 'DRAFT'] as any[] } },
+            });
+            if (dup) return sendError(res, `Student ${sid} already has an active proposal for this company.`, 400);
+
+            // Also check ProposalTeamMember for team proposals
+            const teamDup = await (prisma as any).proposalTeamMember.findFirst({
+                where: {
+                    studentId: sid,
+                    proposal: { companyId: cid, status: { in: ['PENDING', 'SENT', 'DRAFT'] } },
+                },
+            });
+            if (teamDup) return sendError(res, `Student ${sid} is already in an active team proposal for this company.`, 400);
+        }
+
+        // ── Create proposal ───────────────────────────────────────────────────
+        const leadStudentId = allStudentIds[0];
+        const additionalStudentIds = allStudentIds.slice(1);
+
+        const proposal = await (prisma.internshipProposal as any).create({
             data: {
-                studentId: sid,
+                studentId: leadStudentId,
                 companyId: cid,
                 universityId: hod.universityId,
                 proposal_type: proposal_type || 'HoD_Initiated',
+                proposal_kind: kind,
+                team_name: kind === 'TEAM' ? (team_name?.trim() || `Team Proposal`) : null,
                 status: 'PENDING',
                 expected_duration_weeks: expected_duration_weeks != null ? parseInt(String(expected_duration_weeks), 10) : null,
                 expected_outcomes: typeof expected_outcomes === 'string' ? expected_outcomes : null,
+                ...(additionalStudentIds.length > 0 ? {
+                    teamMembers: {
+                        create: additionalStudentIds.map((sid: number) => ({ studentId: sid })),
+                    },
+                } : {}),
+            },
+            include: {
+                teamMembers: { include: { student: { include: { user: { select: { full_name: true, email: true } } } } } },
             },
         });
 
@@ -377,7 +433,20 @@ export const getProposals = async (req: AuthRequest, res: Response) => {
             },
             orderBy: { submitted_at: 'desc' },
         });
-        return sendSuccess(res, proposals);
+
+        // Enrich with team members if available (requires regenerated Prisma client)
+        const enriched = await Promise.all(proposals.map(async (p) => {
+            try {
+                const members = await (prisma as any).proposalTeamMember.findMany({
+                    where: { proposalId: p.id },
+                    include: { student: { include: { user: { select: { full_name: true, email: true } } } } },
+                });
+                return { ...p, teamMembers: members, proposal_kind: (p as any).proposal_kind ?? 'INDIVIDUAL', team_name: (p as any).team_name ?? null };
+            } catch {
+                return { ...p, teamMembers: [], proposal_kind: 'INDIVIDUAL', team_name: null };
+            }
+        }));
+        return sendSuccess(res, enriched);
     } catch (e: any) {
         return sendError(res, e.message);
     }

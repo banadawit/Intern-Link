@@ -436,9 +436,12 @@ export const transitionProposalState = async (req: AuthRequest, res: Response) =
         const { targetState } = req.body as { targetState?: string };
         if (!targetState) return sendError(res, 'targetState is required.', 400);
 
-        const proposal = await prisma.internshipProposal.findUnique({
+        const proposal = await (prisma.internshipProposal as any).findUnique({
             where: { id: proposalId },
-            include: { student: { include: { user: true } } },
+            include: {
+                student: { include: { user: true } },
+                teamMembers: { include: { student: { include: { user: true } } } },
+            },
         });
         if (!proposal) return sendError(res, 'Proposal not found.', 404);
 
@@ -460,11 +463,21 @@ export const transitionProposalState = async (req: AuthRequest, res: Response) =
             },
         });
 
-        // Notifications
+        // Collect all student userIds (lead + team members)
+        const allUserIds: number[] = [
+            proposal.student.userId,
+            ...(proposal.teamMembers ?? []).map((m: any) => m.student.userId),
+        ];
+
+        // Notifications to all students
         if (targetState === 'APPROVED') {
-            await sendNotification(proposal.student.userId, `✅ Your internship proposal has been approved!`);
+            for (const userId of allUserIds) {
+                await sendNotification(userId, `✅ Your internship proposal has been approved!`);
+            }
         } else if (targetState === 'REJECTED') {
-            await sendNotification(proposal.student.userId, `Your internship proposal was not approved.`);
+            for (const userId of allUserIds) {
+                await sendNotification(userId, `Your internship proposal was not approved.`);
+            }
         }
 
         return sendSuccess(res, updated);

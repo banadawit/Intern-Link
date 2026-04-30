@@ -301,6 +301,25 @@ class HodRepository {
     return _deepConvert(data) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> sendTeamProposal({
+    required List<int> studentIds,
+    required int companyId,
+    String? teamName,
+    int? expectedDurationWeeks,
+    String? expectedOutcomes,
+  }) async {
+    final res = await apiClient.dio.post('/hod/proposals', data: {
+      'proposal_kind': 'TEAM',
+      'studentIds': studentIds,
+      'companyId': companyId,
+      if (teamName != null) 'team_name': teamName,
+      if (expectedDurationWeeks != null) 'expected_duration_weeks': expectedDurationWeeks,
+      if (expectedOutcomes != null) 'expected_outcomes': expectedOutcomes,
+    });
+    final data = _unwrap(res.data);
+    return _deepConvert(data) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> transitionProposalState(int proposalId, String targetState) async {
     final res = await apiClient.dio.patch('/hod/proposals/$proposalId/state', data: {'targetState': targetState});
     final data = _unwrap(res.data);

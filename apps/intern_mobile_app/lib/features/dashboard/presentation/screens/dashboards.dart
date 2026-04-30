@@ -6111,6 +6111,8 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
 
 // ── Send Proposal Bottom Sheet ────────────────────────────────────────────────
 class _SendProposalSheet extends ConsumerStatefulWidget {
+  /// For individual proposals from Students tab, pass studentId + studentName.
+  /// For team proposals from Proposals tab FAB, pass studentId=0 and studentName=''.
   final int studentId;
   final String studentName;
   const _SendProposalSheet({required this.studentId, required this.studentName});
@@ -6119,74 +6121,278 @@ class _SendProposalSheet extends ConsumerStatefulWidget {
 }
 
 class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
+  bool _isTeam = false;
   int? _selectedCompanyId;
+  int? _selectedLeadStudentId;
+  String _selectedLeadStudentName = '';
+  final List<Map<String, dynamic>> _teamMembers = []; // additional members
+  final _teamNameCtrl = TextEditingController();
   final _outcomesCtrl = TextEditingController();
   int _weeks = 12;
   bool _loading = false;
 
   @override
-  void dispose() { _outcomesCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _outcomesCtrl.dispose();
+    _teamNameCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _isIndividualMode => widget.studentId > 0 && !_isTeam;
 
   Future<void> _submit() async {
     if (_selectedCompanyId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a company')));
       return;
     }
-    setState(() => _loading = true);
-    try {
-      await ref.read(hodRepositoryProvider).sendProposal(
-        studentId: widget.studentId,
-        companyId: _selectedCompanyId!,
-        expectedDurationWeeks: _weeks,
-        expectedOutcomes: _outcomesCtrl.text.trim().isNotEmpty ? _outcomesCtrl.text.trim() : null,
-      );
-      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Proposal sent ✓'))); }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      if (mounted) setState(() => _loading = false);
+
+    if (_isTeam) {
+      // Team proposal: need lead + at least 1 more member
+      final leadId = _selectedLeadStudentId ?? (widget.studentId > 0 ? widget.studentId : null);
+      if (leadId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a lead student')));
+        return;
+      }
+      if (_teamMembers.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least one more team member')));
+        return;
+      }
+      final allIds = [leadId, ..._teamMembers.map((m) => _parseInt(m['id']))];
+      setState(() => _loading = true);
+      try {
+        await ref.read(hodRepositoryProvider).sendTeamProposal(
+          studentIds: allIds,
+          companyId: _selectedCompanyId!,
+          teamName: _teamNameCtrl.text.trim().isNotEmpty ? _teamNameCtrl.text.trim() : 'Team Proposal',
+          expectedDurationWeeks: _weeks,
+          expectedOutcomes: _outcomesCtrl.text.trim().isNotEmpty ? _outcomesCtrl.text.trim() : null,
+        );
+        if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Team proposal sent ✓'))); }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
+    } else {
+      // Individual proposal
+      final sid = widget.studentId > 0 ? widget.studentId : _selectedLeadStudentId;
+      if (sid == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a student')));
+        return;
+      }
+      setState(() => _loading = true);
+      try {
+        await ref.read(hodRepositoryProvider).sendProposal(
+          studentId: sid,
+          companyId: _selectedCompanyId!,
+          expectedDurationWeeks: _weeks,
+          expectedOutcomes: _outcomesCtrl.text.trim().isNotEmpty ? _outcomesCtrl.text.trim() : null,
+        );
+        if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Proposal sent ✓'))); }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
     }
+  }
+
+  void _showStudentPicker({required bool isLead}) {
+    final studentsAsync = ref.read(hodStudentsProvider('approved'));
+    studentsAsync.whenData((students) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(isLead ? 'Select Lead Student' : 'Add Team Member', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: students.length,
+                itemBuilder: (ctx, i) {
+                  final s = students[i];
+                  final user = s['user'] as Map<String, dynamic>? ?? {};
+                  final name = user['full_name']?.toString() ?? 'Student';
+                  final sid = _parseInt(s['id']);
+                  // Skip already selected members
+                  final alreadyAdded = _teamMembers.any((m) => _parseInt(m['id']) == sid) || sid == _selectedLeadStudentId;
+                  if (alreadyAdded) return const SizedBox.shrink();
+                  return ListTile(
+                    leading: CircleAvatar(child: Text(name.isNotEmpty ? name[0] : '?')),
+                    title: Text(name),
+                    subtitle: Text(s['department']?.toString() ?? ''),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        if (isLead) {
+                          _selectedLeadStudentId = sid;
+                          _selectedLeadStudentName = name;
+                        } else {
+                          _teamMembers.add({'id': sid, 'name': name});
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ]),
+        ),
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final companiesAsync = ref.watch(hodCompaniesProvider(''));
+
     return Container(
       padding: EdgeInsets.only(left: 24, right: 24, top: 24, bottom: MediaQuery.of(context).viewInsets.bottom + 24),
       decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
-        const SizedBox(height: 16),
-        const Text('Send Proposal', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-        Text('For: ${widget.studentName}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-        const SizedBox(height: 16),
-        companiesAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text('Error: $e'),
-          data: (companies) => DropdownButtonFormField<int>(
-            value: _selectedCompanyId,
-            decoration: InputDecoration(labelText: 'Select Company', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-            items: companies.map((c) => DropdownMenuItem<int>(value: _parseInt(c['id']), child: Text(c['name']?.toString() ?? 'Company', overflow: TextOverflow.ellipsis))).toList(),
-            onChanged: (v) => setState(() => _selectedCompanyId = v),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 16),
+          const Text('New Proposal', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 12),
+
+          // Individual / Team toggle (only show when not pre-filled with a student)
+          if (widget.studentId <= 0) ...[
+            Row(children: [
+              Expanded(child: GestureDetector(
+                onTap: () => setState(() => _isTeam = false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: !_isTeam ? const Color(0xFF00b09b) : Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(child: Text('Individual', style: TextStyle(color: !_isTeam ? Colors.white : Colors.grey, fontWeight: FontWeight.bold))),
+                ),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: GestureDetector(
+                onTap: () => setState(() => _isTeam = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _isTeam ? const Color(0xFFf857a6) : Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(child: Text('Team / Group', style: TextStyle(color: _isTeam ? Colors.white : Colors.grey, fontWeight: FontWeight.bold))),
+                ),
+              )),
+            ]),
+            const SizedBox(height: 16),
+          ],
+
+          // Student display (pre-filled individual)
+          if (widget.studentId > 0 && !_isTeam)
+            Text('For: ${widget.studentName}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+
+          // Lead student picker (when from Proposals FAB)
+          if (widget.studentId <= 0) ...[
+            GestureDetector(
+              onTap: () => _showStudentPicker(isLead: true),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.person_rounded, color: Colors.grey, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(
+                    _selectedLeadStudentName.isNotEmpty ? _selectedLeadStudentName : (_isTeam ? 'Select Lead Student *' : 'Select Student *'),
+                    style: TextStyle(color: _selectedLeadStudentName.isNotEmpty ? null : Colors.grey),
+                  )),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 18),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Team name + members (team mode)
+          if (_isTeam) ...[
+            TextField(
+              controller: _teamNameCtrl,
+              decoration: InputDecoration(labelText: 'Team Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+            ),
+            const SizedBox(height: 12),
+            // Team members list
+            if (_teamMembers.isNotEmpty) ...[
+              const Text('Team Members:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              ..._teamMembers.map((m) => Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(color: const Color(0xFFf857a6).withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+                child: Row(children: [
+                  const Icon(Icons.person_rounded, size: 14, color: Color(0xFFf857a6)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(m['name']?.toString() ?? 'Student', style: const TextStyle(fontSize: 13))),
+                  GestureDetector(
+                    onTap: () => setState(() => _teamMembers.remove(m)),
+                    child: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
+                  ),
+                ]),
+              )),
+              const SizedBox(height: 6),
+            ],
+            OutlinedButton.icon(
+              onPressed: () => _showStudentPicker(isLead: false),
+              icon: const Icon(Icons.person_add_rounded, size: 16),
+              label: const Text('Add Team Member'),
+              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFf857a6), side: const BorderSide(color: Color(0xFFf857a6))),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Company picker
+          companiesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('Error: $e'),
+            data: (companies) => DropdownButtonFormField<int>(
+              value: _selectedCompanyId,
+              decoration: InputDecoration(labelText: 'Select Company', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+              items: companies.map((c) => DropdownMenuItem<int>(value: _parseInt(c['id']), child: Text(c['name']?.toString() ?? 'Company', overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (v) => setState(() => _selectedCompanyId = v),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(children: [
-          const Text('Duration (weeks):', style: TextStyle(fontWeight: FontWeight.w600)),
-          const Spacer(),
-          IconButton(icon: const Icon(Icons.remove_circle_outline_rounded), onPressed: () { if (_weeks > 4) setState(() => _weeks--); }),
-          Text('$_weeks', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-          IconButton(icon: const Icon(Icons.add_circle_outline_rounded), onPressed: () { if (_weeks < 52) setState(() => _weeks++); }),
+          const SizedBox(height: 12),
+
+          // Duration
+          Row(children: [
+            const Text('Duration (weeks):', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Spacer(),
+            IconButton(icon: const Icon(Icons.remove_circle_outline_rounded), onPressed: () { if (_weeks > 4) setState(() => _weeks--); }),
+            Text('$_weeks', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            IconButton(icon: const Icon(Icons.add_circle_outline_rounded), onPressed: () { if (_weeks < 52) setState(() => _weeks++); }),
+          ]),
+
+          TextField(controller: _outcomesCtrl, decoration: InputDecoration(labelText: 'Expected Outcomes (optional)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), maxLines: 2),
+          const SizedBox(height: 16),
+
+          SizedBox(width: double.infinity, height: 52, child: FilledButton(
+            onPressed: _loading ? null : _submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: _isTeam ? const Color(0xFFf857a6) : const Color(0xFF00b09b),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: _loading
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text(_isTeam ? 'Send Team Proposal' : 'Send Proposal'),
+          )),
         ]),
-        TextField(controller: _outcomesCtrl, decoration: InputDecoration(labelText: 'Expected Outcomes (optional)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), maxLines: 2),
-        const SizedBox(height: 16),
-        SizedBox(width: double.infinity, height: 52, child: FilledButton(
-          onPressed: _loading ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00b09b), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-          child: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Send Proposal'),
-        )),
-      ]),
+      ),
     );
   }
 }

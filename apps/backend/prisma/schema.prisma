@@ -220,6 +220,7 @@ model Student {
   assignments       InternshipAssignment[]
   weeklyPlans       WeeklyPlan[]
   proposals         InternshipProposal[]
+  teamProposals     ProposalTeamMember[]
   finalEvaluation   FinalEvaluation?
   finalReport       Report?
   weeklyReports     WeeklyReport[]
@@ -236,13 +237,33 @@ model InternshipProposal {
   student       Student        @relation(fields: [studentId], references: [id])
   studentId     Int
   status        ApprovalStatus @default(PENDING)
-  proposal_type String         // "University_Initiated" or "Open_Letter"
+  proposal_type String         // "University_Initiated" | "Open_Letter" | "HoD_Initiated"
+  /// "INDIVIDUAL" (default) or "TEAM"
+  proposal_kind String         @default("INDIVIDUAL")
+  /// Optional team name for TEAM proposals
+  team_name     String?
   submitted_at  DateTime       @default(now())
   expected_duration_weeks Int?
   expected_outcomes       String?    @db.Text
   responded_at            DateTime?
 
+  /// Additional team members (empty for INDIVIDUAL proposals)
+  teamMembers   ProposalTeamMember[]
+
   @@index([studentId, companyId, status])
+}
+
+/// Join table for team proposal members (excludes the lead student already in studentId).
+model ProposalTeamMember {
+  id         Int                @id @default(autoincrement())
+  proposal   InternshipProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId Int
+  student    Student            @relation(fields: [studentId], references: [id])
+  studentId  Int
+
+  @@unique([proposalId, studentId])
+  @@index([proposalId])
+  @@index([studentId])
 }
 
 model InternshipAssignment {
