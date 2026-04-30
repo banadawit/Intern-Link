@@ -9,6 +9,14 @@ int _safeInt(dynamic v, [int fallback = 0]) {
   return fallback;
 }
 
+bool _safeBool(dynamic v) {
+  if (v == null) return false;
+  if (v is bool) return v;
+  if (v is int) return v != 0;
+  if (v is String) return v == 'true' || v == '1';
+  return false;
+}
+
 class ChatPartner {
   final int id;
   final String fullName;
@@ -48,7 +56,7 @@ class ChatMessageModel {
       senderId: _safeInt(json['senderId']),
       receiverId: _safeInt(json['receiverId']),
       content: json['content'] as String? ?? '',
-      isRead: json['is_read'] as bool? ?? false,
+      isRead: _safeBool(json['is_read']),
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
     );
   }

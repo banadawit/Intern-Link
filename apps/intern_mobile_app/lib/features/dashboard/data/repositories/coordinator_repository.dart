@@ -54,6 +54,20 @@ class CoordinatorStats {
 
 // ─── Repository ───────────────────────────────────────────────────────────────
 
+dynamic _deepConvert(dynamic v) {
+  if (v is Map) return Map<String, dynamic>.fromEntries(
+    v.entries.map((e) => MapEntry(e.key.toString(), _deepConvert(e.value))),
+  );
+  if (v is List) return v.map(_deepConvert).toList();
+  return v;
+}
+
+List<dynamic> _deepList(dynamic data) {
+  final raw = data is Map ? (data['data'] ?? data) : data;
+  if (raw is List) return raw.map(_deepConvert).toList();
+  return [];
+}
+
 class CoordinatorRepository {
   CoordinatorRepository({required this.apiClient});
   final ApiClient apiClient;
@@ -67,26 +81,22 @@ class CoordinatorRepository {
 
   Future<List<dynamic>> getCompanies() async {
     final res = await apiClient.dio.get('/coordinator-portal/companies');
-    final data = res.data;
-    return data is List ? data : [];
+    return _deepList(res.data);
   }
 
   Future<List<dynamic>> getPendingHods() async {
     final res = await apiClient.dio.get('/coordinator/pending-hods');
-    final data = res.data;
-    return data is List ? data : [];
+    return _deepList(res.data);
   }
 
   Future<List<dynamic>> getApprovedHods() async {
     final res = await apiClient.dio.get('/coordinator/approved-hods');
-    final data = res.data;
-    return data is List ? data : [];
+    return _deepList(res.data);
   }
 
   Future<List<dynamic>> getRejectedHods() async {
     final res = await apiClient.dio.get('/coordinator/rejected-hods');
-    final data = res.data;
-    return data is List ? data : [];
+    return _deepList(res.data);
   }
 
   Future<void> verifyHod(int userId, String status, {String? reason}) async {
@@ -114,26 +124,22 @@ class CoordinatorRepository {
 
   Future<List<dynamic>> getProposals() async {
     final res = await apiClient.dio.get('/coordinator-portal/proposals/overview');
-    final data = res.data;
-    return data is List ? data : [];
+    return _deepList(res.data);
   }
 
   Future<List<dynamic>> getAssignments() async {
     final res = await apiClient.dio.get('/coordinator-portal/assignments/overview');
-    final data = res.data;
-    return data is List ? data : [];
+    return _deepList(res.data);
   }
 
   Future<List<dynamic>> getReports() async {
     final res = await apiClient.dio.get('/coordinator-portal/reports/overview');
-    final data = res.data;
-    return data is List ? data : [];
+    return _deepList(res.data);
   }
 
   Future<List<dynamic>> getStudents() async {
     final res = await apiClient.dio.get('/coordinator-portal/students');
-    final data = res.data;
-    return data is List ? data : [];
+    return _deepList(res.data);
   }
 
   Future<void> suspendHod(int userId) async {

@@ -1,6 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 
+int _safeInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
+bool _safeBool(dynamic v) {
+  if (v == null) return false;
+  if (v is bool) return v;
+  if (v is int) return v != 0;
+  if (v is String) return v == 'true' || v == '1';
+  return false;
+}
+
 class NotificationModel {
   final int id;
   final String message;
@@ -17,19 +33,11 @@ class NotificationModel {
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       id: _safeInt(json['id']),
-      message: json['message'] as String? ?? 'No message',
-      isRead: json['is_read'] as bool? ?? false,
+      message: json['message']?.toString() ?? 'No message',
+      isRead: _safeBool(json['is_read']),
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
     );
   }
-}
-
-int _safeInt(dynamic v, [int fallback = 0]) {
-  if (v == null) return fallback;
-  if (v is int) return v;
-  if (v is double) return v.toInt();
-  if (v is String) return int.tryParse(v) ?? fallback;
-  return fallback;
 }
 
 class NotificationsRepository {

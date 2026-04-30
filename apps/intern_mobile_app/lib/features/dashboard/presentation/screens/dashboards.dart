@@ -768,6 +768,15 @@ int _parseInt(dynamic v, [int fallback = 0]) {
   return fallback;
 }
 
+/// Safely converts any JSON boolean value (bool, int, String) to bool.
+bool _parseBool(dynamic v) {
+  if (v == null) return false;
+  if (v is bool) return v;
+  if (v is int) return v != 0;
+  if (v is String) return v == 'true' || v == '1';
+  return false;
+}
+
 Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
   String growthTitle = 'User Growth',
   String growthTrend = '+12% this month',
@@ -3306,7 +3315,7 @@ class _CoordinatorHomeTab extends ConsumerWidget {
                           const SizedBox(height: 16),
                           ...stats.recentNotifications.take(5).map((n) {
                             final msg = n['message'] as String? ?? '';
-                            final isRead = n['is_read'] as bool? ?? true;
+                            final isRead = _parseBool(n['is_read']);
                             final createdAt = n['created_at'] as String? ?? '';
                             Color color = Colors.blue;
                             IconData icon = Icons.notifications_rounded;
@@ -3837,7 +3846,17 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
   }) {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Error: $e\n\nCheck terminal for details.', textAlign: TextAlign.center),
+          ),
+        ],
+      )),
       data: (hods) {
         if (hods.isEmpty) {
           return Center(
@@ -5203,7 +5222,7 @@ class _ReportsView extends ConsumerWidget {
               final studentUser = student['user'] as Map<String, dynamic>? ?? {};
               final name = studentUser['full_name'] as String? ?? 'Unknown';
               final dept = student['department'] as String? ?? 'N/A';
-              final stamped = r['stamped'] as bool? ?? false;
+              final stamped = _parseBool(r['stamped']);
               final generatedAt = r['generated_at'] as String? ?? '';
               final pdfUrl = r['pdf_url'] as String?;
               final color = colors[i % colors.length];
@@ -5502,7 +5521,6 @@ class HodDashboardScreen extends StatelessWidget {
         _DashboardTab(label: 'Students', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _HodStudentsTab()),
         _DashboardTab(label: 'Placement', icon: Icons.business_center_outlined, activeIcon: Icons.business_center_rounded, view: _HodPlacementTab()),
         _DashboardTab(label: 'Directory', icon: Icons.corporate_fare_rounded, activeIcon: Icons.corporate_fare_rounded, view: _HodDirectoryTab()),
-        _DashboardTab(label: 'Tools', icon: Icons.apps_rounded, activeIcon: Icons.apps_rounded, view: _HodToolsTab()),
       ],
     );
   }
@@ -5820,13 +5838,14 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
   }
 
   Widget _buildStudentCard(Map<String, dynamic> s, bool isDark) {
+    try {
     final user = s['user'] as Map<String, dynamic>? ?? {};
-    final name = user['full_name'] as String? ?? 'Unknown';
-    final email = user['email'] as String? ?? '';
-    final hodStatus = s['hod_approval_status'] as String? ?? 'PENDING';
-    final internStatus = s['internship_status'] as String? ?? 'PENDING';
+    final name = (user['full_name'] ?? '').toString();
+    final email = (user['email'] ?? '').toString();
+    final hodStatus = (s['hod_approval_status'] ?? 'PENDING').toString();
+    final internStatus = (s['internship_status'] ?? 'PENDING').toString();
     final studentId = _parseInt(s['id']);
-    final department = s['department'] as String? ?? '';
+    final department = (s['department'] ?? '').toString();
 
     Color statusColor = hodStatus == 'APPROVED'
         ? Colors.green
@@ -5915,6 +5934,16 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
         ],
       ),
     );
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('STUDENT_CARD_ERROR: $e\nDATA: $s\nSTACK: $st');
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+        child: Text('Parse error: $e\nData: $s', style: const TextStyle(fontSize: 11, color: Colors.red)),
+      );
+    }
   }
 
   void _showSendProposalSheet(BuildContext context, int studentId, String studentName) {
@@ -6507,247 +6536,6 @@ class _HodDirectoryTabState extends ConsumerState<_HodDirectoryTab> {
           child: Text(status, style: TextStyle(color: status == 'APPROVED' ? Colors.green : Colors.orange, fontSize: 10, fontWeight: FontWeight.w900)),
         ),
       ]),
-    );
-  }
-}
-
-// ── Tools ─────────────────────────────────────────────────────────────────────
-class _HodToolsTab extends ConsumerStatefulWidget {
-  const _HodToolsTab();
-
-  @override
-  ConsumerState<_HodToolsTab> createState() => _HodToolsTabState();
-}
-
-class _HodToolsTabState extends ConsumerState<_HodToolsTab>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Material(
-      color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          ModernSliverAppBar(
-            title: 'Tools & Insights',
-            subtitle: 'Reports, AI & Messages',
-            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'HOD',
-            gradient: const [Color(0xFFa18cd1), Color(0xFFfbc2eb)],
-            backgroundIcon: Icons.apps_rounded,
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: SliverTabBarDelegate(
-              TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                indicatorSize: TabBarIndicatorSize.label,
-                labelColor: isDark ? Colors.white : Colors.black87,
-                unselectedLabelColor: Colors.grey,
-                indicator: BoxDecoration(
-                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                tabs: const [
-                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Reports'))),
-                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Messages'))),
-                  Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('AI Assistant'))),
-                ],
-              ),
-              isDark,
-            ),
-          ),
-        ],
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildReportsView(isDark),
-            _buildMessagesView(context, isDark),
-            _buildAiAssistantView(context, isDark),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReportsView(bool isDark) {
-    final reportsAsync = ref.watch(hodReportsProvider);
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(hodReportsProvider),
-      child: reportsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (reports) {
-          if (reports.isEmpty) {
-            return Center(
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.description_outlined, size: 64, color: Colors.grey.shade300),
-                const SizedBox(height: 16),
-                Text('No reports yet', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
-              ]),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
-            itemCount: reports.length,
-            itemBuilder: (ctx, i) => _buildReportCard(ctx, reports[i], isDark),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildReportCard(BuildContext context, Map<String, dynamic> r, bool isDark) {
-    final id = _parseInt(r['id']);
-    final student = r['student'] as Map<String, dynamic>? ?? {};
-    final studentUser = student['user'] as Map<String, dynamic>? ?? {};
-    final name = studentUser['full_name'] as String? ?? 'Student';
-    final pdfUrl = r['pdf_url'] as String?;
-    final stamped = r['stamped'] as bool? ?? false;
-    final generatedAt = r['generated_at'] as String?;
-    final color = Colors.purple;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Icon(Icons.description_rounded, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 16),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-          if (generatedAt != null)
-            Text(timeago.format(DateTime.parse(generatedAt)), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          if (stamped)
-            const Text('Stamped ✓', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
-        ])),
-        IconButton(
-          icon: Icon(
-            Icons.download_rounded,
-            color: pdfUrl != null && pdfUrl.isNotEmpty ? color : Colors.grey.shade300,
-          ),
-          onPressed: pdfUrl != null && pdfUrl.isNotEmpty
-              ? () async {
-                  final uri = Uri.parse(pdfUrl);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening report…')));
-                  } else {
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unable to open report.')));
-                  }
-                }
-              : null,
-        ),
-      ]),
-    );
-  }
-
-  Widget _buildMessagesView(BuildContext context, bool isDark) {
-    // Navigate to the real chat screen
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFa18cd1), Color(0xFFfbc2eb)]),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.chat_bubble_rounded, size: 48, color: Colors.white),
-          ),
-          const SizedBox(height: 24),
-          const Text('Messages', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 12),
-          Text(
-            'Chat with your Coordinator, students, and supervisors.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 15),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: FilledButton.icon(
-              onPressed: () => context.push(AppRoutes.chat),
-              icon: const Icon(Icons.open_in_new_rounded),
-              label: const Text('Open Messages'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFa18cd1),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildAiAssistantView(BuildContext context, bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFa18cd1), Color(0xFFfbc2eb)]),
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: const Color(0xFFfbc2eb).withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 10))],
-            ),
-            child: const Icon(Icons.smart_toy_rounded, size: 64, color: Colors.white),
-          ),
-          const SizedBox(height: 32),
-          const Text('HOD Smart Assistant', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 16),
-          Text(
-            'Generate placement reports, draft emails to companies, and analyze student performance instantly.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 16),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton.icon(
-              onPressed: () => context.push(AppRoutes.aiAssistant),
-              icon: const Icon(Icons.chat_bubble_rounded),
-              label: const Text('Start New Chat'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFa18cd1),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
-          ),
-        ]),
-      ),
     );
   }
 }

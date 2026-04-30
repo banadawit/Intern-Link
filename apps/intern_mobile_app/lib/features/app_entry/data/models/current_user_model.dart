@@ -1,5 +1,11 @@
 import '../../domain/entities/app_role.dart';
 
+int _safeInt(dynamic value, [int fallback = 0]) {
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}
+
 class RoleProfile {
   const RoleProfile({
     this.phoneNumber,
@@ -57,7 +63,7 @@ class CurrentUserModel {
         : RoleProfile.empty;
 
     return CurrentUserModel(
-      id: data['id'] ?? 0,
+      id: _safeInt(data['id']),
       email: data['email'] ?? '',
       fullName: data['fullName'] ?? data['full_name'] ?? 'User',
       role: role,

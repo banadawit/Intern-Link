@@ -3,6 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../../../core/network/api_client.dart';
 
+bool _safeBool(dynamic v) {
+  if (v == null) return false;
+  if (v is bool) return v;
+  if (v is int) return v != 0;
+  if (v is String) return v == 'true' || v == '1';
+  return false;
+}
+
 int _safeInt(dynamic v, [int fallback = 0]) {
   if (v == null) return fallback;
   if (v is int) return v;
@@ -74,8 +82,8 @@ class FeedPost {
       likeCount: _safeInt(j['likeCount'] ?? count?['likes']),
       commentCount: _safeInt(j['commentCount'] ?? count?['comments']),
       viewCount: _safeInt(j['viewCount'] ?? count?['views']),
-      isLikedByUser: j['isLikedByUser'] as bool? ?? false,
-      isPinned: j['isPinned'] as bool? ?? false,
+      isLikedByUser: _safeBool(j['isLikedByUser']),
+      isPinned: _safeBool(j['isPinned']),
       createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
       comments: (j['comments'] as List<dynamic>?)
               ?.map((c) => FeedComment.fromJson(c as Map<String, dynamic>))
@@ -201,7 +209,7 @@ class FeedRepository {
 
   Future<bool> toggleLike(int postId) async {
     final response = await apiClient.dio.post('/common-feed/$postId/like');
-    return response.data['liked'] as bool? ?? false;
+    return response.data['liked'] == true || response.data['liked'] == 1;
   }
 
   Future<void> deletePost(int postId) async {
