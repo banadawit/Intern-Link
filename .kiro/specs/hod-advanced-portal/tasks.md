@@ -10,15 +10,15 @@ Implementation follows the order: database → backend controller → route regi
 
 ## Tasks
 
-- [ ] 1. Database migrations — CANCELLED enum value and flag fields on Student
+- [x] 1. Database migrations — CANCELLED enum value and flag fields on Student
   - Create a new Prisma migration that adds `CANCELLED` to the `ApprovalStatus` enum via `ALTER TYPE "ApprovalStatus" ADD VALUE 'CANCELLED'`
   - Create a second migration (or extend the same one) that adds `flag_type TEXT` and `flag_note TEXT` columns to the `"Student"` table
   - Update `apps/backend/prisma/schema.prisma`: add `CANCELLED` to `enum ApprovalStatus` and add `flag_type String?` / `flag_note String? @db.Text` fields to `model Student`
   - Run `npx prisma generate` to regenerate the Prisma client so TypeScript picks up the new enum value and fields
   - _Requirements: 3.7, 3.8, 4.1, 4.4, 17.3_
 
-- [ ] 2. Backend — `hodEnhancedController.ts` with all 11 new endpoints
-  - [ ] 2.1 Create `apps/backend/src/controllers/hodEnhancedController.ts` with the shared `getDeptStudentIds` helper and the `getEnhancedStats` handler
+- [x] 2. Backend — `hodEnhancedController.ts` with all 11 new endpoints
+  - [x] 2.1 Create `apps/backend/src/controllers/hodEnhancedController.ts` with the shared `getDeptStudentIds` helper and the `getEnhancedStats` handler
     - Implement `getDeptStudentIds(hod)` using `prisma.student.findMany` filtered by `universityId` and `departmentsMatch`
     - Implement `getEnhancedStats`: run parallel queries for students, assignments, proposals (last 30 days), weekly placement trend (8 weeks), reports, and final evaluations
     - Compute `placementRate`, `reportsCompletionRate`, `approvalSuccessRate` — return `0` when denominator is `0`
@@ -38,7 +38,7 @@ Implementation follows the order: database → backend controller → route regi
     - Tag: `// Feature: hod-advanced-portal, Property 4: Alert threshold detection`
     - **Validates: Requirements 2.4, 12.1**
 
-  - [ ] 2.4 Implement `bulkApproveStudents` handler
+  - [x] 2.4 Implement `bulkApproveStudents` handler
     - Accept `{ studentIds: number[] }` in request body
     - For each ID: verify department scope; if `hod_approval_status === 'PENDING'` → set to `APPROVED` and `verification_status` to `APPROVED`, send notification; otherwise add to `skipped` array
     - IDs outside department scope go into `outOfScope` array
@@ -51,25 +51,25 @@ Implementation follows the order: database → backend controller → route regi
     - Tag: `// Feature: hod-advanced-portal, Property 5: Bulk approval only affects PENDING students`
     - **Validates: Requirements 3.4, 3.5**
 
-  - [ ] 2.6 Implement `flagStudent` and `unflagStudent` handlers
+  - [x] 2.6 Implement `flagStudent` and `unflagStudent` handlers
     - `flagStudent` (`PATCH /hod/students/:id/flag`): validate `flagType` is `LOW_PERFORMANCE` or `INACTIVE`; verify department scope; update `flag_type` and `flag_note` on the Student record
     - `unflagStudent` (`DELETE /hod/students/:id/flag`): verify department scope; set `flag_type` and `flag_note` to `null`
     - Return 400 with `"flagType must be LOW_PERFORMANCE or INACTIVE."` for invalid flag type
     - _Requirements: 3.7, 3.8, 17.3, 17.4_
 
-  - [ ] 2.7 Implement `getStudentTimeline` handler
+  - [x] 2.7 Implement `getStudentTimeline` handler
     - `GET /hod/students/:id/timeline`: verify department scope
     - Derive timeline events from existing timestamps: `created_at` → REGISTERED; `hod_approval_status` change → APPROVED or REJECTED (use student record as proxy); earliest `InternshipProposal.submitted_at` → PROPOSED; earliest `InternshipAssignment.start_date` → PLACED/ACTIVE; `InternshipAssignment.end_date` where `status = COMPLETED` → COMPLETED
     - Return ordered array of `{ state, timestamp, actor }` objects
     - _Requirements: 3.6, 17.5_
 
-  - [ ] 2.8 Implement `reprocessStudent` handler
+  - [x] 2.8 Implement `reprocessStudent` handler
     - `PATCH /hod/students/:id/reprocess`: verify department scope
     - If `hod_approval_status !== 'REJECTED'` → return 400 `"Student is not in REJECTED status."`
     - Set `hod_approval_status` to `PENDING`
     - _Requirements: 3.11, 17.11_
 
-  - [ ] 2.9 Implement `transitionProposalState` handler
+  - [x] 2.9 Implement `transitionProposalState` handler
     - `PATCH /hod/proposals/:id/state`: accept `{ targetState: string }`
     - Encode `VALID_TRANSITIONS` map: `DRAFT→[SENT,CANCELLED]`, `SENT→[PENDING,CANCELLED]`, `PENDING→[APPROVED,REJECTED]`, terminal states have empty arrays
     - Verify proposal belongs to a student in department scope
@@ -84,13 +84,13 @@ Implementation follows the order: database → backend controller → route regi
     - Tag: `// Feature: hod-advanced-portal, Property 6: Proposal state machine transition validity`
     - **Validates: Requirements 4.1**
 
-  - [ ] 2.11 Implement `getPlacements` handler
+  - [x] 2.11 Implement `getPlacements` handler
     - `GET /hod/placements`: accept optional `status` query param (`ACTIVE` | `COMPLETED` | `TERMINATED`)
     - Query `InternshipAssignment` where `studentId in deptStudentIds`, optionally filtered by status
     - Include student name, company name, start date, end date, status
     - _Requirements: 6.1, 6.2, 6.6, 17.7_
 
-  - [ ] 2.12 Implement `forceEndPlacement` handler
+  - [x] 2.12 Implement `forceEndPlacement` handler
     - `PATCH /hod/placements/:id/force-end`: accept `{ reason: string }`
     - Load assignment; verify student is in department scope
     - If status is `COMPLETED` or `TERMINATED` → return 400 `"Placement is already {status}."`
@@ -103,13 +103,13 @@ Implementation follows the order: database → backend controller → route regi
     - Tag: `// Feature: hod-advanced-portal, Property 7: Force-end guard on non-ACTIVE placements`
     - **Validates: Requirements 6.5**
 
-  - [ ] 2.14 Implement `getWeeklyReports` handler
+  - [x] 2.14 Implement `getWeeklyReports` handler
     - `GET /hod/reports/weekly`: accept optional query params `weekNumber`, `attendanceStatus`, `studentName`
     - Query `WeeklyReport` where `studentId in deptStudentIds`; apply filters; include student name via join
     - `studentName` filter uses case-insensitive partial match on `user.full_name`
     - _Requirements: 7.1, 7.6, 17.9_
 
-  - [ ] 2.15 Implement `getReportsSummary` handler
+  - [x] 2.15 Implement `getReportsSummary` handler
     - `GET /hod/reports/summary`: query all `WeeklyReport` records in scope; count by `attendanceStatus`
     - Query `FinalEvaluation` records in scope; compute arithmetic mean of `technical_score` and `soft_skill_score`
     - Return `{ totalWeeklyReports, attendance: { PRESENT, ABSENT, LATE }, averageTechnicalScore, averageSoftSkillScore, studentsWithFinalReport, studentsPlaced }`
@@ -121,7 +121,7 @@ Implementation follows the order: database → backend controller → route regi
     - Tag: `// Feature: hod-advanced-portal, Property 8: Department summary aggregation correctness`
     - **Validates: Requirements 7.4**
 
-- [ ] 3. Backend — Register new routes in `hodRoutes.ts`
+- [x] 3. Backend — Register new routes in `hodRoutes.ts`
   - Import `hodEnhancedController` as `hodEnhanced` in `apps/backend/src/routes/hodRoutes.ts`
   - Register `GET /dashboard-stats/enhanced` **before** the existing `/dashboard-stats` route
   - Register `POST /students/bulk-approve` **before** the existing `/students/:studentId/approve` route (to avoid `:studentId` matching `bulk-approve`)
@@ -131,23 +131,23 @@ Implementation follows the order: database → backend controller → route regi
   - Register `GET /reports/weekly` and `GET /reports/summary` **before** the existing `GET /reports/:id/download` route
   - _Requirements: 17.1–17.11_
 
-- [ ] 4. Backend checkpoint — Ensure all tests pass
+- [x] 4. Backend checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Flutter — Expand `HodRepository` with new methods and model classes
-  - [ ] 5.1 Add `HodEnhancedStats`, `HodAlert`, and `WeeklyTrendPoint` model classes to `hod_repository.dart`
+- [x] 5. Flutter — Expand `HodRepository` with new methods and model classes
+  - [x] 5.1 Add `HodEnhancedStats`, `HodAlert`, and `WeeklyTrendPoint` model classes to `hod_repository.dart`
     - `HodEnhancedStats extends HodStats` with fields: `placementRate`, `reportsCompletionRate`, `approvalSuccessRate`, `alerts`, `weeklyPlacementTrend`
     - `HodAlert` with fields: `type`, `message`, `studentId?`, `studentName?`, `daysElapsed?`
     - `WeeklyTrendPoint` with fields: `weekLabel`, `weekStart`, `count`
     - Implement `fromJson` factories for all three classes
     - _Requirements: 13.1, 13.3, 13.4_
 
-  - [ ] 5.2 Add `WeeklyReportFilter` value class to `hod_repository.dart`
+  - [x] 5.2 Add `WeeklyReportFilter` value class to `hod_repository.dart`
     - Fields: `weekNumber?`, `attendanceStatus?`, `studentName?`
     - Override `==` and `hashCode` so `FutureProvider.family` can use it as a key
     - _Requirements: 16.3_
 
-  - [ ] 5.3 Add new repository methods to `HodRepository`
+  - [x] 5.3 Add new repository methods to `HodRepository`
     - `getEnhancedStats()` → `GET /hod/dashboard-stats/enhanced` → returns `HodEnhancedStats`
     - `bulkApproveStudents(List<int> studentIds)` → `POST /hod/students/bulk-approve`
     - `flagStudent(int studentId, String flagType, {String? note})` → `PATCH /hod/students/:id/flag`
@@ -162,7 +162,7 @@ Implementation follows the order: database → backend controller → route regi
     - `getReportsSummary()` → `GET /hod/reports/summary`
     - _Requirements: 13.1–13.6, 14.1–14.6, 15.1–15.5, 16.1–16.6_
 
-  - [ ] 5.4 Add new Riverpod providers to `hod_repository.dart`
+  - [x] 5.4 Add new Riverpod providers to `hod_repository.dart`
     - `hodEnhancedStatsProvider` — `FutureProvider<HodEnhancedStats>`
     - `hodProposalsFilteredProvider` — `FutureProvider.family<List<Map<String,dynamic>>, String?>`
     - `hodPlacementsProvider` — `FutureProvider.family<List<Map<String,dynamic>>, String?>`
@@ -171,13 +171,13 @@ Implementation follows the order: database → backend controller → route regi
     - `hodStudentTimelineProvider` — `FutureProvider.family<List<Map<String,dynamic>>, int>`
     - _Requirements: 13.1, 14.2, 15.2, 16.2_
 
-- [ ] 6. Flutter — Update `HodDashboardScreen` to 5 tabs
+- [x] 6. Flutter — Update `HodDashboardScreen` to 5 tabs
   - In `dashboards.dart`, update `HodDashboardScreen` to replace the existing 4-tab layout (`Overview`, `Students`, `Placement`, `Directory`) with 5 tabs: `Overview`, `Students`, `Proposals`, `Tracking`, `Reports`
   - Replace `_HodPlacementTab` and `_HodDirectoryTab` tab entries with `_HodProposalsTab`, `_HodTrackingTab`, and `_HodReportsTab` (stubs are acceptable at this stage — full implementations follow in tasks 8–10)
   - Update the drawer `HEAD OF DEPARTMENT` section to reflect the new tab indices
   - _Requirements: 14.1, 15.1, 16.1_
 
-- [ ] 7. Flutter — Enhance `_HodOverviewTab` with alerts, placement rate, and trend chart
+- [x] 7. Flutter — Enhance `_HodOverviewTab` with alerts, placement rate, and trend chart
   - Switch the tab to consume `hodEnhancedStatsProvider` instead of `hodStatsProvider`
   - Add a Placement Rate metric card to the existing metrics grid (alongside Total Students, Pending Approvals, Placed, Reports)
   - Add an Approval Success Rate indicator below the metrics grid
@@ -186,7 +186,7 @@ Implementation follows the order: database → backend controller → route regi
   - Implement pull-to-refresh via `RefreshIndicator` that calls `ref.invalidate(hodEnhancedStatsProvider)`
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6_
 
-- [ ] 8. Flutter — Enhance `_HodStudentsTab` with bulk approve, flag, timeline, and reprocess
+- [x] 8. Flutter — Enhance `_HodStudentsTab` with bulk approve, flag, timeline, and reprocess
   - Add a "Select All" / multi-select mode to the student list; when students are selected, show a "Bulk Approve" action button that calls `bulkApproveStudents` and refreshes the list
   - Add a flag icon button on each student card: tapping opens a bottom sheet to choose `LOW_PERFORMANCE` or `INACTIVE` with an optional note field; calls `flagStudent`; a filled flag icon indicates an existing flag with a tap to remove via `unflagStudent`
   - Add a "Timeline" action on each student card that opens a modal bottom sheet consuming `hodStudentTimelineProvider(studentId)` and rendering the ordered lifecycle events as a vertical stepper
@@ -194,7 +194,7 @@ Implementation follows the order: database → backend controller → route regi
   - Implement pull-to-refresh
   - _Requirements: 3.4, 3.5, 3.6, 3.7, 3.8, 3.11_
 
-- [ ] 9. Flutter — New `_HodProposalsTab` with full state machine UI
+- [x] 9. Flutter — New `_HodProposalsTab` with full state machine UI
   - Create `_HodProposalsTab` as a `ConsumerStatefulWidget` in `dashboards.dart`
   - Display a filter chip row for states: ALL, DRAFT, SENT, PENDING, APPROVED, REJECTED, CANCELLED; selecting a chip calls `hodProposalsFilteredProvider(selectedStatus)`
   - Render each proposal as a card showing student name, company name, status badge, and submission date
@@ -204,7 +204,7 @@ Implementation follows the order: database → backend controller → route regi
   - Implement pull-to-refresh
   - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 4.1–4.12, 5.1–5.6_
 
-- [ ] 10. Flutter — New `_HodTrackingTab` with Active/Completed/Failed sub-tabs
+- [x] 10. Flutter — New `_HodTrackingTab` with Active/Completed/Failed sub-tabs
   - Create `_HodTrackingTab` as a `ConsumerStatefulWidget` in `dashboards.dart`
   - Add a summary row at the top showing counts for Active, Completed, and Failed placements (from `hodPlacementsProvider(null)`)
   - Implement three sub-tabs using `TabBar` + `TabBarView`: Active (`hodPlacementsProvider('ACTIVE')`), Completed (`hodPlacementsProvider('COMPLETED')`), Failed (`hodPlacementsProvider('TERMINATED')`)
@@ -214,7 +214,7 @@ Implementation follows the order: database → backend controller → route regi
   - Implement pull-to-refresh on each sub-tab
   - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 6.1–6.6_
 
-- [ ] 11. Flutter — New `_HodReportsTab` with Weekly/Final sub-tabs and summary card
+- [x] 11. Flutter — New `_HodReportsTab` with Weekly/Final sub-tabs and summary card
   - Create `_HodReportsTab` as a `ConsumerStatefulWidget` in `dashboards.dart`
   - Add a department summary card at the top consuming `hodReportsSummaryProvider`: show total weekly reports, attendance breakdown (PRESENT/ABSENT/LATE counts), and average technical and soft-skill scores
   - Implement two sub-tabs: "Weekly Reports" and "Final Reports"
@@ -223,7 +223,7 @@ Implementation follows the order: database → backend controller → route regi
   - Implement pull-to-refresh on each sub-tab
   - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 7.1–7.6_
 
-- [ ] 12. Flutter checkpoint — Ensure all tests pass
+- [x] 12. Flutter checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ---
