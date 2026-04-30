@@ -33,7 +33,8 @@ const app: Application = express();
 
 // 1. Middlewares
 app.use(cors()); // Allows frontend to talk to backend
-app.use(express.json({ limit: '10mb' })); // Allows server to read JSON data in requests
+app.use(express.json({ limit: '50mb' })); // Allows server to read JSON data in requests
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // 2. Routes Integration

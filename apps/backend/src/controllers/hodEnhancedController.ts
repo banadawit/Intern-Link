@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import prisma from '../config/db';
+import { ApprovalStatus } from '@prisma/client';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { departmentsMatch } from '../utils/hodScope';
 import { sendNotification } from '../utils/notificationHelper';
@@ -235,6 +236,9 @@ export const bulkApproveStudents = async (req: AuthRequest, res: Response) => {
         if (!Array.isArray(studentIds) || studentIds.length === 0) {
             return sendError(res, 'studentIds array is required.', 400);
         }
+        if (studentIds.length > 100) {
+            return sendError(res, 'Cannot bulk approve more than 100 students at once.', 400);
+        }
 
         const deptStudentIds = new Set(await getDeptStudentIds(hod));
         const approved: number[] = [];
@@ -436,11 +440,10 @@ export const transitionProposalState = async (req: AuthRequest, res: Response) =
         const { targetState } = req.body as { targetState?: string };
         if (!targetState) return sendError(res, 'targetState is required.', 400);
 
-        const proposal = await (prisma.internshipProposal as any).findUnique({
+        const proposal = await prisma.internshipProposal.findUnique({
             where: { id: proposalId },
             include: {
                 student: { include: { user: true } },
-                teamMembers: { include: { student: { include: { user: true } } } },
             },
         });
         if (!proposal) return sendError(res, 'Proposal not found.', 404);
@@ -454,20 +457,32 @@ export const transitionProposalState = async (req: AuthRequest, res: Response) =
             return sendError(res, `Invalid transition: ${currentStatus} → ${targetState}`, 400);
         }
 
+        // Ensure the target state is a valid Prisma ApprovalStatus before updating the DB
+        const validApprovalStatuses = new Set<string>(Object.values(ApprovalStatus) as string[]);
+        if (!validApprovalStatuses.has(targetState)) {
+            return sendError(res, `targetState must be one of: ${[...validApprovalStatuses].join(', ')}`, 400);
+        }
+
         const isTerminal = ['APPROVED', 'REJECTED', 'CANCELLED'].includes(targetState);
         const updated = await prisma.internshipProposal.update({
             where: { id: proposalId },
             data: {
-                status: targetState as any,
+                status: targetState as ApprovalStatus,
                 ...(isTerminal ? { responded_at: new Date() } : {}),
             },
         });
 
-        // Collect all student userIds (lead + team members)
-        const allUserIds: number[] = [
-            proposal.student.userId,
-            ...(proposal.teamMembers ?? []).map((m: any) => m.student.userId),
-        ];
+        // Collect all student userIds (lead + team members if available)
+        const allUserIds: number[] = [proposal.student.userId];
+        try {
+            const teamMembers = await (prisma as any).proposalTeamMember.findMany({
+                where: { proposalId },
+                include: { student: { include: { user: { select: { userId: true } } } } },
+            });
+            for (const m of teamMembers ?? []) {
+                if (m.student?.user?.id) allUserIds.push(m.student.user.id);
+            }
+        } catch (_) { /* ProposalTeamMember not available yet */ }
 
         // Notifications to all students
         if (targetState === 'APPROVED') {

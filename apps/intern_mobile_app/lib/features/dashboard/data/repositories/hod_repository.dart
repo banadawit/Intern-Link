@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 
@@ -290,13 +291,19 @@ class HodRepository {
     int? expectedDurationWeeks,
     String? expectedOutcomes,
   }) async {
-    final res = await apiClient.dio.post('/hod/proposals', data: {
+    final body = <String, dynamic>{
       'studentId': studentId,
       'companyId': companyId,
-      if (proposalType != null) 'proposal_type': proposalType,
-      if (expectedDurationWeeks != null) 'expected_duration_weeks': expectedDurationWeeks,
-      if (expectedOutcomes != null) 'expected_outcomes': expectedOutcomes,
-    });
+    };
+    if (proposalType != null) body['proposal_type'] = proposalType;
+    if (expectedDurationWeeks != null) body['expected_duration_weeks'] = expectedDurationWeeks;
+    if (expectedOutcomes != null) body['expected_outcomes'] = expectedOutcomes;
+
+    final res = await apiClient.dio.post(
+      '/hod/proposals',
+      data: body,
+      options: Options(contentType: 'application/json'),
+    );
     final data = _unwrap(res.data);
     return _deepConvert(data) as Map<String, dynamic>;
   }
@@ -308,14 +315,21 @@ class HodRepository {
     int? expectedDurationWeeks,
     String? expectedOutcomes,
   }) async {
-    final res = await apiClient.dio.post('/hod/proposals', data: {
+    // Explicitly build the JSON body to ensure correct serialization on web
+    final body = <String, dynamic>{
       'proposal_kind': 'TEAM',
       'studentIds': studentIds,
       'companyId': companyId,
-      if (teamName != null) 'team_name': teamName,
-      if (expectedDurationWeeks != null) 'expected_duration_weeks': expectedDurationWeeks,
-      if (expectedOutcomes != null) 'expected_outcomes': expectedOutcomes,
-    });
+    };
+    if (teamName != null) body['team_name'] = teamName;
+    if (expectedDurationWeeks != null) body['expected_duration_weeks'] = expectedDurationWeeks;
+    if (expectedOutcomes != null) body['expected_outcomes'] = expectedOutcomes;
+
+    final res = await apiClient.dio.post(
+      '/hod/proposals',
+      data: body,
+      options: Options(contentType: 'application/json'),
+    );
     final data = _unwrap(res.data);
     return _deepConvert(data) as Map<String, dynamic>;
   }

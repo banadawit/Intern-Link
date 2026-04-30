@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
+import { safeFindFirstProposal } from '../utils/querySanitizer';
 import { attachProposalSla } from '../utils/verificationSla';
 import { sendInternshipAcceptanceEmail, sendInternshipRejectionEmail } from '../services/email.service';
 import { sendSuccess, sendError } from '../utils/responseHelper';
@@ -40,7 +41,7 @@ export const sendPlacementProposal = async (req: AuthRequest, res: Response) => 
             return sendError(res, "Student must be approved by the Head of Department before placement.", 400);
         }
 
-        const pendingDup = await prisma.internshipProposal.findFirst({
+        const pendingDup = await safeFindFirstProposal({
             where: { studentId, companyId, status: 'PENDING' },
         });
         if (pendingDup) {
