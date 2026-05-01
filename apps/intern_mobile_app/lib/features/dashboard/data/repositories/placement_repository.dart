@@ -84,12 +84,12 @@ class PlacementRepository {
     required String companyName,
     required String coverLetter,
   }) async {
-    final response = await _apiClient.dio.post('/student/open-letter', data: {
+    final response = await _apiClient.dio.post('/students/open-letter', data: {
       'company_name': companyName,
       'cover_letter': coverLetter,
     });
     final raw = response.data;
-    final data = (raw is Map ? raw['data'] : raw) as Map<String, dynamic>;
+    final data = (raw is Map ? (raw['data'] ?? raw) : raw) as Map<String, dynamic>;
     return PlacementProposal.fromJson(data);
   }
 }
