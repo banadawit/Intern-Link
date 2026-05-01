@@ -11,7 +11,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   return (
     <StudentRouteGuard>
       <MaintenanceGuard>
-      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
+      <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row dark:bg-slate-950 dark:text-slate-300">
         <StudentSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-end border-b border-border-default bg-bg-main/95 px-4 py-3 backdrop-blur-sm sm:px-6 lg:px-8">

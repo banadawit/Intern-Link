@@ -33,7 +33,7 @@ interface AuthState {
   // Actions
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
-  register: (data: RegisterData) => Promise<void>;
+  register: (data: RegisterData) => Promise<{ verificationToken?: string }>;
   verifyEmail: (token: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
@@ -57,7 +57,7 @@ interface RegisterData {
   studentId?: string;
   employeeId?: string;
   position?: string;
-  verificationDocument?: string;
+  verificationDocument?: File | string;
 }
 
 // API Response Types
@@ -82,6 +82,14 @@ interface ApiErrorResponse {
   message: string;
   requiresVerification?: boolean;
   email?: string;
+}
+
+interface RegisterResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    verificationToken?: string;
+  };
 }
 
 // Error type for API calls
@@ -184,11 +192,41 @@ export const useAuth = create<AuthState>()(
         }),
       };
 
-      await api.post('/auth/register', payload);
-      
-      set({ isLoading: false });
-      
-    } catch (err) {
+          // Add role-specific fields
+          if (data.role === 'coordinator') {
+            if (data.universityName) formData.append('university_name', data.universityName);
+            if (data.position) formData.append('position', data.position);
+          } else if (data.role === 'hod') {
+            if (data.universityId) formData.append('university_id', String(data.universityId));
+            if (data.department) formData.append('department', data.department);
+            if (data.employeeId) formData.append('employee_id', data.employeeId);
+          } else if (data.role === 'supervisor') {
+            if (data.companyName) formData.append('company_name', data.companyName);
+            if (data.position) formData.append('position', data.position);
+          } else if (data.role === 'student') {
+            if (data.universityId) formData.append('university_id', String(data.universityId));
+            if (data.hodId) formData.append('hod_id', String(data.hodId));
+            if (data.studentId) formData.append('student_id', data.studentId);
+          }
+
+          // Accept either a File upload or a pre-uploaded URL string
+          if (data.verificationDocument instanceof File) {
+            formData.append('verification_document', data.verificationDocument);
+          } else if (typeof data.verificationDocument === 'string' && data.verificationDocument.trim()) {
+            formData.append('verification_document', data.verificationDocument.trim());
+          }
+
+          // Send as multipart/form-data (let browser set Content-Type with boundary)
+          const response = await api.post<RegisterResponse>('/auth/register', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          
+          set({ isLoading: false });
+          return {
+            verificationToken: response.data?.data?.verificationToken,
+          };
+          
+        } catch (err) {
           const error = err as ApiError;
           const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
           set({ 

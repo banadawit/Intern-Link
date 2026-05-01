@@ -42,7 +42,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen surface-base">
       <Navbar />
       
       {/* Main Content */}
@@ -58,7 +58,7 @@ export default function Home() {
         </section>
 
         {/* How It Works Section */}
-        <section id="how-it-works" className="scroll-mt-20 bg-slate-50">
+        <section id="how-it-works" className="scroll-mt-20 surface-muted">
           <HowItWorks />
         </section>
 
@@ -68,7 +68,7 @@ export default function Home() {
         </section>
 
         {/* Testimonials Section */}
-        <section id="testimonials" className="scroll-mt-20 bg-slate-50">
+        <section id="testimonials" className="scroll-mt-20 surface-muted">
           <Testimonials />
         </section>
 
