@@ -94,7 +94,7 @@ class SupervisorRepository {
   }
 
   Future<void> reviewPlan(int planId, {required bool approve, String? feedback}) async {
-    await _api.dio.patch('/progress/plans/$planId/review', data: {
+    await _api.dio.patch('/progress/review/$planId', data: {
       'status': approve ? 'APPROVED' : 'REJECTED',
       'remarks': feedback,
     });
