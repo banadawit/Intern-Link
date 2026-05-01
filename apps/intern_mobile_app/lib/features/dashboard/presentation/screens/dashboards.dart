@@ -262,8 +262,20 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                 ] else if (widget.roleLabel == 'HEAD OF DEPARTMENT') ...[
                   _buildDrawerItem(Icons.groups_3_rounded, 'Department Students', () {
                     Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 0; // Home (assuming overview here)
-                  }, isSelected: currentIndex == 0),
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // Students tab
+                  }, isSelected: currentIndex == 1),
+                  _buildDrawerItem(Icons.send_rounded, 'Proposals', () {
+                    Navigator.pop(context);
+                    ref.read(dashboardIndexProvider.notifier).state = 2; // Proposals tab
+                  }, isSelected: currentIndex == 2),
+                  _buildDrawerItem(Icons.track_changes_rounded, 'Tracking', () {
+                    Navigator.pop(context);
+                    ref.read(dashboardIndexProvider.notifier).state = 3; // Tracking tab
+                  }, isSelected: currentIndex == 3),
+                  _buildDrawerItem(Icons.description_rounded, 'Reports', () {
+                    Navigator.pop(context);
+                    ref.read(dashboardIndexProvider.notifier).state = 4; // Reports tab
+                  }, isSelected: currentIndex == 4),
                 ] else if (widget.roleLabel == 'ADMIN') ...[
                   _buildDrawerItem(Icons.manage_accounts_rounded, 'User Management', () {
                     Navigator.pop(context);
