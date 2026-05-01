@@ -934,24 +934,37 @@ class AiMessagesNotifier extends AsyncNotifier<List<AiMessageModel>> {
   Future<void> sendMessage(String text) async {
     final repo = ref.read(aiAssistantRepositoryProvider);
     
+    // Capture history BEFORE adding the new user message to avoid duplication
+    final historyBeforeSend = List<AiMessageModel>.from(state.value ?? []);
+
     // Optimistically add user message
-    final current = state.value ?? [];
     state = AsyncData([
-      ...current,
+      ...historyBeforeSend,
       AiMessageModel(speaker: 'user', content: text),
     ]);
 
     try {
-      // Pass full conversation history so the AI has context
-      final response = await repo.sendMessage(text, history: state.value ?? []);
+      // Pass history captured before this message so Gemini doesn't see it twice
+      final response = await repo.sendMessage(text, history: historyBeforeSend);
       state = AsyncData([
         ...state.value!,
         response,
       ]);
     } catch (e) {
+      // Extract meaningful error message from Dio response if available
+      String errorMsg = 'Sorry, I encountered an error. Please try again.';
+      try {
+        final dioErr = e as dynamic;
+        final respData = dioErr?.response?.data;
+        if (respData is Map) {
+          final msg = respData['message']?.toString();
+          if (msg != null && msg.isNotEmpty) errorMsg = msg;
+        }
+      } catch (_) {}
+
       state = AsyncData([
         ...state.value!,
-        AiMessageModel(speaker: 'assistant', content: 'Sorry, I encountered an error. Please try again.'),
+        AiMessageModel(speaker: 'assistant', content: errorMsg),
       ]);
     }
   }

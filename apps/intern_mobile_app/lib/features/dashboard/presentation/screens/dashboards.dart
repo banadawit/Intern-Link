@@ -6193,6 +6193,19 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
     final studentId = _parseInt(s['id']);
     final department = (s['department'] ?? '').toString();
     final flagType = s['flag_type']?.toString();
+    final latestProposal = s['latestProposal'] as Map<String, dynamic>?;
+    final proposalStatus = latestProposal?['status']?.toString();
+
+    // Proposal badge status
+    final proposalBadgeStatus = internStatus == 'PLACED'
+        ? 'PLACED'
+        : proposalStatus == 'PENDING'
+            ? 'PENDING'
+            : proposalStatus == 'APPROVED'
+                ? 'APPROVED'
+                : proposalStatus == 'REJECTED'
+                    ? 'REJECTED'
+                    : null; // null = no badge
 
     Color statusColor = hodStatus == 'APPROVED' ? Colors.green : hodStatus == 'REJECTED' ? Colors.red : Colors.orange;
     final isSelected = _selected.contains(studentId);
@@ -6222,6 +6235,16 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
               Text(name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
               Text(email, style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 11), overflow: TextOverflow.ellipsis),
               if (department.isNotEmpty) Text(department, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+              if (proposalBadgeStatus != null) ...[
+                const SizedBox(height: 4),
+                Row(children: [
+                  _ProposalStatusBadge(proposalBadgeStatus),
+                  if (proposalStatus == 'PENDING' && latestProposal?['companyName'] != null) ...[
+                    const SizedBox(width: 4),
+                    Text('→ ${latestProposal!['companyName']}', style: const TextStyle(color: Colors.grey, fontSize: 9)),
+                  ],
+                ]),
+              ],
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(hodStatus, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900))),
@@ -6249,13 +6272,41 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
                 const SizedBox(width: 10),
                 Expanded(child: FilledButton(onPressed: () => _approve(studentId), style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00b09b)), child: const Text('Approve'))),
               ])
-            else if (hodStatus == 'APPROVED' && internStatus != 'PLACED')
-              SizedBox(width: double.infinity, child: FilledButton.icon(
-                onPressed: () => _showSendProposalSheet(context, studentId, name),
-                icon: const Icon(Icons.send_rounded, size: 14),
-                label: const Text('Send Proposal'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00b09b)),
-              ))
+            else if (hodStatus == 'APPROVED' && internStatus != 'PLACED') ...[
+              if (proposalStatus == 'PENDING')
+                // Already has a pending proposal — show info instead of send button
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withOpacity(0.3))),
+                  child: Row(children: [
+                    const Icon(Icons.hourglass_top_rounded, size: 14, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      'Pending proposal to ${latestProposal?['companyName'] ?? 'a company'}',
+                      style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w600),
+                    )),
+                    GestureDetector(
+                      onTap: () => _showSmartConflictDialog(
+                        context,
+                        studentName: name,
+                        proposalStatus: 'PENDING',
+                        companyName: latestProposal?['companyName']?.toString() ?? 'the company',
+                        submittedAt: latestProposal?['submittedAt'] != null
+                            ? DateTime.tryParse(latestProposal!['submittedAt'].toString())
+                            : null,
+                      ),
+                      child: const Text('Details', style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                    ),
+                  ]),
+                )
+              else
+                SizedBox(width: double.infinity, child: FilledButton.icon(
+                  onPressed: () => _showSendProposalSheet(context, studentId, name),
+                  icon: const Icon(Icons.send_rounded, size: 14),
+                  label: Text(proposalStatus == 'REJECTED' ? 'Resend Proposal' : 'Send Proposal'),
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00b09b)),
+                )),
+            ]
             else if (hodStatus == 'REJECTED')
               SizedBox(width: double.infinity, child: OutlinedButton(
                 onPressed: () => _reprocess(studentId),
@@ -6345,7 +6396,7 @@ class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
         );
         if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Team proposal sent ✓'))); }
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        if (mounted) await _handleProposalError(e, isTeam: true);
       } finally {
         if (mounted) setState(() => _loading = false);
       }
@@ -6366,9 +6417,64 @@ class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
         );
         if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Proposal sent ✓'))); }
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        if (mounted) await _handleProposalError(e, isTeam: false);
       } finally {
         if (mounted) setState(() => _loading = false);
+      }
+    }
+  }
+
+  /// Parses structured conflict errors from the backend and shows a smart dialog.
+  /// Falls back to a plain snackbar for non-conflict errors.
+  Future<void> _handleProposalError(Object e, {required bool isTeam}) async {
+    // Try to extract structured data from DioException response
+    Map<String, dynamic>? errorData;
+    String errorMessage = e.toString();
+
+    try {
+      // Dio wraps the response body in the exception
+      final dioError = e as dynamic;
+      final response = dioError?.response?.data;
+      if (response is Map) {
+        errorData = Map<String, dynamic>.from(response['data'] as Map? ?? {});
+        errorMessage = response['message']?.toString() ?? errorMessage;
+      }
+    } catch (_) {}
+
+    if (errorData != null && errorData.containsKey('proposalStatus')) {
+      final proposalStatus = errorData['proposalStatus']?.toString() ?? 'PENDING';
+      final companyName = errorData['companyName']?.toString() ?? 'the company';
+      final teamName = errorData['teamName']?.toString();
+      final submittedAtRaw = errorData['submittedAt'];
+      final submittedAt = submittedAtRaw != null ? DateTime.tryParse(submittedAtRaw.toString()) : null;
+
+      // Find the student name from selected data
+      String studentName = _selectedLeadStudentName.isNotEmpty
+          ? _selectedLeadStudentName
+          : widget.studentName.isNotEmpty
+              ? widget.studentName
+              : 'This student';
+
+      if (!mounted) return;
+      final action = await _showSmartConflictDialog(
+        context,
+        studentName: studentName,
+        proposalStatus: proposalStatus,
+        companyName: companyName,
+        teamName: teamName,
+        submittedAt: submittedAt,
+      );
+
+      if (action == _ConflictAction.sendNew && mounted) {
+        // User wants to send a new proposal — just close the dialog, they can resubmit
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Select a different company to send a new proposal.')),
+        );
+      }
+    } else {
+      // Generic error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
       }
     }
   }
