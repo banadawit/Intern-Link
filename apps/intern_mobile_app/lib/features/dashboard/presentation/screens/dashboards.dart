@@ -432,14 +432,15 @@ class ModernSliverAppBar extends ConsumerWidget {
         const SizedBox(width: 12),
         Consumer(
           builder: (context, ref, child) {
-            final unreadCount = ref.watch(notificationsProvider).maybeWhen(
-              data: (notifs) => notifs.where((n) => !n.isRead).length,
+            final unreadCount = ref.watch(unreadNotificationCountProvider).maybeWhen(
+              data: (count) => count,
               orElse: () => 0,
             );
             return ModernHeaderIcon(
               icon: Icons.notifications_none_rounded,
               onTap: () => _showNotificationCenter(context, ref),
               hasBadge: unreadCount > 0,
+              badgeCount: unreadCount,
             );
           },
         ),
@@ -570,6 +571,11 @@ class ModernSliverAppBar extends ConsumerWidget {
       builder: (ctx) => Consumer(
         builder: (context, ref, child) {
           final notificationsAsync = ref.watch(notificationsProvider);
+          final unreadCount = notificationsAsync.maybeWhen(
+            data: (notifs) => notifs.where((n) => !n.isRead).length,
+            orElse: () => 0,
+          );
+
           return Container(
             height: MediaQuery.of(context).size.height * 0.7,
             padding: const EdgeInsets.all(24),
@@ -585,11 +591,27 @@ class ModernSliverAppBar extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Notifications', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-                    if (notificationsAsync.value?.any((n) => !n.isRead) ?? false)
-                      TextButton(
-                        onPressed: () => ref.read(notificationsRepositoryProvider).markAllAsRead(),
-                        child: const Text('Mark all read'),
+                    Row(children: [
+                      const Text('Notifications', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                      if (unreadCount > 0) ...[
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(12)),
+                          child: Text('$unreadCount', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+                        ),
+                      ],
+                    ]),
+                    if (unreadCount > 0)
+                      TextButton.icon(
+                        onPressed: () async {
+                          await ref.read(notificationsRepositoryProvider).markAllAsRead();
+                          ref.invalidate(notificationsProvider);
+                          ref.invalidate(unreadNotificationCountProvider);
+                        },
+                        icon: const Icon(Icons.done_all_rounded, size: 16),
+                        label: const Text('Mark all read'),
+                        style: TextButton.styleFrom(foregroundColor: Colors.blue),
                       ),
                   ],
                 ),
@@ -601,14 +623,11 @@ class ModernSliverAppBar extends ConsumerWidget {
                     data: (notifications) {
                       if (notifications.isEmpty) {
                         return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.notifications_none_rounded, size: 64, color: Colors.grey.shade300),
-                              const SizedBox(height: 16),
-                              Text('All caught up!', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Icon(Icons.notifications_none_rounded, size: 64, color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Text('All caught up!', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                          ]),
                         );
                       }
                       return ListView.builder(
@@ -616,12 +635,8 @@ class ModernSliverAppBar extends ConsumerWidget {
                         itemBuilder: (context, index) {
                           final n = notifications[index];
                           return _buildNotificationItem(
-                            context, 
-                            'Update', 
-                            n.message, 
-                            timeago.format(n.createdAt), 
-                            Icons.notifications_rounded,
-                            n.isRead,
+                            context, ref,
+                            n,
                           );
                         },
                       );
@@ -636,61 +651,64 @@ class ModernSliverAppBar extends ConsumerWidget {
     );
   }
 
-  Widget _buildNotificationItem(BuildContext context, String category, String text, String time, IconData icon, bool isRead) {
+  Widget _buildNotificationItem(BuildContext context, WidgetRef ref, NotificationModel n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isRead 
-          ? (isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02))
-          : (isDark ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.05)),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isRead ? Colors.transparent : Colors.blue.withOpacity(0.3),
+    final msg = n.message;
+
+    // Smart icon + color based on message content
+    IconData icon = Icons.notifications_rounded;
+    Color color = Colors.blue;
+    String category = 'Update';
+
+    if (msg.contains('approved') || msg.contains('✅')) { icon = Icons.check_circle_rounded; color = Colors.green; category = 'Approved'; }
+    else if (msg.contains('rejected') || msg.contains('❌')) { icon = Icons.cancel_rounded; color = Colors.red; category = 'Rejected'; }
+    else if (msg.contains('proposal') || msg.contains('📋')) { icon = Icons.work_rounded; color = Colors.purple; category = 'Proposal'; }
+    else if (msg.contains('plan') || msg.contains('📝')) { icon = Icons.assignment_rounded; color = Colors.orange; category = 'Plan'; }
+    else if (msg.contains('placement') || msg.contains('internship')) { icon = Icons.business_center_rounded; color = Colors.teal; category = 'Placement'; }
+    else if (msg.contains('report') || msg.contains('📄')) { icon = Icons.description_rounded; color = Colors.indigo; category = 'Report'; }
+    else if (msg.contains('open letter') || msg.contains('📩')) { icon = Icons.mail_rounded; color = Colors.amber.shade700; category = 'Open Letter'; }
+
+    return GestureDetector(
+      onTap: n.isRead ? null : () async {
+        await ref.read(notificationsRepositoryProvider).markAsRead(n.id);
+        ref.invalidate(notificationsProvider);
+        ref.invalidate(unreadNotificationCountProvider);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: n.isRead
+              ? (isDark ? Colors.white.withOpacity(0.03) : Colors.black.withOpacity(0.02))
+              : (isDark ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.05)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: n.isRead ? Colors.transparent : Colors.blue.withOpacity(0.3),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
+        child: Row(children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isRead ? Colors.grey.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+              color: n.isRead ? Colors.grey.withOpacity(0.1) : color.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 18, color: isRead ? Colors.grey : Colors.blue),
+            child: Icon(icon, size: 18, color: n.isRead ? Colors.grey : color),
           ),
           const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, 
-              children: [
-                Text(
-                  text, 
-                  style: TextStyle(
-                    fontWeight: isRead ? FontWeight.w500 : FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$category • $time', 
-                  style: TextStyle(
-                    fontSize: 11, 
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!isRead)
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-            ),
-        ],
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(category, style: TextStyle(fontWeight: n.isRead ? FontWeight.w500 : FontWeight.w800, fontSize: 12, color: n.isRead ? Colors.grey : color)),
+              Text(timeago.format(n.createdAt), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            ]),
+            const SizedBox(height: 3),
+            Text(msg, style: TextStyle(fontWeight: n.isRead ? FontWeight.w400 : FontWeight.w600, fontSize: 13, color: n.isRead ? Colors.grey : null), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ])),
+          if (!n.isRead) ...[
+            const SizedBox(width: 8),
+            Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle)),
+          ],
+        ]),
       ),
     );
   }
@@ -728,8 +746,15 @@ class ModernHeaderIcon extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool hasBadge;
+  final int badgeCount;
 
-  const ModernHeaderIcon({super.key, required this.icon, required this.onTap, this.hasBadge = false});
+  const ModernHeaderIcon({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.hasBadge = false,
+    this.badgeCount = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -753,15 +778,25 @@ class ModernHeaderIcon extends StatelessWidget {
         ),
         if (hasBadge)
           Positioned(
-            right: -2,
-            top: -2,
+            right: -4,
+            top: -4,
             child: Container(
-              width: 12,
-              height: 12,
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
                 color: Colors.redAccent,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Text(
+                badgeCount > 99 ? '99+' : badgeCount > 0 ? '$badgeCount' : '',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ),

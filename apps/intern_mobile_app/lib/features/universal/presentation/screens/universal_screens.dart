@@ -18,8 +18,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(notificationsRepositoryProvider).markAllAsRead();
+    // Mark all as read when screen opens, then refresh providers so badge clears
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(notificationsRepositoryProvider).markAllAsRead();
+      ref.invalidate(notificationsProvider);
+      ref.invalidate(unreadNotificationCountProvider);
     });
   }
 
@@ -61,42 +64,34 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       (context, index) {
                         final notif = notifications[index];
                         final msg = notif.message;
-                        
+
                         IconData icon = Icons.notifications_rounded;
                         Color color = Colors.blue;
-                        String title = 'Notification';
-                        
-                        if (msg.contains('[ADMIN_ALERT]')) {
-                          icon = Icons.admin_panel_settings_rounded;
-                          color = Colors.orange;
-                          title = 'Admin Alert';
-                        } else if (msg.contains('[SECURITY_ALERT]')) {
-                          icon = Icons.security_rounded;
-                          color = Colors.red;
-                          title = 'Security Alert';
-                        } else if (msg.contains('[SYSTEM_ALERT]')) {
-                          icon = Icons.settings_suggest_rounded;
-                          color = Colors.purple;
-                          title = 'System Alert';
-                        } else if (msg.contains('📢')) {
-                          icon = Icons.campaign_rounded;
-                          color = Colors.indigo;
-                          title = 'Announcement';
-                        }
-                        
+                        String title = 'Update';
+
+                        if (msg.contains('approved') || msg.contains('✅')) { icon = Icons.check_circle_rounded; color = Colors.green; title = 'Approved'; }
+                        else if (msg.contains('rejected') || msg.contains('❌')) { icon = Icons.cancel_rounded; color = Colors.red; title = 'Rejected'; }
+                        else if (msg.contains('proposal') || msg.contains('📋')) { icon = Icons.work_rounded; color = Colors.purple; title = 'Proposal'; }
+                        else if (msg.contains('plan') || msg.contains('📝')) { icon = Icons.assignment_rounded; color = Colors.orange; title = 'Plan'; }
+                        else if (msg.contains('placement') || msg.contains('internship')) { icon = Icons.business_center_rounded; color = Colors.teal; title = 'Placement'; }
+                        else if (msg.contains('report') || msg.contains('📄')) { icon = Icons.description_rounded; color = Colors.indigo; title = 'Report'; }
+                        else if (msg.contains('open letter') || msg.contains('📩')) { icon = Icons.mail_rounded; color = Colors.amber.shade700; title = 'Open Letter'; }
+                        else if (msg.contains('[ADMIN_ALERT]')) { icon = Icons.admin_panel_settings_rounded; color = Colors.orange; title = 'Admin Alert'; }
+                        else if (msg.contains('[SECURITY_ALERT]')) { icon = Icons.security_rounded; color = Colors.red; title = 'Security Alert'; }
+
                         final cleanMsg = msg
                             .replaceFirst('[ADMIN_ALERT] ', '')
                             .replaceFirst('[SECURITY_ALERT] ', '')
                             .replaceFirst('[SYSTEM_ALERT] ', '');
 
                         return _notificationItem(
-                          context,
-                          title,
-                          cleanMsg,
-                          timeago.format(notif.createdAt),
-                          icon,
-                          color,
-                          notif.isRead,
+                          context, ref,
+                          notif: notif,
+                          title: title,
+                          body: cleanMsg,
+                          time: timeago.format(notif.createdAt),
+                          icon: icon,
+                          color: color,
                         );
                       },
                       childCount: notifications.length,
@@ -127,42 +122,76 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ),
       actions: [
         IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(notificationsProvider)),
+          icon: const Icon(Icons.done_all_rounded),
+          tooltip: 'Mark all as read',
+          onPressed: () async {
+            await ref.read(notificationsRepositoryProvider).markAllAsRead();
+            ref.invalidate(notificationsProvider);
+            ref.invalidate(unreadNotificationCountProvider);
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded),
+          onPressed: () {
+            ref.invalidate(notificationsProvider);
+            ref.invalidate(unreadNotificationCountProvider);
+          },
+        ),
       ],
     );
   }
 
-  Widget _notificationItem(BuildContext context, String title, String body, String time, IconData icon, Color color, bool isRead) {
+  Widget _notificationItem(
+    BuildContext context,
+    WidgetRef ref, {
+    required NotificationModel notif,
+    required String title,
+    required String body,
+    required String time,
+    required IconData icon,
+    required Color color,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isRead 
-            ? (isDark ? Colors.white.withOpacity(0.02) : Colors.white.withOpacity(0.5))
-            : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 22)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))), 
-                    Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10))
-                ]),
-                const SizedBox(height: 4),
-                Text(body, style: TextStyle(color: isRead ? Colors.grey : (isDark ? Colors.white : Colors.black87), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-              ],
-            ),
+    return GestureDetector(
+      onTap: notif.isRead ? null : () async {
+        await ref.read(notificationsRepositoryProvider).markAsRead(notif.id);
+        ref.invalidate(notificationsProvider);
+        ref.invalidate(unreadNotificationCountProvider);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: notif.isRead
+              ? (isDark ? Colors.white.withOpacity(0.02) : Colors.white.withOpacity(0.5))
+              : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: notif.isRead
+                ? (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))
+                : color.withOpacity(0.3),
           ),
-        ],
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: color.withOpacity(notif.isRead ? 0.07 : 0.12), shape: BoxShape.circle),
+            child: Icon(icon, color: notif.isRead ? Colors.grey : color, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(title, style: TextStyle(fontWeight: notif.isRead ? FontWeight.w500 : FontWeight.w800, fontSize: 12, color: notif.isRead ? Colors.grey : color)),
+              Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+            ]),
+            const SizedBox(height: 4),
+            Text(body, style: TextStyle(color: notif.isRead ? Colors.grey : (isDark ? Colors.white : Colors.black87), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ])),
+          if (!notif.isRead) ...[
+            const SizedBox(width: 8),
+            Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          ],
+        ]),
       ),
     );
   }
