@@ -32,14 +32,25 @@
   <title>InternLink</title>
   <link rel="manifest" href="manifest.json">
   <script>
-    // Prevent WebGL context loss from crashing Flutter Web during hot restart
+    // Suppress WebGL context loss errors during Flutter Web hot restart.
+    // The CanvasKit surface fires webglcontextlost before it is fully initialized,
+    // causing a LateInitializationError. Intercepting the event prevents the crash.
+    window.addEventListener('webglcontextlost', function(e) {
+      e.preventDefault();
+    }, true);
+
+    // Also guard getContext to avoid null returns crashing Flutter
     (function() {
       const origGetContext = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function(type, attrs) {
-        if (type === 'webgl' || type === 'webgl2') {
-          attrs = Object.assign({ powerPreference: 'high-performance' }, attrs || {});
+        try {
+          if (type === 'webgl' || type === 'webgl2') {
+            attrs = Object.assign({ powerPreference: 'default', failIfMajorPerformanceCaveat: false }, attrs || {});
+          }
+          return origGetContext.call(this, type, attrs);
+        } catch(e) {
+          return null;
         }
-        return origGetContext.call(this, type, attrs);
       };
     })();
   </script>

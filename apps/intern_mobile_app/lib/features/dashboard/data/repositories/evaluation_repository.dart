@@ -55,7 +55,8 @@ class EvaluationRepository {
     final response = await _apiClient.dio.get('/reports/my-evaluation');
     final raw = response.data;
     // After interceptor unwrap: raw = { evaluation: {...} } or { evaluation: null }
-    final evalData = raw is Map ? (raw['evaluation'] ?? raw['data']?['evaluation']) : null;
+    // The interceptor unwraps success.data → so raw IS the data object
+    final evalData = raw is Map ? raw['evaluation'] : null;
     if (evalData == null) return null;
     return FinalEvaluation.fromJson(Map<String, dynamic>.from(evalData as Map));
   }

@@ -8,6 +8,7 @@ _flutter.loader.load({
   onEntrypointLoaded: async function(engineInitializer) {
     const appRunner = await engineInitializer.initializeEngine({
       renderer: "html",
+      hostElement: undefined,
     });
     await appRunner.runApp();
   }
