@@ -163,7 +163,6 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
                 universityId: hod.universityId,
                 department: { not: null },
                 ...(hodApprovalFilter !== 'all' ? { hod_approval_status: hodApprovalFilter } : {}),
-                // Support 'placed' filter
                 ...(status === 'placed' ? { internship_status: 'PLACED' } : {}),
             },
             include: {
@@ -173,7 +172,40 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
         });
 
         const filtered = rows.filter((s) => departmentsMatch(s.department, hod.department));
-        return sendSuccess(res, filtered);
+
+        // Enrich each student with their latest proposal info so the UI can
+        // show smart status badges without extra round-trips.
+        const studentIds = filtered.map((s) => s.id);
+        const proposals = studentIds.length === 0 ? [] : await prisma.internshipProposal.findMany({
+            where: { studentId: { in: studentIds } },
+            include: { company: { select: { id: true, name: true } } },
+            orderBy: { submitted_at: 'desc' },
+        });
+
+        // Build a map: studentId → latest proposal
+        const proposalMap = new Map<number, typeof proposals[0]>();
+        for (const p of proposals) {
+            if (!proposalMap.has(p.studentId)) proposalMap.set(p.studentId, p);
+        }
+
+        const enriched = filtered.map((s) => {
+            const latestProposal = proposalMap.get(s.id);
+            return {
+                ...s,
+                latestProposal: latestProposal
+                    ? {
+                          id: latestProposal.id,
+                          status: latestProposal.status,
+                          companyId: latestProposal.companyId,
+                          companyName: latestProposal.company.name,
+                          submittedAt: latestProposal.submitted_at,
+                          proposalType: latestProposal.proposal_type,
+                      }
+                    : null,
+            };
+        });
+
+        return sendSuccess(res, enriched);
     } catch (e: any) {
         return sendError(res, e.message);
     }
@@ -383,7 +415,20 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
             const dup = await safeFindFirstProposal({
                 where: { studentId: sid, companyId: cid, status: 'PENDING' },
             });
-            if (dup) return sendError(res, `Student ${sid} already has an active proposal for this company.`, 400);
+            if (dup) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Student already has a pending proposal for this company.`,
+                    data: {
+                        studentId: sid,
+                        proposalStatus: 'PENDING',
+                        proposalId: dup.id,
+                        companyId: cid,
+                        companyName: company.name,
+                        submittedAt: dup.submitted_at,
+                    },
+                });
+            }
 
             // Check ProposalTeamMember only if table exists (requires regenerated Prisma client)
             try {
@@ -392,8 +437,23 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
                         studentId: sid,
                         proposal: { companyId: cid, status: 'PENDING' },
                     },
+                    include: { proposal: { include: { company: { select: { name: true } } } } },
                 });
-                if (teamDup) return sendError(res, `Student ${sid} is already in an active team proposal for this company.`, 400);
+                if (teamDup) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Student is already in an active team proposal for this company.`,
+                        data: {
+                            studentId: sid,
+                            proposalStatus: 'PENDING',
+                            proposalId: teamDup.proposalId,
+                            companyId: cid,
+                            companyName: teamDup.proposal?.company?.name ?? company.name,
+                            teamName: (teamDup.proposal as any)?.team_name ?? null,
+                            submittedAt: (teamDup.proposal as any)?.submitted_at ?? null,
+                        },
+                    });
+                }
             } catch (_) {
                 // ProposalTeamMember table not available yet — skip this check
             }

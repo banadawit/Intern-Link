@@ -777,6 +777,94 @@ bool _parseBool(dynamic v) {
   return false;
 }
 
+// ── Proposal Status Badge ─────────────────────────────────────────────────────
+/// Compact badge showing a student's proposal status in the picker list.
+class _ProposalStatusBadge extends StatelessWidget {
+  final String status; // 'PENDING' | 'APPROVED' | 'REJECTED' | 'PLACED' | 'AVAILABLE'
+  const _ProposalStatusBadge(this.status);
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, icon) = switch (status) {
+      'PENDING'   => ('Pending Proposal', Colors.amber.shade700, Icons.hourglass_top_rounded),
+      'APPROVED'  => ('Placed',           Colors.green,          Icons.check_circle_rounded),
+      'REJECTED'  => ('Rejected',         Colors.red,            Icons.cancel_rounded),
+      'PLACED'    => ('Placed',           Colors.green,          Icons.check_circle_rounded),
+      _           => ('Available',        Colors.teal,           Icons.circle_rounded),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 10, color: color),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
+}
+
+// ── Smart Conflict Dialog ─────────────────────────────────────────────────────
+/// Shows a contextual dialog when a student already has a proposal conflict.
+Future<_ConflictAction?> _showSmartConflictDialog(
+  BuildContext context, {
+  required String studentName,
+  required String proposalStatus,
+  required String companyName,
+  String? teamName,
+  DateTime? submittedAt,
+}) {
+  final timeStr = submittedAt != null ? timeago.format(submittedAt) : 'recently';
+  final (title, body, color) = switch (proposalStatus) {
+    'APPROVED' => (
+        '🟢 Already Placed',
+        '$studentName is already placed at $companyName.',
+        Colors.green,
+      ),
+    'REJECTED' => (
+        '🔴 Previously Rejected',
+        '$studentName had a proposal to $companyName that was rejected $timeStr. You can send a new proposal.',
+        Colors.red,
+      ),
+    _ => (
+        '🟡 Active Proposal Exists',
+        teamName != null
+            ? '$studentName is already in team "$teamName" with a pending proposal to $companyName (sent $timeStr).'
+            : '$studentName already has a pending proposal to $companyName (sent $timeStr).',
+        Colors.amber.shade700,
+      ),
+  };
+
+  return showDialog<_ConflictAction>(
+    context: context,
+    builder: (d) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+      content: Text(body, style: const TextStyle(height: 1.5)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(d, _ConflictAction.cancel),
+          child: const Text('Cancel'),
+        ),
+        if (proposalStatus == 'REJECTED')
+          FilledButton(
+            onPressed: () => Navigator.pop(d, _ConflictAction.sendNew),
+            style: FilledButton.styleFrom(backgroundColor: color),
+            child: const Text('Send New Proposal'),
+          ),
+        if (proposalStatus == 'PENDING')
+          OutlinedButton(
+            onPressed: () => Navigator.pop(d, _ConflictAction.viewProposal),
+            style: OutlinedButton.styleFrom(foregroundColor: color),
+            child: const Text('View Proposal'),
+          ),
+      ],
+    ),
+  );
+}
+
+enum _ConflictAction { cancel, sendNew, viewProposal }
+
 Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
   String growthTitle = 'User Growth',
   String growthTrend = '+12% this month',
@@ -6212,6 +6300,7 @@ class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
   int? _selectedCompanyId;
   int? _selectedLeadStudentId;
   String _selectedLeadStudentName = '';
+  Map<String, dynamic>? _leadStudentProposal; // latest proposal info for smart errors
   final List<Map<String, dynamic>> _teamMembers = []; // additional members
   final _teamNameCtrl = TextEditingController();
   final _outcomesCtrl = TextEditingController();
@@ -6292,11 +6381,18 @@ class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (ctx) => Container(
-          height: MediaQuery.of(context).size.height * 0.6,
+          height: MediaQuery.of(context).size.height * 0.65,
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
             Text(isLead ? 'Select Lead Student' : 'Add Team Member', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            const Text('Disabled students have active proposals or are already placed.', style: TextStyle(color: Colors.grey, fontSize: 12)),
             const SizedBox(height: 16),
             Expanded(
               child: ListView.builder(
@@ -6306,24 +6402,68 @@ class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
                   final user = s['user'] as Map<String, dynamic>? ?? {};
                   final name = user['full_name']?.toString() ?? 'Student';
                   final sid = _parseInt(s['id']);
-                  // Skip already selected members
+                  final dept = s['department']?.toString() ?? '';
+                  final internStatus = s['internship_status']?.toString() ?? '';
+                  final latestProposal = s['latestProposal'] as Map<String, dynamic>?;
+                  final proposalStatus = latestProposal?['status']?.toString();
+
+                  // Determine availability
+                  final isPlaced = internStatus == 'PLACED';
+                  final hasPending = proposalStatus == 'PENDING';
                   final alreadyAdded = _teamMembers.any((m) => _parseInt(m['id']) == sid) || sid == _selectedLeadStudentId;
-                  if (alreadyAdded) return const SizedBox.shrink();
-                  return ListTile(
-                    leading: CircleAvatar(child: Text(name.isNotEmpty ? name[0] : '?')),
-                    title: Text(name),
-                    subtitle: Text(s['department']?.toString() ?? ''),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      setState(() {
-                        if (isLead) {
-                          _selectedLeadStudentId = sid;
-                          _selectedLeadStudentName = name;
-                        } else {
-                          _teamMembers.add({'id': sid, 'name': name});
-                        }
-                      });
-                    },
+
+                  // Disabled if placed, has pending proposal, or already in this team
+                  final isDisabled = isPlaced || hasPending || alreadyAdded;
+
+                  // Badge status
+                  final badgeStatus = isPlaced
+                      ? 'PLACED'
+                      : hasPending
+                          ? 'PENDING'
+                          : proposalStatus == 'REJECTED'
+                              ? 'REJECTED'
+                              : 'AVAILABLE';
+
+                  return Opacity(
+                    opacity: isDisabled ? 0.45 : 1.0,
+                    child: ListTile(
+                      enabled: !isDisabled,
+                      leading: CircleAvatar(
+                        backgroundColor: isDisabled ? Colors.grey.shade300 : Colors.teal.withOpacity(0.15),
+                        child: Text(name.isNotEmpty ? name[0] : '?', style: TextStyle(color: isDisabled ? Colors.grey : Colors.teal, fontWeight: FontWeight.bold)),
+                      ),
+                      title: Text(name, style: TextStyle(fontWeight: FontWeight.w700, color: isDisabled ? Colors.grey : null)),
+                      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        if (dept.isNotEmpty) Text(dept, style: const TextStyle(fontSize: 11)),
+                        const SizedBox(height: 3),
+                        _ProposalStatusBadge(badgeStatus),
+                        if (hasPending && latestProposal != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              '→ ${latestProposal['companyName'] ?? ''}',
+                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            ),
+                          ),
+                      ]),
+                      onTap: isDisabled ? null : () {
+                        Navigator.pop(ctx);
+                        setState(() {
+                          if (isLead) {
+                            _selectedLeadStudentId = sid;
+                            _selectedLeadStudentName = name;
+                            // Store proposal info for smart error display
+                            _leadStudentProposal = latestProposal;
+                          } else {
+                            _teamMembers.add({
+                              'id': sid,
+                              'name': name,
+                              'latestProposal': latestProposal,
+                            });
+                          }
+                        });
+                      },
+                    ),
                   );
                 },
               ),
