@@ -187,12 +187,16 @@ class InternshipProposal {
 class SupervisorTeam {
   final int id;
   final String name;
+  final int? projectId;
+  final String? projectName;
   final List<SupervisorStudent> members;
   final DateTime createdAt;
 
   const SupervisorTeam({
     required this.id,
     required this.name,
+    this.projectId,
+    this.projectName,
     required this.members,
     required this.createdAt,
   });
@@ -201,13 +205,24 @@ class SupervisorTeam {
 class SupervisorProject {
   final int id;
   final String name;
-  final List<SupervisorStudent> members;
+  final String? description;
+  final int capacity;
+  final List<String> requiredSkills;
+  final int memberCount;
+  final int teamCount;
   final DateTime createdAt;
 
   const SupervisorProject({
     required this.id,
     required this.name,
-    required this.members,
+    this.description,
+    required this.capacity,
+    required this.requiredSkills,
+    required this.memberCount,
+    required this.teamCount,
     required this.createdAt,
   });
+
+  bool get isFull => capacity > 0 && memberCount >= capacity;
+  String get capacityLabel => capacity == 0 ? 'Unlimited' : '$memberCount / $capacity';
 }

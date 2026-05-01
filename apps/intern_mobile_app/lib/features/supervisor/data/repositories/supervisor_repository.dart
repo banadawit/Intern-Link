@@ -125,6 +125,8 @@ class SupervisorRepository {
     return list.map((t) => SupervisorTeam(
       id: _si(t['id']),
       name: t['name']?.toString() ?? 'Team',
+      projectId: t['projectId'] != null ? _si(t['projectId']) : null,
+      projectName: t['project']?['name']?.toString(),
       members: ((t['members'] as List?) ?? []).map((m) {
         final s = m['student'];
         return SupervisorStudent(
@@ -142,12 +144,113 @@ class SupervisorRepository {
     )).toList();
   }
 
-  Future<void> createTeam(String name) async {
-    await _api.dio.post('/supervisor/teams', data: {'name': name});
+  Future<void> createTeam(String name, {int? projectId}) async {
+    await _api.dio.post('/supervisor/teams', data: {
+      'name': name,
+      if (projectId != null) 'projectId': projectId,
+    });
   }
 
   Future<void> addTeamMember(int teamId, int studentId) async {
     await _api.dio.post('/supervisor/teams/$teamId/members', data: {'studentId': studentId});
+  }
+
+  Future<void> removeTeamMember(int teamId, int studentId) async {
+    await _api.dio.delete('/supervisor/teams/$teamId/members/$studentId');
+  }
+
+  // ── Projects ───────────────────────────────────────────────────────────────
+
+  Future<List<SupervisorProject>> getProjects() async {
+    final res = await _api.dio.get('/supervisor/projects');
+    final data = res.data;
+    final Map<String, dynamic> body = (data is Map && data.containsKey('data'))
+        ? Map<String, dynamic>.from(data['data'])
+        : Map<String, dynamic>.from(data);
+    final list = (body['active'] as List?) ?? [];
+
+    return list.map((p) => SupervisorProject(
+      id: _si(p['id']),
+      name: p['name']?.toString() ?? 'Project',
+      description: p['description']?.toString(),
+      capacity: _si(p['capacity']),
+      requiredSkills: (p['requiredSkills'] as List?)?.map((s) => s.toString()).toList() ?? [],
+      memberCount: (p['students'] as List?)?.length ?? 0,
+      teamCount: (p['teams'] as List?)?.length ?? 0,
+      createdAt: p['created_at'] != null
+          ? DateTime.tryParse(p['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    )).toList();
+  }
+
+  Future<SupervisorProject> createProject({
+    required String name,
+    String? description,
+    int capacity = 0,
+    List<String> requiredSkills = const [],
+  }) async {
+    final res = await _api.dio.post('/supervisor/projects', data: {
+      'name': name,
+      if (description != null && description.isNotEmpty) 'description': description,
+      'capacity': capacity,
+      'requiredSkills': requiredSkills,
+    });
+    final raw = res.data;
+    final d = raw is Map ? (raw['data'] ?? raw) : raw;
+    return SupervisorProject(
+      id: _si(d['id']),
+      name: d['name']?.toString() ?? name,
+      description: d['description']?.toString(),
+      capacity: _si(d['capacity']),
+      requiredSkills: (d['requiredSkills'] as List?)?.map((s) => s.toString()).toList() ?? [],
+      memberCount: 0,
+      teamCount: 0,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  Future<void> addProjectMember(int projectId, int studentId) async {
+    await _api.dio.post('/supervisor/projects/$projectId/members', data: {'studentId': studentId});
+  }
+
+  // ── Bulk Assignment (all-in-one) ───────────────────────────────────────────
+
+  Future<Map<String, dynamic>> bulkAssign({
+    required List<int> studentIds,
+    int? teamId,
+    String? teamName,
+    int? projectId,
+  }) async {
+    final res = await _api.dio.post('/supervisor/assignments', data: {
+      'studentIds': studentIds,
+      if (teamId != null) 'teamId': teamId,
+      if (teamName != null && teamName.isNotEmpty) 'teamName': teamName,
+      if (projectId != null) 'projectId': projectId,
+    });
+    final raw = res.data;
+    return Map<String, dynamic>.from(raw is Map ? (raw['data'] ?? raw) : {});
+  }
+
+  Future<List<Map<String, dynamic>>> getAssignments() async {
+    final res = await _api.dio.get('/supervisor/assignments');
+    final raw = res.data;
+    final list = raw is Map ? (raw['data'] ?? []) : raw;
+    if (list is! List) return [];
+    return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  /// Move a student to a different team.
+  /// Returns error message if blocked (evaluation submitted).
+  Future<void> moveStudentToTeam(int studentId, int newTeamId) async {
+    await _api.dio.patch('/supervisor/assignments/students/$studentId/team', data: {'teamId': newTeamId});
+  }
+
+  /// Move a team to a different project.
+  /// Returns { warned, warningMessage } if active work exists.
+  Future<Map<String, dynamic>> moveTeamToProject(int teamId, int newProjectId) async {
+    final res = await _api.dio.patch('/supervisor/assignments/teams/$teamId/project', data: {'projectId': newProjectId});
+    final raw = res.data;
+    return Map<String, dynamic>.from(raw is Map ? (raw['data'] ?? raw) : {});
   }
 
   Future<List<SupervisorAttendanceReport>> getWeeklyReports() async {

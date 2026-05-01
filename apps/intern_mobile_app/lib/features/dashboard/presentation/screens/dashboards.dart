@@ -2927,71 +2927,40 @@ class _SupervisorManagementTab extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Material(
         color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -100,
-              left: -50,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [const Color(0xFF6a11cb).withOpacity(0.15), Colors.transparent],
-                  ),
-                ),
-              ),
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            ModernSliverAppBar(
+              title: 'Management',
+              subtitle: 'Approvals & Tracking',
+              profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Supervisor',
+              gradient: [const Color(0xFF6a11cb), const Color(0xFF2575fc)],
+              backgroundIcon: Icons.fact_check_rounded,
             ),
-            Positioned(
-              bottom: -50,
-              right: -50,
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [const Color(0xFF2575fc).withOpacity(0.15), Colors.transparent],
-                  ),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: SliverTabBarDelegate(
+                TabBar(
+                  tabs: const [Tab(text: 'Workflows'), Tab(text: 'Assignments'), Tab(text: 'Tracking')],
+                  labelColor: theme.colorScheme.primary,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: theme.colorScheme.primary,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  dividerColor: Colors.transparent,
                 ),
+                isDark,
               ),
-            ),
-            NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              ModernSliverAppBar(
-                title: 'Management',
-                subtitle: 'Approvals & Tracking',
-                profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Supervisor',
-                gradient: [const Color(0xFF6a11cb), const Color(0xFF2575fc)],
-                backgroundIcon: Icons.fact_check_rounded,
-              ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: SliverTabBarDelegate(
-                  TabBar(
-                    tabs: const [Tab(text: 'Workflows'), Tab(text: 'Tracking')],
-                    labelColor: theme.colorScheme.primary,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: theme.colorScheme.primary,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    dividerColor: Colors.transparent,
-                  ),
-                  isDark,
-                ),
-              ),
-            ],
-            body: const TabBarView(
-              children: [
-                _SupervisorWorkflowTabContent(),
-                _SupervisorTrackingTabContent(),
-              ],
-            ),
             ),
           ],
+          body: const TabBarView(
+            children: [
+              _SupervisorWorkflowTabContent(),
+              _SupervisorAssignmentScreen(),
+              _SupervisorTrackingTabContent(),
+            ],
+          ),
         ),
       ),
     );
@@ -3406,36 +3375,210 @@ class _SupervisorTeamsTab extends ConsumerStatefulWidget {
   ConsumerState<_SupervisorTeamsTab> createState() => _SupervisorTeamsTabState();
 }
 
-class _SupervisorTeamsTabState extends ConsumerState<_SupervisorTeamsTab> {
+class _SupervisorTeamsTabState extends ConsumerState<_SupervisorTeamsTab>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createProject() async {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final capCtrl = TextEditingController(text: '0');
+    final skillsCtrl = TextEditingController();
+    bool loading = false;
+    await showDialog<void>(
+      context: context,
+      builder: (d) => StatefulBuilder(builder: (d, setS) => AlertDialog(
+        title: const Text('Create Project', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Project Name *', border: OutlineInputBorder()), autofocus: true),
+          const SizedBox(height: 12),
+          TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()), maxLines: 2),
+          const SizedBox(height: 12),
+          TextField(controller: capCtrl, decoration: const InputDecoration(labelText: 'Capacity (0 = unlimited)', border: OutlineInputBorder()), keyboardType: TextInputType.number),
+          const SizedBox(height: 12),
+          TextField(controller: skillsCtrl, decoration: const InputDecoration(labelText: 'Required Skills (comma-separated)', hintText: 'Flutter, Node.js', border: OutlineInputBorder())),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: loading ? null : () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              setS(() => loading = true);
+              try {
+                final skills = skillsCtrl.text.trim().isEmpty ? <String>[] : skillsCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+                await ref.read(supervisorRepositoryProvider).createProject(name: nameCtrl.text.trim(), description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(), capacity: int.tryParse(capCtrl.text.trim()) ?? 0, requiredSkills: skills);
+                ref.invalidate(supervisorProjectsProvider);
+                if (d.mounted) Navigator.pop(d);
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Project created ✓')));
+              } catch (e) {
+                setS(() => loading = false);
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            },
+            child: loading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Create'),
+          ),
+        ],
+      )),
+    );
+  }
 
   Future<void> _createTeam() async {
     final nameCtrl = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    int? selectedProjectId;
+    bool loading = false;
+    final projects = ref.read(supervisorProjectsProvider).value ?? [];
+    await showDialog<void>(
       context: context,
-      builder: (d) => AlertDialog(
-        title: const Text('Create New Team'),
-        content: TextField(
-          controller: nameCtrl,
-          decoration: const InputDecoration(labelText: 'Team Name', border: OutlineInputBorder()),
-          autofocus: true,
-        ),
+      builder: (d) => StatefulBuilder(builder: (d, setS) => AlertDialog(
+        title: const Text('Create Team', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Team Name *', border: OutlineInputBorder()), autofocus: true),
+          const SizedBox(height: 12),
+          if (projects.isNotEmpty)
+            DropdownButtonFormField<int>(
+              value: selectedProjectId,
+              decoration: const InputDecoration(labelText: 'Link to Project (optional)', border: OutlineInputBorder()),
+              items: [const DropdownMenuItem<int>(value: null, child: Text('No project')), ...projects.map((p) => DropdownMenuItem<int>(value: p.id, child: Text(p.name, overflow: TextOverflow.ellipsis)))],
+              onChanged: (v) => setS(() => selectedProjectId = v),
+            ),
+        ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
           FilledButton(
-            onPressed: () { if (nameCtrl.text.trim().isNotEmpty) Navigator.pop(d, true); },
-            child: const Text('Create'),
+            onPressed: loading ? null : () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              setS(() => loading = true);
+              try {
+                await ref.read(supervisorRepositoryProvider).createTeam(nameCtrl.text.trim(), projectId: selectedProjectId);
+                ref.invalidate(supervisorTeamsProvider);
+                if (d.mounted) Navigator.pop(d);
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Team created ✓')));
+              } catch (e) {
+                setS(() => loading = false);
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            },
+            child: loading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Create'),
           ),
         ],
-      ),
+      )),
     );
-    if (confirmed != true || !mounted) return;
-    try {
-      await ref.read(supervisorRepositoryProvider).createTeam(nameCtrl.text.trim());
-      ref.invalidate(supervisorTeamsProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Team created ✓')));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
+  }
+
+  Future<void> _showAssignFlow() async {
+    final students = ref.read(supervisorStudentsProvider).value ?? [];
+    final projects = ref.read(supervisorProjectsProvider).value ?? [];
+    final teams = ref.read(supervisorTeamsProvider).value ?? [];
+    if (students.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No placed students available.'))); return; }
+    final Set<int> selectedStudentIds = {};
+    int? selectedProjectId;
+    int? selectedTeamId;
+    String teamName = '';
+    bool createNewTeam = true;
+    bool loading = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.85,
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 20),
+            const Text('Assign Students', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text('Select students, team, and project', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+            const SizedBox(height: 16),
+            Expanded(child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // STEP 1: Students
+              _stepHeader('1', 'Select Students', Colors.blue),
+              const SizedBox(height: 8),
+              ...students.map((s) => CheckboxListTile(
+                value: selectedStudentIds.contains(s.id),
+                onChanged: (v) => setS(() { if (v == true) selectedStudentIds.add(s.id); else selectedStudentIds.remove(s.id); }),
+                title: Text(s.fullName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                subtitle: Text(s.universityName, style: const TextStyle(fontSize: 11)),
+                secondary: CircleAvatar(radius: 18, backgroundColor: Colors.blue.withOpacity(0.1), child: Text(s.fullName[0], style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))),
+                dense: true, contentPadding: EdgeInsets.zero,
+              )),
+              const SizedBox(height: 20),
+              // STEP 2: Team
+              _stepHeader('2', 'Team (optional)', Colors.purple),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: GestureDetector(onTap: () => setS(() => createNewTeam = true), child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: createNewTeam ? Colors.purple : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Center(child: Text('New Team', style: TextStyle(color: createNewTeam ? Colors.white : Colors.grey, fontWeight: FontWeight.bold)))))),
+                const SizedBox(width: 8),
+                Expanded(child: GestureDetector(onTap: () => setS(() => createNewTeam = false), child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: !createNewTeam ? Colors.purple : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Center(child: Text('Existing', style: TextStyle(color: !createNewTeam ? Colors.white : Colors.grey, fontWeight: FontWeight.bold)))))),
+              ]),
+              const SizedBox(height: 10),
+              if (createNewTeam)
+                TextField(onChanged: (v) => setS(() => teamName = v), decoration: const InputDecoration(labelText: 'Team Name', hintText: 'e.g. Alpha Team', border: OutlineInputBorder()))
+              else if (teams.isNotEmpty)
+                DropdownButtonFormField<int>(value: selectedTeamId, decoration: const InputDecoration(labelText: 'Select Team', border: OutlineInputBorder()), items: teams.map((t) => DropdownMenuItem<int>(value: t.id, child: Text('${t.name} (${t.members.length})', overflow: TextOverflow.ellipsis))).toList(), onChanged: (v) => setS(() => selectedTeamId = v))
+              else
+                const Text('No teams yet.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 20),
+              // STEP 3: Project
+              _stepHeader('3', 'Link to Project (optional)', Colors.teal),
+              const SizedBox(height: 8),
+              if (projects.isEmpty)
+                const Text('No projects yet.', style: TextStyle(color: Colors.grey))
+              else
+                DropdownButtonFormField<int>(value: selectedProjectId, decoration: const InputDecoration(labelText: 'Select Project', border: OutlineInputBorder()), items: [const DropdownMenuItem<int>(value: null, child: Text('No project')), ...projects.map((p) => DropdownMenuItem<int>(value: p.id, child: Text('${p.name} (${p.capacityLabel})', overflow: TextOverflow.ellipsis)))], onChanged: (v) => setS(() => selectedProjectId = v)),
+              const SizedBox(height: 24),
+            ]))),
+            SizedBox(width: double.infinity, height: 52, child: FilledButton(
+              onPressed: loading ? null : () async {
+                if (selectedStudentIds.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select at least one student.'))); return; }
+                if (createNewTeam && teamName.trim().isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a team name.'))); return; }
+                if (!createNewTeam && selectedTeamId == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select an existing team.'))); return; }
+                setS(() => loading = true);
+                try {
+                  final result = await ref.read(supervisorRepositoryProvider).bulkAssign(studentIds: selectedStudentIds.toList(), teamId: createNewTeam ? null : selectedTeamId, teamName: createNewTeam ? teamName.trim() : null, projectId: selectedProjectId);
+                  ref.invalidate(supervisorTeamsProvider); ref.invalidate(supervisorProjectsProvider); ref.invalidate(supervisorStudentsProvider); ref.invalidate(supervisorAssignmentsProvider);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  final assigned = (result['assignedStudents'] as List?)?.length ?? 0;
+                  final skipped = (result['skipped'] as List?)?.length ?? 0;
+                  final teamN = result['team']?['name'] ?? '';
+                  final projN = result['project']?['name'];
+                  final msg = '$assigned student(s) assigned to "$teamN"${projN != null ? ' on "$projN"' : ''}${skipped > 0 ? ' ($skipped skipped)' : ''} ✓';
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                } catch (e) {
+                  setS(() => loading = false);
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF11998e), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              child: loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Assign Students', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            )),
+          ]),
+        );
+      }),
+    );
+  }
+
+  Widget _stepHeader(String num, String label, Color color) {
+    return Row(children: [
+      Container(width: 24, height: 24, decoration: BoxDecoration(color: color, shape: BoxShape.circle), child: Center(child: Text(num, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)))),
+      const SizedBox(width: 8),
+      Text(label, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: color)),
+    ]);
   }
 
   @override
@@ -3443,104 +3586,144 @@ class _SupervisorTeamsTabState extends ConsumerState<_SupervisorTeamsTab> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final teamsAsync = ref.watch(supervisorTeamsProvider);
+    final projectsAsync = ref.watch(supervisorProjectsProvider);
 
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(supervisorTeamsProvider),
-      child: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // Create team card
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF4568dc), Color(0xFFb06ab3)]),
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [BoxShadow(color: const Color(0xFF4568dc).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'supervisor_assign_fab',
+        onPressed: _showAssignFlow,
+        backgroundColor: const Color(0xFF11998e),
+        icon: const Icon(Icons.person_add_rounded, color: Colors.white),
+        label: const Text('Assign', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+      ),
+      body: Column(children: [
+        Container(
+          color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
+          child: TabBar(
+            controller: _tabCtrl,
+            labelColor: const Color(0xFF11998e),
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: const Color(0xFF11998e),
+            indicatorSize: TabBarIndicatorSize.label,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+            tabs: const [Tab(text: 'Projects'), Tab(text: 'Teams')],
+          ),
+        ),
+        Expanded(child: TabBarView(controller: _tabCtrl, children: [
+          // ── Projects Tab ─────────────────────────────────────────────────
+          RefreshIndicator(
+            onRefresh: () async => ref.invalidate(supervisorProjectsProvider),
+            child: CustomScrollView(physics: const BouncingScrollPhysics(), slivers: [
+              SliverPadding(padding: const EdgeInsets.fromLTRB(24, 16, 24, 100), sliver: SliverList(delegate: SliverChildListDelegate([
+                GestureDetector(
+                  onTap: _createProject,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF11998e), Color(0xFF38ef7d)]), borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: const Color(0xFF11998e).withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 8))]),
+                    child: Row(children: [
+                      Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.add_rounded, color: Colors.white)),
+                      const SizedBox(width: 16),
+                      const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Create Project', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                        Text('Define name, capacity & required skills', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ])),
+                    ]),
                   ),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Structure your projects', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    const Text('Create a New Team', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      onPressed: _createTeam,
-                      style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF4568dc)),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Build Team'),
-                    ),
-                  ]),
                 ),
-                const SizedBox(height: 32),
-                Text('Active Teams', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
+                projectsAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (projects) {
+                    if (projects.isEmpty) return Container(padding: const EdgeInsets.all(32), decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(20)), child: const Center(child: Column(children: [Icon(Icons.folder_open_rounded, size: 48, color: Colors.grey), SizedBox(height: 12), Text('No projects yet.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)), SizedBox(height: 4), Text('Tap above to create your first project.', style: TextStyle(color: Colors.grey, fontSize: 12))])));
+                    return Column(children: projects.map((p) => Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05))),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.folder_rounded, color: Colors.teal, size: 18)),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(p.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                            if (p.description != null) Text(p.description!, style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ])),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: p.isFull ? Colors.red.withOpacity(0.1) : Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(p.capacityLabel, style: TextStyle(color: p.isFull ? Colors.red : Colors.teal, fontSize: 10, fontWeight: FontWeight.w800))),
+                        ]),
+                        if (p.requiredSkills.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(spacing: 6, runSpacing: 4, children: p.requiredSkills.map((s) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.08), borderRadius: BorderRadius.circular(8)), child: Text(s, style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.w600)))).toList()),
+                        ],
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Icon(Icons.people_rounded, size: 13, color: Colors.grey.shade400), const SizedBox(width: 4),
+                          Text('${p.memberCount} student${p.memberCount == 1 ? '' : 's'}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                          const SizedBox(width: 12),
+                          Icon(Icons.groups_rounded, size: 13, color: Colors.grey.shade400), const SizedBox(width: 4),
+                          Text('${p.teamCount} team${p.teamCount == 1 ? '' : 's'}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                        ]),
+                      ]),
+                    )).toList());
+                  },
+                ),
+              ]))),
+            ]),
+          ),
+          // ── Teams Tab ────────────────────────────────────────────────────
+          RefreshIndicator(
+            onRefresh: () async => ref.invalidate(supervisorTeamsProvider),
+            child: CustomScrollView(physics: const BouncingScrollPhysics(), slivers: [
+              SliverPadding(padding: const EdgeInsets.fromLTRB(24, 16, 24, 100), sliver: SliverList(delegate: SliverChildListDelegate([
+                GestureDetector(
+                  onTap: _createTeam,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF4568dc), Color(0xFFb06ab3)]), borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: const Color(0xFF4568dc).withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 8))]),
+                    child: Row(children: [
+                      Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.add_rounded, color: Colors.white)),
+                      const SizedBox(width: 16),
+                      const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Create Team', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                        Text('Optionally link to a project', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ])),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 teamsAsync.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
                   data: (teams) {
-                    if (teams.isEmpty) {
-                      return Container(
-                        padding: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Center(child: Column(children: [
-                          Icon(Icons.groups_outlined, size: 48, color: Colors.grey),
-                          SizedBox(height: 12),
-                          Text('No teams yet. Create one above.', style: TextStyle(color: Colors.grey)),
-                        ])),
-                      );
-                    }
-                    return Column(
-                      children: teams.map((team) => Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-                        ),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                              child: const Icon(Icons.groups_rounded, color: Colors.blue),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(team.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                              Text('${team.members.length} member${team.members.length == 1 ? '' : 's'}',
-                                  style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5), fontSize: 12)),
-                            ])),
-                          ]),
-                          if (team.members.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 6,
-                              children: team.members.map((m) => Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                                child: Text(m.fullName, style: const TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.w600)),
-                              )).toList(),
-                            ),
-                          ],
+                    if (teams.isEmpty) return Container(padding: const EdgeInsets.all(32), decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(20)), child: const Center(child: Column(children: [Icon(Icons.groups_outlined, size: 48, color: Colors.grey), SizedBox(height: 12), Text('No teams yet.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold))])));
+                    return Column(children: teams.map((team) => Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05))),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.groups_rounded, color: Colors.purple, size: 18)),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(team.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                            Text('${team.members.length} member${team.members.length == 1 ? '' : 's'}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          ])),
+                          if (team.projectName != null)
+                            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(team.projectName!, style: const TextStyle(color: Colors.teal, fontSize: 10, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
                         ]),
-                      )).toList(),
-                    );
+                        if (team.members.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(spacing: 6, runSpacing: 4, children: team.members.map((m) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.08), borderRadius: BorderRadius.circular(20)), child: Text(m.fullName, style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w600)))).toList()),
+                        ],
+                      ]),
+                    )).toList());
                   },
                 ),
-              ]),
-            ),
+              ]))),
+            ]),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
-      ),
+        ])),
+      ]),
     );
   }
 }
@@ -10328,6 +10511,14 @@ final supervisorTeamsProvider = FutureProvider<List<SupervisorTeam>>((ref) {
   return ref.watch(supervisorRepositoryProvider).getTeams();
 });
 
+final supervisorProjectsProvider = FutureProvider<List<SupervisorProject>>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getProjects();
+});
+
+final supervisorAssignmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getAssignments();
+});
+
 final supervisorMeProvider = FutureProvider<SupervisorMe>((ref) async {
   return ref.watch(supervisorRepositoryProvider).getMe();
 });
@@ -10494,3 +10685,6 @@ class FeedPreviewSection extends ConsumerWidget {
     );
   }
 }
+
+// ── Supervisor Assignment Screen ──────────────────────────────────────────────
+// Inserted at end; referenced by _SupervisorManagementTab as _SupervisorAssignmentScreen
