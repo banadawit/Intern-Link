@@ -16,6 +16,7 @@ import '../../data/repositories/placement_repository.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../../data/repositories/coordinator_repository.dart';
 import '../../data/repositories/hod_repository.dart';
+import '../../data/repositories/evaluation_repository.dart';
 import '../../../universal/data/repositories/notifications_repository.dart';
 import '../../../universal/data/repositories/chat_repository.dart';
 
@@ -2234,15 +2235,23 @@ class _StudentProfileTab extends ConsumerWidget {
                     const SizedBox(height: 16),
                     _buildProfileInfoCard(theme, isDark, 'Academic Status', [
                       _ProfileInfoRow(Icons.verified_user_rounded, 'Approval Status', profile.status),
-                      _ProfileInfoRow(Icons.school_rounded, 'Program', 'BSc. Computer Science'), 
+                      _ProfileInfoRow(Icons.school_rounded, 'Internship Status', profile.internshipStatus),
                     ]),
                     const SizedBox(height: 16),
-                    _buildProfileInfoCard(theme, isDark, 'Final Reports & Evaluations', [
-                      _ProfileInfoRow(Icons.description_rounded, 'Final Report', 'Not Uploaded', 
-                        actionLabel: 'View', onAction: () => context.push(AppRoutes.reports)),
-                      _ProfileInfoRow(Icons.assignment_turned_in_rounded, 'Final Evaluation', 'Pending', 
-                        actionLabel: 'View', onAction: () => context.push(AppRoutes.evaluations)),
-                    ]),
+                    // Final Reports & Evaluations — wired to real data
+                    Consumer(builder: (ctx, cref, _) {
+                      final evalAsync = cref.watch(myEvaluationProvider);
+                      final evalStatus = evalAsync.maybeWhen(
+                        data: (e) => e != null ? 'Score: ${e.overallScore.toStringAsFixed(1)}/100' : 'Pending',
+                        orElse: () => '...',
+                      );
+                      return _buildProfileInfoCard(theme, isDark, 'Final Reports & Evaluations', [
+                        _ProfileInfoRow(Icons.description_rounded, 'Final Report', 'View Weekly Plans',
+                            actionLabel: 'Open', onAction: () => context.push(AppRoutes.reports)),
+                        _ProfileInfoRow(Icons.assignment_turned_in_rounded, 'Final Evaluation', evalStatus,
+                            actionLabel: 'View', onAction: () => context.push(AppRoutes.evaluations)),
+                      ]);
+                    }),
                     const SizedBox(height: 16),
                     _buildProfileInfoCard(theme, isDark, 'Account Settings', [
                       _ProfileInfoRow(Icons.lock_reset_rounded, 'Password', '********', 
