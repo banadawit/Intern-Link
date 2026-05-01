@@ -466,8 +466,16 @@ export const getProposals = async (req: AuthRequest, res: Response) => {
         });
         const studentIds = students.filter((s) => departmentsMatch(s.department, hod.department)).map((s) => s.id);
 
+        // Parse optional status filter — only accept valid ApprovalStatus values
+        const validStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'CANCELLED'];
+        const rawStatus = typeof req.query.status === 'string' ? req.query.status.toUpperCase().trim() : null;
+        const statusFilter = rawStatus && validStatuses.includes(rawStatus) ? rawStatus as ApprovalStatus : null;
+
         const proposals = await prisma.internshipProposal.findMany({
-            where: { studentId: { in: studentIds } },
+            where: {
+                studentId: { in: studentIds },
+                ...(statusFilter ? { status: statusFilter } : {}),
+            },
             include: {
                 student: { include: { user: { select: { full_name: true, email: true } } } },
                 company: { select: { id: true, name: true, official_email: true, approval_status: true } },
@@ -556,27 +564,95 @@ export const updateOpenLetterProposal = async (req: AuthRequest, res: Response) 
         if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const id = parseInt(String(req.params.id), 10);
-        const { status } = req.body as { status?: ApprovalStatus };
-        
+        const { status, reason } = req.body as { status?: string; reason?: string };
+
         if (Number.isNaN(id) || !status || !['APPROVED', 'REJECTED'].includes(status)) {
             return sendError(res, 'Valid status (APPROVED|REJECTED) required', 400);
         }
 
-        const proposal = await prisma.internshipProposal.findUnique({ where: { id } });
+        // Load the proposal with student + company
+        const proposal = await prisma.internshipProposal.findUnique({
+            where: { id },
+            include: {
+                student: { include: { user: { select: { id: true, full_name: true, email: true } } } },
+                company: { select: { id: true, name: true, official_email: true } },
+            },
+        });
+
         if (!proposal || !proposal.proposal_type.startsWith('Open_Letter')) {
             return sendError(res, 'Open letter proposal not found.', 404);
         }
 
-        const student = await prisma.student.findUnique({ where: { id: proposal.studentId } });
-        if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
+        if (proposal.status !== 'PENDING') {
+            return sendError(res, `This open letter has already been ${proposal.status.toLowerCase()}.`, 400);
+        }
+
+        const student = proposal.student;
+        if (
+            student.universityId !== hod.universityId ||
+            !departmentsMatch(student.department, hod.department)
+        ) {
             return sendError(res, 'Unauthorized.', 403);
         }
 
+        const rejectionReason = typeof reason === 'string' && reason.trim()
+            ? reason.trim()
+            : 'Your open letter request was reviewed and could not be approved at this time.';
+
+        // ── Update proposal status ────────────────────────────────────────────
         const updated = await prisma.internshipProposal.update({
             where: { id },
-            data: { status, responded_at: new Date() },
+            data: { status: status as ApprovalStatus, responded_at: new Date() },
         });
-        return sendSuccess(res, updated);
+
+        if (status === 'APPROVED') {
+            // ── In-app notification to student ────────────────────────────────
+            await sendNotification(
+                student.user.id,
+                `✅ Your open letter request for ${proposal.company.name} was approved by your HoD. The proposal has been forwarded to the company.`
+            );
+
+            // ── Email to student ──────────────────────────────────────────────
+            const hodUser = await prisma.user.findUnique({ where: { id: uid! }, select: { full_name: true } });
+            sendStudentHodDecisionEmail({
+                to: student.user.email,
+                studentName: student.user.full_name,
+                universityName: hod.university.name,
+                department: hod.department,
+                decision: 'approved',
+            }).catch((e: any) => console.error('Open letter approval email error:', e?.message));
+
+            // ── Notify all supervisors at the target company ──────────────────
+            const supervisors = await prisma.supervisor.findMany({
+                where: { companyId: proposal.companyId },
+                select: { userId: true },
+            });
+            for (const sup of supervisors) {
+                await sendNotification(
+                    sup.userId,
+                    `📋 New internship proposal: ${student.user.full_name} from ${hod.university.name} is applying for an internship at your company. Please review and respond.`
+                );
+            }
+
+        } else {
+            // ── REJECTED: notify student with reason ──────────────────────────
+            await sendNotification(
+                student.user.id,
+                `❌ Your open letter request for ${proposal.company.name} was not approved by your HoD.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`
+            );
+
+            // ── Email to student with rejection reason ────────────────────────
+            sendStudentHodDecisionEmail({
+                to: student.user.email,
+                studentName: student.user.full_name,
+                universityName: hod.university.name,
+                department: hod.department,
+                decision: 'rejected',
+                reason: rejectionReason,
+            }).catch((e: any) => console.error('Open letter rejection email error:', e?.message));
+        }
+
+        return sendSuccess(res, updated, `Open letter ${status.toLowerCase()}.`);
     } catch (e: any) {
         return sendError(res, e.message);
     }

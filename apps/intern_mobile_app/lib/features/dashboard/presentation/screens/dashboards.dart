@@ -1846,47 +1846,77 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
     final theme = Theme.of(context);
     final companyController = TextEditingController();
     final letterController = TextEditingController();
+    bool isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: EdgeInsets.fromLTRB(32, 32, 32, MediaQuery.of(ctx).viewInsets.bottom + 40),
-        decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(50)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 60, height: 6, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(10)))),
-            const SizedBox(height: 40),
-            const Text('NEW APPLICATION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.grey)),
-            const SizedBox(height: 12),
-            const Text('Where to next?', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
-            const SizedBox(height: 40),
-            _extremeTextField(companyController, 'Company Name', Icons.business_rounded, theme),
-            const SizedBox(height: 20),
-            _extremeTextField(letterController, 'Cover Letter', Icons.description_rounded, theme, maxLines: 5),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              height: 70,
-              child: FilledButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Application Sent!')));
-                },
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  backgroundColor: Colors.black,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          padding: EdgeInsets.fromLTRB(32, 32, 32, MediaQuery.of(ctx).viewInsets.bottom + 40),
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(50)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 60, height: 6, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(10)))),
+              const SizedBox(height: 40),
+              const Text('OPEN LETTER REQUEST', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 3, color: Colors.grey)),
+              const SizedBox(height: 12),
+              const Text('Request a Placement', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
+              const SizedBox(height: 8),
+              Text('Your HoD will review and approve or reject this request.', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+              const SizedBox(height: 32),
+              _extremeTextField(companyController, 'Company Name', Icons.business_rounded, theme),
+              const SizedBox(height: 20),
+              _extremeTextField(letterController, 'Cover Letter / Motivation', Icons.description_rounded, theme, maxLines: 5),
+              const SizedBox(height: 40),
+              SizedBox(
+                width: double.infinity,
+                height: 70,
+                child: FilledButton(
+                  onPressed: isSubmitting ? null : () async {
+                    final company = companyController.text.trim();
+                    final letter = letterController.text.trim();
+                    if (company.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a company name.')));
+                      return;
+                    }
+                    setModalState(() => isSubmitting = true);
+                    try {
+                      await ref.read(placementRepositoryProvider).submitOpenLetter(
+                        companyName: company,
+                        coverLetter: letter,
+                      );
+                      ref.invalidate(myProposalsProvider);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Open letter submitted — awaiting HoD review ✓')),
+                        );
+                      }
+                    } catch (e) {
+                      setModalState(() => isSubmitting = false);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      }
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    backgroundColor: Colors.black,
+                  ),
+                  child: isSubmitting
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('SUBMIT OPEN LETTER', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
                 ),
-                child: const Text('SUBMIT APPLICATION', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1908,6 +1938,14 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
   }
 
   Widget _buildProposalCard(BuildContext context, PlacementProposal p, bool isDark, ThemeData theme) {
+    final statusColor = p.status == 'APPROVED'
+        ? Colors.green
+        : p.status == 'REJECTED'
+            ? Colors.red
+            : p.status == 'CANCELLED'
+                ? Colors.grey
+                : Colors.orange;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(24),
@@ -1922,10 +1960,10 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF6A11CB), Color(0xFF2575FC)]),
+              gradient: LinearGradient(colors: [statusColor.withOpacity(0.8), statusColor]),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(Icons.apartment_rounded, color: Colors.white),
+            child: Icon(p.isOpenLetter ? Icons.mail_rounded : Icons.apartment_rounded, color: Colors.white),
           ),
           const SizedBox(width: 20),
           Expanded(
@@ -1934,7 +1972,17 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
               children: [
                 Text(p.companyName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
                 const SizedBox(height: 4),
-                Text(p.status.toUpperCase(), style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+                Row(children: [
+                  Text(p.status.toUpperCase(), style: TextStyle(color: statusColor, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+                  if (p.isOpenLetter) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                      child: const Text('Open Letter', style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ]),
               ],
             ),
           ),
@@ -1951,6 +1999,14 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
 
 
   void _showProposalDetails(BuildContext context, PlacementProposal p) {
+    final statusColor = p.status == 'APPROVED'
+        ? Colors.green
+        : p.status == 'REJECTED'
+            ? Colors.red
+            : p.status == 'CANCELLED'
+                ? Colors.grey
+                : Colors.orange;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1967,17 +2023,48 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
           children: [
             Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 24),
-            Text(p.companyName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+            Row(children: [
+              Expanded(child: Text(p.companyName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900))),
+              if (p.isOpenLetter)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: const Text('Open Letter', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+            ]),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Text(p.status, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+              decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+              child: Text(p.status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
             ),
+            if (p.isOpenLetter) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.info_outline_rounded, color: Colors.orange, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(
+                    p.status == 'PENDING'
+                        ? 'Awaiting HoD review. Once approved, this becomes an active proposal.'
+                        : p.status == 'APPROVED'
+                            ? 'Your HoD approved this open letter. The proposal is now active.'
+                            : 'Your HoD reviewed this open letter.',
+                    style: const TextStyle(color: Colors.orange, fontSize: 12),
+                  )),
+                ]),
+              ),
+            ],
             const SizedBox(height: 24),
-            const Text('Proposal Letter', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Cover Letter / Motivation', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(p.proposalLetter ?? 'No proposal letter attached.', style: const TextStyle(height: 1.5)),
+            Text(p.proposalLetter?.isNotEmpty == true ? p.proposalLetter! : 'No cover letter attached.', style: const TextStyle(height: 1.5, color: Colors.grey)),
             const SizedBox(height: 32),
             SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))),
             const SizedBox(height: 24),
@@ -6404,9 +6491,23 @@ class _HodProposalsTab extends ConsumerStatefulWidget {
   ConsumerState<_HodProposalsTab> createState() => _HodProposalsTabState();
 }
 
-class _HodProposalsTabState extends ConsumerState<_HodProposalsTab> {
+class _HodProposalsTabState extends ConsumerState<_HodProposalsTab>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
   String _statusFilter = 'ALL';
-  static const _statuses = ['ALL', 'DRAFT', 'SENT', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
+  static const _statuses = ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'SUSPENDED'];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _transition(int proposalId, String targetState) async {
     try {
@@ -6423,17 +6524,45 @@ class _HodProposalsTabState extends ConsumerState<_HodProposalsTab> {
     try {
       await ref.read(hodRepositoryProvider).updateOpenLetter(id, 'APPROVED');
       ref.invalidate(hodProposalsFilteredProvider(_statusFilter));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open letter approved ✓')));
+      ref.invalidate(hodOpenLettersProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open letter approved — proposal forwarded to company ✓')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
   Future<void> _rejectOpenLetter(int id) async {
+    // Ask for a rejection reason first
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Reject Open Letter'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Provide a reason for the student (optional):'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: reasonCtrl,
+            decoration: const InputDecoration(hintText: 'Reason…', border: OutlineInputBorder()),
+            maxLines: 3,
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(d, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     try {
-      await ref.read(hodRepositoryProvider).updateOpenLetter(id, 'REJECTED');
+      await ref.read(hodRepositoryProvider).updateOpenLetter(id, 'REJECTED', reason: reasonCtrl.text.trim());
       ref.invalidate(hodProposalsFilteredProvider(_statusFilter));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open letter rejected')));
+      ref.invalidate(hodOpenLettersProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open letter rejected — student notified')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -6465,17 +6594,10 @@ class _HodProposalsTabState extends ConsumerState<_HodProposalsTab> {
             Row(children: [
               Expanded(child: OutlinedButton(onPressed: () { Navigator.pop(ctx); _rejectOpenLetter(id); }, style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)), child: const Text('Reject'))),
               const SizedBox(width: 12),
-              Expanded(child: FilledButton(onPressed: () { Navigator.pop(ctx); _approveOpenLetter(id); }, style: FilledButton.styleFrom(backgroundColor: Colors.green), child: const Text('Approve'))),
+              Expanded(child: FilledButton(onPressed: () { Navigator.pop(ctx); _approveOpenLetter(id); }, style: FilledButton.styleFrom(backgroundColor: Colors.green), child: const Text('Approve → Forward'))),
             ]),
           ] else ...[
-            if (status == 'DRAFT') ...[
-              Row(children: [
-                Expanded(child: OutlinedButton(onPressed: () { Navigator.pop(ctx); _transition(id, 'CANCELLED'); }, child: const Text('Cancel'))),
-                const SizedBox(width: 12),
-                Expanded(child: FilledButton(onPressed: () { Navigator.pop(ctx); _transition(id, 'SENT'); }, child: const Text('Send'))),
-              ]),
-            ],
-            if (status == 'SENT')
+            if (status == 'PENDING')
               SizedBox(width: double.infinity, child: OutlinedButton(onPressed: () { Navigator.pop(ctx); _transition(id, 'CANCELLED'); }, style: OutlinedButton.styleFrom(foregroundColor: Colors.red), child: const Text('Cancel Proposal'))),
             if (status == 'REJECTED' || status == 'CANCELLED')
               SizedBox(width: double.infinity, child: FilledButton(onPressed: () { Navigator.pop(ctx); }, child: const Text('Resend (New Proposal)'))),
@@ -6488,7 +6610,8 @@ class _HodProposalsTabState extends ConsumerState<_HodProposalsTab> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final proposalsAsync = ref.watch(hodProposalsFilteredProvider(_statusFilter == 'ALL' ? null : _statusFilter));
+    final proposalsAsync = ref.watch(hodProposalsFilteredProvider(_statusFilter));
+    final openLettersAsync = ref.watch(hodOpenLettersProvider);
 
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
@@ -6502,71 +6625,225 @@ class _HodProposalsTabState extends ConsumerState<_HodProposalsTab> {
               gradient: const [Color(0xFFf857a6), Color(0xFFff5858)],
               backgroundIcon: Icons.send_rounded,
             ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _statuses.map((s) {
-                      final sel = _statusFilter == s;
-                      return GestureDetector(
-                        onTap: () => setState(() => _statusFilter = s),
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: sel ? const Color(0xFFf857a6) : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: sel ? const Color(0xFFf857a6) : Colors.grey.withOpacity(0.2)),
-                          ),
-                          child: Text(s, style: TextStyle(color: sel ? Colors.white : Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
-                        ),
-                      );
-                    }).toList(),
-                  ),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: SliverTabBarDelegate(
+                TabBar(
+                  controller: _tabCtrl,
+                  labelColor: const Color(0xFFf857a6),
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: const Color(0xFFf857a6),
+                  indicatorSize: TabBarIndicatorSize.label,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  tabs: [
+                    const Tab(text: 'All Proposals'),
+                    Tab(
+                      child: openLettersAsync.maybeWhen(
+                        data: (letters) {
+                          final pending = letters.where((l) => (l['status'] ?? '') == 'PENDING').length;
+                          return Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Text('Open Letters'),
+                            if (pending > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(10)),
+                                child: Text('$pending', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                              ),
+                            ],
+                          ]);
+                        },
+                        orElse: () => const Text('Open Letters'),
+                      ),
+                    ),
+                  ],
                 ),
+                isDark,
               ),
             ),
           ],
-          body: RefreshIndicator(
-            onRefresh: () async => ref.invalidate(hodProposalsFilteredProvider(_statusFilter == 'ALL' ? null : _statusFilter)),
-            child: proposalsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (proposals) {
-                if (proposals.isEmpty) {
-                  return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.work_off_rounded, size: 64, color: Colors.grey.shade300),
-                    const SizedBox(height: 16),
-                    Text('No proposals', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
-                  ]));
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 120),
-                  itemCount: proposals.length,
-                  itemBuilder: (ctx, i) => _buildProposalCard(proposals[i], isDark),
-                );
-              },
-            ),
+          body: TabBarView(
+            controller: _tabCtrl,
+            children: [
+              // ── Tab 1: All Proposals ──────────────────────────────────────
+              Column(children: [
+                // Status filter chips
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _statuses.map((s) {
+                        final sel = _statusFilter == s;
+                        return GestureDetector(
+                          onTap: () => setState(() => _statusFilter = s),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: sel ? const Color(0xFFf857a6) : (isDark ? Colors.white.withOpacity(0.05) : Colors.white),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: sel ? const Color(0xFFf857a6) : Colors.grey.withOpacity(0.2)),
+                            ),
+                            child: Text(s, style: TextStyle(color: sel ? Colors.white : Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () async => ref.invalidate(hodProposalsFilteredProvider(_statusFilter)),
+                    child: proposalsAsync.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Center(child: Text('Error: $e')),
+                      data: (proposals) {
+                        if (proposals.isEmpty) {
+                          return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Icon(Icons.work_off_rounded, size: 64, color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Text('No proposals', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                          ]));
+                        }
+                        return ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
+                          itemCount: proposals.length,
+                          itemBuilder: (ctx, i) => _buildProposalCard(proposals[i], isDark),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ]),
+
+              // ── Tab 2: Open Letters ───────────────────────────────────────
+              RefreshIndicator(
+                onRefresh: () async => ref.invalidate(hodOpenLettersProvider),
+                child: openLettersAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (letters) {
+                    if (letters.isEmpty) {
+                      return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.mail_outline_rounded, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text('No open letter requests', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Text('Students can submit open letter requests\nfrom their Placements tab.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                      ]));
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 120),
+                      itemCount: letters.length,
+                      itemBuilder: (ctx, i) => _buildOpenLetterCard(letters[i], isDark),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
+        // FAB only on All Proposals tab
         Positioned(
           bottom: 90,
           right: 24,
-          child: FloatingActionButton.extended(
-            heroTag: 'hod_proposals_fab',
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (ctx) => _SendProposalSheet(studentId: 0, studentName: 'Select Student'),
-            ).then((_) => ref.invalidate(hodProposalsFilteredProvider(null))),
-            backgroundColor: const Color(0xFFf857a6),
-            icon: const Icon(Icons.add_rounded, color: Colors.white),
-            label: const Text('New Proposal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          child: AnimatedBuilder(
+            animation: _tabCtrl,
+            builder: (_, __) => _tabCtrl.index == 0
+                ? FloatingActionButton.extended(
+                    heroTag: 'hod_proposals_fab',
+                    onPressed: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) => _SendProposalSheet(studentId: 0, studentName: 'Select Student'),
+                    ).then((_) => ref.invalidate(hodProposalsFilteredProvider(_statusFilter))),
+                    backgroundColor: const Color(0xFFf857a6),
+                    icon: const Icon(Icons.add_rounded, color: Colors.white),
+                    label: const Text('New Proposal', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  )
+                : const SizedBox.shrink(),
           ),
         ),
+      ]),
+    );
+  }
+
+  Widget _buildOpenLetterCard(Map<String, dynamic> p, bool isDark) {
+    final student = p['student'] as Map<String, dynamic>? ?? {};
+    final studentUser = student['user'] as Map<String, dynamic>? ?? {};
+    final company = p['company'] as Map<String, dynamic>? ?? {};
+    final status = (p['status'] ?? 'PENDING').toString();
+    final submittedAt = p['submitted_at']?.toString();
+    final coverLetter = p['expected_outcomes']?.toString() ?? '';
+    final id = _parseInt(p['id']);
+
+    Color statusColor = status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : Colors.orange;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: status == 'PENDING' ? Colors.orange.withOpacity(0.3) : (isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.04))),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.orange.withOpacity(0.8), Colors.orange]),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.mail_rounded, color: Colors.white, size: 16),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(studentUser['full_name']?.toString() ?? 'Student', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            Text('→ ${company['name']?.toString() ?? 'Company'}', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12)),
+            if (submittedAt != null) Text(timeago.format(DateTime.tryParse(submittedAt) ?? DateTime.now()), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            child: Text(status, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900)),
+          ),
+        ]),
+        if (coverLetter.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.03) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              coverLetter.length > 120 ? '${coverLetter.substring(0, 120)}…' : coverLetter,
+              style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12, height: 1.4),
+            ),
+          ),
+        ],
+        if (status == 'PENDING') ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () => _rejectOpenLetter(id),
+              icon: const Icon(Icons.close_rounded, size: 14),
+              label: const Text('Reject'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), padding: const EdgeInsets.symmetric(vertical: 8)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: FilledButton.icon(
+              onPressed: () => _approveOpenLetter(id),
+              icon: const Icon(Icons.check_rounded, size: 14),
+              label: const Text('Approve'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 8)),
+            )),
+          ]),
+        ],
       ]),
     );
   }
@@ -6580,7 +6857,7 @@ class _HodProposalsTabState extends ConsumerState<_HodProposalsTab> {
     final submittedAt = p['submitted_at']?.toString();
     final isOpenLetter = type == 'Open_Letter';
 
-    Color statusColor = status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : status == 'CANCELLED' ? Colors.grey : status == 'DRAFT' ? Colors.blue : Colors.orange;
+    Color statusColor = status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : status == 'CANCELLED' ? Colors.grey : status == 'SUSPENDED' ? Colors.orange.shade800 : Colors.orange;
 
     return GestureDetector(
       onTap: () => _showProposalDetail(p, isDark),

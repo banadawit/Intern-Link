@@ -347,8 +347,11 @@ class HodRepository {
     return _toMapList(_unwrap(res.data));
   }
 
-  Future<void> updateOpenLetter(int id, String status) async {
-    await apiClient.dio.patch('/hod/proposals/open-letters/$id', data: {'status': status});
+  Future<void> updateOpenLetter(int id, String status, {String? reason}) async {
+    await apiClient.dio.patch('/hod/proposals/open-letters/$id', data: {
+      'status': status,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    });
   }
 
   // ── Companies ──────────────────────────────────────────────────────────────

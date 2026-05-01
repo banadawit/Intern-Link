@@ -110,6 +110,92 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// 3. STUDENT: Submit an Open Letter request to their HoD
+export const submitOpenLetter = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return sendError(res, 'Unauthorized', 401);
+
+        const student = await prisma.student.findUnique({
+            where: { userId },
+            include: { university: true },
+        });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
+
+        if (student.hod_approval_status !== 'APPROVED') {
+            return sendError(res, 'Your account must be approved by your HoD before submitting an open letter.', 403);
+        }
+
+        if (student.internship_status === 'PLACED') {
+            return sendError(res, 'You already have an active internship placement.', 400);
+        }
+
+        const { company_name, cover_letter } = req.body as { company_name?: string; cover_letter?: string };
+        if (!company_name?.trim()) return sendError(res, 'company_name is required.', 400);
+
+        // Find or create the company by name (open letters may target companies not yet in the system)
+        let company = await prisma.company.findFirst({
+            where: { name: { equals: company_name.trim(), mode: 'insensitive' } },
+        });
+
+        if (!company) {
+            company = await prisma.company.create({
+                data: {
+                    name: company_name.trim(),
+                    official_email: `pending@${company_name.trim().toLowerCase().replace(/\s+/g, '')}.com`,
+                    approval_status: 'PENDING',
+                },
+            });
+        }
+
+        // Check for duplicate pending open letter for same company
+        const existing = await prisma.internshipProposal.findFirst({
+            where: {
+                studentId: student.id,
+                companyId: company.id,
+                proposal_type: 'Open_Letter',
+                status: 'PENDING',
+            },
+        });
+        if (existing) {
+            return sendError(res, 'You already have a pending open letter for this company.', 400);
+        }
+
+        const proposal = await prisma.internshipProposal.create({
+            data: {
+                studentId: student.id,
+                companyId: company.id,
+                universityId: student.universityId,
+                proposal_type: 'Open_Letter',
+                status: 'PENDING',
+                expected_outcomes: cover_letter?.trim() ?? null,
+            },
+            include: {
+                company: { select: { id: true, name: true } },
+            },
+        });
+
+        // Notify the student's HoD
+        const hod = await prisma.hodProfile.findFirst({
+            where: {
+                universityId: student.universityId,
+                department: student.department ?? undefined,
+            },
+        });
+        if (hod) {
+            const { sendNotification } = await import('../utils/notificationHelper');
+            await sendNotification(
+                hod.userId,
+                `📩 Open letter request from a student for ${company.name}. Please review in your Proposals tab.`
+            );
+        }
+
+        return sendSuccess(res, proposal, 'Open letter submitted successfully.', 201);
+    } catch (error: any) {
+        return sendError(res, error.message);
+    }
+};
+
 // --- WEEKLY PRESENTATION UPLOAD ---
 
 /**
