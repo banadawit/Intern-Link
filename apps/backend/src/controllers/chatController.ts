@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
+import { sendSuccess, sendError } from '../utils/responseHelper';
 
 const ME = (req: AuthRequest) => req.user!.userId;
 
@@ -154,9 +155,9 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
             return tb - ta;
         });
 
-        res.json(conversations);
+        return sendSuccess(res, conversations);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return sendError(res, e.message);
     }
 };
 
@@ -371,9 +372,9 @@ export const getUnreadCount = async (req: AuthRequest, res: Response) => {
         const count = await prisma.chatMessage.count({
             where: { receiverId: ME(req), is_read: false },
         });
-        res.json({ count });
+        return sendSuccess(res, { count });
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        return sendError(res, e.message);
     }
 };
 

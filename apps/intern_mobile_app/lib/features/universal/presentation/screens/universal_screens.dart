@@ -442,7 +442,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       MaterialPageRoute(
         builder: (ctx) => ChatDetailScreen(partner: partner),
       ),
-    );
+    ).then((_) {
+      // Refresh unread counts after returning from conversation
+      ref.invalidate(conversationsProvider);
+      ref.invalidate(unreadChatCountProvider);
+    });
   }
 
   Widget _buildChatHeader(BuildContext context, bool isDark, WidgetRef ref) {
@@ -931,6 +935,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       }
       ref.invalidate(chatMessagesProvider(widget.partner.id));
       ref.invalidate(conversationsProvider);
+      ref.invalidate(unreadChatCountProvider);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to process: $e')));
     }
@@ -941,6 +946,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       await ref.read(chatRepositoryProvider).deleteMessage(messageId);
       ref.invalidate(chatMessagesProvider(widget.partner.id));
       ref.invalidate(conversationsProvider);
+      ref.invalidate(unreadChatCountProvider);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
     }

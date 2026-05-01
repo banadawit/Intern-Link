@@ -418,14 +418,15 @@ class ModernSliverAppBar extends ConsumerWidget {
         if (actions != null) ...actions!,
         Consumer(
           builder: (context, ref, child) {
-            final unreadMessages = ref.watch(conversationsProvider).maybeWhen(
-              data: (convs) => convs.fold<int>(0, (sum, c) => sum + c.unreadCount),
+            final unreadMessages = ref.watch(unreadChatCountProvider).maybeWhen(
+              data: (count) => count,
               orElse: () => 0,
             );
             return ModernHeaderIcon(
               icon: Icons.chat_bubble_outline_rounded,
               onTap: () => context.push(AppRoutes.chat),
               hasBadge: unreadMessages > 0,
+              badgeCount: unreadMessages,
             );
           },
         ),
