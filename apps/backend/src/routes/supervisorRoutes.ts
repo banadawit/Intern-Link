@@ -14,6 +14,7 @@ router.use(authenticate);
 router.use(authorize([Role.SUPERVISOR]));
 
 router.get('/me', supervisorCtrl.getSupervisorMe);
+router.get('/performance', supervisorCtrl.getSupervisorPerformance);
 router.get('/students', supervisorCtrl.getCompanyStudents);
 router.get('/weekly-plans', supervisorCtrl.getCompanyWeeklyPlans);
 

@@ -574,6 +574,70 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// --- PERFORMANCE SUMMARY ---
+
+export const getSupervisorPerformance = async (req: AuthRequest, res: Response) => {
+    try {
+        const supervisor = await prisma.supervisor.findUnique({ where: { userId: req.user!.userId } });
+        if (!supervisor) return sendError(res, 'Supervisor profile not found.', 403);
+
+        const companyId = supervisor.companyId;
+
+        const [
+            totalStudentsEver,
+            completedInternships,
+            evaluations,
+            approvedProposals,
+            totalProposals,
+            approvedPlans,
+            totalPlans,
+        ] = await Promise.all([
+            // All students ever assigned (active + completed + terminated)
+            prisma.internshipAssignment.count({ where: { companyId } }),
+            prisma.internshipAssignment.count({ where: { companyId, status: 'COMPLETED' } }),
+            prisma.finalEvaluation.findMany({
+                where: { supervisor: { companyId } },
+                select: { technical_score: true, soft_skill_score: true },
+            }),
+            prisma.internshipProposal.count({ where: { companyId, status: 'APPROVED' } }),
+            prisma.internshipProposal.count({ where: { companyId } }),
+            prisma.weeklyPlan.count({
+                where: {
+                    status: 'APPROVED',
+                    student: { assignments: { some: { companyId } } },
+                },
+            }),
+            prisma.weeklyPlan.count({
+                where: { student: { assignments: { some: { companyId } } } },
+            }),
+        ]);
+
+        const avgScore = evaluations.length > 0
+            ? evaluations.reduce((sum, e) => sum + (Number(e.technical_score) + Number(e.soft_skill_score)) / 2, 0) / evaluations.length
+            : null;
+
+        const proposalApprovalRate = totalProposals > 0
+            ? Math.round((approvedProposals / totalProposals) * 100)
+            : null;
+
+        const planApprovalRate = totalPlans > 0
+            ? Math.round((approvedPlans / totalPlans) * 100)
+            : null;
+
+        return sendSuccess(res, {
+            totalStudentsSupervised: totalStudentsEver,
+            completedInternships,
+            averageStudentScore: avgScore !== null ? Math.round(avgScore * 10) / 10 : null,
+            evaluationsSubmitted: evaluations.length,
+            proposalApprovalRate,
+            planApprovalRate,
+        }, 'Performance summary fetched');
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        return sendError(res, message, 500);
+    }
+};
+
 // --- COMPANY STAMP UPLOAD ---
 
 /**

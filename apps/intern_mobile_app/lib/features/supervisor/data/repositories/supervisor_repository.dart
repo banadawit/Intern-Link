@@ -272,6 +272,19 @@ class SupervisorRepository {
     return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
+  Future<Map<String, dynamic>> getPerformance() async {
+    final res = await _api.dio.get('/supervisor/performance');
+    final raw = res.data;
+    return Map<String, dynamic>.from(raw is Map ? (raw['data'] ?? raw) : {});
+  }
+
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    await _api.dio.post('/auth/change-password', data: {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    });
+  }
+
   /// Move a student to a different team.
   /// Returns error message if blocked (evaluation submitted).
   Future<void> moveStudentToTeam(int studentId, int newTeamId) async {
@@ -317,4 +330,8 @@ final supervisorRepositoryProvider = Provider<SupervisorRepository>((ref) {
 
 final supervisorDashboardProvider = FutureProvider<SupervisorDashboardData>((ref) {
   return ref.watch(supervisorRepositoryProvider).getDashboard();
+});
+
+final supervisorPerformanceProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getPerformance();
 });

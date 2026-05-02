@@ -4007,95 +4007,293 @@ class _SupervisorTeamsTabState extends ConsumerState<_SupervisorTeamsTab>
   }
 }
 
-class _SupervisorSettingsTab extends ConsumerWidget {
+class _SupervisorSettingsTab extends ConsumerStatefulWidget {
   const _SupervisorSettingsTab();
+  @override
+  ConsumerState<_SupervisorSettingsTab> createState() => _SupervisorSettingsTabState();
+}
+
+class _SupervisorSettingsTabState extends ConsumerState<_SupervisorSettingsTab> {
+  bool _notifyPlans = true;
+  bool _notifyProposals = true;
+  bool _notifyCheckins = true;
+  bool _notifyEvals = true;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final meAsync = ref.watch(supervisorMeProvider);
+    final dashAsync = ref.watch(supervisorDashboardProvider);
+    final perfAsync = ref.watch(supervisorPerformanceProvider);
 
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFF8A2387).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [const Color(0xFFE94057).withOpacity(0.15), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          meAsync.when(
+      child: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(supervisorMeProvider);
+          ref.invalidate(supervisorDashboardProvider);
+          ref.invalidate(supervisorPerformanceProvider);
+        },
+        child: meAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Error: $err')),
+          error: (e, _) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.error_outline_rounded, size: 48, color: Colors.red),
+            const SizedBox(height: 12), Text('$e'),
+            const SizedBox(height: 16),
+            FilledButton.icon(onPressed: () => ref.invalidate(supervisorMeProvider), icon: const Icon(Icons.refresh_rounded), label: const Text('Retry')),
+          ])),
           data: (me) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               ModernSliverAppBar(
-                title: 'Settings',
-                subtitle: 'Account Management',
+                title: 'Profile',
+                subtitle: 'Account & Settings',
                 profileName: me.fullName,
                 gradient: [const Color(0xFF8A2387), const Color(0xFFE94057)],
-                backgroundIcon: Icons.settings_rounded,
+                backgroundIcon: Icons.person_rounded,
               ),
               SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    const SizedBox(height: 20),
-                    _buildModernSettingItem(
-                      context, 
-                      Icons.person_outline_rounded, 
-                      'Profile', 
-                      'Edit your details',
-                      onTap: () => context.push('${AppRoutes.accountSettings}?section=profile'),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                sliver: SliverList(delegate: SliverChildListDelegate([
+                  // 1. Profile card
+                  _buildProfileCard(me, isDark),
+                  const SizedBox(height: 20),
+                  // 2. Work info
+                  _profileSectionHeader('Work Information', Icons.business_rounded, Colors.blue),
+                  const SizedBox(height: 10),
+                  _profileInfoCard(isDark, [
+                    _profileInfoRow(context, Icons.business_rounded, 'Company', me.companyName),
+                    _profileInfoRow(context, Icons.badge_rounded, 'Role', 'Supervisor'),
+                    _profileInfoRow(context, Icons.phone_rounded, 'Phone', me.phone.isNotEmpty ? me.phone : 'Not set'),
+                    _profileInfoRow(context, Icons.email_rounded, 'Email', me.email),
+                    dashAsync.maybeWhen(
+                      data: (d) => _profileInfoRow(context, Icons.people_rounded, 'Active Students', '${d.stats.totalStudents}'),
+                      orElse: () => const SizedBox.shrink(),
                     ),
-                    const SizedBox(height: 16),
-                    _buildModernSettingItem(
-                      context, 
-                      Icons.security_rounded, 
-                      'Security', 
-                      'Password & auth',
-                      onTap: () => context.push('${AppRoutes.accountSettings}?section=security'),
-                    ),
-                    const SizedBox(height: 40),
-                    OutlinedButton(
-                      onPressed: () => _showLogoutConfirmation(context, ref),
-                      child: const Text('Sign Out'),
-                    ),
-                    const SizedBox(height: 120),
+                    _profileInfoRow(context, Icons.groups_rounded, 'Teams', '${ref.watch(supervisorTeamsProvider).value?.length ?? 0}'),
                   ]),
-                ),
+                  const SizedBox(height: 20),
+                  // 3. Performance
+                  _profileSectionHeader('Performance Summary', Icons.insights_rounded, Colors.teal),
+                  const SizedBox(height: 10),
+                  perfAsync.when(
+                    loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())),
+                    error: (e, _) => _profileInfoCard(isDark, [_profileInfoRow(context, Icons.error_outline_rounded, 'Performance', 'Could not load')]),
+                    data: (perf) => _buildPerformanceSection(perf, isDark),
+                  ),
+                  const SizedBox(height: 20),
+                  // 4. Notifications
+                  _profileSectionHeader('Notifications', Icons.notifications_rounded, Colors.orange),
+                  const SizedBox(height: 10),
+                  _profileInfoCard(isDark, [
+                    _toggleRow('Plan submissions', 'Notify when students submit plans', _notifyPlans, (v) => setState(() => _notifyPlans = v)),
+                    _toggleRow('Proposal requests', 'Notify on new placement proposals', _notifyProposals, (v) => setState(() => _notifyProposals = v)),
+                    _toggleRow('Missed check-ins', 'Alert when students miss daily check-in', _notifyCheckins, (v) => setState(() => _notifyCheckins = v)),
+                    _toggleRow('Evaluation reminders', 'Remind about pending evaluations', _notifyEvals, (v) => setState(() => _notifyEvals = v)),
+                  ]),
+                  const SizedBox(height: 20),
+                  // 5. Security
+                  _profileSectionHeader('Security', Icons.security_rounded, Colors.red),
+                  const SizedBox(height: 10),
+                  _profileInfoCard(isDark, [
+                    _actionRow(context, Icons.lock_reset_rounded, 'Change Password', 'Update your login password', Colors.red, () => _showChangePasswordDialog(context)),
+                    _actionRow(context, Icons.account_circle_rounded, 'Account Settings', 'Edit profile details', Colors.blue, () => context.push(AppRoutes.accountSettings)),
+                  ]),
+                  const SizedBox(height: 20),
+                  // 6. Support
+                  _profileSectionHeader('Support', Icons.help_rounded, Colors.indigo),
+                  const SizedBox(height: 10),
+                  _profileInfoCard(isDark, [
+                    _actionRow(context, Icons.help_outline_rounded, 'Help Center', 'FAQs and guides', Colors.indigo, () => context.push(AppRoutes.helpSupport)),
+                    _actionRow(context, Icons.chat_bubble_outline_rounded, 'Contact Admin', 'Send a message to admin', Colors.teal, () => context.push(AppRoutes.chat)),
+                  ]),
+                  const SizedBox(height: 20),
+                  // 7. Sign out
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showLogoutConfirmation(context, ref),
+                      icon: const Icon(Icons.logout_rounded, color: Colors.red),
+                      label: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ])),
               ),
             ],
           ),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  // ── Profile card ────────────────────────────────────────────────────────────
+  Widget _buildProfileCard(SupervisorMe me, bool isDark) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [BoxShadow(color: const Color(0xFF8A2387).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+    ),
+    child: Row(children: [
+      CircleAvatar(radius: 32, backgroundColor: Colors.white.withOpacity(0.2), child: Text(me.fullName.isNotEmpty ? me.fullName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900))),
+      const SizedBox(width: 16),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(me.fullName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+        const SizedBox(height: 2),
+        Text(me.email, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12), overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 6),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: const Text('Supervisor', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+      ])),
+      IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.white, size: 20), onPressed: () => context.push(AppRoutes.accountSettings), tooltip: 'Edit Profile'),
+    ]),
+  );
+
+  // ── Performance section ─────────────────────────────────────────────────────
+  Widget _buildPerformanceSection(Map<String, dynamic> perf, bool isDark) {
+    int si(dynamic v) { if (v == null) return 0; if (v is int) return v; if (v is double) return v.toInt(); if (v is String) return int.tryParse(v) ?? 0; return 0; }
+    final total = si(perf['totalStudentsSupervised']);
+    final completed = si(perf['completedInternships']);
+    final avgScore = perf['averageStudentScore'];
+    final proposalRate = perf['proposalApprovalRate'] as int?;
+    final planRate = perf['planApprovalRate'] as int?;
+    final evals = si(perf['evaluationsSubmitted']);
+    if (total == 0 && evals == 0) {
+      return _profileInfoCard(isDark, [_profileInfoRow(context, Icons.hourglass_empty_rounded, 'No data yet', 'Appears once you supervise interns')]);
+    }
+    return Column(children: [
+      Row(children: [
+        Expanded(child: _statMini('Total Supervised', '$total', Icons.people_rounded, Colors.blue, isDark)),
+        const SizedBox(width: 10),
+        Expanded(child: _statMini('Completed', '$completed', Icons.check_circle_rounded, Colors.green, isDark)),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(child: _statMini('Avg Score', avgScore != null ? '$avgScore/100' : 'N/A', Icons.star_rounded, Colors.amber.shade700, isDark)),
+        const SizedBox(width: 10),
+        Expanded(child: _statMini('Evaluations', '$evals', Icons.assignment_turned_in_rounded, Colors.purple, isDark)),
+      ]),
+      if (proposalRate != null || planRate != null) ...[
+        const SizedBox(height: 10),
+        _profileInfoCard(isDark, [
+          if (proposalRate != null) _rateRow('Proposal Approval Rate', proposalRate, Colors.teal),
+          if (planRate != null) _rateRow('Plan Approval Rate', planRate, Colors.orange),
+        ]),
+      ],
+    ]);
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  Widget _profileSectionHeader(String title, IconData icon, Color color) => Row(children: [
+    Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 16, color: color)),
+    const SizedBox(width: 8),
+    Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: color)),
+  ]);
+
+  Widget _profileInfoCard(bool isDark, List<Widget> children) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05))),
+    child: Column(children: children),
+  );
+
+  Widget _profileInfoRow(BuildContext context, IconData icon, String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [
+      Icon(icon, size: 16, color: Colors.grey.shade400), const SizedBox(width: 12),
+      Expanded(child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13), overflow: TextOverflow.ellipsis)),
+      const SizedBox(width: 8),
+      Flexible(child: Text(value, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: isDark ? Colors.white : Colors.black87), textAlign: TextAlign.end, overflow: TextOverflow.ellipsis)),
+    ]));
+  }
+
+  Widget _actionRow(BuildContext context, IconData icon, String title, String subtitle, Color color, VoidCallback onTap) => InkWell(
+    onTap: onTap, borderRadius: BorderRadius.circular(12),
+    child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [
+      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 16, color: color)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), overflow: TextOverflow.ellipsis),
+        Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11), overflow: TextOverflow.ellipsis),
+      ])),
+      Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey.shade400),
+    ])),
+  );
+
+  Widget _toggleRow(String title, String subtitle, bool value, ValueChanged<bool> onChanged) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(children: [
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), overflow: TextOverflow.ellipsis),
+        Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11), overflow: TextOverflow.ellipsis),
+      ])),
+      const SizedBox(width: 8),
+      Switch.adaptive(value: value, onChanged: onChanged, activeColor: const Color(0xFF0C8B83)),
+    ]),
+  );
+
+  Widget _statMini(String label, String value, IconData icon, Color color, bool isDark) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05))),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 18, color: color), const SizedBox(height: 8),
+      Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color, letterSpacing: -0.5)),
+      Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
+    ]),
+  );
+
+  Widget _rateRow(String label, int rate, Color color) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+        const SizedBox(width: 8),
+        Text('$rate%', style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13)),
+      ]),
+      const SizedBox(height: 6),
+      ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: rate / 100, minHeight: 6, backgroundColor: color.withOpacity(0.1), valueColor: AlwaysStoppedAnimation<Color>(color))),
+    ]),
+  );
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final cur = TextEditingController();
+    final nw = TextEditingController();
+    final cf = TextEditingController();
+    bool loading = false;
+    showDialog(context: context, builder: (d) => StatefulBuilder(builder: (d, setS) => AlertDialog(
+      title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.w900)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: cur, obscureText: true, decoration: const InputDecoration(labelText: 'Current Password', border: OutlineInputBorder())),
+        const SizedBox(height: 12),
+        TextField(controller: nw, obscureText: true, decoration: const InputDecoration(labelText: 'New Password', border: OutlineInputBorder())),
+        const SizedBox(height: 12),
+        TextField(controller: cf, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm New Password', border: OutlineInputBorder())),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: loading ? null : () async {
+            if (nw.text != cf.text) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match'))); return; }
+            if (nw.text.length < 8) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Min 8 characters'))); return; }
+            setS(() => loading = true);
+            try {
+              // Use the supervisor repository's API client (same Dio instance)
+              final repo = ref.read(supervisorRepositoryProvider);
+              await repo.changePassword(currentPassword: cur.text, newPassword: nw.text);
+              if (d.mounted) Navigator.pop(d);
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password changed ✓')));
+            } catch (e) {
+              setS(() => loading = false);
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+            }
+          },
+          child: loading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Update'),
+        ),
+      ],
+    )));
   }
 }
 
@@ -7005,7 +7203,7 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
                   _ProposalStatusBadge(proposalBadgeStatus),
                   if (proposalStatus == 'PENDING' && latestProposal?['companyName'] != null) ...[
                     const SizedBox(width: 4),
-                    Text('→ ${latestProposal!['companyName']}', style: const TextStyle(color: Colors.grey, fontSize: 9)),
+                    Flexible(child: Text('→ ${latestProposal!['companyName']}', style: const TextStyle(color: Colors.grey, fontSize: 9), overflow: TextOverflow.ellipsis)),
                   ],
                 ]),
               ],
@@ -10812,6 +11010,14 @@ final supervisorAttendanceHeatmapProvider = FutureProvider<AttendanceHeatmap>((r
 
 final supervisorStatsProvider = FutureProvider<SupervisorStats>((ref) {
   return ref.watch(supervisorRepositoryProvider).getStats();
+});
+
+final supervisorDashboardProvider = FutureProvider<SupervisorDashboardData>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getDashboard();
+});
+
+final supervisorPerformanceProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getPerformance();
 });
 
 final supervisorTeamsProvider = FutureProvider<List<SupervisorTeam>>((ref) {
