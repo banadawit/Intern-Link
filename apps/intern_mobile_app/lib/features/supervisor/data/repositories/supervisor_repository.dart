@@ -35,6 +35,39 @@ class SupervisorRepository {
     return SupervisorStats.fromJson(res.data['stats'] ?? {});
   }
 
+  Future<SupervisorDashboardData> getDashboard() async {
+    final res = await _api.dio.get('/supervisor/me');
+    final raw = res.data;
+    final d = raw is Map ? (raw['data'] ?? raw) : raw;
+    final stats = SupervisorStats.fromJson(d['stats'] ?? {});
+
+    List<Map<String, dynamic>> toMapList(dynamic list) {
+      if (list is! List) return [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+
+    final studentsSummary = ((d['studentsSummary'] as List?) ?? [])
+        .map((e) => SupervisorStudentSummary.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+
+    final recentActivity = ((d['recentActivity'] as List?) ?? [])
+        .map((e) => SupervisorActivityItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+
+    final deadlines = ((d['deadlines'] as List?) ?? [])
+        .map((e) => SupervisorDeadline.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+
+    return SupervisorDashboardData(
+      stats: stats,
+      recentPendingProposals: toMapList(d['recentPendingProposals']),
+      recentPendingPlans: toMapList(d['recentPendingPlans']),
+      studentsSummary: studentsSummary,
+      recentActivity: recentActivity,
+      deadlines: deadlines,
+    );
+  }
+
   Future<List<SupervisorStudent>> getStudents() async {
     final res = await _api.dio.get('/supervisor/students');
     final data = res.data;
@@ -280,4 +313,8 @@ class SupervisorRepository {
 
 final supervisorRepositoryProvider = Provider<SupervisorRepository>((ref) {
   return SupervisorRepository(ref.watch(apiClientProvider));
+});
+
+final supervisorDashboardProvider = FutureProvider<SupervisorDashboardData>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getDashboard();
 });

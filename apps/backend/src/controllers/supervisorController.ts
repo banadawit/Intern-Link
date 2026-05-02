@@ -19,6 +19,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
 
         const companyId = supervisor.companyId;
 
+        // ── Core counts ───────────────────────────────────────────────────────
         const [
             pendingProposalsCount,
             pendingWeeklyPlansCount,
@@ -60,6 +61,143 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
             }),
         ]);
 
+        // ── Students summary (for snapshot section) ───────────────────────────
+        const activeAssignments = await prisma.internshipAssignment.findMany({
+            where: { companyId, status: 'ACTIVE' },
+            include: {
+                student: {
+                    include: {
+                        user: { select: { id: true, full_name: true, email: true } },
+                        weeklyPlans: {
+                            orderBy: { submitted_at: 'desc' },
+                            take: 1,
+                            select: { status: true, submitted_at: true, week_number: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        // ── Missed check-ins: students with APPROVED plan but no check-in today ─
+        const today = new Date();
+        const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+        const todayEnd = new Date(todayStart.getTime() + 86400000);
+
+        const approvedPlanStudentIds = await prisma.weeklyPlan.findMany({
+            where: {
+                status: 'APPROVED',
+                student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+            },
+            select: { studentId: true, id: true },
+        });
+
+        const checkedInToday = await prisma.weeklyPlanDaySubmission.findMany({
+            where: {
+                workDate: { gte: todayStart, lt: todayEnd },
+                weeklyPlanId: { in: approvedPlanStudentIds.map((p) => p.id) },
+            },
+            select: { weeklyPlanId: true },
+        });
+
+        const checkedInPlanIds = new Set(checkedInToday.map((c) => c.weeklyPlanId));
+        const missedCheckinsCount = approvedPlanStudentIds.filter((p) => !checkedInPlanIds.has(p.id)).length;
+
+        // ── Students snapshot ─────────────────────────────────────────────────
+        const studentsSummary = activeAssignments.map((a) => {
+            const latestPlan = a.student.weeklyPlans[0];
+            const daysSinceLastPlan = latestPlan
+                ? Math.floor((Date.now() - new Date(latestPlan.submitted_at).getTime()) / 86400000)
+                : null;
+
+            // Status logic: at-risk if no plan in 7+ days or rejected plan
+            let status: 'ACTIVE' | 'AT_RISK' | 'INACTIVE' = 'ACTIVE';
+            if (!latestPlan || daysSinceLastPlan === null || daysSinceLastPlan > 14) {
+                status = 'INACTIVE';
+            } else if (latestPlan.status === 'REJECTED' || daysSinceLastPlan > 7) {
+                status = 'AT_RISK';
+            }
+
+            return {
+                studentId: a.student.id,
+                studentName: a.student.user.full_name,
+                studentEmail: a.student.user.email,
+                status,
+                lastPlanStatus: latestPlan?.status ?? null,
+                lastPlanWeek: latestPlan?.week_number ?? null,
+                daysSinceLastPlan,
+                startDate: a.start_date,
+            };
+        });
+
+        // ── Recent activity feed ──────────────────────────────────────────────
+        const [recentPlans, recentProposals] = await Promise.all([
+            prisma.weeklyPlan.findMany({
+                where: { student: { assignments: { some: { companyId, status: 'ACTIVE' } } } },
+                orderBy: { submitted_at: 'desc' },
+                take: 5,
+                select: {
+                    id: true, week_number: true, status: true, submitted_at: true,
+                    student: { include: { user: { select: { full_name: true } } } },
+                },
+            }),
+            prisma.internshipProposal.findMany({
+                where: { companyId },
+                orderBy: { submitted_at: 'desc' },
+                take: 5,
+                select: {
+                    id: true, status: true, submitted_at: true,
+                    student: { include: { user: { select: { full_name: true } } } },
+                },
+            }),
+        ]);
+
+        const recentActivity = [
+            ...recentPlans.map((p) => ({
+                type: 'PLAN',
+                id: p.id,
+                title: `${p.student.user.full_name} submitted Week ${p.week_number} plan`,
+                status: p.status,
+                timestamp: p.submitted_at,
+            })),
+            ...recentProposals.map((p) => ({
+                type: 'PROPOSAL',
+                id: p.id,
+                title: `Proposal from ${p.student.user.full_name}`,
+                status: p.status,
+                timestamp: p.submitted_at,
+            })),
+        ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 8);
+
+        // ── Deadlines (students without evaluation, approaching end date) ─────
+        const approachingEnd = await prisma.internshipAssignment.findMany({
+            where: {
+                companyId,
+                status: 'ACTIVE',
+                end_date: {
+                    not: null,
+                    lte: new Date(Date.now() + 14 * 86400000), // within 14 days
+                    gte: new Date(),
+                },
+            },
+            include: {
+                student: {
+                    include: {
+                        user: { select: { full_name: true } },
+                        finalEvaluation: { select: { id: true } },
+                    },
+                },
+            },
+        });
+
+        const deadlines = approachingEnd.map((a) => ({
+            type: a.student.finalEvaluation ? 'REPORT_DUE' : 'EVALUATION_DUE',
+            studentName: a.student.user.full_name,
+            dueDate: a.end_date,
+            daysLeft: a.end_date
+                ? Math.ceil((new Date(a.end_date).getTime() - Date.now()) / 86400000)
+                : null,
+        }));
+
         return sendSuccess(res, {
             supervisor,
             stats: {
@@ -68,6 +206,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 placedStudentsCount,
                 approvedProposalsCount,
                 reportsSubmittedCount,
+                missedCheckinsCount,
             },
             recentPendingProposals: recentPendingProposals.map((p) => ({
                 id: p.id,
@@ -82,6 +221,9 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 weekNumber: p.week_number,
                 submitted_at: p.submitted_at,
             })),
+            studentsSummary,
+            recentActivity,
+            deadlines,
         }, 'Supervisor profile fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
