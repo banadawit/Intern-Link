@@ -78,33 +78,45 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
       drawer: _buildDrawer(context, isDark, currentIndex),
       floatingActionButton: widget.tabs[currentIndex].hideGlobalFab
           ? null
-          : Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF4A00E0).withOpacity(0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
+          : Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Secondary FAB (e.g. Assign) shown above AI FAB
+          if (widget.tabs[currentIndex].secondaryFab != null) ...[
+            widget.tabs[currentIndex].secondaryFab!,
+            const SizedBox(height: 12),
           ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => context.push(AppRoutes.aiAssistant),
-            borderRadius: BorderRadius.circular(20),
-            child: const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+          // Global AI FAB
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4A00E0).withOpacity(0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => context.push(AppRoutes.aiAssistant),
+                borderRadius: BorderRadius.circular(20),
+                child: const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
       body: IndexedStack(
         index: currentIndex,
@@ -344,6 +356,8 @@ class _DashboardTab {
   final Widget view;
   /// When true, hides the global AI FAB (use when the tab has its own FAB).
   final bool hideGlobalFab;
+  /// Optional second FAB shown above the AI FAB.
+  final Widget? secondaryFab;
 
   const _DashboardTab({
     required this.label,
@@ -351,6 +365,7 @@ class _DashboardTab {
     required this.activeIcon,
     required this.view,
     this.hideGlobalFab = false,
+    this.secondaryFab,
   });
 }
 
@@ -2770,9 +2785,9 @@ class _SupervisorStudentsTab extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _miniStat(context, 'University', student.universityName.length > 15 ? '${student.universityName.substring(0, 15)}…' : student.universityName),
-                  _miniStat(context, 'Project', student.projectName ?? 'Not assigned'),
-                  _miniStat(context, 'Started', '${student.startDate.day}/${student.startDate.month}/${student.startDate.year}'),
+                  Expanded(child: _miniStat(context, 'University', student.universityName.length > 12 ? '${student.universityName.substring(0, 12)}…' : student.universityName)),
+                  Expanded(child: _miniStat(context, 'Project', student.projectName ?? 'Not assigned')),
+                  Expanded(child: _miniStat(context, 'Started', '${student.startDate.day}/${student.startDate.month}/${student.startDate.year}')),
                 ],
               ),
             ],
@@ -2787,7 +2802,7 @@ class _SupervisorStudentsTab extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis, maxLines: 1),
       ],
     );
   }
@@ -2954,7 +2969,7 @@ class _SupervisorManagementTab extends ConsumerWidget {
               ),
             ),
           ],
-          body: const TabBarView(
+          body: TabBarView(
             children: [
               _SupervisorWorkflowTabContent(),
               _SupervisorAssignmentScreen(),
@@ -3830,10 +3845,35 @@ class SupervisorDashboardScreen extends StatelessWidget {
       roleLabel: 'SUPERVISOR',
       tabs: [
         _DashboardTab(label: 'Home', icon: Icons.home_outlined, activeIcon: Icons.home_rounded, view: _SupervisorOverviewTab()),
-        _DashboardTab(label: 'Interns', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _SupervisorStudentsTab()),
+        _DashboardTab(
+          label: 'Interns',
+          icon: Icons.people_outline_rounded,
+          activeIcon: Icons.people_rounded,
+          view: _SupervisorStudentsTab(),
+          secondaryFab: _AssignFab(),
+        ),
         _DashboardTab(label: 'Management', icon: Icons.assignment_outlined, activeIcon: Icons.assignment_rounded, view: _SupervisorManagementTab()),
         _DashboardTab(label: 'Profile', icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, view: _SupervisorSettingsTab()),
       ],
+    );
+  }
+}
+
+/// Assign FAB — navigates to the Management tab (Assignments sub-tab).
+class _AssignFab extends ConsumerWidget {
+  const _AssignFab();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FloatingActionButton.extended(
+      heroTag: 'supervisor_assign_nav_fab',
+      onPressed: () {
+        // Switch to Management tab (index 2)
+        ref.read(dashboardIndexProvider.notifier).state = 2;
+      },
+      backgroundColor: const Color(0xFF11998e),
+      icon: const Icon(Icons.person_add_rounded, color: Colors.white, size: 20),
+      label: const Text('Assign', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+      elevation: 4,
     );
   }
 }
@@ -10685,6 +10725,454 @@ class FeedPreviewSection extends ConsumerWidget {
     );
   }
 }
+// ── _SupervisorAssignmentScreen ───────────────────────────────────────────────
+class _SupervisorAssignmentScreen extends ConsumerStatefulWidget {
+  const _SupervisorAssignmentScreen();
+  @override
+  ConsumerState<_SupervisorAssignmentScreen> createState() => _SupervisorAssignmentScreenState();
+}
 
-// ── Supervisor Assignment Screen ──────────────────────────────────────────────
-// Inserted at end; referenced by _SupervisorManagementTab as _SupervisorAssignmentScreen
+class _SupervisorAssignmentScreenState extends ConsumerState<_SupervisorAssignmentScreen> {
+  int _step = 0;
+  SupervisorProject? _selectedProject;
+  SupervisorTeam? _selectedTeam;
+  bool _createNewTeam = true;
+  String _newTeamName = '';
+  final Set<int> _selectedStudentIds = {};
+  bool _loading = false;
+
+  void _reset() => setState(() {
+    _step = 0; _selectedProject = null; _selectedTeam = null;
+    _createNewTeam = true; _newTeamName = ''; _selectedStudentIds.clear();
+  });
+
+  int _fitScore(SupervisorStudent s) {
+    if (_selectedProject == null || _selectedProject!.requiredSkills.isEmpty) return 0;
+    final dept = (s.department ?? '').toLowerCase();
+    final skills = _selectedProject!.requiredSkills.map((sk) => sk.toLowerCase()).toList();
+    final matches = skills.where((sk) => dept.contains(sk) || sk.contains(dept)).length;
+    if (matches == skills.length) return 0;
+    if (matches > 0) return 1;
+    return 2;
+  }
+
+  Color _fitColor(int score) => score == 0 ? Colors.green : score == 1 ? Colors.orange : Colors.red;
+  IconData _fitIcon(int score) => score == 0 ? Icons.check_circle_rounded : score == 1 ? Icons.warning_rounded : Icons.cancel_rounded;
+  String _fitLabel(int score) => score == 0 ? 'Good fit' : score == 1 ? 'Partial match' : 'Not suitable';
+  Future<void> _moveStudentToTeam(Map<String, dynamic> assignment) async {
+    final teams = ref.read(supervisorTeamsProvider).value ?? [];
+    if (teams.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No teams available.'))); return; }
+    int? targetTeamId;
+    final currentTeamId = ((assignment['teams'] as List?)?.isNotEmpty == true) ? _parseInt((assignment['teams'] as List).first['id']) : null;
+    final confirmed = await showDialog<bool>(context: context, builder: (d) => StatefulBuilder(builder: (d, setS) => AlertDialog(
+      title: const Text('Move to Team', style: TextStyle(fontWeight: FontWeight.w900)),
+      content: DropdownButtonFormField<int>(
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Select Team', border: OutlineInputBorder()),
+        items: teams.where((t) => t.id != currentTeamId).map((t) => DropdownMenuItem<int>(value: t.id, child: Text(t.name, overflow: TextOverflow.ellipsis))).toList(),
+        onChanged: (v) => setS(() => targetTeamId = v),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
+        FilledButton(onPressed: targetTeamId == null ? null : () => Navigator.pop(d, true), child: const Text('Move')),
+      ],
+    )));
+    if (confirmed != true || targetTeamId == null || !mounted) return;
+    setState(() => _loading = true);
+    try {
+      await ref.read(supervisorRepositoryProvider).moveStudentToTeam(_parseInt(assignment['studentId']), targetTeamId!);
+      ref.invalidate(supervisorAssignmentsProvider); ref.invalidate(supervisorTeamsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student moved to new team ✓')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally { if (mounted) setState(() => _loading = false); }
+  }
+
+  Future<void> _moveTeamToProject(SupervisorTeam team) async {
+    final projects = ref.read(supervisorProjectsProvider).value ?? [];
+    if (projects.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No projects available.'))); return; }
+    int? targetProjectId;
+    final confirmed = await showDialog<bool>(context: context, builder: (d) => StatefulBuilder(builder: (d, setS) => AlertDialog(
+      title: Text('Move "${team.name}" to Project', style: const TextStyle(fontWeight: FontWeight.w900)),
+      content: DropdownButtonFormField<int>(
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Select Project', border: OutlineInputBorder()),
+        items: projects.where((p) => p.id != team.projectId).map((p) => DropdownMenuItem<int>(value: p.id, child: Text('${p.name} (${p.capacityLabel})', overflow: TextOverflow.ellipsis))).toList(),
+        onChanged: (v) => setS(() => targetProjectId = v),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
+        FilledButton(onPressed: targetProjectId == null ? null : () => Navigator.pop(d, true), child: const Text('Move')),
+      ],
+    )));
+    if (confirmed != true || targetProjectId == null || !mounted) return;
+    setState(() => _loading = true);
+    try {
+      final result = await ref.read(supervisorRepositoryProvider).moveTeamToProject(team.id, targetProjectId!);
+      ref.invalidate(supervisorAssignmentsProvider); ref.invalidate(supervisorTeamsProvider); ref.invalidate(supervisorProjectsProvider);
+      final warned = result['warned'] == true;
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(warned ? 'Warning: ${result['warningMessage'] ?? 'Team moved with warnings'}' : 'Team moved to new project ✓'),
+        backgroundColor: warned ? Colors.orange : null,
+        duration: Duration(seconds: warned ? 5 : 3),
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally { if (mounted) setState(() => _loading = false); }
+  }
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final assignmentsAsync = ref.watch(supervisorAssignmentsProvider);
+    final projectsAsync = ref.watch(supervisorProjectsProvider);
+    final teamsAsync = ref.watch(supervisorTeamsProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(supervisorAssignmentsProvider);
+        ref.invalidate(supervisorProjectsProvider);
+        ref.invalidate(supervisorTeamsProvider);
+      },
+      child: CustomScrollView(physics: const BouncingScrollPhysics(), slivers: [
+        SliverPadding(padding: const EdgeInsets.fromLTRB(24, 16, 24, 100), sliver: SliverList(delegate: SliverChildListDelegate([
+          FilledButton.icon(
+            onPressed: () => _showStepFlow(context, projectsAsync.value ?? [], teamsAsync.value ?? []),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('New Assignment', style: TextStyle(fontWeight: FontWeight.w800)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6a11cb), minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          ),
+          const SizedBox(height: 28),
+          const Text('Projects Overview', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 12),
+          projectsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('Error: $e'),
+            data: (projects) => projects.isEmpty
+                ? _emptyCard('No projects yet', Icons.folder_open_rounded)
+                : Column(children: projects.map((p) => _projectDashCard(p, isDark, teamsAsync.value ?? [])).toList()),
+          ),
+          const SizedBox(height: 28),
+          const Text('Active Assignments', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 12),
+          assignmentsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('Error: $e'),
+            data: (assignments) => assignments.isEmpty
+                ? _emptyCard('No assignments yet', Icons.assignment_outlined)
+                : Column(children: assignments.map((a) => _assignmentCard(a, isDark)).toList()),
+          ),
+          const SizedBox(height: 28),
+          const Text('Teams Overview', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 12),
+          teamsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text('Error: $e'),
+            data: (teams) => teams.isEmpty
+                ? _emptyCard('No teams yet', Icons.groups_outlined)
+                : Column(children: teams.map((t) => _teamDashCard(t, isDark)).toList()),
+          ),
+        ]))),
+      ]),
+    );
+  }
+  Widget _projectDashCard(SupervisorProject p, bool isDark, List<SupervisorTeam> allTeams) {
+    final linkedTeams = allTeams.where((t) => t.projectId == p.id).toList();
+    final usedPct = p.capacity > 0 ? (p.memberCount / p.capacity).clamp(0.0, 1.0) : 0.0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.folder_rounded, color: Colors.teal, size: 18)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+            if (p.description != null) Text(p.description!, style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: p.isFull ? Colors.red.withOpacity(0.1) : Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(p.capacityLabel, style: TextStyle(color: p.isFull ? Colors.red : Colors.teal, fontSize: 10, fontWeight: FontWeight.w800))),
+        ]),
+        if (p.capacity > 0) ...[
+          const SizedBox(height: 10),
+          ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: usedPct, minHeight: 6, backgroundColor: Colors.grey.withOpacity(0.15), valueColor: AlwaysStoppedAnimation<Color>(p.isFull ? Colors.red : Colors.teal))),
+        ],
+        const SizedBox(height: 10),
+        Row(children: [
+          Icon(Icons.people_rounded, size: 13, color: Colors.grey.shade400), const SizedBox(width: 4),
+          Text('${p.memberCount} student${p.memberCount == 1 ? '' : 's'}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          const SizedBox(width: 14),
+          Icon(Icons.groups_rounded, size: 13, color: Colors.grey.shade400), const SizedBox(width: 4),
+          Text('${linkedTeams.length} team${linkedTeams.length == 1 ? '' : 's'}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+        ]),
+        if (linkedTeams.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(spacing: 6, runSpacing: 4, children: linkedTeams.map((t) => GestureDetector(
+            onTap: () => _moveTeamToProject(t),
+            child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.purple.withOpacity(0.08), borderRadius: BorderRadius.circular(8)), child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(t.name, style: const TextStyle(color: Colors.purple, fontSize: 10, fontWeight: FontWeight.w700)),
+              const SizedBox(width: 4),
+              const Icon(Icons.swap_horiz_rounded, size: 10, color: Colors.purple),
+            ])),
+          )).toList()),
+        ],
+      ]),
+    );
+  }
+
+  Widget _teamDashCard(SupervisorTeam team, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.groups_rounded, color: Colors.purple, size: 18)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(team.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+            Text('${team.members.length} member${team.members.length == 1 ? '' : 's'}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          ])),
+          GestureDetector(
+            onTap: () => _moveTeamToProject(team),
+            child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.08), borderRadius: BorderRadius.circular(8)), child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(team.projectName != null ? Icons.swap_horiz_rounded : Icons.link_rounded, size: 13, color: Colors.blue),
+              const SizedBox(width: 4),
+              ConstrainedBox(constraints: const BoxConstraints(maxWidth: 100), child: Text(team.projectName ?? 'Link Project', style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
+            ])),
+          ),
+        ]),
+        if (team.members.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 6, runSpacing: 4, children: team.members.map((m) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.blue.withOpacity(0.07), borderRadius: BorderRadius.circular(20)), child: Text(m.fullName, style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w600)))).toList()),
+        ],
+      ]),
+    );
+  }
+
+  Widget _assignmentCard(Map<String, dynamic> a, bool isDark) {
+    final name = a['studentName']?.toString() ?? 'Student';
+    final teams = (a['teams'] as List?) ?? [];
+    final projectName = a['projectName']?.toString();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04))),
+      child: Row(children: [
+        CircleAvatar(radius: 20, backgroundColor: Colors.indigo.withOpacity(0.12), child: Text(name.isNotEmpty ? name[0] : '?', style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold))),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+          if (projectName != null) Row(children: [const Icon(Icons.folder_rounded, size: 11, color: Colors.teal), const SizedBox(width: 3), Flexible(child: Text(projectName, style: const TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis))]),
+          if (teams.isNotEmpty) Row(children: [const Icon(Icons.groups_rounded, size: 11, color: Colors.purple), const SizedBox(width: 3), Flexible(child: Text((teams[0] as Map)['name']?.toString() ?? '', style: const TextStyle(color: Colors.purple, fontSize: 11), overflow: TextOverflow.ellipsis))]),
+        ])),
+        Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text('Assigned', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.w800))),
+        const SizedBox(width: 6),
+        IconButton(icon: const Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.indigo), tooltip: 'Move to different team', onPressed: () => _moveStudentToTeam(a), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+      ]),
+    );
+  }
+
+  Widget _emptyCard(String msg, IconData icon) => Container(
+    padding: const EdgeInsets.all(28),
+    decoration: BoxDecoration(color: Colors.grey.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+    child: Center(child: Column(children: [Icon(icon, size: 40, color: Colors.grey.shade300), const SizedBox(height: 10), Text(msg, style: const TextStyle(color: Colors.grey, fontSize: 13))])),
+  );
+
+  Future<void> _showStepFlow(BuildContext context, List<SupervisorProject> projects, List<SupervisorTeam> teams) async {
+    _reset();
+    final students = ref.read(supervisorStudentsProvider).value ?? [];
+    if (students.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No placed students available.'))); return; }
+    await showModalBottomSheet<void>(
+      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final stepTitles = ['Select Project', 'Create / Select Team', 'Add Students', 'Confirm & Assign'];
+        final stepSubs = ['Choose the project', 'Set up the team', 'Pick students', 'Review and confirm'];
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.88,
+          padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            Row(children: List.generate(4, (i) => Expanded(child: Container(height: 4, margin: EdgeInsets.only(right: i < 3 ? 4 : 0), decoration: BoxDecoration(color: i <= _step ? const Color(0xFF6a11cb) : Colors.grey.withOpacity(0.2), borderRadius: BorderRadius.circular(2)))))),
+            const SizedBox(height: 16),
+            Text(stepTitles[_step], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text(stepSubs[_step], style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+            const SizedBox(height: 16),
+            Expanded(child: SingleChildScrollView(child: _buildStep(_step, projects, teams, students, setS))),
+            const SizedBox(height: 16),
+            Row(children: [
+              if (_step > 0) Expanded(child: OutlinedButton(onPressed: () => setS(() => _step--), child: const Text('Back'))),
+              if (_step > 0) const SizedBox(width: 12),
+              Expanded(flex: 2, child: FilledButton(
+                onPressed: _loading ? null : () async {
+                  if (_step < 3) { setS(() => _step++); return; }
+                  if (_selectedStudentIds.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select at least one student.'))); return; }
+                  if (_createNewTeam && _newTeamName.trim().isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a team name.'))); return; }
+                  setS(() => _loading = true);
+                  try {
+                    final result = await ref.read(supervisorRepositoryProvider).bulkAssign(studentIds: _selectedStudentIds.toList(), teamId: _createNewTeam ? null : _selectedTeam?.id, teamName: _createNewTeam ? _newTeamName.trim() : null, projectId: _selectedProject?.id);
+                    ref.invalidate(supervisorAssignmentsProvider); ref.invalidate(supervisorTeamsProvider); ref.invalidate(supervisorProjectsProvider); ref.invalidate(supervisorStudentsProvider);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    final assigned = (result['assignedStudents'] as List?)?.length ?? 0;
+                    final skipped = (result['skipped'] as List?)?.length ?? 0;
+                    final projName = _selectedProject?.name;
+                    final msg = '$assigned student(s) assigned${projName != null ? ' to "$projName"' : ''}${skipped > 0 ? ' ($skipped skipped)' : ''} ✓';
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                  } catch (e) {
+                    setS(() => _loading = false);
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: _step == 3 ? const Color(0xFF11998e) : const Color(0xFF6a11cb), minimumSize: const Size(0, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                child: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(_step == 3 ? 'Assign Now' : 'Next', style: const TextStyle(fontWeight: FontWeight.w900)),
+              )),
+            ]),
+          ]),
+        );
+      }),
+    );
+  }
+
+  Widget _buildStep(int step, List<SupervisorProject> projects, List<SupervisorTeam> teams, List<SupervisorStudent> students, StateSetter setS) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    switch (step) {
+      case 0:
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          GestureDetector(
+            onTap: () => setS(() { _selectedProject = null; _step = 1; }),
+            child: Container(padding: const EdgeInsets.all(14), margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(color: Colors.grey.withOpacity(0.07), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.withOpacity(0.2))),
+              child: const Row(children: [Icon(Icons.skip_next_rounded, color: Colors.grey), SizedBox(width: 8), Text('Skip — no project', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600))])),
+          ),
+          if (projects.isEmpty)
+            const Text('No projects yet. Create one in the Projects tab.', style: TextStyle(color: Colors.grey))
+          else
+            ...projects.map((p) => GestureDetector(
+              onTap: p.isFull ? null : () => setS(() { _selectedProject = p; _step = 1; }),
+              child: Opacity(opacity: p.isFull ? 0.5 : 1.0, child: Container(
+                margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _selectedProject?.id == p.id ? const Color(0xFF6a11cb).withOpacity(0.08) : (isDark ? Colors.white.withOpacity(0.04) : Colors.white),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _selectedProject?.id == p.id ? const Color(0xFF6a11cb) : Colors.grey.withOpacity(0.2)),
+                ),
+                child: Row(children: [
+                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.folder_rounded, color: Colors.teal, size: 16)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    Text(p.capacityLabel, style: TextStyle(color: p.isFull ? Colors.red : Colors.grey, fontSize: 11)),
+                  ])),
+                  if (p.isFull) const Icon(Icons.lock_rounded, size: 16, color: Colors.red),
+                  if (_selectedProject?.id == p.id) const Icon(Icons.check_circle_rounded, color: Color(0xFF6a11cb), size: 20),
+                ]),
+              )),
+            )),
+        ]);
+      case 1:
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: GestureDetector(onTap: () => setS(() => _createNewTeam = true), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: _createNewTeam ? const Color(0xFF6a11cb) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Center(child: Text('New Team', style: TextStyle(color: _createNewTeam ? Colors.white : Colors.grey, fontWeight: FontWeight.bold)))))),
+            const SizedBox(width: 8),
+            Expanded(child: GestureDetector(onTap: () => setS(() => _createNewTeam = false), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: !_createNewTeam ? const Color(0xFF6a11cb) : Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Center(child: Text('Existing Team', style: TextStyle(color: !_createNewTeam ? Colors.white : Colors.grey, fontWeight: FontWeight.bold)))))),
+          ]),
+          const SizedBox(height: 16),
+          if (_createNewTeam)
+            TextField(onChanged: (v) => setS(() => _newTeamName = v), decoration: const InputDecoration(labelText: 'Team Name *', hintText: 'e.g. Alpha Team', border: OutlineInputBorder()))
+          else if (teams.isEmpty)
+            const Text('No teams yet. Switch to "New Team".', style: TextStyle(color: Colors.grey))
+          else
+            ...teams.map((t) => GestureDetector(
+              onTap: () => setS(() => _selectedTeam = t),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _selectedTeam?.id == t.id ? const Color(0xFF6a11cb).withOpacity(0.08) : (isDark ? Colors.white.withOpacity(0.04) : Colors.white),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _selectedTeam?.id == t.id ? const Color(0xFF6a11cb) : Colors.grey.withOpacity(0.2)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.groups_rounded, color: Colors.purple, size: 18), const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(t.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text('${t.members.length} members${t.projectName != null ? " · ${t.projectName}" : ""}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  ])),
+                  if (_selectedTeam?.id == t.id) const Icon(Icons.check_circle_rounded, color: Color(0xFF6a11cb), size: 20),
+                ]),
+              ),
+            )),
+        ]);
+      case 2:
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [_fitLegend(0), const SizedBox(width: 12), _fitLegend(1), const SizedBox(width: 12), _fitLegend(2)]),
+          const SizedBox(height: 12),
+          ...students.map((s) {
+            final fit = _fitScore(s);
+            final isSelected = _selectedStudentIds.contains(s.id);
+            final isAssigned = s.projectName != null;
+            return GestureDetector(
+              onTap: isAssigned ? null : () => setS(() { if (isSelected) _selectedStudentIds.remove(s.id); else _selectedStudentIds.add(s.id); }),
+              child: Opacity(opacity: isAssigned ? 0.45 : 1.0, child: Container(
+                margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF6a11cb).withOpacity(0.07) : (isDark ? Colors.white.withOpacity(0.04) : Colors.white),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: isSelected ? const Color(0xFF6a11cb) : Colors.grey.withOpacity(0.2)),
+                ),
+                child: Row(children: [
+                  Container(width: 4, height: 40, decoration: BoxDecoration(color: _fitColor(fit), borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(width: 10),
+                  CircleAvatar(radius: 18, backgroundColor: _fitColor(fit).withOpacity(0.12), child: Text(s.fullName[0], style: TextStyle(color: _fitColor(fit), fontWeight: FontWeight.bold, fontSize: 13))),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(s.fullName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                    Text(s.universityName, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                    Row(children: [Icon(_fitIcon(fit), size: 11, color: _fitColor(fit)), const SizedBox(width: 3), Text(_fitLabel(fit), style: TextStyle(color: _fitColor(fit), fontSize: 10, fontWeight: FontWeight.w700))]),
+                  ])),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3), decoration: BoxDecoration(color: isAssigned ? Colors.orange.withOpacity(0.1) : Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Text(isAssigned ? 'Assigned' : 'Available', style: TextStyle(color: isAssigned ? Colors.orange : Colors.green, fontSize: 9, fontWeight: FontWeight.w800))),
+                  const SizedBox(width: 6),
+                  if (!isAssigned) Checkbox(value: isSelected, onChanged: (v) => setS(() { if (v == true) _selectedStudentIds.add(s.id); else _selectedStudentIds.remove(s.id); }), materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                ]),
+              )),
+            );
+          }),
+        ]);
+      default:
+        final selectedStudents = students.where((s) => _selectedStudentIds.contains(s.id)).toList();
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _confirmRow('Project', _selectedProject?.name ?? 'None', Icons.folder_rounded, Colors.teal),
+          const SizedBox(height: 10),
+          _confirmRow('Team', _createNewTeam ? '"$_newTeamName" (new)' : (_selectedTeam?.name ?? 'None'), Icons.groups_rounded, Colors.purple),
+          const SizedBox(height: 10),
+          _confirmRow('Students', '${selectedStudents.length} selected', Icons.people_rounded, Colors.blue),
+          const SizedBox(height: 16),
+          ...selectedStudents.map((s) => Container(
+            margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(color: Colors.green.withOpacity(0.06), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.green.withOpacity(0.2))),
+            child: Row(children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16), const SizedBox(width: 8),
+              Text(s.fullName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const Spacer(),
+              Text(s.universityName, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            ]),
+          )),
+        ]);
+    }
+  }
+
+  Widget _fitLegend(int score) => Row(mainAxisSize: MainAxisSize.min, children: [
+    Icon(_fitIcon(score), size: 12, color: _fitColor(score)),
+    const SizedBox(width: 3),
+    Text(_fitLabel(score), style: TextStyle(color: _fitColor(score), fontSize: 10, fontWeight: FontWeight.w700)),
+  ]);
+
+  Widget _confirmRow(String label, String value, IconData icon, Color color) => Row(children: [
+    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 16)),
+    const SizedBox(width: 10),
+    Text('$label: ', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+    Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13), overflow: TextOverflow.ellipsis)),
+  ]);
+}
