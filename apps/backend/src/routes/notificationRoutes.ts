@@ -3,43 +3,55 @@ import { authenticate } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { Response } from 'express';
+import { sendSuccess, sendError } from '../utils/responseHelper';
 
 const router = Router();
 router.use(authenticate);
 
-// GET /notifications — latest 30 for the logged-in user
+// GET /notifications — latest 50 for the logged-in user
 router.get('/', async (req: AuthRequest, res: Response) => {
     try {
         const notifications = await prisma.notification.findMany({
             where: { recipientId: req.user!.userId },
             orderBy: { created_at: 'desc' },
-            take: 30,
+            take: 50,
         });
-        res.json(notifications);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+        return sendSuccess(res, notifications);
+    } catch (e: any) { return sendError(res, e.message); }
+});
+
+// GET /notifications/unread-count — fast badge count
+router.get('/unread-count', async (req: AuthRequest, res: Response) => {
+    try {
+        const count = await prisma.notification.count({
+            where: { recipientId: req.user!.userId, is_read: false },
+        });
+        return sendSuccess(res, { count });
+    } catch (e: any) { return sendError(res, e.message); }
 });
 
 // PATCH /notifications/read-all — must be before /:id/read
 router.patch('/read-all', async (req: AuthRequest, res: Response) => {
     try {
-        await prisma.notification.updateMany({
+        const result = await prisma.notification.updateMany({
             where: { recipientId: req.user!.userId, is_read: false },
             data: { is_read: true },
         });
-        res.json({ ok: true });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+        return sendSuccess(res, { updated: result.count }, 'All notifications marked as read.');
+    } catch (e: any) { return sendError(res, e.message); }
 });
 
 // PATCH /notifications/:id/read
 router.patch('/:id/read', async (req: AuthRequest, res: Response) => {
     try {
         const id = parseInt(String(req.params.id), 10);
+        if (Number.isNaN(id)) return sendError(res, 'Invalid notification id.', 400);
         await prisma.notification.updateMany({
             where: { id, recipientId: req.user!.userId },
             data: { is_read: true },
         });
-        res.json({ ok: true });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+        return sendSuccess(res, { id }, 'Notification marked as read.');
+    } catch (e: any) { return sendError(res, e.message); }
 });
 
 export default router;
