@@ -41,12 +41,14 @@ class SupervisorStats {
   final int pendingPlans;
   final int totalStudents;
   final int reportsDue;
+  final int missedCheckins;
 
   const SupervisorStats({
     required this.pendingProposals,
     required this.pendingPlans,
     required this.totalStudents,
     required this.reportsDue,
+    required this.missedCheckins,
   });
 
   factory SupervisorStats.fromJson(Map<String, dynamic> json) {
@@ -54,9 +56,111 @@ class SupervisorStats {
       pendingProposals: _si(json['pendingProposalsCount']),
       pendingPlans: _si(json['pendingWeeklyPlansCount']),
       totalStudents: _si(json['placedStudentsCount']),
-      reportsDue: _si(json['reportsDueCount']),
+      reportsDue: _si(json['reportsSubmittedCount']),
+      missedCheckins: _si(json['missedCheckinsCount']),
     );
   }
+}
+
+class SupervisorStudentSummary {
+  final int studentId;
+  final String studentName;
+  final String studentEmail;
+  final String status; // ACTIVE | AT_RISK | INACTIVE
+  final String? lastPlanStatus;
+  final int? lastPlanWeek;
+  final int? daysSinceLastPlan;
+
+  const SupervisorStudentSummary({
+    required this.studentId,
+    required this.studentName,
+    required this.studentEmail,
+    required this.status,
+    this.lastPlanStatus,
+    this.lastPlanWeek,
+    this.daysSinceLastPlan,
+  });
+
+  factory SupervisorStudentSummary.fromJson(Map<String, dynamic> json) {
+    return SupervisorStudentSummary(
+      studentId: _si(json['studentId']),
+      studentName: json['studentName']?.toString() ?? 'Student',
+      studentEmail: json['studentEmail']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'ACTIVE',
+      lastPlanStatus: json['lastPlanStatus']?.toString(),
+      lastPlanWeek: json['lastPlanWeek'] != null ? _si(json['lastPlanWeek']) : null,
+      daysSinceLastPlan: json['daysSinceLastPlan'] != null ? _si(json['daysSinceLastPlan']) : null,
+    );
+  }
+}
+
+class SupervisorActivityItem {
+  final String type; // PLAN | PROPOSAL
+  final int id;
+  final String title;
+  final String status;
+  final DateTime timestamp;
+
+  const SupervisorActivityItem({
+    required this.type,
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.timestamp,
+  });
+
+  factory SupervisorActivityItem.fromJson(Map<String, dynamic> json) {
+    return SupervisorActivityItem(
+      type: json['type']?.toString() ?? 'PLAN',
+      id: _si(json['id']),
+      title: json['title']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'PENDING',
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+}
+
+class SupervisorDeadline {
+  final String type; // EVALUATION_DUE | REPORT_DUE
+  final String studentName;
+  final DateTime? dueDate;
+  final int? daysLeft;
+
+  const SupervisorDeadline({
+    required this.type,
+    required this.studentName,
+    this.dueDate,
+    this.daysLeft,
+  });
+
+  factory SupervisorDeadline.fromJson(Map<String, dynamic> json) {
+    return SupervisorDeadline(
+      type: json['type']?.toString() ?? 'EVALUATION_DUE',
+      studentName: json['studentName']?.toString() ?? 'Student',
+      dueDate: json['dueDate'] != null ? DateTime.tryParse(json['dueDate'].toString()) : null,
+      daysLeft: json['daysLeft'] != null ? _si(json['daysLeft']) : null,
+    );
+  }
+}
+
+class SupervisorDashboardData {
+  final SupervisorStats stats;
+  final List<Map<String, dynamic>> recentPendingProposals;
+  final List<Map<String, dynamic>> recentPendingPlans;
+  final List<SupervisorStudentSummary> studentsSummary;
+  final List<SupervisorActivityItem> recentActivity;
+  final List<SupervisorDeadline> deadlines;
+
+  const SupervisorDashboardData({
+    required this.stats,
+    required this.recentPendingProposals,
+    required this.recentPendingPlans,
+    required this.studentsSummary,
+    required this.recentActivity,
+    required this.deadlines,
+  });
 }
 
 class SupervisorAttendanceReport {
