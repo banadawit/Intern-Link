@@ -8,6 +8,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../app/desktop_layout.dart';
 import '../../../../core/services/session_service.dart';
 
 import '../../data/repositories/student_repository.dart';
@@ -61,16 +62,67 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     int currentIndex = ref.watch(dashboardIndexProvider);
-    
+
     // Safety check: ensure index is within bounds of current role's tabs
     if (currentIndex >= widget.tabs.length) {
       currentIndex = 0;
-      // Update state in next frame to avoid build-phase state mutations
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(dashboardIndexProvider.notifier).state = 0;
       });
     }
 
+    // ── Desktop / wide-screen layout ────────────────────────────────────────
+    if (isWideScreen(context)) {
+      final currentTab = widget.tabs[currentIndex];
+      final destinations = widget.tabs.map((t) => DesktopNavDestination(
+        label: t.label,
+        icon: t.icon,
+        activeIcon: t.activeIcon,
+      )).toList();
+
+      // Build the FAB column same as mobile
+      Widget? fab;
+      if (!currentTab.hideGlobalFab) {
+        final aiFab = Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: const Color(0xFF4A00E0).withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 8))],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => context.push(AppRoutes.aiAssistant),
+              borderRadius: BorderRadius.circular(20),
+              child: const Padding(padding: EdgeInsets.all(16), child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28)),
+            ),
+          ),
+        );
+        if (currentTab.secondaryFab != null) {
+          fab = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+            currentTab.secondaryFab!,
+            const SizedBox(height: 12),
+            aiFab,
+          ]);
+        } else {
+          fab = aiFab;
+        }
+      }
+
+      return DesktopScaffold(
+        selectedIndex: currentIndex,
+        destinations: destinations,
+        onDestinationSelected: (i) => ref.read(dashboardIndexProvider.notifier).state = i,
+        title: widget.title,
+        floatingActionButton: fab,
+        body: IndexedStack(
+          index: currentIndex,
+          children: widget.tabs.map((t) => t.view).toList(),
+        ),
+      );
+    }
+
+    // ── Mobile / narrow layout (original) ───────────────────────────────────
     return Scaffold(
       key: _scaffoldKey,
       extendBody: true,
