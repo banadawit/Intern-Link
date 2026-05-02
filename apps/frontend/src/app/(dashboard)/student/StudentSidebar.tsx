@@ -114,7 +114,7 @@ const StudentSidebar = () => {
 
       <div className="mt-auto hidden border-t border-border-default lg:block">
         <div className="flex items-center gap-3 p-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary-base ring-2 ring-white shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary-base ring-2 ring-white shadow-sm dark:ring-slate-800">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
@@ -125,7 +125,7 @@ const StudentSidebar = () => {
         <button
           type="button"
           onClick={() => setShowLogout(true)}
-          className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+          className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
         >
           <LogOut className="h-5 w-5 shrink-0" />
           Logout
@@ -142,7 +142,7 @@ const StudentSidebar = () => {
         <button
           type="button"
           onClick={() => setShowLogout(true)}
-          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
+          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
           aria-label="Logout"
         >
           <LogOut className="h-5 w-5" />

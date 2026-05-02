@@ -83,7 +83,7 @@ const FinalEvaluation = () => {
   if (!evaluation) {
     return (
       <div className="card p-12 text-center flex flex-col items-center justify-center space-y-6 animate-in fade-in duration-500">
-        <div className="p-6 bg-yellow-50 rounded-full text-status-warning">
+        <div className="p-6 bg-yellow-50 rounded-full text-status-warning dark:bg-yellow-900/30 dark:text-yellow-300">
           <Clock className="w-12 h-12" />
         </div>
         <div className="max-w-md">
@@ -157,7 +157,7 @@ const FinalEvaluation = () => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-text-muted">Status</span>
-                <span className={cn('font-bold text-status-success')}>Recorded</span>
+                <span className={cn('font-bold text-status-success dark:text-green-300')}>Recorded</span>
               </div>
             </div>
           </div>

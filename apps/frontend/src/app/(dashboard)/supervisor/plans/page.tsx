@@ -81,8 +81,8 @@ export default function SupervisorPlansPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Weekly plans</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Weekly plans</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Review and approve student weekly plans for your company.
           </p>
         </div>
@@ -93,7 +93,7 @@ export default function SupervisorPlansPage() {
             className={`rounded-xl px-4 py-2 text-sm font-semibold ${
               filter === "PENDING"
                 ? "bg-primary-600 text-white"
-                : "border border-slate-200 bg-white text-slate-700"
+                : "border border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             }`}
           >
             Pending
@@ -104,7 +104,7 @@ export default function SupervisorPlansPage() {
             className={`rounded-xl px-4 py-2 text-sm font-semibold ${
               filter === "ALL"
                 ? "bg-primary-600 text-white"
-                : "border border-slate-200 bg-white text-slate-700"
+                : "border border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             }`}
           >
             All
@@ -113,38 +113,38 @@ export default function SupervisorPlansPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
         {loading ? (
-          <p className="p-8 text-center text-slate-500">Loading…</p>
+          <p className="p-8 text-center text-slate-500 dark:text-slate-400">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="p-8 text-center text-slate-500">No plans in this view.</p>
+          <p className="p-8 text-center text-slate-500 dark:text-slate-400">No plans in this view.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50/80">
+              <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/70">
                 <tr>
-                  <th className="px-4 py-3 font-semibold text-slate-700">Week</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700">Student</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700">Status</th>
-                  <th className="px-4 py-3 font-semibold text-slate-700 text-right">Action</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Week</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Student</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Status</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {rows.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 font-medium text-slate-900">Week {p.week_number}</td>
+                  <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">Week {p.week_number}</td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{p.student.user.full_name}</p>
-                      <p className="text-xs text-slate-500">{p.student.university.name}</p>
+                      <p className="font-medium text-slate-900 dark:text-slate-100">{p.student.user.full_name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{p.student.university.name}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-200">
                         {p.status}
                       </span>
                     </td>
@@ -173,26 +173,26 @@ export default function SupervisorPlansPage() {
             aria-label="Close"
             onClick={() => setSelected(null)}
           />
-          <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                   Week {selected.week_number} — {selected.student.user.full_name}
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Submitted {new Date(selected.submitted_at).toLocaleString()}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-slate-800"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="mt-4 space-y-3">
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">{selected.plan_description}</p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap dark:text-slate-300">{selected.plan_description}</p>
               {selected.presentation?.file_url && (
                 <a
                   href={`${apiOrigin()}/${selected.presentation.file_url.replace(/^\//, "")}`}
@@ -206,8 +206,8 @@ export default function SupervisorPlansPage() {
             </div>
             {selected.status === "PENDING" && (
               <>
-                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
-                  <p className="font-medium text-slate-800">AI feedback</p>
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  <p className="font-medium text-slate-800 dark:text-slate-100">AI feedback</p>
                   <p className="mt-1">
                     Draft feedback in the full chat — paste the plan or ask for review ideas, then copy text back into remarks
                     below. Nothing is approved automatically.
@@ -219,17 +219,17 @@ export default function SupervisorPlansPage() {
                     Open AI assistant
                   </Link>
                 </div>
-                <label className="mt-4 block text-sm font-medium text-slate-700">
+                <label className="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200">
                   Feedback / remarks
                   <textarea
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
                     rows={3}
-                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                     placeholder="Optional notes for the student"
                   />
                 </label>
-                <label className="mt-3 flex items-center gap-2 text-sm text-slate-700">
+                <label className="mt-3 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
                   <input
                     type="checkbox"
                     checked={attendance}
@@ -242,7 +242,7 @@ export default function SupervisorPlansPage() {
                     type="button"
                     disabled={submitting}
                     onClick={() => void review("REJECTED")}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Reject
                   </button>
@@ -258,7 +258,7 @@ export default function SupervisorPlansPage() {
               </>
             )}
             {selected.status !== "PENDING" && selected.feedback && (
-              <p className="mt-4 text-sm text-slate-600">
+              <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
                 <span className="font-semibold">Previous feedback: </span>
                 {selected.feedback}
               </p>

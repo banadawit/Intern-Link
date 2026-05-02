@@ -106,9 +106,9 @@ const RequestCompany = () => {
               />
             </div>
 
-            <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
+            <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 dark:bg-blue-900/20 dark:border-blue-900/50">
               <Info className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
-              <p className="text-xs text-blue-700 leading-relaxed">
+              <p className="text-xs text-blue-700 leading-relaxed dark:text-blue-300">
                 Official placement proposals are sent by your coordinator. Use this form to collect details you can share with them.
               </p>
             </div>
@@ -119,9 +119,9 @@ const RequestCompany = () => {
             </button>
 
             {infoMessage && (
-              <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+              <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2 dark:bg-amber-900/20 dark:border-amber-900/50">
                 <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-sm font-medium text-amber-900">{infoMessage}</p>
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">{infoMessage}</p>
               </div>
             )}
           </form>

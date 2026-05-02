@@ -84,25 +84,25 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
 
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900"
       aria-label="Student approvals"
     >
       <div className="mb-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
         <button
           type="button"
           onClick={toggleView}
-          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-800 shadow-sm transition-colors hover:bg-slate-100"
+          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-800 shadow-sm transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           aria-pressed={view === "card"}
           title={view === "row" ? "Switch to card layout" : "Switch to table layout"}
         >
           {view === "row" ? (
             <>
-              <LayoutGrid className="h-4 w-4 text-slate-600" aria-hidden />
+              <LayoutGrid className="h-4 w-4 text-slate-600 dark:text-slate-300" aria-hidden />
               Card view
             </>
           ) : (
             <>
-              <Table2 className="h-4 w-4 text-slate-600" aria-hidden />
+              <Table2 className="h-4 w-4 text-slate-600 dark:text-slate-300" aria-hidden />
               Table view
             </>
           )}
@@ -110,23 +110,23 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
       </div>
 
       {view === "row" ? (
-        <div className="overflow-x-auto rounded-xl border border-slate-100">
+        <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700">
           <table className="w-full min-w-[600px] text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50/80">
+            <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/70">
               <tr>
-                <th className="px-4 py-3 font-semibold text-slate-700">Name</th>
-                <th className="px-4 py-3 font-semibold text-slate-700">Email</th>
-                <th className="px-4 py-3 font-semibold text-slate-700">Dept</th>
-                <th className="px-4 py-3 font-semibold text-slate-700">Status</th>
-                <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Name</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Email</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Dept</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Status</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {students.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-medium text-slate-900">{s.user.full_name}</td>
-                  <td className="px-4 py-3 text-slate-600">{s.user.email}</td>
-                  <td className="px-4 py-3 text-slate-700">{s.department ?? "—"}</td>
+                <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
+                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{s.user.full_name}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{s.user.email}</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{s.department ?? "—"}</td>
                   <td className="px-4 py-3">
                     <StatusPill status={s.hod_approval_status} />
                   </td>
@@ -144,7 +144,7 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
             </tbody>
           </table>
           {students.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-500">No students in scope.</p>
+            <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No students in scope.</p>
           )}
         </div>
       ) : (
@@ -152,18 +152,18 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
           {students.map((s) => (
             <article
               key={s.id}
-              className="flex flex-col rounded-xl border border-slate-100 bg-slate-50/40 p-4 shadow-sm transition-shadow hover:shadow-md"
+              className="flex flex-col rounded-xl border border-slate-100 bg-slate-50/40 p-4 shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-800/60"
             >
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold leading-tight text-slate-900">{s.user.full_name}</h3>
+                  <h3 className="font-semibold leading-tight text-slate-900 dark:text-slate-100">{s.user.full_name}</h3>
                   <StatusPill status={s.hod_approval_status} />
                 </div>
-                <p className="truncate text-sm text-slate-600" title={s.user.email}>
+                <p className="truncate text-sm text-slate-600 dark:text-slate-300" title={s.user.email}>
                   {s.user.email}
                 </p>
-                <p className="text-sm text-slate-700">
-                  <span className="text-slate-500">Dept:</span> {s.department ?? "—"}
+                <p className="text-sm text-slate-700 dark:text-slate-300">
+                  <span className="text-slate-500 dark:text-slate-400">Dept:</span> {s.department ?? "—"}
                 </p>
               </div>
               <ActionButtons
@@ -176,7 +176,7 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
             </article>
           ))}
           {students.length === 0 && (
-            <p className="col-span-full py-8 text-center text-sm text-slate-500">No students in scope.</p>
+            <p className="col-span-full py-8 text-center text-sm text-slate-500 dark:text-slate-400">No students in scope.</p>
           )}
         </div>
       )}

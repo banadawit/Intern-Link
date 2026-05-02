@@ -115,7 +115,7 @@ export default function HodPlacementsPage() {
         description="Send university-initiated proposals to verified companies and track responses in one place."
         action={
           <button type="button" onClick={() => void load()} disabled={loading}
-            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto"
+            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
             Refresh
@@ -124,26 +124,26 @@ export default function HodPlacementsPage() {
       />
 
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">{error}</div>
       )}
 
       {loading && students.length === 0 ? (
-        <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
+        <div className="flex min-h-[40vh] items-center justify-center text-slate-500 dark:text-slate-400">
           <Loader2 className="h-10 w-10 animate-spin text-primary-600" aria-hidden />
         </div>
       ) : (
         <>
           {/* Students needing reassignment */}
           {studentsNeedingReassignment.length > 0 && (
-            <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6">
-              <h2 className="text-base font-bold text-amber-900 mb-1">⚠️ Students needing reassignment</h2>
-              <p className="text-sm text-amber-700 mb-4">These students were rejected by a company. Assign them to a new company.</p>
+            <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6 dark:border-amber-900/50 dark:bg-amber-900/20">
+              <h2 className="text-base font-bold text-amber-900 mb-1 dark:text-amber-200">⚠️ Students needing reassignment</h2>
+              <p className="text-sm text-amber-700 mb-4 dark:text-amber-300">These students were rejected by a company. Assign them to a new company.</p>
               <div className="space-y-2">
                 {studentsNeedingReassignment.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3">
+                  <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3 dark:border-amber-900/50 dark:bg-slate-900">
                     <div>
-                      <p className="font-semibold text-slate-900 text-sm">{s.user.full_name}</p>
-                      <p className="text-xs text-slate-500">{s.user.email}</p>
+                      <p className="font-semibold text-slate-900 text-sm dark:text-slate-100">{s.user.full_name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{s.user.email}</p>
                     </div>
                     <button
                       type="button"
@@ -180,19 +180,19 @@ export default function HodPlacementsPage() {
       {/* Reassign modal */}
       {reassignStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Reassign student</h3>
-            <p className="text-sm text-slate-500">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4 dark:bg-slate-900 dark:border dark:border-slate-700">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Reassign student</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Assign <strong>{reassignStudent.user.full_name}</strong> to a new company.
             </p>
             <form onSubmit={(e) => void sendReassignment(e)} className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-slate-700">Company</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Company</label>
                 <select
                   required
                   value={reassignCompanyId}
                   onChange={(e) => setReassignCompanyId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 >
                   <option value="">Select company…</option>
                   {companies.map((c) => (
@@ -201,19 +201,19 @@ export default function HodPlacementsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700">Duration (weeks, optional)</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Duration (weeks, optional)</label>
                 <input
                   type="number"
                   min={1}
                   value={reassignWeeks}
                   onChange={(e) => setReassignWeeks(e.target.value)}
                   placeholder="e.g. 12"
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
               </div>
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setReassignStudent(null)}
-                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
                   Cancel
                 </button>
                 <button type="submit" disabled={submitting}

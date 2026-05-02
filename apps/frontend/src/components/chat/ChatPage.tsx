@@ -35,13 +35,13 @@ function initials(name: string) {
 
 function roleColor(role: string) {
   const map: Record<string, string> = {
-    STUDENT: "bg-emerald-100 text-emerald-700",
-    SUPERVISOR: "bg-blue-100 text-blue-700",
-    HOD: "bg-violet-100 text-violet-700",
-    COORDINATOR: "bg-teal-100 text-teal-700",
-    ADMIN: "bg-slate-100 text-slate-700",
+    STUDENT: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+    SUPERVISOR: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    HOD: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+    COORDINATOR: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+    ADMIN: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
   };
-  return map[role] ?? "bg-slate-100 text-slate-700";
+  return map[role] ?? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
 }
 
 function formatTime(dateStr: string) {
@@ -168,29 +168,29 @@ export default function ChatPage() {
   const activePerson = allSidebarItems.find((i) => i.id === activeId);
 
   return (
-    <div className="flex h-[calc(100vh-120px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex h-[calc(100vh-120px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
       {/* Sidebar */}
-      <div className="flex w-72 shrink-0 flex-col border-r border-slate-100">
-        <div className="border-b border-slate-100 p-4">
-          <h2 className="text-lg font-bold text-slate-900">Messages</h2>
+      <div className="flex w-72 shrink-0 flex-col border-r border-slate-100 dark:border-slate-700">
+        <div className="border-b border-slate-100 p-4 dark:border-slate-700">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Messages</h2>
           <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search…"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <p className="p-4 text-sm text-slate-400">Loading…</p>
+            <p className="p-4 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
           ) : allSidebarItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <MessageSquare className="h-8 w-8 text-slate-300 mb-2" />
-              <p className="text-sm text-slate-400">No contacts yet.</p>
+              <MessageSquare className="h-8 w-8 text-slate-300 mb-2 dark:text-slate-600" />
+              <p className="text-sm text-slate-400 dark:text-slate-500">No contacts yet.</p>
             </div>
           ) : (
             allSidebarItems.map((item) => (
@@ -199,8 +199,8 @@ export default function ChatPage() {
                 type="button"
                 onClick={() => void openConversation(item.id)}
                 className={cn(
-                  "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50",
-                  activeId === item.id && "bg-primary-50 border-r-2 border-primary-600"
+                  "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70",
+                  activeId === item.id && "bg-primary-50 border-r-2 border-primary-600 dark:bg-primary-900/20"
                 )}
               >
                 <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold", roleColor(item.role))}>
@@ -208,14 +208,14 @@ export default function ChatPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
-                    <p className="truncate text-sm font-semibold text-slate-900">{item.full_name}</p>
+                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{item.full_name}</p>
                     {item.lastMessage && (
-                      <span className="shrink-0 text-[10px] text-slate-400">{formatTime(item.lastMessage.created_at)}</span>
+                      <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">{formatTime(item.lastMessage.created_at)}</span>
                     )}
                   </div>
                   <div className="flex items-center justify-between gap-1">
-                    <p className="truncate text-xs text-slate-500">
-                      {item.lastMessage ? item.lastMessage.content : <span className="italic text-slate-400">{item.role.charAt(0) + item.role.slice(1).toLowerCase()}</span>}
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                      {item.lastMessage ? item.lastMessage.content : <span className="italic text-slate-400 dark:text-slate-500">{item.role.charAt(0) + item.role.slice(1).toLowerCase()}</span>}
                     </p>
                     {item.unreadCount > 0 && (
                       <span className="shrink-0 rounded-full bg-primary-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -234,20 +234,20 @@ export default function ChatPage() {
       {activeId && activePerson ? (
         <div className="flex flex-1 flex-col min-w-0 relative">
           {/* Header */}
-          <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3.5">
+          <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-3.5 dark:border-slate-700">
             <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold", roleColor(activePerson.role))}>
               {initials(activePerson.full_name)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-slate-900">{activePerson.full_name}</p>
-              <p className="text-xs text-slate-400 capitalize">{activePerson.role.toLowerCase()}</p>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{activePerson.full_name}</p>
+              <p className="text-xs text-slate-400 capitalize dark:text-slate-500">{activePerson.role.toLowerCase()}</p>
             </div>
             {messages.length > 0 && (
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
                 title="Delete conversation history"
-                className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors dark:text-slate-500 dark:hover:bg-red-950/30 dark:hover:text-red-300"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -258,8 +258,8 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <MessageSquare className="h-10 w-10 text-slate-200 mb-3" />
-                <p className="text-sm text-slate-400">No messages yet. Say hello!</p>
+                <MessageSquare className="h-10 w-10 text-slate-200 mb-3 dark:text-slate-600" />
+                <p className="text-sm text-slate-400 dark:text-slate-500">No messages yet. Say hello!</p>
               </div>
             ) : (
               messages.map((msg) => {
@@ -270,10 +270,10 @@ export default function ChatPage() {
                       "max-w-[70%] rounded-2xl px-4 py-2.5 text-sm",
                       isMine
                         ? "rounded-br-sm bg-primary-600 text-white"
-                        : "rounded-bl-sm bg-slate-100 text-slate-900"
+                        : "rounded-bl-sm bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                     )}>
                       <p className="leading-relaxed">{msg.content}</p>
-                      <p className={cn("mt-1 text-[10px]", isMine ? "text-primary-200 text-right" : "text-slate-400")}>
+                      <p className={cn("mt-1 text-[10px]", isMine ? "text-primary-200 text-right" : "text-slate-400 dark:text-slate-500")}>
                         {formatMessageTime(msg.created_at)}
                         {isMine && <span className="ml-1">{msg.is_read ? "✓✓" : "✓"}</span>}
                       </p>
@@ -286,12 +286,12 @@ export default function ChatPage() {
           </div>
 
           {/* Input */}
-          <form onSubmit={(e) => void send(e)} className="flex items-center gap-3 border-t border-slate-100 px-4 py-3">
+          <form onSubmit={(e) => void send(e)} className="flex items-center gap-3 border-t border-slate-100 px-4 py-3 dark:border-slate-700">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a message…"
-              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
               autoComplete="off"
             />
             <button
@@ -306,26 +306,26 @@ export default function ChatPage() {
           {/* Delete confirmation modal */}
           {confirmDelete && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm rounded-2xl">
-              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4">
+              <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4 dark:bg-slate-900 dark:border dark:border-slate-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="rounded-xl bg-red-50 p-2.5 text-red-600">
                       <Trash2 className="h-5 w-5" />
                     </div>
-                    <h3 className="text-base font-bold text-slate-900">Delete history?</h3>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Delete history?</h3>
                   </div>
-                  <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+                  <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-slate-800">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   All messages with <strong>{activePerson.full_name}</strong> will be permanently deleted for both sides. This cannot be undone.
                 </p>
                 <div className="flex gap-3">
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(false)}
-                    className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                    className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Cancel
                   </button>
@@ -344,9 +344,9 @@ export default function ChatPage() {
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <MessageSquare className="h-12 w-12 text-slate-200 mb-3" />
-          <p className="text-base font-semibold text-slate-500">Select a conversation</p>
-          <p className="text-sm text-slate-400 mt-1">Choose someone from the left to start chatting.</p>
+          <MessageSquare className="h-12 w-12 text-slate-200 mb-3 dark:text-slate-600" />
+          <p className="text-base font-semibold text-slate-500 dark:text-slate-300">Select a conversation</p>
+          <p className="text-sm text-slate-400 mt-1 dark:text-slate-500">Choose someone from the left to start chatting.</p>
         </div>
       )}
     </div>
