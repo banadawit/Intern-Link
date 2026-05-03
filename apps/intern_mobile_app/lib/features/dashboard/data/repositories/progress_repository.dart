@@ -77,6 +77,29 @@ class ProgressRepository {
       throw Exception('An unexpected error occurred: $e');
     }
   }
+
+  Future<WeeklyPlan> updateWeeklyPlan(int planId, String description) async {
+    try {
+      final response = await _apiClient.dio.patch(
+        '/progress/plan/$planId',
+        data: {'plan_description': description},
+      );
+      final raw = response.data;
+      final planData = raw is Map ? (raw['plan'] ?? raw) : raw;
+      return PlansDtos.weeklyPlanFromApi(Map<String, dynamic>.from(planData as Map));
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String message = 'Failed to update plan';
+      if (data is Map && data.containsKey('message')) {
+        message = data['message'];
+      } else if (data is String) {
+        message = data;
+      }
+      throw Exception(message);
+    } catch (e) {
+      throw Exception('An unexpected error occurred: $e');
+    }
+  }
 }
 
 // ---------------------------------------------------------

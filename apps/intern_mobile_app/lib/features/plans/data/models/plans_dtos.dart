@@ -4,6 +4,14 @@ import '../../domain/entities/plan_file.dart';
 import '../../domain/entities/weekly_plan.dart';
 import '../codecs/plan_description_codec.dart';
 
+int _safeInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 class PlansDtos {
   static WeeklyPlan weeklyPlanFromApi(Map<String, dynamic> json) {
     final descRaw = (json['plan_description'] ?? '').toString();
@@ -16,10 +24,10 @@ class PlansDtos {
             ?.whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
             .map((e) => DailyCheckin(
-                  id: (e['id'] ?? 0) as int,
-                  planId: (e['weeklyPlanId'] ?? json['id'] ?? 0) as int,
+                  id: _safeInt(e['id']),
+                  planId: _safeInt(e['weeklyPlanId'] ?? json['id']),
                   date: DateTime.parse(e['workDate'].toString()),
-                  status: DailyCheckinStatus.present, // backend doesn’t store PRESENT/ABSENT for check-in currently
+                  status: DailyCheckinStatus.present,
                   notes: e['notes']?.toString(),
                 ))
             .toList() ??
@@ -29,16 +37,16 @@ class PlansDtos {
     final files = <PlanFile>[
       if (presentation is Map && (presentation['file_url'] ?? '').toString().trim().isNotEmpty)
         PlanFile(
-          id: (presentation['id'] ?? 0) as int,
-          planId: (json['id'] ?? 0) as int,
+          id: _safeInt(presentation['id']),
+          planId: _safeInt(json['id']),
           fileUrl: presentation['file_url'].toString(),
           fileName: _fileNameFromUrl(presentation['file_url'].toString()),
         ),
     ];
 
     return WeeklyPlan(
-      id: (json['id'] ?? 0) as int,
-      studentId: (json['studentId'] ?? 0) as int,
+      id: _safeInt(json['id']),
+      studentId: _safeInt(json['studentId']),
       weekNumber: int.tryParse((json['week_number'] ?? 0).toString()) ?? 0,
       title: decoded.title.isNotEmpty ? decoded.title : 'Week ${(json['week_number'] ?? '')} Plan',
       objectives: decoded.objectives,
@@ -65,4 +73,3 @@ class PlansDtos {
     return parts.isEmpty ? 'presentation' : parts.last;
   }
 }
-

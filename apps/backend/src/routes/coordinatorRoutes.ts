@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
-import { getPendingHods, getApprovedHods, getRejectedHods, verifyHod } from '../controllers/coordinatorController';
+import { getPendingHods, getApprovedHods, getRejectedHods, verifyHod, createHod, getHodDetail, suspendHod, activateHod } from '../controllers/coordinatorController';
 
 const router = Router();
 
@@ -13,5 +13,13 @@ router.get('/pending-hods', getPendingHods);
 router.get('/approved-hods', getApprovedHods);
 router.get('/rejected-hods', getRejectedHods);
 router.patch('/verify-hod', verifyHod);
+
+// Coordinator manually creates an HoD (auto-approved)
+router.post('/hods', createHod);
+
+// HoD detail and status management
+router.get('/hods/:userId', getHodDetail);
+router.patch('/hods/:userId/suspend', suspendHod);
+router.patch('/hods/:userId/activate', activateHod);
 
 export default router;

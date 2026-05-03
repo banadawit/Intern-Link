@@ -1,6 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 
+int _safeInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
+bool _safeBool(dynamic v) {
+  if (v == null) return false;
+  if (v is bool) return v;
+  if (v is int) return v != 0;
+  if (v is String) return v == 'true' || v == '1';
+  return false;
+}
+
 class ChatPartner {
   final int id;
   final String fullName;
@@ -10,7 +26,7 @@ class ChatPartner {
 
   factory ChatPartner.fromJson(Map<String, dynamic> json) {
     return ChatPartner(
-      id: json['id'] as int,
+      id: _safeInt(json['id']),
       fullName: json['full_name'] as String? ?? 'Unknown',
       role: json['role'] as String? ?? 'USER',
     );
@@ -36,11 +52,11 @@ class ChatMessageModel {
 
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
     return ChatMessageModel(
-      id: json['id'] as int? ?? 0,
-      senderId: json['senderId'] as int? ?? 0,
-      receiverId: json['receiverId'] as int? ?? 0,
+      id: _safeInt(json['id']),
+      senderId: _safeInt(json['senderId']),
+      receiverId: _safeInt(json['receiverId']),
       content: json['content'] as String? ?? '',
-      isRead: json['is_read'] as bool? ?? false,
+      isRead: _safeBool(json['is_read']),
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
     );
   }
@@ -61,7 +77,7 @@ class ConversationModel {
     return ConversationModel(
       partner: ChatPartner.fromJson(json['partner'] ?? {}),
       lastMessage: json['lastMessage'] != null ? ChatMessageModel.fromJson(json['lastMessage']) : null,
-      unreadCount: json['unreadCount'] as int? ?? 0,
+      unreadCount: _safeInt(json['unreadCount']),
     );
   }
 }
@@ -73,29 +89,37 @@ class ChatRepository {
 
   Future<List<ConversationModel>> getConversations() async {
     final response = await apiClient.dio.get('/chat/conversations');
-    final data = response.data;
-    if (data is List) {
-      return data.map((e) => ConversationModel.fromJson(e as Map<String, dynamic>)).toList();
-    }
-    return [];
+    final raw = response.data;
+    // After interceptor unwrap: raw = [...] (list)
+    final list = raw is List ? raw : (raw is Map ? (raw['data'] ?? []) : []);
+    return (list as List)
+        .map((e) => ConversationModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<int> getUnreadCount() async {
+    final response = await apiClient.dio.get('/chat/unread-count');
+    final raw = response.data;
+    // After interceptor unwrap: raw = { count: N }
+    return _safeInt(raw is Map ? raw['count'] : raw);
   }
 
   Future<List<ChatMessageModel>> getMessages(int partnerId) async {
     final response = await apiClient.dio.get('/chat/$partnerId');
-    final data = response.data;
-    if (data is List) {
-      return data.map((e) => ChatMessageModel.fromJson(e as Map<String, dynamic>)).toList();
-    }
-    return [];
+    final raw = response.data;
+    final list = raw is List ? raw : (raw is Map ? (raw['data'] ?? []) : []);
+    return (list as List)
+        .map((e) => ChatMessageModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<List<ChatPartner>> getContacts() async {
     final response = await apiClient.dio.get('/chat/contacts');
-    final data = response.data;
-    if (data is List) {
-      return data.map((e) => ChatPartner.fromJson(e as Map<String, dynamic>)).toList();
-    }
-    return [];
+    final raw = response.data;
+    final list = raw is List ? raw : (raw is Map ? (raw['data'] ?? []) : []);
+    return (list as List)
+        .map((e) => ChatPartner.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<void> sendMessage(int partnerId, String content) async {
@@ -115,7 +139,8 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return ChatRepository(apiClient: ref.watch(apiClientProvider));
 });
 
-final conversationsProvider = FutureProvider.autoDispose<List<ConversationModel>>((ref) async {
+// NOT autoDispose — persists so the badge stays accurate across navigation
+final conversationsProvider = FutureProvider<List<ConversationModel>>((ref) async {
   return ref.watch(chatRepositoryProvider).getConversations();
 });
 
@@ -125,4 +150,9 @@ final contactsProvider = FutureProvider.autoDispose<List<ChatPartner>>((ref) asy
 
 final chatMessagesProvider = FutureProvider.autoDispose.family<List<ChatMessageModel>, int>((ref, partnerId) async {
   return ref.watch(chatRepositoryProvider).getMessages(partnerId);
+});
+
+/// Lightweight unread count for the chat badge — uses dedicated endpoint
+final unreadChatCountProvider = FutureProvider<int>((ref) async {
+  return ref.watch(chatRepositoryProvider).getUnreadCount();
 });

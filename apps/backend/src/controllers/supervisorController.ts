@@ -19,6 +19,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
 
         const companyId = supervisor.companyId;
 
+        // ── Core counts ───────────────────────────────────────────────────────
         const [
             pendingProposalsCount,
             pendingWeeklyPlansCount,
@@ -60,6 +61,143 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
             }),
         ]);
 
+        // ── Students summary (for snapshot section) ───────────────────────────
+        const activeAssignments = await prisma.internshipAssignment.findMany({
+            where: { companyId, status: 'ACTIVE' },
+            include: {
+                student: {
+                    include: {
+                        user: { select: { id: true, full_name: true, email: true } },
+                        weeklyPlans: {
+                            orderBy: { submitted_at: 'desc' },
+                            take: 1,
+                            select: { status: true, submitted_at: true, week_number: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        // ── Missed check-ins: students with APPROVED plan but no check-in today ─
+        const today = new Date();
+        const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+        const todayEnd = new Date(todayStart.getTime() + 86400000);
+
+        const approvedPlanStudentIds = await prisma.weeklyPlan.findMany({
+            where: {
+                status: 'APPROVED',
+                student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+            },
+            select: { studentId: true, id: true },
+        });
+
+        const checkedInToday = await prisma.weeklyPlanDaySubmission.findMany({
+            where: {
+                workDate: { gte: todayStart, lt: todayEnd },
+                weeklyPlanId: { in: approvedPlanStudentIds.map((p) => p.id) },
+            },
+            select: { weeklyPlanId: true },
+        });
+
+        const checkedInPlanIds = new Set(checkedInToday.map((c) => c.weeklyPlanId));
+        const missedCheckinsCount = approvedPlanStudentIds.filter((p) => !checkedInPlanIds.has(p.id)).length;
+
+        // ── Students snapshot ─────────────────────────────────────────────────
+        const studentsSummary = activeAssignments.map((a) => {
+            const latestPlan = a.student.weeklyPlans[0];
+            const daysSinceLastPlan = latestPlan
+                ? Math.floor((Date.now() - new Date(latestPlan.submitted_at).getTime()) / 86400000)
+                : null;
+
+            // Status logic: at-risk if no plan in 7+ days or rejected plan
+            let status: 'ACTIVE' | 'AT_RISK' | 'INACTIVE' = 'ACTIVE';
+            if (!latestPlan || daysSinceLastPlan === null || daysSinceLastPlan > 14) {
+                status = 'INACTIVE';
+            } else if (latestPlan.status === 'REJECTED' || daysSinceLastPlan > 7) {
+                status = 'AT_RISK';
+            }
+
+            return {
+                studentId: a.student.id,
+                studentName: a.student.user.full_name,
+                studentEmail: a.student.user.email,
+                status,
+                lastPlanStatus: latestPlan?.status ?? null,
+                lastPlanWeek: latestPlan?.week_number ?? null,
+                daysSinceLastPlan,
+                startDate: a.start_date,
+            };
+        });
+
+        // ── Recent activity feed ──────────────────────────────────────────────
+        const [recentPlans, recentProposals] = await Promise.all([
+            prisma.weeklyPlan.findMany({
+                where: { student: { assignments: { some: { companyId, status: 'ACTIVE' } } } },
+                orderBy: { submitted_at: 'desc' },
+                take: 5,
+                select: {
+                    id: true, week_number: true, status: true, submitted_at: true,
+                    student: { include: { user: { select: { full_name: true } } } },
+                },
+            }),
+            prisma.internshipProposal.findMany({
+                where: { companyId },
+                orderBy: { submitted_at: 'desc' },
+                take: 5,
+                select: {
+                    id: true, status: true, submitted_at: true,
+                    student: { include: { user: { select: { full_name: true } } } },
+                },
+            }),
+        ]);
+
+        const recentActivity = [
+            ...recentPlans.map((p) => ({
+                type: 'PLAN',
+                id: p.id,
+                title: `${p.student.user.full_name} submitted Week ${p.week_number} plan`,
+                status: p.status,
+                timestamp: p.submitted_at,
+            })),
+            ...recentProposals.map((p) => ({
+                type: 'PROPOSAL',
+                id: p.id,
+                title: `Proposal from ${p.student.user.full_name}`,
+                status: p.status,
+                timestamp: p.submitted_at,
+            })),
+        ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 8);
+
+        // ── Deadlines (students without evaluation, approaching end date) ─────
+        const approachingEnd = await prisma.internshipAssignment.findMany({
+            where: {
+                companyId,
+                status: 'ACTIVE',
+                end_date: {
+                    not: null,
+                    lte: new Date(Date.now() + 14 * 86400000), // within 14 days
+                    gte: new Date(),
+                },
+            },
+            include: {
+                student: {
+                    include: {
+                        user: { select: { full_name: true } },
+                        finalEvaluation: { select: { id: true } },
+                    },
+                },
+            },
+        });
+
+        const deadlines = approachingEnd.map((a) => ({
+            type: a.student.finalEvaluation ? 'REPORT_DUE' : 'EVALUATION_DUE',
+            studentName: a.student.user.full_name,
+            dueDate: a.end_date,
+            daysLeft: a.end_date
+                ? Math.ceil((new Date(a.end_date).getTime() - Date.now()) / 86400000)
+                : null,
+        }));
+
         return sendSuccess(res, {
             supervisor,
             stats: {
@@ -68,6 +206,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 placedStudentsCount,
                 approvedProposalsCount,
                 reportsSubmittedCount,
+                missedCheckinsCount,
             },
             recentPendingProposals: recentPendingProposals.map((p) => ({
                 id: p.id,
@@ -82,6 +221,9 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 weekNumber: p.week_number,
                 submitted_at: p.submitted_at,
             })),
+            studentsSummary,
+            recentActivity,
+            deadlines,
         }, 'Supervisor profile fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
@@ -429,5 +571,146 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
+    }
+};
+
+// --- PERFORMANCE SUMMARY ---
+
+export const getSupervisorPerformance = async (req: AuthRequest, res: Response) => {
+    try {
+        const supervisor = await prisma.supervisor.findUnique({ where: { userId: req.user!.userId } });
+        if (!supervisor) return sendError(res, 'Supervisor profile not found.', 403);
+
+        const companyId = supervisor.companyId;
+
+        const [
+            totalStudentsEver,
+            completedInternships,
+            evaluations,
+            approvedProposals,
+            totalProposals,
+            approvedPlans,
+            totalPlans,
+        ] = await Promise.all([
+            // All students ever assigned (active + completed + terminated)
+            prisma.internshipAssignment.count({ where: { companyId } }),
+            prisma.internshipAssignment.count({ where: { companyId, status: 'COMPLETED' } }),
+            prisma.finalEvaluation.findMany({
+                where: { supervisor: { companyId } },
+                select: { technical_score: true, soft_skill_score: true },
+            }),
+            prisma.internshipProposal.count({ where: { companyId, status: 'APPROVED' } }),
+            prisma.internshipProposal.count({ where: { companyId } }),
+            prisma.weeklyPlan.count({
+                where: {
+                    status: 'APPROVED',
+                    student: { assignments: { some: { companyId } } },
+                },
+            }),
+            prisma.weeklyPlan.count({
+                where: { student: { assignments: { some: { companyId } } } },
+            }),
+        ]);
+
+        const avgScore = evaluations.length > 0
+            ? evaluations.reduce((sum, e) => sum + (Number(e.technical_score) + Number(e.soft_skill_score)) / 2, 0) / evaluations.length
+            : null;
+
+        const proposalApprovalRate = totalProposals > 0
+            ? Math.round((approvedProposals / totalProposals) * 100)
+            : null;
+
+        const planApprovalRate = totalPlans > 0
+            ? Math.round((approvedPlans / totalPlans) * 100)
+            : null;
+
+        return sendSuccess(res, {
+            totalStudentsSupervised: totalStudentsEver,
+            completedInternships,
+            averageStudentScore: avgScore !== null ? Math.round(avgScore * 10) / 10 : null,
+            evaluationsSubmitted: evaluations.length,
+            proposalApprovalRate,
+            planApprovalRate,
+        }, 'Performance summary fetched');
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        return sendError(res, message, 500);
+    }
+};
+
+// --- COMPANY STAMP UPLOAD ---
+
+/**
+ * Upload or replace company stamp image
+ * Used for stamping final reports
+ */
+export const uploadCompanyStamp = async (req: AuthRequest, res: Response) => {
+    try {
+        const file = req.file;
+        const userId = req.user?.userId;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        // Get supervisor's company
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId },
+            include: { company: true },
+        });
+
+        if (!supervisor) {
+            return res.status(403).json({ error: 'Supervisor profile not found' });
+        }
+
+        const { CloudinaryService } = await import('../services/cloudinary.service');
+
+        const folder = `internlink/${supervisor.companyId}/${userId}/stamps`;
+
+        // Check if stamp already exists
+        const existingStamp = supervisor.company.stamp_image_url;
+
+        let uploadResult;
+
+        if (existingStamp) {
+            // Upload new stamp directly (no file record lookup needed)
+            uploadResult = await CloudinaryService.uploadImage(file, {
+                userId,
+                organizationId: supervisor.companyId,
+                fileType: 'COMPANY_STAMP',
+                folder,
+                resourceType: 'image',
+            });
+        } else {
+            // Upload new stamp
+            uploadResult = await CloudinaryService.uploadImage(file, {
+                userId,
+                organizationId: supervisor.companyId,
+                fileType: 'COMPANY_STAMP',
+                folder,
+                resourceType: 'image',
+            });
+        }
+
+        if (!uploadResult.success) {
+            return res.status(400).json({ error: uploadResult.error });
+        }
+
+        // Update company record
+        await prisma.company.update({
+            where: { id: supervisor.companyId },
+            data: { stamp_image_url: uploadResult.url },
+        });
+
+        res.json({
+            message: existingStamp
+                ? 'Company stamp replaced successfully'
+                : 'Company stamp uploaded successfully',
+            url: uploadResult.url,
+            fileId: uploadResult.fileId,
+        });
+    } catch (error: any) {
+        console.error('Upload company stamp error:', error);
+        res.status(500).json({ error: error.message });
     }
 };

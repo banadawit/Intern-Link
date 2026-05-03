@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { CheckCircle, XCircle, FileText, User, Building, Loader2, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, FileText, User, Building, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import Link from "next/link";
 import api from "@/lib/api/client";
 import AdminPageHero from "./AdminPageHero";
+import { getViewerUrl } from "@/lib/utils";
 
 interface PendingSupervisor {
   id: number;
@@ -71,7 +73,6 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
     }
   };
 
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -121,16 +122,13 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
                   </td>
                   <td className="px-6 py-4">
                     {s.user.verification_document ? (
-                      <a
-                        href={`${backendUrl}/${s.user.verification_document.replace(/\\/g, '/')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <Link
+                        href={getViewerUrl(s.user.verification_document)}
                         className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                       >
                         <FileText className="w-4 h-4" />
                         View Doc
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
+                      </Link>
                     ) : (
                       <span className="text-xs text-slate-400 italic">No document</span>
                     )}
@@ -206,6 +204,7 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

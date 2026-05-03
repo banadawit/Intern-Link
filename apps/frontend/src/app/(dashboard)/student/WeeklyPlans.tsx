@@ -25,7 +25,7 @@ import {
 import api from '@/lib/api/client';
 import { mapStudentProfileFromMe, mapWeeklyPlanRow, type StudentMeResponse } from '@/lib/api/mappers';
 import type { StudentProfile, WeeklyPlan } from '@/lib/superadmin/types';
-import { cn } from '@/lib/utils';
+import { cn, getViewerUrl } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { STUDENT_WEEKLY_PLANS_EVENT } from '@/lib/student/planNotificationEvents';
 import {
@@ -451,10 +451,8 @@ const WeeklyPlans = () => {
                   {selectedPlan.presentationUrl && (
                     <div>
                       <p className="text-xs text-text-muted uppercase font-bold tracking-tight mb-2">Presentation</p>
-                      <a 
-                        href={selectedPlan.presentationUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
+                      <Link 
+                        href={getViewerUrl(selectedPlan.presentationUrl)} 
                         className="flex items-center justify-between p-3 rounded-xl border border-border-default hover:bg-bg-tertiary transition-all group"
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -464,7 +462,7 @@ const WeeklyPlans = () => {
                           </span>
                         </div>
                         <ExternalLink className="w-4 h-4 shrink-0 text-text-muted group-hover:text-primary-base" />
-                      </a>
+                      </Link>
                     </div>
                   )}
 

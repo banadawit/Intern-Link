@@ -6,9 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/storage_keys.dart';
 
-final appSessionServiceProvider = Provider<AppSessionService>((ref) => AppSessionService());
+final appSessionServiceProvider = Provider<AppSessionService>(
+  (ref) => AppSessionService(),
+);
 
 class AppSessionService {
+  static String? _cachedToken;
+  static String? _cachedRole;
+
   AppSessionService({
     SharedPreferences? sharedPreferences,
     FlutterSecureStorage? secureStorage,
@@ -59,16 +64,22 @@ class AppSessionService {
   /// null. We fall back to [SharedPreferences] (backed by window.localStorage).
   Future<String?> getToken() async {
     try {
+      final cached = _cachedToken?.trim();
+      if (cached != null && cached.isNotEmpty) {
+        return cached;
+      }
       if (kIsWeb) {
         final prefs = await _prefs;
         final token = prefs.getString(StorageKeys.authToken);
         final sanitized = token?.trim();
         if (sanitized == null || sanitized.isEmpty) return null;
+        _cachedToken = sanitized;
         return sanitized;
       }
       final token = await _secureStorage.read(key: StorageKeys.authToken);
       final sanitized = token?.trim();
       if (sanitized == null || sanitized.isEmpty) return null;
+      _cachedToken = sanitized;
       return sanitized;
     } catch (error, stackTrace) {
       throw AppSessionException(
@@ -90,6 +101,7 @@ class AppSessionService {
     }
 
     try {
+      _cachedToken = sanitized;
       if (kIsWeb) {
         final prefs = await _prefs;
         await prefs.setString(StorageKeys.authToken, sanitized);
@@ -108,6 +120,8 @@ class AppSessionService {
 
   Future<void> clearSession() async {
     try {
+      _cachedToken = null;
+      _cachedRole = null;
       if (kIsWeb) {
         final prefs = await _prefs;
         await prefs.remove(StorageKeys.authToken);
@@ -128,11 +142,27 @@ class AppSessionService {
 
   Future<String?> getRole() async {
     try {
+      final cached = _cachedRole?.trim();
+      if (cached != null && cached.isNotEmpty) {
+        return cached;
+      }
       if (kIsWeb) {
         final prefs = await _prefs;
-        return prefs.getString(StorageKeys.userRole);
+        final role = prefs.getString(StorageKeys.userRole)?.trim();
+        if (role != null && role.isNotEmpty) {
+          _cachedRole = role;
+          return role;
+        }
+        return null;
       }
-      return await _secureStorage.read(key: StorageKeys.userRole);
+      final role = (await _secureStorage.read(
+        key: StorageKeys.userRole,
+      ))?.trim();
+      if (role != null && role.isNotEmpty) {
+        _cachedRole = role;
+        return role;
+      }
+      return null;
     } catch (_) {
       return null;
     }
@@ -140,12 +170,13 @@ class AppSessionService {
 
   Future<void> saveRole(String role) async {
     try {
+      _cachedRole = role.trim();
       if (kIsWeb) {
         final prefs = await _prefs;
-        await prefs.setString(StorageKeys.userRole, role);
+        await prefs.setString(StorageKeys.userRole, role.trim());
         return;
       }
-      await _secureStorage.write(key: StorageKeys.userRole, value: role);
+      await _secureStorage.write(key: StorageKeys.userRole, value: role.trim());
     } catch (_) {
       // Non-critical — role caching is best-effort.
     }

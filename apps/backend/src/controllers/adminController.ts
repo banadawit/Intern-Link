@@ -834,93 +834,192 @@ export const rejectCoordinator = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// --- ANALYTICS ---
+// --- FILE UPLOAD ENDPOINTS ---
 
-export const getAnalytics = async (req: AuthRequest, res: Response) => {
+/**
+ * Upload verification document for university/company
+ * Used during manual verification process
+ */
+export const uploadVerificationDocument = async (req: AuthRequest, res: Response) => {
     try {
-        const now = new Date();
-        // Build last 6 months labels
-        const months: { label: string; start: Date; end: Date }[] = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
-            months.push({
-                label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
-                start: d,
-                end,
+        const { organizationType, organizationId } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        if (!organizationType || !organizationId) {
+            return res.status(400).json({ error: 'organizationType and organizationId are required' });
+        }
+
+        const { CloudinaryService } = await import('../services/cloudinary.service');
+
+        const orgId = parseInt(organizationId);
+        const folder = `internlink/${orgId}/verification-docs`;
+
+        const uploadResult = await CloudinaryService.uploadDocument(file, {
+            organizationId: orgId,
+            fileType: 'VERIFICATION_DOC',
+            folder,
+            resourceType: 'raw',
+        });
+
+        if (!uploadResult.success) {
+            return res.status(400).json({ error: uploadResult.error });
+        }
+
+        // Update organization record
+        if (organizationType === 'UNIVERSITY') {
+            await prisma.university.update({
+                where: { id: orgId },
+                data: { verification_doc: uploadResult.url },
+            });
+        } else if (organizationType === 'COMPANY') {
+            await prisma.company.update({
+                where: { id: orgId },
+                data: { verification_doc: uploadResult.url },
             });
         }
 
-        // User growth — registrations per month per role
-        const userGrowthData = await Promise.all(
-            months.map(async ({ label, start, end }) => {
-                const [students, coordinators, supervisors, hods] = await Promise.all([
-                    prisma.user.count({ where: { role: 'STUDENT', created_at: { gte: start, lte: end } } }),
-                    prisma.user.count({ where: { role: 'COORDINATOR', created_at: { gte: start, lte: end } } }),
-                    prisma.user.count({ where: { role: 'SUPERVISOR', created_at: { gte: start, lte: end } } }),
-                    prisma.user.count({ where: { role: 'HOD', created_at: { gte: start, lte: end } } }),
-                ]);
-                return { label, students, coordinators, supervisors, hods, total: students + coordinators + supervisors + hods };
-            })
-        );
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'UPLOADED_VERIFICATION_DOC',
+                targetId: orgId,
+                details: `Uploaded verification document for ${organizationType}`,
+            },
+        });
 
-        // Placement rates — internship status breakdown
+        res.json({
+            message: 'Verification document uploaded successfully',
+            url: uploadResult.url,
+            fileId: uploadResult.fileId,
+        });
+    } catch (error: any) {
+        console.error('Upload verification document error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export const getAnalytics = async (req: AuthRequest, res: Response) => {
+    try {
+        // ── User growth: last 6 months, grouped by month ──────────────────────
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+        sixMonthsAgo.setDate(1);
+        sixMonthsAgo.setHours(0, 0, 0, 0);
+
+        const users = await prisma.user.findMany({
+            where: { created_at: { gte: sixMonthsAgo } },
+            select: { role: true, created_at: true },
+        });
+
+        // Build month buckets
+        const monthMap: Record<string, { label: string; students: number; coordinators: number; supervisors: number; hods: number; total: number }> = {};
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const label = d.toLocaleString('default', { month: 'short' });
+            monthMap[key] = { label, students: 0, coordinators: 0, supervisors: 0, hods: 0, total: 0 };
+        }
+        for (const u of users) {
+            const d = new Date(u.created_at);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!monthMap[key]) continue;
+            monthMap[key].total++;
+            if (u.role === 'STUDENT') monthMap[key].students++;
+            else if (u.role === 'COORDINATOR') monthMap[key].coordinators++;
+            else if (u.role === 'SUPERVISOR') monthMap[key].supervisors++;
+            else if (u.role === 'HOD') monthMap[key].hods++;
+        }
+        const userGrowth = Object.values(monthMap);
+
+        // ── Placement stats ───────────────────────────────────────────────────
         const [totalStudents, placedStudents, completedStudents] = await Promise.all([
             prisma.student.count(),
             prisma.student.count({ where: { internship_status: 'PLACED' } }),
             prisma.student.count({ where: { internship_status: 'COMPLETED' } }),
         ]);
-        const pendingStudents = totalStudents - placedStudents - completedStudents;
+        const placementStats = {
+            total: totalStudents,
+            placed: placedStudents,
+            completed: completedStudents,
+            pending: totalStudents - placedStudents - completedStudents,
+        };
 
-        // Placement rate per month (assignments created)
-        const placementTrend = await Promise.all(
-            months.map(async ({ label, start, end }) => {
-                const count = await prisma.internshipAssignment.count({
-                    where: { start_date: { gte: start, lte: end } },
-                });
-                return { label, count };
-            })
-        );
+        // ── Placement trend: assignments created per month (last 6 months) ────
+        const assignments = await prisma.internshipAssignment.findMany({
+            where: { start_date: { gte: sixMonthsAgo } },
+            select: { start_date: true },
+        });
+        const trendMap: Record<string, { label: string; count: number }> = {};
+        for (const key of Object.keys(monthMap)) {
+            trendMap[key] = { label: monthMap[key].label, count: 0 };
+        }
+        for (const a of assignments) {
+            const d = new Date(a.start_date);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (trendMap[key]) trendMap[key].count++;
+        }
+        const placementTrend = Object.values(trendMap);
 
-        // Approval rates — proposals
-        const [totalProposals, approvedProposals, rejectedProposals, pendingProposals] = await Promise.all([
-            prisma.internshipProposal.count(),
-            prisma.internshipProposal.count({ where: { status: 'APPROVED' } }),
-            prisma.internshipProposal.count({ where: { status: 'REJECTED' } }),
-            prisma.internshipProposal.count({ where: { status: 'PENDING' } }),
-        ]);
+        // ── Proposal stats ────────────────────────────────────────────────────
+        const proposalGroups = await prisma.internshipProposal.groupBy({
+            by: ['status'],
+            _count: { status: true },
+        });
+        const pMap: Record<string, number> = {};
+        for (const g of proposalGroups) pMap[g.status] = g._count.status;
+        const proposalStats = {
+            total: Object.values(pMap).reduce((a, b) => a + b, 0),
+            approved: pMap['APPROVED'] ?? 0,
+            rejected: pMap['REJECTED'] ?? 0,
+            pending: pMap['PENDING'] ?? 0,
+        };
 
-        // Org approval rates
+        // ── Org stats ─────────────────────────────────────────────────────────
         const [totalUnis, approvedUnis, totalComps, approvedComps] = await Promise.all([
             prisma.university.count(),
             prisma.university.count({ where: { approval_status: 'APPROVED' } }),
             prisma.company.count(),
             prisma.company.count({ where: { approval_status: 'APPROVED' } }),
         ]);
+        const orgStats = {
+            universities: { total: totalUnis, approved: approvedUnis },
+            companies: { total: totalComps, approved: approvedComps },
+        };
 
-        // Weekly plan submission trend
-        const weeklyPlanTrend = await Promise.all(
-            months.map(async ({ label, start, end }) => {
-                const [submitted, approved] = await Promise.all([
-                    prisma.weeklyPlan.count({ where: { submitted_at: { gte: start, lte: end } } }),
-                    prisma.weeklyPlan.count({ where: { status: 'APPROVED', submitted_at: { gte: start, lte: end } } }),
-                ]);
-                return { label, submitted, approved };
-            })
-        );
+        // ── Weekly plan trend: last 6 months ──────────────────────────────────
+        const plans = await prisma.weeklyPlan.findMany({
+            where: { submitted_at: { gte: sixMonthsAgo } },
+            select: { status: true, submitted_at: true },
+        });
+        const wpMap: Record<string, { label: string; submitted: number; approved: number }> = {};
+        for (const key of Object.keys(monthMap)) {
+            wpMap[key] = { label: monthMap[key].label, submitted: 0, approved: 0 };
+        }
+        for (const p of plans) {
+            const d = new Date(p.submitted_at);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!wpMap[key]) continue;
+            wpMap[key].submitted++;
+            if (p.status === 'APPROVED') wpMap[key].approved++;
+        }
+        const weeklyPlanTrend = Object.values(wpMap);
 
-        res.json({
-            userGrowth: userGrowthData,
-            placementStats: { total: totalStudents, placed: placedStudents, completed: completedStudents, pending: pendingStudents },
+        return res.json({
+            userGrowth,
+            placementStats,
             placementTrend,
-            proposalStats: { total: totalProposals, approved: approvedProposals, rejected: rejectedProposals, pending: pendingProposals },
-            orgStats: {
-                universities: { total: totalUnis, approved: approvedUnis },
-                companies: { total: totalComps, approved: approvedComps },
-            },
+            proposalStats,
+            orgStats,
             weeklyPlanTrend,
         });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message });
     }
 };

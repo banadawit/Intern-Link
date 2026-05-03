@@ -12,8 +12,8 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: _baseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 60), // AI responses can take time
         headers: {'Content-Type': 'application/json'},
       ),
     );
@@ -31,17 +31,15 @@ class ApiClient {
           final data = response.data;
           if (data is Map && data.containsKey('success')) {
             final success = data['success'];
-            // Handle varied success flag types (bool, string, int)
             final isSuccess = success == true || success == 'true' || success == 1 || success == '1';
             
-            if (isSuccess) {
-              // Extract the inner data if it exists, otherwise return the whole wrapper
-              // (This allows gradual migration of all endpoints)
-              if (data.containsKey('data')) {
-                response.data = data['data'];
+            if (isSuccess && data.containsKey('data')) {
+              final inner = data['data'];
+              // Only unwrap Maps and Lists — leave primitives (int, String, bool) wrapped
+              // so repositories can still access the full response if needed
+              if (inner is Map || inner is List) {
+                response.data = inner;
               }
-            } else {
-              // If success is false, we could reject here, but we'll let repositories handle messages
             }
           }
           return handler.next(response);

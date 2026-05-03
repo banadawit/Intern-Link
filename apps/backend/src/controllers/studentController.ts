@@ -109,3 +109,184 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
         return sendError(res, error.message, 500);
     }
 };
+
+// 3. STUDENT: Submit an Open Letter request to their HoD
+export const submitOpenLetter = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return sendError(res, 'Unauthorized', 401);
+
+        const student = await prisma.student.findUnique({
+            where: { userId },
+            include: { university: true },
+        });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
+
+        if (student.hod_approval_status !== 'APPROVED') {
+            return sendError(res, 'Your account must be approved by your HoD before submitting an open letter.', 403);
+        }
+
+        if (student.internship_status === 'PLACED') {
+            return sendError(res, 'You already have an active internship placement.', 400);
+        }
+
+        const { company_name, cover_letter } = req.body as { company_name?: string; cover_letter?: string };
+        if (!company_name?.trim()) return sendError(res, 'company_name is required.', 400);
+
+        // Find or create the company by name (open letters may target companies not yet in the system)
+        let company = await prisma.company.findFirst({
+            where: { name: { equals: company_name.trim(), mode: 'insensitive' } },
+        });
+
+        if (!company) {
+            company = await prisma.company.create({
+                data: {
+                    name: company_name.trim(),
+                    official_email: `pending@${company_name.trim().toLowerCase().replace(/\s+/g, '')}.com`,
+                    approval_status: 'PENDING',
+                },
+            });
+        }
+
+        // Check for duplicate pending open letter for same company
+        const existing = await prisma.internshipProposal.findFirst({
+            where: {
+                studentId: student.id,
+                companyId: company.id,
+                proposal_type: 'Open_Letter',
+                status: 'PENDING',
+            },
+        });
+        if (existing) {
+            return sendError(res, 'You already have a pending open letter for this company.', 400);
+        }
+
+        const proposal = await prisma.internshipProposal.create({
+            data: {
+                studentId: student.id,
+                companyId: company.id,
+                universityId: student.universityId,
+                proposal_type: 'Open_Letter',
+                status: 'PENDING',
+                expected_outcomes: cover_letter?.trim() ?? null,
+            },
+            include: {
+                company: { select: { id: true, name: true } },
+            },
+        });
+
+        // Notify the student's HoD
+        const hod = await prisma.hodProfile.findFirst({
+            where: {
+                universityId: student.universityId,
+                department: student.department ?? undefined,
+            },
+        });
+        if (hod) {
+            const { sendNotification } = await import('../utils/notificationHelper');
+            await sendNotification(
+                hod.userId,
+                `📩 Open letter request from a student for ${company.name}. Please review in your Proposals tab.`
+            );
+        }
+
+        return sendSuccess(res, proposal, 'Open letter submitted successfully.', 201);
+    } catch (error: any) {
+        return sendError(res, error.message);
+    }
+};
+
+// --- WEEKLY PRESENTATION UPLOAD ---
+
+/**
+ * Upload or replace weekly presentation (PDF/PPT)
+ * Allows re-submission by replacing old file
+ */
+export const uploadWeeklyPresentation = async (req: AuthRequest, res: Response) => {
+    try {
+        const { weeklyPlanId } = req.body;
+        const file = req.file;
+        const userId = req.user?.userId;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        if (!weeklyPlanId) {
+            return res.status(400).json({ error: 'weeklyPlanId is required' });
+        }
+
+        // Verify student owns this weekly plan
+        const student = await prisma.student.findUnique({
+            where: { userId },
+            include: {
+                weeklyPlans: {
+                    where: { id: parseInt(weeklyPlanId) },
+                },
+            },
+        });
+
+        if (!student || student.weeklyPlans.length === 0) {
+            return res.status(403).json({ error: 'Weekly plan not found or access denied' });
+        }
+
+        const { CloudinaryService } = await import('../services/cloudinary.service');
+
+        const folder = `internlink/${student.universityId}/${userId}/weekly-presentations`;
+
+        // Check if presentation already exists
+        const existingPresentation = await prisma.weeklyPresentation.findUnique({
+            where: { weeklyPlanId: parseInt(weeklyPlanId) },
+        });
+
+        let uploadResult;
+
+        if (existingPresentation) {
+            // Replace existing — upload new file directly (no file record lookup needed)
+            uploadResult = await CloudinaryService.uploadDocument(file, {
+                userId,
+                organizationId: student.universityId,
+                fileType: 'WEEKLY_PRESENTATION',
+                folder,
+                resourceType: 'raw',
+            });
+
+            // Update presentation record
+            await prisma.weeklyPresentation.update({
+                where: { weeklyPlanId: parseInt(weeklyPlanId) },
+                data: { file_url: uploadResult.url!, uploaded_at: new Date() },
+            });
+        } else {
+            // Create new presentation
+            uploadResult = await CloudinaryService.uploadDocument(file, {
+                userId,
+                organizationId: student.universityId,
+                fileType: 'WEEKLY_PRESENTATION',
+                folder,
+                resourceType: 'raw',
+            });
+
+            await prisma.weeklyPresentation.create({
+                data: {
+                    weeklyPlanId: parseInt(weeklyPlanId),
+                    file_url: uploadResult.url!,
+                },
+            });
+        }
+
+        if (!uploadResult.success) {
+            return res.status(400).json({ error: uploadResult.error });
+        }
+
+        res.json({
+            message: existingPresentation
+                ? 'Weekly presentation replaced successfully'
+                : 'Weekly presentation uploaded successfully',
+            url: uploadResult.url,
+            fileId: uploadResult.fileId,
+        });
+    } catch (error: any) {
+        console.error('Upload weekly presentation error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};

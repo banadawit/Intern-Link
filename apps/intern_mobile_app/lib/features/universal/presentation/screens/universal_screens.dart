@@ -18,8 +18,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(notificationsRepositoryProvider).markAllAsRead();
+    // Mark all as read when screen opens, then refresh providers so badge clears
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(notificationsRepositoryProvider).markAllAsRead();
+      ref.invalidate(notificationsProvider);
+      ref.invalidate(unreadNotificationCountProvider);
     });
   }
 
@@ -61,42 +64,34 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       (context, index) {
                         final notif = notifications[index];
                         final msg = notif.message;
-                        
+
                         IconData icon = Icons.notifications_rounded;
                         Color color = Colors.blue;
-                        String title = 'Notification';
-                        
-                        if (msg.contains('[ADMIN_ALERT]')) {
-                          icon = Icons.admin_panel_settings_rounded;
-                          color = Colors.orange;
-                          title = 'Admin Alert';
-                        } else if (msg.contains('[SECURITY_ALERT]')) {
-                          icon = Icons.security_rounded;
-                          color = Colors.red;
-                          title = 'Security Alert';
-                        } else if (msg.contains('[SYSTEM_ALERT]')) {
-                          icon = Icons.settings_suggest_rounded;
-                          color = Colors.purple;
-                          title = 'System Alert';
-                        } else if (msg.contains('📢')) {
-                          icon = Icons.campaign_rounded;
-                          color = Colors.indigo;
-                          title = 'Announcement';
-                        }
-                        
+                        String title = 'Update';
+
+                        if (msg.contains('approved') || msg.contains('✅')) { icon = Icons.check_circle_rounded; color = Colors.green; title = 'Approved'; }
+                        else if (msg.contains('rejected') || msg.contains('❌')) { icon = Icons.cancel_rounded; color = Colors.red; title = 'Rejected'; }
+                        else if (msg.contains('proposal') || msg.contains('📋')) { icon = Icons.work_rounded; color = Colors.purple; title = 'Proposal'; }
+                        else if (msg.contains('plan') || msg.contains('📝')) { icon = Icons.assignment_rounded; color = Colors.orange; title = 'Plan'; }
+                        else if (msg.contains('placement') || msg.contains('internship')) { icon = Icons.business_center_rounded; color = Colors.teal; title = 'Placement'; }
+                        else if (msg.contains('report') || msg.contains('📄')) { icon = Icons.description_rounded; color = Colors.indigo; title = 'Report'; }
+                        else if (msg.contains('open letter') || msg.contains('📩')) { icon = Icons.mail_rounded; color = Colors.amber.shade700; title = 'Open Letter'; }
+                        else if (msg.contains('[ADMIN_ALERT]')) { icon = Icons.admin_panel_settings_rounded; color = Colors.orange; title = 'Admin Alert'; }
+                        else if (msg.contains('[SECURITY_ALERT]')) { icon = Icons.security_rounded; color = Colors.red; title = 'Security Alert'; }
+
                         final cleanMsg = msg
                             .replaceFirst('[ADMIN_ALERT] ', '')
                             .replaceFirst('[SECURITY_ALERT] ', '')
                             .replaceFirst('[SYSTEM_ALERT] ', '');
 
                         return _notificationItem(
-                          context,
-                          title,
-                          cleanMsg,
-                          timeago.format(notif.createdAt),
-                          icon,
-                          color,
-                          notif.isRead,
+                          context, ref,
+                          notif: notif,
+                          title: title,
+                          body: cleanMsg,
+                          time: timeago.format(notif.createdAt),
+                          icon: icon,
+                          color: color,
                         );
                       },
                       childCount: notifications.length,
@@ -127,42 +122,76 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ),
       actions: [
         IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(notificationsProvider)),
+          icon: const Icon(Icons.done_all_rounded),
+          tooltip: 'Mark all as read',
+          onPressed: () async {
+            await ref.read(notificationsRepositoryProvider).markAllAsRead();
+            ref.invalidate(notificationsProvider);
+            ref.invalidate(unreadNotificationCountProvider);
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded),
+          onPressed: () {
+            ref.invalidate(notificationsProvider);
+            ref.invalidate(unreadNotificationCountProvider);
+          },
+        ),
       ],
     );
   }
 
-  Widget _notificationItem(BuildContext context, String title, String body, String time, IconData icon, Color color, bool isRead) {
+  Widget _notificationItem(
+    BuildContext context,
+    WidgetRef ref, {
+    required NotificationModel notif,
+    required String title,
+    required String body,
+    required String time,
+    required IconData icon,
+    required Color color,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isRead 
-            ? (isDark ? Colors.white.withOpacity(0.02) : Colors.white.withOpacity(0.5))
-            : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 22)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))), 
-                    Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10))
-                ]),
-                const SizedBox(height: 4),
-                Text(body, style: TextStyle(color: isRead ? Colors.grey : (isDark ? Colors.white : Colors.black87), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-              ],
-            ),
+    return GestureDetector(
+      onTap: notif.isRead ? null : () async {
+        await ref.read(notificationsRepositoryProvider).markAsRead(notif.id);
+        ref.invalidate(notificationsProvider);
+        ref.invalidate(unreadNotificationCountProvider);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: notif.isRead
+              ? (isDark ? Colors.white.withOpacity(0.02) : Colors.white.withOpacity(0.5))
+              : (isDark ? Colors.white.withOpacity(0.08) : Colors.white),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: notif.isRead
+                ? (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))
+                : color.withOpacity(0.3),
           ),
-        ],
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: color.withOpacity(notif.isRead ? 0.07 : 0.12), shape: BoxShape.circle),
+            child: Icon(icon, color: notif.isRead ? Colors.grey : color, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(title, style: TextStyle(fontWeight: notif.isRead ? FontWeight.w500 : FontWeight.w800, fontSize: 12, color: notif.isRead ? Colors.grey : color)),
+              Text(time, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+            ]),
+            const SizedBox(height: 4),
+            Text(body, style: TextStyle(color: notif.isRead ? Colors.grey : (isDark ? Colors.white : Colors.black87), fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ])),
+          if (!notif.isRead) ...[
+            const SizedBox(width: 8),
+            Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          ],
+        ]),
       ),
     );
   }
@@ -177,6 +206,20 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   int _currentIndex = 0; // 0 for Chats, 1 for Contacts
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(() => setState(() => _searchQuery = _searchCtrl.text.toLowerCase()));
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -213,15 +256,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (e, _) => Center(child: Text('Error: $e')),
                       data: (conversations) {
-                        if (conversations.isEmpty) {
+                        final filtered = _searchQuery.isEmpty
+                            ? conversations
+                            : conversations.where((c) =>
+                                c.partner.fullName.toLowerCase().contains(_searchQuery)).toList();
+                        if (filtered.isEmpty) {
                            return const Center(child: Text('No conversations yet', style: TextStyle(color: Colors.grey)));
                         }
                         return ListView.builder(
                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
                           physics: const BouncingScrollPhysics(),
-                          itemCount: conversations.length,
+                          itemCount: filtered.length,
                           itemBuilder: (context, index) {
-                            final conv = conversations[index];
+                            final conv = filtered[index];
                             return _conversationItem(
                               context,
                               conv.partner.fullName,
@@ -240,23 +287,49 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (e, _) => Center(child: Text('Error: $e')),
                       data: (contacts) {
-                        if (contacts.isEmpty) {
+                        final filtered = _searchQuery.isEmpty
+                            ? contacts
+                            : contacts.where((c) =>
+                                c.fullName.toLowerCase().contains(_searchQuery) ||
+                                c.role.toLowerCase().contains(_searchQuery)).toList();
+                        if (filtered.isEmpty) {
                            return const Center(child: Text('No contacts found', style: TextStyle(color: Colors.grey)));
                         }
-                        return ListView.builder(
+                        // Group by role
+                        final grouped = <String, List<ChatPartner>>{};
+                        for (final c in filtered) {
+                          grouped.putIfAbsent(c.role, () => []).add(c);
+                        }
+                        final roleOrder = ['ADMIN', 'COORDINATOR', 'HOD', 'SUPERVISOR', 'STUDENT'];
+                        final sortedKeys = grouped.keys.toList()
+                          ..sort((a, b) => roleOrder.indexOf(a).compareTo(roleOrder.indexOf(b)));
+
+                        return ListView(
                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
                           physics: const BouncingScrollPhysics(),
-                          itemCount: contacts.length,
-                          itemBuilder: (context, index) {
-                            final contact = contacts[index];
-                            return _contactItem(
-                              context,
-                              contact.fullName,
-                              contact.role,
-                              isDark,
-                              onTap: () => _openChatDetail(context, contact),
-                            );
-                          },
+                          children: [
+                            for (final role in sortedKeys) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8, top: 4),
+                                child: Text(
+                                  _roleLabel(role),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade500,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ),
+                              ...grouped[role]!.map((contact) => _contactItem(
+                                context,
+                                contact.fullName,
+                                contact.role,
+                                isDark,
+                                onTap: () => _openChatDetail(context, contact),
+                              )),
+                            ],
+                          ],
                         );
                       },
                     ),
@@ -369,7 +442,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       MaterialPageRoute(
         builder: (ctx) => ChatDetailScreen(partner: partner),
       ),
-    );
+    ).then((_) {
+      // Refresh unread counts after returning from conversation
+      ref.invalidate(conversationsProvider);
+      ref.invalidate(unreadChatCountProvider);
+    });
   }
 
   Widget _buildChatHeader(BuildContext context, bool isDark, WidgetRef ref) {
@@ -431,6 +508,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
         ),
         child: TextField(
+          controller: _searchCtrl,
           decoration: InputDecoration(
             hintText: 'Search...',
             hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 15, fontWeight: FontWeight.w500),
@@ -441,10 +519,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             prefixIconConstraints: const BoxConstraints(minWidth: 40),
             contentPadding: const EdgeInsets.symmetric(vertical: 18),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () => _searchCtrl.clear(),
+                  )
+                : null,
           ),
         ),
       ),
     );
+  }
+
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'ADMIN': return 'ADMIN';
+      case 'COORDINATOR': return 'COORDINATORS';
+      case 'HOD': return 'HEADS OF DEPARTMENT';
+      case 'SUPERVISOR': return 'SUPERVISORS';
+      case 'STUDENT': return 'STUDENTS';
+      default: return role;
+    }
   }
 
   Widget _conversationItem(BuildContext context, String name, String lastMsg, String time, int unread, bool isOnline, bool isDark, {required VoidCallback onTap}) {
@@ -494,7 +589,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Text(time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
                       ],
                     ),
@@ -506,9 +609,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               if (unread > 0)
                 Container(
                   margin: const EdgeInsets.only(left: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFF0EA5E9), borderRadius: BorderRadius.circular(10)),
-                  child: Text(unread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
             ],
           ),
@@ -829,6 +935,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       }
       ref.invalidate(chatMessagesProvider(widget.partner.id));
       ref.invalidate(conversationsProvider);
+      ref.invalidate(unreadChatCountProvider);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to process: $e')));
     }
@@ -839,6 +946,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       await ref.read(chatRepositoryProvider).deleteMessage(messageId);
       ref.invalidate(chatMessagesProvider(widget.partner.id));
       ref.invalidate(conversationsProvider);
+      ref.invalidate(unreadChatCountProvider);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
     }
@@ -861,23 +969,37 @@ class AiMessagesNotifier extends AsyncNotifier<List<AiMessageModel>> {
   Future<void> sendMessage(String text) async {
     final repo = ref.read(aiAssistantRepositoryProvider);
     
+    // Capture history BEFORE adding the new user message to avoid duplication
+    final historyBeforeSend = List<AiMessageModel>.from(state.value ?? []);
+
     // Optimistically add user message
-    final current = state.value ?? [];
     state = AsyncData([
-      ...current,
+      ...historyBeforeSend,
       AiMessageModel(speaker: 'user', content: text),
     ]);
 
     try {
-      final response = await repo.sendMessage(text);
+      // Pass history captured before this message so Gemini doesn't see it twice
+      final response = await repo.sendMessage(text, history: historyBeforeSend);
       state = AsyncData([
         ...state.value!,
         response,
       ]);
     } catch (e) {
+      // Extract meaningful error message from Dio response if available
+      String errorMsg = 'Sorry, I encountered an error. Please try again.';
+      try {
+        final dioErr = e as dynamic;
+        final respData = dioErr?.response?.data;
+        if (respData is Map) {
+          final msg = respData['message']?.toString();
+          if (msg != null && msg.isNotEmpty) errorMsg = msg;
+        }
+      } catch (_) {}
+
       state = AsyncData([
         ...state.value!,
-        AiMessageModel(speaker: 'assistant', content: 'Sorry, I encountered an error: $e'),
+        AiMessageModel(speaker: 'assistant', content: errorMsg),
       ]);
     }
   }

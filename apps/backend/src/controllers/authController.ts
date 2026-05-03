@@ -58,6 +58,33 @@ export const register = async (req: Request, res: Response) => {
         const verificationToken = generateVerificationToken();
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
+        // Upload verification document if provided (PDF or image)
+        let verificationDocUrl: string | null = null;
+        if (file) {
+            const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+            const apiKey = process.env.CLOUDINARY_API_KEY;
+            const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+            if (cloudName && apiKey && apiSecret) {
+                const { CloudinaryService } = await import('../services/cloudinary.service');
+                const folder = `internlink/verification-docs`;
+
+                const uploadResult = await CloudinaryService.uploadVerificationDoc(file, {
+                    fileType: 'VERIFICATION_DOC',
+                    folder,
+                });
+
+                if (uploadResult.success) {
+                    verificationDocUrl = uploadResult.url!;
+                } else {
+                    console.warn('Verification doc upload failed:', uploadResult.error);
+                    // Non-fatal — admin can request doc manually
+                }
+            } else {
+                console.warn('Cloudinary not configured — skipping verification doc upload.');
+            }
+        }
+
         // Create user with verification token
         const needsIndividualAdminApproval =
             roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR' || roleUpper === 'HOD';
@@ -71,7 +98,7 @@ export const register = async (req: Request, res: Response) => {
                 verification_status: 'PENDING',
                 verification_token: verificationToken,
                 verification_token_expiry: verificationTokenExpiry,
-                verification_document: file ? file.path : null, // Store file path if uploaded
+                verification_document: verificationDocUrl,
                 institution_access_approval: needsIndividualAdminApproval ? 'PENDING' : 'APPROVED',
             }
         });
@@ -458,6 +485,21 @@ export const login = async (req: Request, res: Response) => {
             void incrementActivityForUser(user.id);
         }
 
+        // If account requires a password change, return a limited token with a special code.
+        // The client must redirect to the change-password screen before accessing the dashboard.
+        if (user.must_change_password) {
+            return sendSuccess(res, {
+                token,
+                mustChangePassword: true,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    fullName: user.full_name,
+                    role: user.role,
+                },
+            }, "Login successful. You must change your password before continuing.", 200);
+        }
+
         return sendSuccess(res, {
             token,
             user: {
@@ -702,6 +744,32 @@ export const getCurrentUser = async (req: Request, res: Response) => {
             return sendError(res, "User not found", 404);
         }
 
+        // Build role-specific profile fields
+        let roleProfile: Record<string, any> = {};
+        if (user.role === 'STUDENT' && user.studentProfile) {
+            roleProfile = {
+                studentId: user.studentProfile.studentId,
+                department: user.studentProfile.department,
+                universityName: user.studentProfile.university?.name,
+            };
+        } else if (user.role === 'SUPERVISOR' && user.supervisorProfile) {
+            roleProfile = {
+                phoneNumber: user.supervisorProfile.phone_number,
+                companyName: user.supervisorProfile.company?.name,
+            };
+        } else if (user.role === 'COORDINATOR' && user.coordinatorProfile) {
+            roleProfile = {
+                phoneNumber: user.coordinatorProfile.phone_number,
+                universityName: user.coordinatorProfile.university?.name,
+            };
+        } else if (user.role === 'HOD' && user.hodProfile) {
+            roleProfile = {
+                phoneNumber: user.hodProfile.phone_number,
+                department: user.hodProfile.department,
+                universityName: user.hodProfile.university?.name,
+            };
+        }
+
         return sendSuccess(res, {
             id: user.id,
             email: user.email,
@@ -709,7 +777,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
             role: user.role,
             isVerified: user.verification_status === 'APPROVED',
             institutionAccessApproval: user.institution_access_approval,
-            profile: user.studentProfile || user.coordinatorProfile || user.hodProfile || user.supervisorProfile
+            profile: roleProfile,
         }, "User profile fetched");
 
     } catch (error: any) {
@@ -731,13 +799,18 @@ export const updateCurrentUser = async (req: Request, res: Response) => {
         const rawFullName = (body['fullName'] ?? body['full_name'] ?? '').toString().trim();
         const rawEmail = (body['email'] ?? '').toString().trim().toLowerCase();
 
-        if (!rawFullName && !rawEmail) {
-            return sendError(res, "Please provide at least one field to update.", 400);
-        }
+        // Role-specific fields
+        const rawPhoneNumber = (body['phoneNumber'] ?? body['phone_number'] ?? '').toString().trim();
+        const rawDepartment = (body['department'] ?? '').toString().trim();
+        const rawStudentId = (body['studentId'] ?? body['student_id'] ?? '').toString().trim();
 
         const existing = await prisma.user.findUnique({ where: { id: userId } });
         if (!existing) {
             return sendError(res, "User not found", 404);
+        }
+
+        if (!rawFullName && !rawEmail && !rawPhoneNumber && !rawDepartment && !rawStudentId) {
+            return sendError(res, "Please provide at least one field to update.", 400);
         }
 
         if (rawEmail && rawEmail !== existing.email) {
@@ -747,6 +820,7 @@ export const updateCurrentUser = async (req: Request, res: Response) => {
             }
         }
 
+        // Update shared User fields
         const updated = await prisma.user.update({
             where: { id: userId },
             data: {
@@ -755,11 +829,61 @@ export const updateCurrentUser = async (req: Request, res: Response) => {
             },
         });
 
+        // Update role-specific profile fields
+        if (existing.role === 'STUDENT') {
+            await prisma.student.updateMany({
+                where: { userId },
+                data: {
+                    ...(rawDepartment ? { department: rawDepartment } : {}),
+                    ...(rawStudentId ? { studentId: rawStudentId } : {}),
+                },
+            });
+        } else if (existing.role === 'SUPERVISOR') {
+            await prisma.supervisor.updateMany({
+                where: { userId },
+                data: {
+                    ...(rawPhoneNumber ? { phone_number: rawPhoneNumber } : {}),
+                },
+            });
+        } else if (existing.role === 'COORDINATOR') {
+            await prisma.coordinator.updateMany({
+                where: { userId },
+                data: {
+                    ...(rawPhoneNumber ? { phone_number: rawPhoneNumber } : {}),
+                },
+            });
+        } else if (existing.role === 'HOD') {
+            await prisma.hodProfile.updateMany({
+                where: { userId },
+                data: {
+                    ...(rawPhoneNumber ? { phone_number: rawPhoneNumber } : {}),
+                    ...(rawDepartment ? { department: rawDepartment } : {}),
+                },
+            });
+        }
+
+        // Re-fetch role-specific profile to return updated data
+        let roleProfile: Record<string, any> = {};
+        if (existing.role === 'STUDENT') {
+            const sp = await prisma.student.findUnique({ where: { userId }, include: { university: true } });
+            if (sp) roleProfile = { studentId: sp.studentId, department: sp.department, universityName: sp.university?.name };
+        } else if (existing.role === 'SUPERVISOR') {
+            const sv = await prisma.supervisor.findUnique({ where: { userId }, include: { company: true } });
+            if (sv) roleProfile = { phoneNumber: sv.phone_number, companyName: sv.company?.name };
+        } else if (existing.role === 'COORDINATOR') {
+            const co = await prisma.coordinator.findUnique({ where: { userId }, include: { university: true } });
+            if (co) roleProfile = { phoneNumber: co.phone_number, universityName: co.university?.name };
+        } else if (existing.role === 'HOD') {
+            const hod = await prisma.hodProfile.findUnique({ where: { userId }, include: { university: true } });
+            if (hod) roleProfile = { phoneNumber: hod.phone_number, department: hod.department, universityName: hod.university?.name };
+        }
+
         return sendSuccess(res, {
             id: updated.id,
             email: updated.email,
             fullName: updated.full_name,
             role: updated.role,
+            profile: roleProfile,
         }, "Profile updated successfully.");
     } catch (error: any) {
         return sendError(res, error.message, 500);
@@ -802,7 +926,10 @@ export const changePassword = async (req: Request, res: Response) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await prisma.user.update({
             where: { id: userId },
-            data: { password_hash: hashedPassword },
+            data: {
+                password_hash: hashedPassword,
+                must_change_password: false, // clear the forced-change flag
+            },
         });
 
         return sendSuccess(res, null, "Password changed successfully.");

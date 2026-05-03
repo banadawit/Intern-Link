@@ -1145,3 +1145,126 @@ export const sendProjectAssignmentEmail = async (params: {
         console.error('❌ Failed to send project assignment email:', error?.message || error);
     }
 };
+
+/**
+ * Welcome email sent to an HoD whose account was manually created by a Coordinator.
+ * Contains login credentials and a mandatory password-change notice.
+ */
+export const sendHodWelcomeEmail = async (params: {
+    to: string;
+    hodName: string;
+    department: string;
+    universityName: string;
+    temporaryPassword: string;
+    coordinatorName: string;
+}): Promise<void> => {
+    try {
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        const loginUrl = `${frontendUrl}/login`;
+        const changePasswordUrl = `${frontendUrl}/account-settings`;
+        const transporter = await getTransporter();
+        const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
+
+        const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to InternLink</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+    .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #0575E6 0%, #00F260 100%); padding: 32px 24px; text-align: center; }
+    .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+    .content { padding: 32px 24px; }
+    .cred-box { background: #f0fdf4; border: 2px solid #16a34a; border-radius: 12px; padding: 20px 24px; margin: 20px 0; }
+    .cred-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #dcfce7; font-size: 14px; }
+    .cred-row:last-child { border-bottom: none; }
+    .cred-label { color: #64748b; font-weight: 600; }
+    .cred-value { font-weight: 800; color: #15803d; font-family: monospace; font-size: 15px; }
+    .warning { background: #fff7ed; border-left: 4px solid #f97316; padding: 14px 18px; border-radius: 8px; margin: 20px 0; font-size: 14px; color: #7c2d12; }
+    .button { display: inline-block; background: #0575E6; color: white !important; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-weight: 700; margin: 8px 4px; font-size: 15px; }
+    .button-secondary { background: #64748b; }
+    .footer { background: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+    .text-muted { color: #64748b; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1 class="logo">InternLink</h1>
+        <p style="color:rgba(255,255,255,0.95);margin-top:8px;">Head of Department Account Created</p>
+      </div>
+      <div class="content">
+        <h2 style="margin-top:0;">Welcome, ${escapeHtml(params.hodName)}!</h2>
+        <p>
+          Your Head of Department account has been created by <strong>${escapeHtml(params.coordinatorName)}</strong>
+          for the <strong>${escapeHtml(params.department)}</strong> department at
+          <strong>${escapeHtml(params.universityName)}</strong> on InternLink.
+        </p>
+        <p>Your account is <strong>active and approved</strong>. Use the credentials below to sign in:</p>
+
+        <div class="cred-box">
+          <div style="font-weight:800;font-size:15px;margin-bottom:12px;color:#15803d;">🔑 Your Login Credentials</div>
+          <div class="cred-row">
+            <span class="cred-label">Email / Username</span>
+            <span class="cred-value">${escapeHtml(params.to)}</span>
+          </div>
+          <div class="cred-row">
+            <span class="cred-label">Temporary Password</span>
+            <span class="cred-value">${escapeHtml(params.temporaryPassword)}</span>
+          </div>
+        </div>
+
+        <div class="warning">
+          <strong>⚠️ Security Notice — Action Required</strong><br>
+          You are using a <strong>temporary password</strong>. You will be prompted to change it
+          immediately after your first login. Please choose a strong, unique password.
+        </div>
+
+        <div style="text-align:center;margin:28px 0;">
+          <a href="${loginUrl}" class="button">Sign In to InternLink</a>
+        </div>
+
+        <p class="text-muted">
+          After signing in, go to <strong>Account Settings → Security</strong> to change your password,
+          or click here: <a href="${changePasswordUrl}">${changePasswordUrl}</a>
+        </p>
+
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;">
+
+        <p class="text-muted">
+          As Head of Department, you can approve student registrations, oversee internship placements
+          for your department, and communicate with your university coordinator.
+        </p>
+        <p class="text-muted">
+          If you did not expect this email or believe it was sent in error, please contact your
+          university coordinator or InternLink support immediately.
+        </p>
+      </div>
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} InternLink. All rights reserved.</p>
+        <p>Connecting Ethiopian Universities with Industry Leaders</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        const info = await transporter.sendMail({
+            from: `"InternLink" <${fromAddr}>`,
+            to: params.to,
+            subject: `Welcome to InternLink — Your HoD Account is Ready`,
+            html,
+        });
+        const preview = nodemailer.getTestMessageUrl(info);
+        if (preview) console.info(`ℹ️ Preview HoD welcome email at: ${preview}`);
+        console.log(`✅ HoD welcome email sent to ${params.to}: ${info.messageId}`);
+    } catch (error: any) {
+        console.error('❌ Failed to send HoD welcome email:', error?.message || error);
+        // Non-fatal — account is already created
+    }
+};

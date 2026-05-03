@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Download, Award, MessageSquare, TrendingUp, ShieldCheck, ExternalLink, Clock } from 'lucide-react';
 import StudentPageHero from './StudentPageHero';
-import { cn } from '@/lib/utils';
+import { cn, getViewerUrl } from '@/lib/utils';
 import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from 'recharts';
 import api from '@/lib/api/client';
 import { mapEvaluationApi, type EvaluationWithMeta } from '@/lib/api/mappers';
@@ -50,6 +51,7 @@ const ScoreCard = ({
 const FinalEvaluation = () => {
   const [evaluation, setEvaluation] = useState<EvaluationWithMeta | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -103,9 +105,13 @@ const FinalEvaluation = () => {
         title="Final Evaluation"
         description="Review your performance scores and download your final internship report."
         action={
-          <button type="button" className="btn-primary flex w-full items-center justify-center gap-2 sm:w-auto">
+          <button 
+            type="button" 
+            onClick={() => router.push(getViewerUrl(evaluation.reportUrl))}
+            className="btn-primary flex w-full items-center justify-center gap-2 sm:w-auto"
+          >
             <Download className="h-5 w-5" />
-            Download Final Report
+            View Final Report
           </button>
         }
       />
@@ -170,6 +176,7 @@ const FinalEvaluation = () => {
           </button>
         </div>
       </div>
+
     </div>
   );
 };

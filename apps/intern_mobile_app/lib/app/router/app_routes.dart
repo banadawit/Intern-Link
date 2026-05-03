@@ -7,6 +7,7 @@ abstract final class AppRoutes {
   static const String verifyEmail = '/verify-email';
   static const String resetPassword = '/reset-password';
   static const String pendingReview = '/pending-review';
+  static const String forceChangePassword = '/force-change-password';
   static const String studentDashboard = '/student';
   static const String supervisorDashboard = '/supervisor';
   static const String coordinatorDashboard = '/coordinator';

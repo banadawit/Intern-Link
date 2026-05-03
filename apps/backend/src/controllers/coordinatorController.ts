@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
-import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail } from '../services/email.service';
+import bcrypt from 'bcryptjs';
+import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail, sendHodWelcomeEmail } from '../services/email.service';
 
 const hodInclude = {
     user: {
@@ -156,5 +157,246 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * POST /coordinator/hods
+ * Coordinator manually creates an HoD account for their university.
+ * - Default password is "123456" (or coordinator-supplied password)
+ * - Account is auto-approved (coordinator vouches for them)
+ * - must_change_password = true forces password change on first login
+ * - Welcome email with credentials is sent to the HoD
+ */
+export const createHod = async (req: AuthRequest, res: Response) => {
+    try {
+        const coordinatorProfile = await prisma.coordinator.findUnique({
+            where: { userId: req.user!.userId },
+            include: { university: true, user: { select: { full_name: true } } },
+        });
+
+        if (!coordinatorProfile?.universityId) {
+            return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+        }
+
+        const { fullName, email, department, employeeId } = req.body as {
+            fullName?: string;
+            email?: string;
+            department?: string;
+            employeeId?: string;
+        };
+
+        if (!fullName?.trim() || !email?.trim() || !department?.trim()) {
+            return res.status(400).json({ error: 'fullName, email, and department are required.' });
+        }
+
+        const emailLower = email.trim().toLowerCase();
+
+        const existing = await prisma.user.findUnique({ where: { email: emailLower } });
+        if (existing) {
+            return res.status(409).json({ error: 'An account with this email already exists.' });
+        }
+
+        // Always use "123456" as the default temporary password
+        const temporaryPassword = '123456';
+        const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+        // Create user + HOD profile — auto-approved, must change password on first login
+        const newUser = await prisma.user.create({
+            data: {
+                full_name: fullName.trim(),
+                email: emailLower,
+                password_hash: passwordHash,
+                role: 'HOD',
+                verification_status: 'APPROVED',
+                institution_access_approval: 'APPROVED',
+                must_change_password: true,
+                hodProfile: {
+                    create: {
+                        universityId: coordinatorProfile.universityId,
+                        department: department.trim(),
+                        phone_number: employeeId?.trim() || null,
+                    },
+                },
+            },
+            select: {
+                id: true,
+                full_name: true,
+                email: true,
+                role: true,
+                must_change_password: true,
+                hodProfile: { select: { id: true, department: true } },
+            },
+        });
+
+        // Send welcome email with credentials (non-fatal)
+        await sendHodWelcomeEmail({
+            to: emailLower,
+            hodName: fullName.trim(),
+            department: department.trim(),
+            universityName: coordinatorProfile.university!.name,
+            temporaryPassword,
+            coordinatorName: coordinatorProfile.user.full_name,
+        });
+
+        return res.status(201).json({
+            message: 'HoD account created successfully. A welcome email with login credentials has been sent.',
+            user: newUser,
+        });
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * PATCH /coordinator/hods/:userId/suspend
+ * Suspend an approved HoD from the coordinator's own university.
+ */
+export const suspendHod = async (req: AuthRequest, res: Response) => {
+    try {
+        const targetUserId = parseInt(String(req.params.userId), 10);
+        if (isNaN(targetUserId)) {
+            return res.status(400).json({ error: 'Invalid userId parameter.' });
+        }
+
+        const universityId = await getCoordinatorUniversityId(req.user!.userId);
+        if (!universityId) {
+            return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+        }
+
+        const hodProfile = await prisma.hodProfile.findUnique({
+            where: { userId: targetUserId },
+            include: { user: true },
+        });
+
+        if (!hodProfile) {
+            return res.status(404).json({ error: 'HoD profile not found.' });
+        }
+
+        if (hodProfile.user.role !== 'HOD') {
+            return res.status(400).json({ error: 'Target user is not an HOD.' });
+        }
+
+        if (hodProfile.universityId !== universityId) {
+            return res.status(403).json({ error: 'You can only manage HoDs from your own university.' });
+        }
+
+        if (hodProfile.user.institution_access_approval === 'SUSPENDED') {
+            return res.status(409).json({ error: 'This HOD account is already suspended.' });
+        }
+
+        await prisma.user.update({
+            where: { id: targetUserId },
+            data: { institution_access_approval: 'SUSPENDED' },
+        });
+
+        return res.json({ userId: targetUserId, status: 'SUSPENDED' });
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * PATCH /coordinator/hods/:userId/activate
+ * Activate a suspended HoD from the coordinator's own university.
+ */
+export const activateHod = async (req: AuthRequest, res: Response) => {
+    try {
+        const targetUserId = parseInt(String(req.params.userId), 10);
+        if (isNaN(targetUserId)) {
+            return res.status(400).json({ error: 'Invalid userId parameter.' });
+        }
+
+        const universityId = await getCoordinatorUniversityId(req.user!.userId);
+        if (!universityId) {
+            return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+        }
+
+        const hodProfile = await prisma.hodProfile.findUnique({
+            where: { userId: targetUserId },
+            include: { user: true },
+        });
+
+        if (!hodProfile) {
+            return res.status(404).json({ error: 'HoD profile not found.' });
+        }
+
+        if (hodProfile.user.role !== 'HOD') {
+            return res.status(400).json({ error: 'Target user is not an HOD.' });
+        }
+
+        if (hodProfile.universityId !== universityId) {
+            return res.status(403).json({ error: 'You can only manage HoDs from your own university.' });
+        }
+
+        if (hodProfile.user.institution_access_approval === 'APPROVED') {
+            return res.status(409).json({ error: 'This HOD account is already active.' });
+        }
+
+        await prisma.user.update({
+            where: { id: targetUserId },
+            data: { institution_access_approval: 'APPROVED' },
+        });
+
+        return res.json({ userId: targetUserId, status: 'APPROVED' });
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * GET /coordinator/hods/:userId
+ * Get detailed information about a specific HoD from the coordinator's own university.
+ */
+export const getHodDetail = async (req: AuthRequest, res: Response) => {
+    try {
+        const targetUserId = parseInt(String(req.params.userId), 10);
+        if (isNaN(targetUserId)) {
+            return res.status(400).json({ error: 'Invalid userId parameter.' });
+        }
+
+        const universityId = await getCoordinatorUniversityId(req.user!.userId);
+        if (!universityId) {
+            return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+        }
+
+        const hodProfile = await prisma.hodProfile.findUnique({
+            where: { userId: targetUserId },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                        institution_access_approval: true,
+                        created_at: true,
+                    },
+                },
+                _count: {
+                    select: { students: true },
+                },
+            },
+        });
+
+        if (!hodProfile) {
+            return res.status(404).json({ error: 'HoD profile not found.' });
+        }
+
+        if (hodProfile.universityId !== universityId) {
+            return res.status(403).json({ error: 'You can only manage HoDs from your own university.' });
+        }
+
+        return res.json({
+            userId: hodProfile.user.id,
+            fullName: hodProfile.user.full_name,
+            email: hodProfile.user.email,
+            department: hodProfile.department,
+            phoneNumber: hodProfile.phone_number,
+            approvalStatus: hodProfile.user.institution_access_approval,
+            createdAt: hodProfile.user.created_at,
+            studentCount: hodProfile._count.students,
+        });
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
     }
 };
