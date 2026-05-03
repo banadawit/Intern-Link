@@ -118,14 +118,14 @@ export default function SupervisorReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Final evaluation & reports</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Final evaluation & reports</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Submit scores after all weekly plans are approved, generate the stamped PDF, then send to the university.
         </p>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
@@ -133,9 +133,9 @@ export default function SupervisorReportsPage() {
 
       <div className="space-y-4">
         {loading ? (
-          <p className="text-slate-500">Loading…</p>
+          <p className="text-slate-500 dark:text-slate-400">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="text-slate-500">No placed students yet.</p>
+          <p className="text-slate-500 dark:text-slate-400">No placed students yet.</p>
         ) : (
           rows.map((r) => {
             const fr = r.student.finalReport;
@@ -143,14 +143,14 @@ export default function SupervisorReportsPage() {
             return (
               <div
                 key={r.student.id}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900"
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-semibold text-slate-900">{r.student.user.full_name}</p>
-                    <p className="text-xs text-slate-500">{r.student.university.name}</p>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">{r.student.user.full_name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{r.student.university.name}</p>
                     {locked && fr?.sent_at && (
-                      <p className="mt-1 text-xs font-medium text-emerald-700">
+                      <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
                         Sent to university on {new Date(fr.sent_at).toLocaleString()}
                       </p>
                     )}
@@ -159,8 +159,8 @@ export default function SupervisorReportsPage() {
                     <button
                       type="button"
                       disabled={busy === r.student.id || locked}
-                      onClick={() => void downloadPdf(r.student.id, r.student.user.full_name)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      onClick={() => void downloadPdf(r.student.id)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
                       <Download className="h-4 w-4" />
                       Generate PDF
@@ -189,7 +189,7 @@ export default function SupervisorReportsPage() {
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <label className="text-xs font-medium text-slate-600">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
                     Technical (0–100)
                     <input
                       type="number"
@@ -209,10 +209,10 @@ export default function SupervisorReportsPage() {
                           },
                         }))
                       }
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800"
                     />
                   </label>
-                  <label className="text-xs font-medium text-slate-600">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
                     Soft skills (0–100)
                     <input
                       type="number"
@@ -232,10 +232,10 @@ export default function SupervisorReportsPage() {
                           },
                         }))
                       }
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800"
                     />
                   </label>
-                  <label className="text-xs font-medium text-slate-600 sm:col-span-1">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300 sm:col-span-1">
                     Comments
                     <input
                       type="text"
@@ -252,7 +252,7 @@ export default function SupervisorReportsPage() {
                           },
                         }))
                       }
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800"
                     />
                   </label>
                 </div>

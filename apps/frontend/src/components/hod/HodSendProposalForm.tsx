@@ -63,42 +63,42 @@ function SearchPicker({
         className={cn(
           "flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition-all",
           open
-            ? "border-primary-500 ring-2 ring-primary-500/20 bg-white"
-            : "border-slate-200 bg-white hover:border-slate-300"
+            ? "border-primary-500 ring-2 ring-primary-500/20 bg-white dark:bg-slate-900"
+            : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600"
         )}
       >
-        <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+        <Icon className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
         {selected ? (
           <>
-            <span className="flex-1 truncate text-left font-medium text-slate-900">{selected.label}</span>
-            {selected.sub && <span className="hidden text-xs text-slate-400 sm:block">{selected.sub}</span>}
-            <span role="button" onClick={clear} className="shrink-0 cursor-pointer text-slate-400 hover:text-slate-600">
+            <span className="flex-1 truncate text-left font-medium text-slate-900 dark:text-slate-100">{selected.label}</span>
+            {selected.sub && <span className="hidden text-xs text-slate-400 sm:block dark:text-slate-500">{selected.sub}</span>}
+            <span role="button" onClick={clear} className="shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
               <X className="h-3.5 w-3.5" />
             </span>
           </>
         ) : (
           <>
-            <span className="flex-1 truncate text-left text-slate-400">{placeholder}</span>
-            <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
+            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">{placeholder}</span>
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform dark:text-slate-500", open && "rotate-180")} />
           </>
         )}
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
-            <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 dark:border-slate-700">
+            <Search className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
             <input
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search…"
-              className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none dark:text-slate-200 dark:placeholder:text-slate-500"
             />
           </div>
           <ul className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-4 py-3 text-center text-sm text-slate-400">No results.</li>
+              <li className="px-4 py-3 text-center text-sm text-slate-400 dark:text-slate-500">No results.</li>
             ) : (
               filtered.map((item) => (
                 <li key={item.id}>
@@ -106,13 +106,13 @@ function SearchPicker({
                     type="button"
                     onClick={() => select(item.id)}
                     className={cn(
-                      "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50",
-                      String(item.id) === value && "bg-primary-50"
+                      "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800",
+                      String(item.id) === value && "bg-primary-50 dark:bg-primary-900/30"
                     )}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{item.label}</p>
-                      {item.sub && <p className="truncate text-xs text-slate-500">{item.sub}</p>}
+                      <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{item.label}</p>
+                      {item.sub && <p className="truncate text-xs text-slate-500 dark:text-slate-400">{item.sub}</p>}
                     </div>
                   </button>
                 </li>
@@ -169,14 +169,14 @@ export default function HodSendProposalForm({
   }));
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="text-lg font-bold text-slate-900">Send placement proposal</h2>
-      <p className="mt-1 text-sm text-slate-500">Only approved students and verified companies are listed.</p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Send placement proposal</h2>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Only approved students and verified companies are listed.</p>
 
       <form onSubmit={onSubmit} className="mt-5 grid gap-5 sm:grid-cols-2">
         {/* Student picker */}
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+          <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
             Student <span className="text-red-500">*</span>
           </label>
           <SearchPicker
@@ -187,13 +187,13 @@ export default function HodSendProposalForm({
             icon={GraduationCap}
           />
           {studentItems.length === 0 && (
-            <p className="mt-1 text-xs text-slate-400">No approved students yet.</p>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">No approved students yet.</p>
           )}
         </div>
 
         {/* Company picker */}
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+          <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
             Company <span className="text-red-500">*</span>
           </label>
           <SearchPicker
@@ -204,32 +204,32 @@ export default function HodSendProposalForm({
             icon={Building}
           />
           {companyItems.length === 0 && (
-            <p className="mt-1 text-xs text-slate-400">No verified companies yet.</p>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">No verified companies yet.</p>
           )}
         </div>
 
         {/* Duration */}
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-slate-700">Duration (weeks)</label>
+          <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">Duration (weeks)</label>
           <input
             type="number"
             min={1}
             value={proposalWeeks}
             onChange={(e) => onWeeks(e.target.value)}
             placeholder="e.g. 12"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </div>
 
         {/* Expected outcomes */}
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-sm font-semibold text-slate-700">Expected outcomes</label>
+          <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">Expected outcomes</label>
           <textarea
             value={proposalOutcomes}
             onChange={(e) => onOutcomes(e.target.value)}
             rows={3}
             placeholder="Describe the expected learning outcomes for this internship…"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </div>
 

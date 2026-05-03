@@ -177,22 +177,22 @@ export default function AIChat({ variant, role, className, title = "InternLink A
       ? "flex flex-col overflow-hidden"
       : variant === "expanded" || fillHeight
       ? "flex h-full flex-col overflow-hidden"
-      : "flex min-h-[min(70vh,32rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm";
+      : "flex min-h-[min(70vh,32rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900";
 
   return (
     <div className={cn(shell, className)}>
       {variant === "page" && !hideHeader && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary-600" aria-hidden />
             <div>
-              <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h1>
             </div>
           </div>
           <button
             type="button"
             onClick={() => void clearHistory()}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Clear history
@@ -203,13 +203,13 @@ export default function AIChat({ variant, role, className, title = "InternLink A
       <div
         className={cn(
           "flex min-h-0 flex-1 flex-col",
-          variant === "floating" && "rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          variant === "floating" && "rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
         )}
       >
         {variant === "floating" && !hideHeader && (
-          <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+          <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
             <Sparkles className="h-4 w-4 text-primary-600" aria-hidden />
-            <span className="text-sm font-semibold text-slate-900">{title}</span>
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</span>
           </div>
         )}
 
@@ -220,10 +220,10 @@ export default function AIChat({ variant, role, className, title = "InternLink A
           )}
         >
           {hydrating && (
-            <p className="py-4 text-center text-xs text-slate-500">Loading conversation…</p>
+            <p className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">Loading conversation…</p>
           )}
           {!hydrating && messages.length === 0 && (
-            <p className="py-6 text-center text-xs text-slate-500">
+            <p className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
               Say hi, ask a question, or chat about anything you need.
             </p>
           )}
@@ -240,19 +240,19 @@ export default function AIChat({ variant, role, className, title = "InternLink A
                   className={cn(
                     "max-w-[88%] rounded-2xl px-4 py-3 text-sm shadow-sm",
                     m.role === "user"
-                      ? "bg-primary-50 text-slate-900"
-                      : "border border-slate-200 bg-slate-50 text-slate-800"
+                      ? "bg-primary-50 text-slate-900 dark:bg-primary-900/30 dark:text-slate-100"
+                      : "border border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                   )}
                 >
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       {m.role === "user" ? "You" : "Assistant"}
                     </span>
                     {m.role === "assistant" && (
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          className="rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
+                          className="rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                           aria-label="Edit reply"
                           onClick={() => setEditingIndex((x) => (x === i ? null : i))}
                         >
@@ -260,7 +260,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
                         </button>
                         <button
                           type="button"
-                          className="rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800"
+                          className="rounded p-0.5 text-slate-500 hover:bg-slate-200 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                           aria-label="Copy reply"
                           onClick={() => void copyText(m.content)}
                         >
@@ -276,7 +276,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
                         const v = e.target.value;
                         setMessages((prev) => prev.map((x, j) => (j === i ? { ...x, content: v } : x)));
                       }}
-                      className="mt-1 w-full min-h-[110px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-900"
+                      className="mt-1 w-full min-h-[110px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                       aria-label="Edit assistant message"
                     />
                   ) : (
@@ -301,7 +301,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
                                 const day = headingMatch[1];
                                 const rest = headingMatch[2]?.trim();
                                 return (
-                                  <p key={`${idx}-${line}`} className="pt-1 text-[15px] font-extrabold text-slate-950">
+                                  <p key={`${idx}-${line}`} className="pt-1 text-[15px] font-extrabold text-slate-950 dark:text-slate-100">
                                     {rest ? `${day}: ${rest}` : `${day}:`}
                                   </p>
                                 );
@@ -309,7 +309,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
                               if (sectionHeadingPattern.test(line.trim())) {
                                 const normalized = line.trim().replace(/:?\s*$/, ":");
                                 return (
-                                  <p key={`${idx}-${line}`} className="pt-1 text-[15px] font-extrabold text-slate-950">
+                                  <p key={`${idx}-${line}`} className="pt-1 text-[15px] font-extrabold text-slate-950 dark:text-slate-100">
                                     {normalized}
                                   </p>
                                 );
@@ -323,7 +323,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
                                 <p
                                   key={`${idx}-${line}`}
                                   className={cn(
-                                    "text-slate-800",
+                                    "text-slate-800 dark:text-slate-200",
                                     bulletPattern.test(line.trim()) ? "ml-5" : "ml-4"
                                   )}
                                 >
@@ -349,7 +349,7 @@ export default function AIChat({ variant, role, className, title = "InternLink A
               </div>
             ))}
           {loading && (
-            <div className="flex items-center gap-2 py-2 text-xs text-slate-500">
+            <div className="flex items-center gap-2 py-2 text-xs text-slate-500 dark:text-slate-400">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Thinking…
             </div>
@@ -358,18 +358,18 @@ export default function AIChat({ variant, role, className, title = "InternLink A
         </div>
 
         {error && (
-          <p className="border-t border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">
+          <p className="border-t border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300" role="alert">
             {error}
           </p>
         )}
 
-        <div className="flex gap-2 border-t border-slate-100 p-3">
+        <div className="flex gap-2 border-t border-slate-100 p-3 dark:border-slate-700">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), void send())}
             placeholder="Type a message…"
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
             disabled={loading || hydrating}
             aria-label="Message"
           />
