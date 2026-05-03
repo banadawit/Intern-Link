@@ -40,7 +40,7 @@ export function notifyDesktop(title: string, body: string, tag?: string): void {
     new Notification(title, {
       body,
       tag: tag ?? "internlink-student",
-      icon: "/favicon.ico",
+      icon: "/icon.png",
     });
   } catch {
     /* ignore */
