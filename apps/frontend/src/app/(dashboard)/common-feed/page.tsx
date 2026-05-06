@@ -72,6 +72,12 @@ export default function CommonFeedPage() {
   const [shareMessage, setShareMessage] = useState('');
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedSendPost, setSelectedSendPost] = useState<Post | null>(null);
+  const [sharePostId, setSharePostId] = useState<number | null>(null);
+  const [copyDone, setCopyDone] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -174,14 +180,34 @@ export default function CommonFeedPage() {
 
   const createPost = async () => {
     if (!newPostContent.trim()) return;
-
+    setUploading(true);
     try {
       const token = getToken();
-      
-      // Extract title from first line or first 50 chars
       const lines = newPostContent.split('\n');
       const title = lines[0].substring(0, 100) || 'Post';
       const content = newPostContent;
+
+      // Upload images if any
+      let imageUrls: string[] = [];
+      if (selectedImages.length > 0) {
+        const imgForm = new FormData();
+        selectedImages.forEach((f) => imgForm.append('images', f));
+        const imgRes = await axios.post(`${API_BASE}/common-feed/upload/images`, imgForm, {
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+        });
+        imageUrls = imgRes.data?.data?.urls ?? [];
+      }
+
+      // Upload documents if any
+      let documentUrls: string[] = [];
+      if (selectedDocuments.length > 0) {
+        const docForm = new FormData();
+        selectedDocuments.forEach((f) => docForm.append('documents', f));
+        const docRes = await axios.post(`${API_BASE}/common-feed/upload/documents`, docForm, {
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+        });
+        documentUrls = docRes.data?.data?.urls ?? [];
+      }
 
       await axios.post(
         `${API_BASE}/common-feed`,
@@ -189,20 +215,20 @@ export default function CommonFeedPage() {
           title,
           content: `<p>${content.replace(/\n/g, '<br>')}</p>`,
           postType: newPostType,
-          visibility: 'PUBLIC'
+          visibility: 'PUBLIC',
+          imageUrls,
+          documentUrls,
         },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       setNewPostContent('');
+      setSelectedImages([]);
+      setSelectedDocuments([]);
+      setImagePreviews([]);
       setShowCreatePost(false);
-      
-      // Refresh the main feed
       fetchPosts(currentPage, filter !== 'ALL' ? filter : undefined);
-      
-      // If user profile is open, refresh it too
+
       if (showUserProfile && selectedUserId) {
         const response = await axios.get(`${API_BASE}/common-feed/user/${selectedUserId}`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -212,6 +238,8 @@ export default function CommonFeedPage() {
     } catch (error) {
       console.error('Error creating post:', error);
       alert('Failed to create post');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -604,6 +632,42 @@ export default function CommonFeedPage() {
                         dangerouslySetInnerHTML={{ __html: post.content }}
                       />
                     </div>
+
+                    {/* Images */}
+                    {post.imageUrls && post.imageUrls.length > 0 && (
+                      <div className={`mt-3 grid gap-1 ${post.imageUrls.length === 1 ? 'grid-cols-1' : post.imageUrls.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        {post.imageUrls.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={url}
+                              alt={`attachment ${i + 1}`}
+                              className="w-full rounded-lg object-cover max-h-64 hover:opacity-90 transition-opacity"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Documents */}
+                    {post.documentUrls && post.documentUrls.length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        {post.documentUrls.map((url, i) => {
+                          const name = url.split('/').pop() ?? `Document ${i + 1}`;
+                          return (
+                            <a
+                              key={i}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-teal-700 hover:bg-slate-100 transition-colors"
+                            >
+                              <FileText className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{decodeURIComponent(name)}</span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Post Stats */}
@@ -839,26 +903,91 @@ export default function CommonFeedPage() {
                 className="w-full px-4 py-3 border-0 focus:outline-none text-slate-900 resize-none"
               />
 
+              {/* Image previews */}
+              {imagePreviews.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-4 pb-2">
+                  {imagePreviews.map((src, i) => (
+                    <div key={i} className="relative">
+                      <img src={src} alt="" className="h-20 w-20 rounded-lg object-cover border border-slate-200" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedImages((prev) => prev.filter((_, idx) => idx !== i));
+                          setImagePreviews((prev) => prev.filter((_, idx) => idx !== i));
+                        }}
+                        className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-xs hover:bg-red-600"
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Document list */}
+              {selectedDocuments.length > 0 && (
+                <div className="px-4 pb-2 space-y-1">
+                  {selectedDocuments.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      <span className="truncate">📄 {f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDocuments((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="ml-2 text-slate-400 hover:text-red-600"
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-200">
-                <button className="p-2 hover:bg-slate-100 rounded transition-colors">
-                  <ImageIcon className="w-5 h-5 text-slate-600" />
+                {/* Photo */}
+                <label className="cursor-pointer p-2 hover:bg-slate-100 rounded transition-colors" title="Add photo">
+                  <ImageIcon className="w-5 h-5 text-teal-500" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      setSelectedImages((prev) => [...prev, ...files].slice(0, 5));
+                      setImagePreviews((prev) => [
+                        ...prev,
+                        ...files.map((f) => URL.createObjectURL(f)),
+                      ].slice(0, 5));
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                {/* Video (link only — no upload) */}
+                <button type="button" className="p-2 hover:bg-slate-100 rounded transition-colors" title="Add video link">
+                  <Video className="w-5 h-5 text-emerald-500" />
                 </button>
-                <button className="p-2 hover:bg-slate-100 rounded transition-colors">
-                  <Video className="w-5 h-5 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-slate-100 rounded transition-colors">
-                  <FileText className="w-5 h-5 text-slate-600" />
-                </button>
+                {/* Document */}
+                <label className="cursor-pointer p-2 hover:bg-slate-100 rounded transition-colors" title="Add document">
+                  <FileText className="w-5 h-5 text-rose-500" />
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      setSelectedDocuments((prev) => [...prev, ...files].slice(0, 3));
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                <span className="ml-auto text-xs text-slate-400">Max 5 photos · 3 docs</span>
               </div>
             </div>
 
             <div className="p-4 border-t border-slate-200">
               <button
                 onClick={createPost}
-                disabled={!newPostContent.trim()}
+                disabled={!newPostContent.trim() || uploading}
                 className="w-full py-3 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed font-semibold"
               >
-                Post
+                {uploading ? 'Posting…' : 'Post'}
               </button>
             </div>
           </div>

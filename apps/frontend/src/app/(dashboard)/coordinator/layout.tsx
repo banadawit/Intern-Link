@@ -6,11 +6,13 @@ import AiChatFloating from "@/components/ai/AiChatFloating";
 import NotificationBell from "@/components/shared/NotificationBell";
 import MaintenanceGuard from "@/components/auth/MaintenanceGuard";
 import ThemeToggle from "@/components/theme/ThemeToggle";
+import PageLoader from "@/components/shared/PageLoader";
 
 export default function CoordinatorLayout({ children }: { children: React.ReactNode }) {
   return (
     <CoordinatorRouteGuard>
       <MaintenanceGuard>
+      <PageLoader />
       <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row dark:bg-slate-950 dark:text-slate-300">
         <CoordinatorSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
