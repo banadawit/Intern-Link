@@ -73,8 +73,8 @@ export default function StudentPicker({ students, value, onChange, placeholder =
         className={cn(
           "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all",
           open
-            ? "border-primary-500 ring-2 ring-primary-500/20 bg-white"
-            : "border-slate-200 bg-white hover:border-slate-300",
+            ? "border-primary-500 ring-2 ring-primary-500/20 bg-white dark:bg-slate-900"
+            : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600",
         )}
       >
         {selected ? (
@@ -82,38 +82,38 @@ export default function StudentPicker({ students, value, onChange, placeholder =
             <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold", colorForId(selected.id))}>
               {initials(selected.user.full_name)}
             </div>
-            <span className="flex-1 truncate text-left font-medium text-slate-900">{selected.user.full_name}</span>
-            <span role="button" onClick={clear} className="shrink-0 text-slate-400 hover:text-slate-600 cursor-pointer">
+            <span className="flex-1 truncate text-left font-medium text-slate-900 dark:text-slate-100">{selected.user.full_name}</span>
+            <span role="button" onClick={clear} className="shrink-0 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 cursor-pointer">
               <X className="h-3.5 w-3.5" />
             </span>
           </>
         ) : (
           <>
-            <span className="flex-1 truncate text-left text-slate-400">{placeholder}</span>
-            <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform", open && "rotate-180")} />
+            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">{placeholder}</span>
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500 transition-transform", open && "rotate-180")} />
           </>
         )}
       </button>
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
           {/* Search */}
-          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
-            <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 px-3 py-2">
+            <Search className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
             <input
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name or email…"
-              className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+              className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
             />
           </div>
 
           {/* Options */}
           <ul className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-4 py-3 text-sm text-slate-400 text-center">No students found.</li>
+              <li className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500 text-center">No students found.</li>
             ) : (
               filtered.map((s) => (
                 <li key={s.id}>
@@ -121,16 +121,16 @@ export default function StudentPicker({ students, value, onChange, placeholder =
                     type="button"
                     onClick={() => select(s.id)}
                     className={cn(
-                      "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-slate-50",
-                      String(s.id) === value && "bg-primary-50"
+                      "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800",
+                      String(s.id) === value && "bg-primary-50 dark:bg-primary-900/20"
                     )}
                   >
                     <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold", colorForId(s.id))}>
                       {initials(s.user.full_name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{s.user.full_name}</p>
-                      <p className="truncate text-xs text-slate-500">{s.user.email}</p>
+                      <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{s.user.full_name}</p>
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{s.user.email}</p>
                     </div>
                   </button>
                 </li>

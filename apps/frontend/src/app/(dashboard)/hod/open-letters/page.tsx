@@ -53,7 +53,7 @@ export default function HodOpenLettersPage() {
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto"
+            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 dark:bg-slate-900/90 px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-100 shadow-sm backdrop-blur-sm transition-colors hover:bg-white dark:hover:bg-slate-900 disabled:opacity-60 sm:w-auto"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
             Refresh
@@ -62,7 +62,7 @@ export default function HodOpenLettersPage() {
       />
 
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+        <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3 text-sm text-red-800 dark:text-red-300">{error}</div>
       )}
 
       {loading && openLetters.length === 0 ? (

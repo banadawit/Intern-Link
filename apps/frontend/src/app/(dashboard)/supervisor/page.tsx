@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/api/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -47,8 +47,9 @@ export default function SupervisorDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await api.get<{ success: boolean; data: MeResponse }>("/supervisor/me");
       setData(res.data.data);
@@ -60,9 +61,9 @@ export default function SupervisorDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   if (error) {
     return (
