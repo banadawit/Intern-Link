@@ -167,21 +167,40 @@ export const broadcastAnnouncement = async (req: AuthRequest, res: Response) => 
 
 /**
  * Middleware-style helper: check if registration is open for a given role.
+ * For STUDENT role, also checks per-university override if universityId is provided.
  * Used in authController to gate registrations.
  */
-export async function isRegistrationOpen(role: string): Promise<boolean> {
+export async function isRegistrationOpen(role: string, universityId?: number): Promise<{ allowed: boolean; reason?: string }> {
   const key = `registration_${role.toLowerCase()}_open`;
   let row: { value: string } | null = null;
   try {
     row = await prisma.systemConfig.findUnique({ where: { key } });
   } catch (error) {
-    if (!isMissingSystemConfigTableError(error)) {
-      throw error;
-    }
-    return (DEFAULTS[key] ?? 'true') === 'true';
+    if (!isMissingSystemConfigTableError(error)) throw error;
   }
-  const value = row?.value ?? DEFAULTS[key] ?? 'true';
-  return value === 'true';
+  const globalValue = row?.value ?? DEFAULTS[key] ?? 'true';
+  const globalAllowed = globalValue === 'true';
+
+  // For students, check per-university override
+  if (role.toUpperCase() === 'STUDENT' && universityId) {
+    try {
+      const uniConfig = await prisma.universityConfig.findUnique({ where: { universityId } });
+      if (uniConfig && uniConfig.studentRegistrationEnabled !== null) {
+        // University has an explicit override
+        if (!uniConfig.studentRegistrationEnabled) {
+          return { allowed: false, reason: 'Student registration is currently disabled for your university.' };
+        }
+        return { allowed: true };
+      }
+    } catch (_) {
+      // UniversityConfig table may not exist yet — fall through to global
+    }
+  }
+
+  if (!globalAllowed) {
+    return { allowed: false, reason: `Registration for ${role} accounts is currently closed.` };
+  }
+  return { allowed: true };
 }
 
 export async function isMaintenanceMode(): Promise<{ active: boolean; message: string }> {

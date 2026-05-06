@@ -136,6 +136,7 @@ model University {
   students          Student[]
   proposalsSent     InternshipProposal[]
   reportsReceived   Report[] @relation("ReportToUniversity")
+  config            UniversityConfig?
 }
 
 model Company {
@@ -586,6 +587,17 @@ model SystemConfig {
   key       String   @id
   value     String   @db.Text
   updatedAt DateTime @updatedAt
+}
+
+/// Per-university registration override.
+/// studentRegistrationEnabled = null → use global SystemConfig setting.
+/// studentRegistrationEnabled = true/false → override global setting.
+model UniversityConfig {
+  id                          Int        @id @default(autoincrement())
+  university                  University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  universityId                Int        @unique
+  studentRegistrationEnabled  Boolean?   // null = inherit global
+  updatedAt                   DateTime   @updatedAt
 }
 
 model ChatMessage {

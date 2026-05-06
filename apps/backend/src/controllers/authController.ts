@@ -40,9 +40,13 @@ export const register = async (req: Request, res: Response) => {
 
         // Check if registration is open for this role
         const roleUpper = (role ?? '').toUpperCase();
-        const registrationOpen = await isRegistrationOpen(roleUpper);
-        if (!registrationOpen) {
-            return sendError(res, `Registration for ${roleUpper} accounts is currently closed. Please try again later.`, 403, 'REGISTRATION_CLOSED');
+        // For students, pass universityId so per-university override is checked
+        const universityIdForCheck = roleUpper === 'STUDENT'
+            ? parseInt(String(req.body.university_id ?? '0'), 10) || undefined
+            : undefined;
+        const regCheck = await isRegistrationOpen(roleUpper, universityIdForCheck);
+        if (!regCheck.allowed) {
+            return sendError(res, regCheck.reason ?? `Registration for ${roleUpper} accounts is currently closed.`, 403, 'REGISTRATION_CLOSED');
         }
 
         // Check if user exists
