@@ -74,10 +74,6 @@ export default function CommonFeedPage() {
   const [selectedSendPost, setSelectedSendPost] = useState<Post | null>(null);
   const [sharePostId, setSharePostId] = useState<number | null>(null);
   const [copyDone, setCopyDone] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [selectedDocuments, setSelectedDocuments] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 

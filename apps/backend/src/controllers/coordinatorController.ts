@@ -210,7 +210,6 @@ export const createHod = async (req: AuthRequest, res: Response) => {
                 role: 'HOD',
                 verification_status: 'APPROVED',
                 institution_access_approval: 'APPROVED',
-                must_change_password: true,
                 hodProfile: {
                     create: {
                         universityId: coordinatorProfile.universityId,
@@ -224,7 +223,6 @@ export const createHod = async (req: AuthRequest, res: Response) => {
                 full_name: true,
                 email: true,
                 role: true,
-                must_change_password: true,
                 hodProfile: { select: { id: true, department: true } },
             },
         });

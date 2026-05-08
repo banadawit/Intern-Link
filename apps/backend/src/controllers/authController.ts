@@ -485,21 +485,6 @@ export const login = async (req: Request, res: Response) => {
             void incrementActivityForUser(user.id);
         }
 
-        // If account requires a password change, return a limited token with a special code.
-        // The client must redirect to the change-password screen before accessing the dashboard.
-        if (user.must_change_password) {
-            return sendSuccess(res, {
-                token,
-                mustChangePassword: true,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    fullName: user.full_name,
-                    role: user.role,
-                },
-            }, "Login successful. You must change your password before continuing.", 200);
-        }
-
         return sendSuccess(res, {
             token,
             user: {
@@ -928,7 +913,6 @@ export const changePassword = async (req: Request, res: Response) => {
             where: { id: userId },
             data: {
                 password_hash: hashedPassword,
-                must_change_password: false, // clear the forced-change flag
             },
         });
 
