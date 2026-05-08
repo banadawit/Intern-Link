@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api/client";
 import { AlertCircle, Download, FileCheck, Send, Eye } from "lucide-react";
 import PdfViewerPage from "@/components/shared/PdfViewerPage";
@@ -21,7 +22,6 @@ type StudentRow = {
 };
 
 export default function SupervisorReportsPage() {
- xport default function SupervisorReportsPage() {
   const [rows, setRows] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

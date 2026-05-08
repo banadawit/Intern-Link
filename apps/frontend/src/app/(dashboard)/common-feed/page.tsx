@@ -72,6 +72,8 @@ export default function CommonFeedPage() {
   const [shareMessage, setShareMessage] = useState('');
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedSendPost, setSelectedSendPost] = useState<Post | null>(null);
+  const [sharePostId, setSharePostId] = useState<number | null>(null);
+  const [copyDone, setCopyDone] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
