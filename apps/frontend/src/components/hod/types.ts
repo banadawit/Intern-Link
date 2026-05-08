@@ -17,7 +17,8 @@ export type HodStudentRow = {
   hod_approval_status: string;
   internship_status: string;
   department: string | null;
-  user: { full_name: string; email: string };
+  studentId: string | null;
+  user: { full_name: string; email: string; verification_document: string | null };
 };
 
 export type HodCompanyRow = {

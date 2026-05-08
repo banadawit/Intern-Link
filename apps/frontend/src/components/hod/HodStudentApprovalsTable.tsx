@@ -117,6 +117,7 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Name</th>
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Email</th>
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Dept</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Document</th>
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Status</th>
                 <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200">Actions</th>
               </tr>
@@ -127,6 +128,20 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                   <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{s.user.full_name}</td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{s.user.email}</td>
                   <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{s.department ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {s.user.verification_document ? (
+                      <a
+                        href={s.user.verification_document}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors"
+                      >
+                        View
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-400">None</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <StatusPill status={s.hod_approval_status} />
                   </td>
@@ -165,6 +180,16 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                 <p className="text-sm text-slate-700 dark:text-slate-300">
                   <span className="text-slate-500 dark:text-slate-400">Dept:</span> {s.department ?? "—"}
                 </p>
+                {s.user.verification_document && (
+                  <a
+                    href={s.user.verification_document}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors"
+                  >
+                    View document
+                  </a>
+                )}
               </div>
               <ActionButtons
                 student={s}

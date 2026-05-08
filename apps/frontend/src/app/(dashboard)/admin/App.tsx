@@ -76,11 +76,13 @@ export default function App() {
     setListsLoading(true);
     try {
       const [uniRes, compRes] = await Promise.all([api.get("/admin/universities"), api.get("/admin/companies")]);
-      const uniRows = uniRes.data as Record<string, unknown>[];
-      const compRows = compRes.data as Record<string, unknown>[];
+      const uniRows = Array.isArray(uniRes.data) ? uniRes.data as Record<string, unknown>[] : [];
+      const compRows = Array.isArray(compRes.data) ? compRes.data as Record<string, unknown>[] : [];
       const u = uniRows.map((row) => mapUniversityToProposal(row as never));
       const c = compRows.map((row) => mapCompanyToProposal(row as never));
       setProposals([...u, ...c]);
+    } catch (e) {
+      console.error("Failed to load organizations:", e);
     } finally {
       setListsLoading(false);
     }

@@ -402,13 +402,9 @@ const RegisterPage = () => {
       
       const result = await register(registerData);
       
-      // Coordinators and HoDs go to verify-email with role param for proper redirect
+      // Redirect to verify-email page (no token in URL — token is only in the email link)
       const roleParam = role === 'coordinator' ? '&role=coordinator' : role === 'hod' ? '&role=hod' : role === 'student' ? '&role=student' : role === 'supervisor' ? '&role=supervisor' : '';
-      if (result?.verificationToken) {
-        router.push(`/verify-email?token=${encodeURIComponent(result.verificationToken)}&email=${encodeURIComponent(formData.email)}${roleParam}`);
-      } else {
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}${roleParam}`);
-      }
+      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}${roleParam}`);
       
     } catch (error: unknown) {
       const err = error as { message?: string };
