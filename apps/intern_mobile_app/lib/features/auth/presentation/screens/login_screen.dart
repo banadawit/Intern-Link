@@ -233,9 +233,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text("Don't have an account?",
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          Flexible(
+                            child: Text("Don't have an account?",
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          ),
                           TextButton(
                             onPressed: () => context.push(AppRoutes.register),
                             style: TextButton.styleFrom(

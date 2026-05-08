@@ -1,6 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 
+dynamic _deepConvert(dynamic v) {
+  if (v is Map) return Map<String, dynamic>.fromEntries(
+    v.entries.map((e) => MapEntry(e.key.toString(), _deepConvert(e.value))),
+  );
+  if (v is List) return v.map(_deepConvert).toList();
+  return v;
+}
+
+List<dynamic> _deepList(dynamic data) {
+  final raw = data is Map ? (data['data'] ?? data) : data;
+  if (raw is List) return raw.map(_deepConvert).toList();
+  return [];
+}
+
 class AdminStats {
   final int totalUsers;
   final int totalUniversities;
@@ -45,16 +59,23 @@ class AdminRepository {
     final response = await apiClient.dio.get('/admin/stats');
     final data = response.data;
     if (data != null && data is Map) {
+      int si(dynamic v) {
+        if (v == null) return 0;
+        if (v is int) return v;
+        if (v is double) return v.toInt();
+        if (v is String) return int.tryParse(v) ?? 0;
+        return 0;
+      }
       return AdminStats(
-        totalUsers: (data['totalUsers'] as num?)?.toInt() ?? 0,
-        totalUniversities: ((data['approvedUniversities'] as num?)?.toInt() ?? 0) + ((data['pendingUniversities'] as num?)?.toInt() ?? 0),
-        totalCompanies: ((data['approvedCompanies'] as num?)?.toInt() ?? 0) + ((data['pendingCompanies'] as num?)?.toInt() ?? 0),
-        pendingApprovals: ((data['pendingUniversities'] as num?)?.toInt() ?? 0) + 
-                         ((data['pendingCompanies'] as num?)?.toInt() ?? 0) + 
-                         ((data['pendingCoordinators'] as num?)?.toInt() ?? 0) + 
-                         ((data['pendingSupervisors'] as num?)?.toInt() ?? 0),
-        totalEvaluations: (data['totalEvaluations'] as num?)?.toInt() ?? 0,
-        totalReports: (data['totalReports'] as num?)?.toInt() ?? 0,
+        totalUsers: si(data['totalUsers']),
+        totalUniversities: si(data['approvedUniversities']) + si(data['pendingUniversities']),
+        totalCompanies: si(data['approvedCompanies']) + si(data['pendingCompanies']),
+        pendingApprovals: si(data['pendingUniversities']) +
+            si(data['pendingCompanies']) +
+            si(data['pendingCoordinators']) +
+            si(data['pendingSupervisors']),
+        totalEvaluations: si(data['totalEvaluations']),
+        totalReports: si(data['totalReports']),
       );
     }
     throw Exception('Failed to fetch admin stats');
@@ -62,32 +83,32 @@ class AdminRepository {
 
   Future<List<dynamic>> getPendingUniversities() async {
     final response = await apiClient.dio.get('/admin/pending-universities');
-    return (response.data as List?) ?? [];
+    return _deepList(response.data);
   }
 
   Future<List<dynamic>> getPendingCompanies() async {
     final response = await apiClient.dio.get('/admin/pending-companies');
-    return (response.data as List?) ?? [];
+    return _deepList(response.data);
   }
 
   Future<List<dynamic>> getPendingCoordinators() async {
     final response = await apiClient.dio.get('/admin/pending-coordinators');
-    return (response.data as List?) ?? [];
+    return _deepList(response.data);
   }
 
   Future<List<dynamic>> getPendingSupervisors() async {
     final response = await apiClient.dio.get('/admin/pending-supervisors');
-    return (response.data as List?) ?? [];
+    return _deepList(response.data);
   }
 
   Future<List<dynamic>> getAllUsers() async {
     final response = await apiClient.dio.get('/admin/users');
-    return (response.data as List?) ?? [];
+    return _deepList(response.data);
   }
 
   Future<List<dynamic>> getAuditLogs() async {
     final response = await apiClient.dio.get('/admin/audit-logs');
-    return (response.data as List?) ?? [];
+    return _deepList(response.data);
   }
 
   Future<void> updateUniversityStatus(int id, String status) async {
@@ -115,12 +136,12 @@ class AdminRepository {
   }
   Future<List<dynamic>> getAllUniversities({String? status}) async {
     final response = await apiClient.dio.get('/admin/universities', queryParameters: status != null ? {'status': status} : null);
-    return (response.data as List?) ?? [];
+    return _deepList(response.data);
   }
 
   Future<List<dynamic>> getAllCompanies({String? status}) async {
     final response = await apiClient.dio.get('/admin/companies', queryParameters: status != null ? {'status': status} : null);
-    return (response.data as List?) ?? [];
+    return _deepList(response.data);
   }
 
   // --- SYSTEM CONFIGURATION ---

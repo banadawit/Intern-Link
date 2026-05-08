@@ -36,16 +36,24 @@ class StudentProfile {
     final supervisor = json['supervisor'];
     final startDateRaw = activeAssignment != null ? activeAssignment['start_date'] : null;
 
+    int si(dynamic v) {
+      if (v == null) return 0;
+      if (v is int) return v;
+      if (v is double) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
+
     return StudentProfile(
-      id: json['id'] ?? 0,
-      fullName: user['full_name'] ?? 'Unknown Student',
-      email: user['email'] ?? '',
-      companyName: company != null ? company['name'] : null,
-      supervisorName: supervisor != null ? supervisor['full_name'] : null,
+      id: si(json['id']),
+      fullName: user['full_name']?.toString() ?? 'Unknown Student',
+      email: user['email']?.toString() ?? '',
+      companyName: company != null ? company['name']?.toString() : null,
+      supervisorName: supervisor != null ? supervisor['full_name']?.toString() : null,
       internshipStartDate: startDateRaw is String ? DateTime.tryParse(startDateRaw) : null,
-      currentInternshipWeek: json['currentInternshipWeek'] ?? 1,
-      status: json['hod_approval_status'] ?? 'PENDING',
-      internshipStatus: json['internship_status'] ?? 'PENDING',
+      currentInternshipWeek: si(json['currentInternshipWeek']),
+      status: json['hod_approval_status']?.toString() ?? 'PENDING',
+      internshipStatus: json['internship_status']?.toString() ?? 'PENDING',
     );
   }
 }

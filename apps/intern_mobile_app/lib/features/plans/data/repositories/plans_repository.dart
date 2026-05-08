@@ -8,6 +8,14 @@ import '../datasources/plans_api_service.dart';
 import '../datasources/plans_draft_storage.dart';
 import '../models/plans_dtos.dart';
 
+int _safeInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 class PlansRepository {
   PlansRepository({
     required ApiClient apiClient,
@@ -175,7 +183,7 @@ class PlansRepository {
     final tasks = (j['tasks'] is List) ? (j['tasks'] as List).map((e) => e.toString()).toList() : <String>[];
     final createdAt = DateTime.tryParse((j['createdAt'] ?? '').toString()) ?? DateTime.now();
     return WeeklyPlan(
-      id: (j['id'] ?? -1) as int,
+      id: _safeInt(j['id'], -1),
       studentId: 0,
       weekNumber: int.tryParse((j['weekNumber'] ?? 0).toString()) ?? 0,
       title: (j['title'] ?? 'Weekly Plan').toString(),

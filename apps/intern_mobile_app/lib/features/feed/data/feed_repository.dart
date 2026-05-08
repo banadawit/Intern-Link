@@ -3,6 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../../../core/network/api_client.dart';
 
+bool _safeBool(dynamic v) {
+  if (v == null) return false;
+  if (v is bool) return v;
+  if (v is int) return v != 0;
+  if (v is String) return v == 'true' || v == '1';
+  return false;
+}
+
+int _safeInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────
 
 class FeedAuthor {
@@ -13,7 +29,7 @@ class FeedAuthor {
   const FeedAuthor({required this.id, required this.fullName, required this.role});
 
   factory FeedAuthor.fromJson(Map<String, dynamic> j) => FeedAuthor(
-        id: j['id'] as int,
+        id: _safeInt(j['id']),
         fullName: j['full_name'] as String? ?? 'Unknown',
         role: j['role'] as String? ?? '',
       );
@@ -57,17 +73,17 @@ class FeedPost {
   factory FeedPost.fromJson(Map<String, dynamic> j) {
     final count = j['_count'] as Map<String, dynamic>?;
     return FeedPost(
-      id: j['id'] as int,
+      id: _safeInt(j['id']),
       title: j['title'] as String?,
       content: j['content'] as String? ?? '',
       postType: j['postType'] as String? ?? 'GENERAL_UPDATE',
       visibility: j['visibility'] as String? ?? 'PUBLIC',
       author: FeedAuthor.fromJson(j['author'] as Map<String, dynamic>),
-      likeCount: (j['likeCount'] ?? count?['likes'] ?? 0) as int,
-      commentCount: (j['commentCount'] ?? count?['comments'] ?? 0) as int,
-      viewCount: (j['viewCount'] ?? count?['views'] ?? 0) as int,
-      isLikedByUser: j['isLikedByUser'] as bool? ?? false,
-      isPinned: j['isPinned'] as bool? ?? false,
+      likeCount: _safeInt(j['likeCount'] ?? count?['likes']),
+      commentCount: _safeInt(j['commentCount'] ?? count?['comments']),
+      viewCount: _safeInt(j['viewCount'] ?? count?['views']),
+      isLikedByUser: _safeBool(j['isLikedByUser']),
+      isPinned: _safeBool(j['isPinned']),
       createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
       comments: (j['comments'] as List<dynamic>?)
               ?.map((c) => FeedComment.fromJson(c as Map<String, dynamic>))
@@ -120,7 +136,7 @@ class FeedComment {
   });
 
   factory FeedComment.fromJson(Map<String, dynamic> j) => FeedComment(
-        id: j['id'] as int,
+        id: _safeInt(j['id']),
         content: j['content'] as String? ?? '',
         author: FeedAuthor.fromJson(j['author'] as Map<String, dynamic>),
         createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? 
@@ -193,7 +209,7 @@ class FeedRepository {
 
   Future<bool> toggleLike(int postId) async {
     final response = await apiClient.dio.post('/common-feed/$postId/like');
-    return response.data['liked'] as bool? ?? false;
+    return response.data['liked'] == true || response.data['liked'] == 1;
   }
 
   Future<void> deletePost(int postId) async {

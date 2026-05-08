@@ -5,9 +5,9 @@ import WeeklyPlans from "../WeeklyPlans";
 export default function StudentPlansPage() {
   return (
     <Suspense fallback={<div className="py-12 text-center text-sm text-text-muted">Loading weekly plans…</div>}>
-      <div className="mb-8 rounded-2xl border border-primary-100 bg-primary-50/80 p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-slate-900">AI assistant</h2>
-        <p className="mt-1 text-sm text-slate-600">
+      <div className="mb-8 rounded-2xl border border-primary-100 bg-primary-50/80 p-4 sm:p-6 dark:border-primary-800 dark:bg-primary-900/20">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">AI assistant</h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
           Use the full chat to draft tasks, goals, and deliverables for your week. Nothing is submitted automatically — copy
           what you need into your plan form below.
         </p>

@@ -13,6 +13,14 @@ import '../providers/auth_controller.dart';
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
 
+int _safeInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is double) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
+  return fallback;
+}
+
 class _University {
   const _University({required this.id, required this.name, required this.hasCoordinator});
   final int id;
@@ -35,7 +43,7 @@ final _approvedUniversitiesProvider = FutureProvider<List<_University>>((ref) as
   final list = raw is List ? raw : (raw is Map ? raw['data'] ?? [] : []);
   return (list as List)
       .map((e) => _University(
-            id: e['id'] as int,
+            id: _safeInt(e['id']),
             name: e['name'] as String,
             hasCoordinator: e['hasCoordinator'] == true,
           ))
@@ -49,7 +57,7 @@ final _departmentsProvider =
   final raw = res.data;
   final list = raw is List ? raw : (raw is Map ? raw['data'] ?? [] : []);
   return (list as List)
-      .map((e) => _Department(id: e['id'] as int, department: e['department'] as String))
+      .map((e) => _Department(id: _safeInt(e['id']), department: e['department'] as String))
       .toList();
 });
 

@@ -13,6 +13,9 @@ router.post('/register', authorize([Role.COORDINATOR]), studentCtrl.registerStud
 // Only Students can view their own profile
 router.get('/me', authorize([Role.STUDENT]), studentCtrl.getMyStudentProfile);
 
+// Student: submit open letter request to HoD
+router.post('/open-letter', authorize([Role.STUDENT]), studentCtrl.submitOpenLetter);
+
 // Weekly presentation upload
 router.post('/upload-presentation', authorize([Role.STUDENT]), uploadDocument.single('file'), studentCtrl.uploadWeeklyPresentation);
 

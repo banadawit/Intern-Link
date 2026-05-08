@@ -4,10 +4,9 @@ import prisma from '../config/db';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import { sendNotification } from '../utils/notificationHelper';
+import { sendSuccess, sendError } from '../utils/responseHelper';
 
 // 1. SUPERVISOR: Submit Final Evaluation (FR-16)
-// src/controllers/reportController.ts -> update the submitEvaluation function
-
 export const submitEvaluation = async (req: AuthRequest, res: Response) => {
     try {
         const { studentId, technical_score, soft_skill_score, comments } = req.body;
@@ -15,33 +14,19 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         const supervisor = await prisma.supervisor.findUnique({
             where: { userId: req.user!.userId },
         });
-        if (!supervisor) {
-            return res.status(403).json({ message: 'Only supervisors can submit evaluations.' });
-        }
+        if (!supervisor) return sendError(res, 'Only supervisors can submit evaluations.', 403);
 
         const sid = parseInt(String(studentId), 10);
         const assignment = await prisma.internshipAssignment.findFirst({
             where: { studentId: sid, companyId: supervisor.companyId, status: 'ACTIVE' },
         });
-        if (!assignment) {
-            return res.status(403).json({
-                message: 'This student is not actively placed at your company.',
-            });
-        }
+        if (!assignment) return sendError(res, 'This student is not actively placed at your company.', 403);
 
-        // 1. CHECK REQUIREMENT BR-007: Are there any pending weekly plans?
         const pendingPlans = await prisma.weeklyPlan.count({
-            where: {
-                studentId: sid,
-                status: 'PENDING',
-            },
+            where: { studentId: sid, status: 'PENDING' },
         });
-
         if (pendingPlans > 0) {
-            return res.status(400).json({
-                message:
-                    'Cannot submit final evaluation. There are still pending weekly plans that need approval.',
-            });
+            return sendError(res, 'Cannot submit final evaluation. There are still pending weekly plans that need approval.', 400);
         }
 
         const evaluation = await prisma.finalEvaluation.create({
@@ -54,9 +39,9 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
             },
         });
 
-        res.status(201).json(evaluation);
+        return sendSuccess(res, evaluation, 'Evaluation submitted.', 201);
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message);
     }
 };
 
@@ -73,12 +58,12 @@ export const getMyEvaluation = async (req: AuthRequest, res: Response) => {
                 },
             },
         });
-        if (!student) return res.status(404).json({ message: 'Student not found.' });
+        if (!student) return sendError(res, 'Student not found.', 404);
         if (!student.finalEvaluation) {
-            return res.json({ evaluation: null });
+            return sendSuccess(res, { evaluation: null }, 'No evaluation yet.');
         }
         const ev = student.finalEvaluation;
-        res.json({
+        return sendSuccess(res, {
             evaluation: {
                 technicalScore: Number(ev.technical_score),
                 softSkillScore: Number(ev.soft_skill_score),
@@ -87,9 +72,9 @@ export const getMyEvaluation = async (req: AuthRequest, res: Response) => {
                 supervisorName: ev.supervisor.user.full_name,
                 companyName: ev.supervisor.company.name,
             },
-        });
+        }, 'Evaluation fetched.');
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message);
     }
 };
 
@@ -256,182 +241,93 @@ export const generateStudentReport = async (req: AuthRequest, res: Response) => 
 export const sendReportToUniversity = async (req: AuthRequest, res: Response) => {
     try {
         const studentId = parseInt(String(req.body?.studentId), 10);
-        if (Number.isNaN(studentId)) {
-            return res.status(400).json({ message: 'studentId is required.' });
-        }
+        if (Number.isNaN(studentId)) return sendError(res, 'studentId is required.', 400);
 
         if (req.user?.role === 'SUPERVISOR') {
-            const supervisor = await prisma.supervisor.findUnique({
-                where: { userId: req.user!.userId },
-            });
-            if (!supervisor) {
-                return res.status(403).json({ message: 'Supervisor profile not found.' });
-            }
-
+            const supervisor = await prisma.supervisor.findUnique({ where: { userId: req.user!.userId } });
+            if (!supervisor) return sendError(res, 'Supervisor profile not found.', 403);
             const assignment = await prisma.internshipAssignment.findFirst({
                 where: { studentId, companyId: supervisor.companyId, status: 'ACTIVE' },
             });
-            if (!assignment) {
-                return res.status(403).json({ message: 'Student is not placed at your company.' });
-            }
+            if (!assignment) return sendError(res, 'Student is not placed at your company.', 403);
         } else if (req.user?.role !== 'ADMIN') {
-            return res.status(403).json({ message: 'Forbidden.' });
+            return sendError(res, 'Forbidden.', 403);
         }
 
         const report = await prisma.report.findUnique({ where: { studentId } });
-        if (!report) {
-            return res.status(400).json({ message: 'Generate the PDF before sending to the university.' });
-        }
-        if (report.locked) {
-            return res.status(400).json({ message: 'Report has already been sent to the university.' });
-        }
+        if (!report) return sendError(res, 'Generate the PDF before sending to the university.', 400);
+        if (report.locked) return sendError(res, 'Report has already been sent to the university.', 400);
 
-        const student = await prisma.student.findUnique({
-            where: { id: studentId },
-            include: { user: true },
-        });
-        if (!student) {
-            return res.status(404).json({ message: 'Student not found.' });
-        }
+        const student = await prisma.student.findUnique({ where: { id: studentId }, include: { user: true } });
+        if (!student) return sendError(res, 'Student not found.', 404);
 
         await prisma.report.update({
             where: { studentId },
-            data: {
-                locked: true,
-                sent_at: new Date(),
-                sentToUniversityId: student.universityId,
-            },
+            data: { locked: true, sent_at: new Date(), sentToUniversityId: student.universityId },
         });
 
         const coordinators = await prisma.coordinator.findMany({
             where: { universityId: student.universityId },
             select: { userId: true },
         });
-
         const msg = `Final internship report for ${student.user.full_name} has been submitted by the company and is available.`;
-        for (const c of coordinators) {
-            await sendNotification(c.userId, msg);
-        }
+        for (const c of coordinators) await sendNotification(c.userId, msg);
 
-        res.json({ message: 'Report sent to the university. Coordinators have been notified.' });
+        return sendSuccess(res, { studentId, locked: true }, 'Report sent to the university. Coordinators have been notified.');
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message);
     }
 };
 
 /**
  * Upload signed final report (PDF)
- * Used when student/supervisor uploads a manually signed report
  */
 export const uploadSignedReport = async (req: AuthRequest, res: Response) => {
     try {
         const { studentId } = req.body;
         const file = req.file;
 
-        if (!file) {
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-
-        if (!studentId) {
-            return res.status(400).json({ error: 'studentId is required' });
-        }
+        if (!file) return sendError(res, 'No file uploaded', 400);
+        if (!studentId) return sendError(res, 'studentId is required', 400);
 
         const sid = parseInt(studentId);
+        const student = await prisma.student.findUnique({ where: { id: sid }, include: { assignments: true } });
+        if (!student) return sendError(res, 'Student not found', 404);
 
-        // Verify access
-        const student = await prisma.student.findUnique({
-            where: { id: sid },
-            include: { assignments: true },
-        });
-
-        if (!student) {
-            return res.status(404).json({ error: 'Student not found' });
-        }
-
-        // Check if user has permission
         if (req.user?.role === 'STUDENT' && student.userId !== req.user.userId) {
-            return res.status(403).json({ error: 'Access denied' });
+            return sendError(res, 'Access denied', 403);
         }
-
         if (req.user?.role === 'SUPERVISOR') {
-            const supervisor = await prisma.supervisor.findUnique({
-                where: { userId: req.user.userId },
-            });
-            const placedHere = student.assignments.some(
-                (a) => a.companyId === supervisor?.companyId && a.status === 'ACTIVE'
-            );
-            if (!supervisor || !placedHere) {
-                return res.status(403).json({ error: 'Access denied' });
-            }
+            const supervisor = await prisma.supervisor.findUnique({ where: { userId: req.user.userId } });
+            const placedHere = student.assignments.some((a) => a.companyId === supervisor?.companyId && a.status === 'ACTIVE');
+            if (!supervisor || !placedHere) return sendError(res, 'Access denied', 403);
         }
 
-        // Check if report is locked
-        const existingReport = await prisma.report.findUnique({
-            where: { studentId: sid },
-        });
-
-        if (existingReport?.locked) {
-            return res.status(400).json({
-                error: 'This report has been sent to the university and is locked.',
-            });
-        }
+        const existingReport = await prisma.report.findUnique({ where: { studentId: sid } });
+        if (existingReport?.locked) return sendError(res, 'This report has been sent to the university and is locked.', 400);
 
         const { CloudinaryService } = await import('../services/cloudinary.service');
-
         const folder = `internlink/${student.universityId}/${student.userId}/final-reports`;
 
-        // Replace existing report if any
-        let uploadResult;
+        const uploadResult = await CloudinaryService.uploadDocument(file, {
+            userId: student.userId,
+            organizationId: student.universityId,
+            fileType: 'FINAL_REPORT',
+            folder,
+            resourceType: 'raw',
+        });
+
+        if (!uploadResult.success) return sendError(res, uploadResult.error ?? 'Upload failed', 400);
 
         if (existingReport) {
-            // Upload new file directly (no file record lookup needed)
-            uploadResult = await CloudinaryService.uploadDocument(file, {
-                userId: student.userId,
-                organizationId: student.universityId,
-                fileType: 'FINAL_REPORT',
-                folder,
-                resourceType: 'raw',
-            });
-
-            await prisma.report.update({
-                where: { studentId: sid },
-                data: { 
-                    pdf_url: uploadResult.url!,
-                    stamped: true,
-                    generated_at: new Date(),
-                },
-            });
+            await prisma.report.update({ where: { studentId: sid }, data: { pdf_url: uploadResult.url!, stamped: true, generated_at: new Date() } });
         } else {
-            uploadResult = await CloudinaryService.uploadDocument(file, {
-                userId: student.userId,
-                organizationId: student.universityId,
-                fileType: 'FINAL_REPORT',
-                folder,
-                resourceType: 'raw',
-            });
-
-            await prisma.report.create({
-                data: {
-                    studentId: sid,
-                    pdf_url: uploadResult.url!,
-                    stamped: true,
-                },
-            });
+            await prisma.report.create({ data: { studentId: sid, pdf_url: uploadResult.url!, stamped: true } });
         }
 
-        if (!uploadResult.success) {
-            return res.status(400).json({ error: uploadResult.error });
-        }
-
-        res.json({
-            message: existingReport
-                ? 'Final report replaced successfully'
-                : 'Final report uploaded successfully',
-            url: uploadResult.url,
-            fileId: uploadResult.fileId,
-        });
+        return sendSuccess(res, { url: uploadResult.url }, existingReport ? 'Final report replaced successfully' : 'Final report uploaded successfully');
     } catch (error: any) {
         console.error('Upload signed report error:', error);
-        res.status(500).json({ error: error.message });
+        return sendError(res, error.message);
     }
 };

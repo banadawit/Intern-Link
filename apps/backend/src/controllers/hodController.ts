@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import prisma from '../config/db';
+import { safeFindFirstProposal } from '../utils/querySanitizer';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { ApprovalStatus } from '@prisma/client';
 import { departmentsMatch } from '../utils/hodScope';
@@ -16,6 +17,8 @@ async function getHodOr403(userId: number) {
 }
 
 export const verifyStudent = async (req: AuthRequest, res: Response) => {
+    // ⚠️ DEPRECATED: Use PATCH /hod/students/:id/approve or /reject instead.
+    // This endpoint is kept for backward compatibility only.
     try {
         const uid = req.user?.userId;
         if (!uid) return sendError(res, 'Unauthorized', 401);
@@ -160,6 +163,7 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
                 universityId: hod.universityId,
                 department: { not: null },
                 ...(hodApprovalFilter !== 'all' ? { hod_approval_status: hodApprovalFilter } : {}),
+                ...(status === 'placed' ? { internship_status: 'PLACED' } : {}),
             },
             include: {
                 user: { select: { id: true, email: true, full_name: true, verification_status: true } },
@@ -168,7 +172,40 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
         });
 
         const filtered = rows.filter((s) => departmentsMatch(s.department, hod.department));
-        return sendSuccess(res, filtered);
+
+        // Enrich each student with their latest proposal info so the UI can
+        // show smart status badges without extra round-trips.
+        const studentIds = filtered.map((s) => s.id);
+        const proposals = studentIds.length === 0 ? [] : await prisma.internshipProposal.findMany({
+            where: { studentId: { in: studentIds } },
+            include: { company: { select: { id: true, name: true } } },
+            orderBy: { submitted_at: 'desc' },
+        });
+
+        // Build a map: studentId → latest proposal
+        const proposalMap = new Map<number, typeof proposals[0]>();
+        for (const p of proposals) {
+            if (!proposalMap.has(p.studentId)) proposalMap.set(p.studentId, p);
+        }
+
+        const enriched = filtered.map((s) => {
+            const latestProposal = proposalMap.get(s.id);
+            return {
+                ...s,
+                latestProposal: latestProposal
+                    ? {
+                          id: latestProposal.id,
+                          status: latestProposal.status,
+                          companyId: latestProposal.companyId,
+                          companyName: latestProposal.company.name,
+                          submittedAt: latestProposal.submitted_at,
+                          proposalType: latestProposal.proposal_type,
+                      }
+                    : null,
+            };
+        });
+
+        return sendSuccess(res, enriched);
     } catch (e: any) {
         return sendError(res, e.message);
     }
@@ -188,6 +225,10 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
         
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
             return sendError(res, 'Student not found in your department.', 404);
+        }
+
+        if (student.hod_approval_status === 'APPROVED') {
+            return sendError(res, 'Student is already approved.', 409);
         }
 
         await prisma.student.update({
@@ -235,6 +276,10 @@ export const rejectStudent = async (req: AuthRequest, res: Response) => {
 
         if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
             return sendError(res, 'Student not found in your department.', 404);
+        }
+
+        if (student.hod_approval_status === 'REJECTED') {
+            return sendError(res, 'Student is already rejected.', 409);
         }
 
         const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
@@ -310,49 +355,161 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
         const hod = await getHodOr403(uid!);
         if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
-        const { studentId, companyId, proposal_type, expected_duration_weeks, expected_outcomes } = req.body;
-        const sid = parseInt(String(studentId), 10);
+        const {
+            studentId,
+            studentIds,
+            companyId,
+            proposal_type,
+            proposal_kind,
+            team_name,
+            expected_duration_weeks,
+            expected_outcomes,
+        } = req.body;
+
         const cid = parseInt(String(companyId), 10);
+        const kind: 'INDIVIDUAL' | 'TEAM' = proposal_kind === 'TEAM' ? 'TEAM' : 'INDIVIDUAL';
 
-        const student = await prisma.student.findUnique({ where: { id: sid } });
-        if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
-            return sendError(res, 'Student not found in your department.', 400);
-        }
-        
-        if (student.hod_approval_status !== 'APPROVED') {
-            return sendError(res, 'Student must be approved by HOD before placement.', 400);
+        // ── Resolve student list ──────────────────────────────────────────────
+        let allStudentIds: number[];
+        if (kind === 'TEAM') {
+            if (!Array.isArray(studentIds) || studentIds.length < 2) {
+                return sendError(res, 'TEAM proposals require at least 2 studentIds.', 400);
+            }
+            allStudentIds = studentIds.map((id: any) => parseInt(String(id), 10));
+        } else {
+            const sid = parseInt(String(studentId), 10);
+            if (isNaN(sid)) return sendError(res, 'studentId is required for INDIVIDUAL proposals.', 400);
+            allStudentIds = [sid];
         }
 
-        if (student.internship_status === 'PLACED') {
-            return sendError(res, 'This student already has an active internship placement.', 400);
-        }
-
+        // ── Validate company ──────────────────────────────────────────────────
         const company = await prisma.company.findUnique({ where: { id: cid } });
         if (!company || company.approval_status !== 'APPROVED') {
             return sendError(res, 'Company must be verified (approved).', 400);
         }
 
-        const pendingDup = await prisma.internshipProposal.findFirst({
-            where: { studentId: sid, companyId: cid, status: 'PENDING' },
+        // ── Validate all students ─────────────────────────────────────────────
+        const students = await prisma.student.findMany({
+            where: { id: { in: allStudentIds } },
         });
-        if (pendingDup) {
-            return sendError(res, 'A pending proposal already exists.', 400);
+
+        if (students.length !== allStudentIds.length) {
+            return sendError(res, 'One or more students not found.', 400);
         }
 
-        const proposal = await prisma.internshipProposal.create({
-            data: {
-                studentId: sid,
-                companyId: cid,
-                universityId: hod.universityId,
-                proposal_type: proposal_type || 'HoD_Initiated',
-                status: 'PENDING',
-                expected_duration_weeks: expected_duration_weeks != null ? parseInt(String(expected_duration_weeks), 10) : null,
-                expected_outcomes: typeof expected_outcomes === 'string' ? expected_outcomes : null,
-            },
-        });
+        const errors: string[] = [];
+        for (const s of students) {
+            if (s.universityId !== hod.universityId || !departmentsMatch(s.department, hod.department)) {
+                errors.push(`Student ${s.id} is not in your department.`);
+            } else if (s.hod_approval_status !== 'APPROVED') {
+                errors.push(`Student ${s.id} must be approved by HOD before placement.`);
+            } else if (s.internship_status === 'PLACED') {
+                errors.push(`Student ${s.id} already has an active internship placement.`);
+            }
+        }
+        if (errors.length > 0) return sendError(res, errors.join(' '), 400);
 
-        return sendSuccess(res, proposal, 'Proposal sent.', 201);
+        // ── Duplicate check for each student ──────────────────────────────────
+        for (const sid of allStudentIds) {
+            // Only check PENDING status — SENT/DRAFT don't exist in ApprovalStatus enum
+            const dup = await safeFindFirstProposal({
+                where: { studentId: sid, companyId: cid, status: 'PENDING' },
+            });
+            if (dup) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Student already has a pending proposal for this company.`,
+                    data: {
+                        studentId: sid,
+                        proposalStatus: 'PENDING',
+                        proposalId: dup.id,
+                        companyId: cid,
+                        companyName: company.name,
+                        submittedAt: dup.submitted_at,
+                    },
+                });
+            }
+
+            // Check ProposalTeamMember only if table exists (requires regenerated Prisma client)
+            try {
+                const teamDup = await (prisma as any).proposalTeamMember.findFirst({
+                    where: {
+                        studentId: sid,
+                        proposal: { companyId: cid, status: 'PENDING' },
+                    },
+                    include: { proposal: { include: { company: { select: { name: true } } } } },
+                });
+                if (teamDup) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Student is already in an active team proposal for this company.`,
+                        data: {
+                            studentId: sid,
+                            proposalStatus: 'PENDING',
+                            proposalId: teamDup.proposalId,
+                            companyId: cid,
+                            companyName: teamDup.proposal?.company?.name ?? company.name,
+                            teamName: (teamDup.proposal as any)?.team_name ?? null,
+                            submittedAt: (teamDup.proposal as any)?.submitted_at ?? null,
+                        },
+                    });
+                }
+            } catch (_) {
+                // ProposalTeamMember table not available yet — skip this check
+            }
+        }
+
+        // ── Create proposal ───────────────────────────────────────────────────
+        const leadStudentId = allStudentIds[0];
+        const additionalStudentIds = allStudentIds.slice(1);
+
+        // Use only the core fields that definitely exist in the current Prisma client
+        const coreProposalData = {
+            studentId: leadStudentId,
+            companyId: cid,
+            universityId: hod.universityId,
+            proposal_type: kind === 'TEAM'
+                ? `HoD_Team:${(team_name || 'Team').trim()}:${allStudentIds.join(',')}`
+                : (proposal_type || 'HoD_Initiated'),
+            status: 'PENDING' as const,
+            ...(expected_duration_weeks != null ? { expected_duration_weeks: parseInt(String(expected_duration_weeks), 10) } : {}),
+            ...(typeof expected_outcomes === 'string' && expected_outcomes.trim() ? { expected_outcomes: expected_outcomes.trim() } : {}),
+        };
+
+        // Create with core fields only — guaranteed to work regardless of Prisma client version
+        const proposal = await prisma.internshipProposal.create({ data: coreProposalData });
+
+        // Try to update with new fields (proposal_kind, team_name) if Prisma client supports them
+        try {
+            await (prisma.internshipProposal as any).update({
+                where: { id: proposal.id },
+                data: {
+                    proposal_kind: kind,
+                    ...(kind === 'TEAM' ? { team_name: (team_name || 'Team').trim() } : {}),
+                },
+            });
+        } catch (_) {
+            // New fields not available in current Prisma client — skip silently
+        }
+
+        // Try to add team members if table exists
+        if (kind === 'TEAM' && additionalStudentIds.length > 0) {
+            try {
+                await (prisma as any).proposalTeamMember.createMany({
+                    data: additionalStudentIds.map((sid: number) => ({
+                        proposalId: proposal.id,
+                        studentId: sid,
+                    })),
+                    skipDuplicates: true,
+                });
+            } catch (teamErr: any) {
+                console.warn('ProposalTeamMember insert skipped:', teamErr.message);
+            }
+        }
+
+        return sendSuccess(res, { ...proposal, proposal_kind: kind, teamMembers: [] }, 'Proposal sent.', 201);
     } catch (e: any) {
+        console.error('sendProposal error:', e.message);
         return sendError(res, e.message);
     }
 };
@@ -369,15 +526,36 @@ export const getProposals = async (req: AuthRequest, res: Response) => {
         });
         const studentIds = students.filter((s) => departmentsMatch(s.department, hod.department)).map((s) => s.id);
 
+        // Parse optional status filter — only accept valid ApprovalStatus values
+        const validStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'CANCELLED'];
+        const rawStatus = typeof req.query.status === 'string' ? req.query.status.toUpperCase().trim() : null;
+        const statusFilter = rawStatus && validStatuses.includes(rawStatus) ? rawStatus as ApprovalStatus : null;
+
         const proposals = await prisma.internshipProposal.findMany({
-            where: { studentId: { in: studentIds } },
+            where: {
+                studentId: { in: studentIds },
+                ...(statusFilter ? { status: statusFilter } : {}),
+            },
             include: {
                 student: { include: { user: { select: { full_name: true, email: true } } } },
                 company: { select: { id: true, name: true, official_email: true, approval_status: true } },
             },
             orderBy: { submitted_at: 'desc' },
         });
-        return sendSuccess(res, proposals);
+
+        // Enrich with team members if available (requires regenerated Prisma client)
+        const enriched = await Promise.all(proposals.map(async (p) => {
+            try {
+                const members = await (prisma as any).proposalTeamMember.findMany({
+                    where: { proposalId: p.id },
+                    include: { student: { include: { user: { select: { full_name: true, email: true } } } } },
+                });
+                return { ...p, teamMembers: members, proposal_kind: (p as any).proposal_kind ?? 'INDIVIDUAL', team_name: (p as any).team_name ?? null };
+            } catch {
+                return { ...p, teamMembers: [], proposal_kind: 'INDIVIDUAL', team_name: null };
+            }
+        }));
+        return sendSuccess(res, enriched);
     } catch (e: any) {
         return sendError(res, e.message);
     }
@@ -446,27 +624,95 @@ export const updateOpenLetterProposal = async (req: AuthRequest, res: Response) 
         if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
         const id = parseInt(String(req.params.id), 10);
-        const { status } = req.body as { status?: ApprovalStatus };
-        
+        const { status, reason } = req.body as { status?: string; reason?: string };
+
         if (Number.isNaN(id) || !status || !['APPROVED', 'REJECTED'].includes(status)) {
             return sendError(res, 'Valid status (APPROVED|REJECTED) required', 400);
         }
 
-        const proposal = await prisma.internshipProposal.findUnique({ where: { id } });
-        if (!proposal || proposal.proposal_type !== 'Open_Letter') {
+        // Load the proposal with student + company
+        const proposal = await prisma.internshipProposal.findUnique({
+            where: { id },
+            include: {
+                student: { include: { user: { select: { id: true, full_name: true, email: true } } } },
+                company: { select: { id: true, name: true, official_email: true } },
+            },
+        });
+
+        if (!proposal || !proposal.proposal_type.startsWith('Open_Letter')) {
             return sendError(res, 'Open letter proposal not found.', 404);
         }
 
-        const student = await prisma.student.findUnique({ where: { id: proposal.studentId } });
-        if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
+        if (proposal.status !== 'PENDING') {
+            return sendError(res, `This open letter has already been ${proposal.status.toLowerCase()}.`, 400);
+        }
+
+        const student = proposal.student;
+        if (
+            student.universityId !== hod.universityId ||
+            !departmentsMatch(student.department, hod.department)
+        ) {
             return sendError(res, 'Unauthorized.', 403);
         }
 
+        const rejectionReason = typeof reason === 'string' && reason.trim()
+            ? reason.trim()
+            : 'Your open letter request was reviewed and could not be approved at this time.';
+
+        // ── Update proposal status ────────────────────────────────────────────
         const updated = await prisma.internshipProposal.update({
             where: { id },
-            data: { status, responded_at: new Date() },
+            data: { status: status as ApprovalStatus, responded_at: new Date() },
         });
-        return sendSuccess(res, updated);
+
+        if (status === 'APPROVED') {
+            // ── In-app notification to student ────────────────────────────────
+            await sendNotification(
+                student.user.id,
+                `✅ Your open letter request for ${proposal.company.name} was approved by your HoD. The proposal has been forwarded to the company.`
+            );
+
+            // ── Email to student ──────────────────────────────────────────────
+            const hodUser = await prisma.user.findUnique({ where: { id: uid! }, select: { full_name: true } });
+            sendStudentHodDecisionEmail({
+                to: student.user.email,
+                studentName: student.user.full_name,
+                universityName: hod.university.name,
+                department: hod.department,
+                decision: 'approved',
+            }).catch((e: any) => console.error('Open letter approval email error:', e?.message));
+
+            // ── Notify all supervisors at the target company ──────────────────
+            const supervisors = await prisma.supervisor.findMany({
+                where: { companyId: proposal.companyId },
+                select: { userId: true },
+            });
+            for (const sup of supervisors) {
+                await sendNotification(
+                    sup.userId,
+                    `📋 New internship proposal: ${student.user.full_name} from ${hod.university.name} is applying for an internship at your company. Please review and respond.`
+                );
+            }
+
+        } else {
+            // ── REJECTED: notify student with reason ──────────────────────────
+            await sendNotification(
+                student.user.id,
+                `❌ Your open letter request for ${proposal.company.name} was not approved by your HoD.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`
+            );
+
+            // ── Email to student with rejection reason ────────────────────────
+            sendStudentHodDecisionEmail({
+                to: student.user.email,
+                studentName: student.user.full_name,
+                universityName: hod.university.name,
+                department: hod.department,
+                decision: 'rejected',
+                reason: rejectionReason,
+            }).catch((e: any) => console.error('Open letter rejection email error:', e?.message));
+        }
+
+        return sendSuccess(res, updated, `Open letter ${status.toLowerCase()}.`);
     } catch (e: any) {
         return sendError(res, e.message);
     }

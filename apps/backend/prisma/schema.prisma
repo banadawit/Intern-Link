@@ -23,6 +23,7 @@ enum ApprovalStatus {
   APPROVED
   REJECTED
   SUSPENDED
+  CANCELLED
 }
 
 enum InternshipStatus {
@@ -212,10 +213,14 @@ model Student {
   department        String?
   /// HOD must approve self-registered students before full access (coordinator-registered students are APPROVED).
   hod_approval_status ApprovalStatus @default(PENDING)
+  /// Optional flag set by HoD: 'LOW_PERFORMANCE' | 'INACTIVE'
+  flag_type         String?
+  flag_note         String?          @db.Text
 
   assignments       InternshipAssignment[]
   weeklyPlans       WeeklyPlan[]
   proposals         InternshipProposal[]
+  teamProposals     ProposalTeamMember[]
   finalEvaluation   FinalEvaluation?
   finalReport       Report?
   weeklyReports     WeeklyReport[]
@@ -232,13 +237,33 @@ model InternshipProposal {
   student       Student        @relation(fields: [studentId], references: [id])
   studentId     Int
   status        ApprovalStatus @default(PENDING)
-  proposal_type String         // "University_Initiated" or "Open_Letter"
+  proposal_type String         // "University_Initiated" | "Open_Letter" | "HoD_Initiated"
+  /// "INDIVIDUAL" (default) or "TEAM"
+  proposal_kind String         @default("INDIVIDUAL")
+  /// Optional team name for TEAM proposals
+  team_name     String?
   submitted_at  DateTime       @default(now())
   expected_duration_weeks Int?
   expected_outcomes       String?    @db.Text
   responded_at            DateTime?
 
+  /// Additional team members (empty for INDIVIDUAL proposals)
+  teamMembers   ProposalTeamMember[]
+
   @@index([studentId, companyId, status])
+}
+
+/// Join table for team proposal members (excludes the lead student already in studentId).
+model ProposalTeamMember {
+  id         Int                @id @default(autoincrement())
+  proposal   InternshipProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposalId Int
+  student    Student            @relation(fields: [studentId], references: [id])
+  studentId  Int
+
+  @@unique([proposalId, studentId])
+  @@index([proposalId])
+  @@index([studentId])
 }
 
 model InternshipAssignment {
@@ -331,13 +356,18 @@ model Report {
 }
 
 model Team {
-  id         Int           @id @default(autoincrement())
-  name       String
-  companyId  Int
-  company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  members    StudentTeam[]
-  created_at DateTime      @default(now())
-  deleted_at DateTime?
+  id           Int           @id @default(autoincrement())
+  name         String
+  companyId    Int
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// Optional: link this team to a project
+  projectId    Int?
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  /// Supervisor who created/owns this team
+  supervisorId Int?
+  members      StudentTeam[]
+  created_at   DateTime      @default(now())
+  deleted_at   DateTime?
 }
 
 model StudentTeam {
@@ -350,13 +380,23 @@ model StudentTeam {
 }
 
 model Project {
-  id         Int               @id @default(autoincrement())
-  name       String
-  companyId  Int
-  company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  students   StudentProject[]
-  created_at DateTime          @default(now())
-  deleted_at DateTime?
+  id             Int               @id @default(autoincrement())
+  name           String
+  description    String?           @db.Text
+  /// Max number of students that can be assigned (0 = unlimited)
+  capacity       Int               @default(0)
+  /// JSON array of required skill strings e.g. ["Python","React"]
+  requiredSkills String[]          @default([])
+  companyId      Int
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// Supervisor who owns this project
+  supervisorId   Int?
+  students       StudentProject[]
+  teams          Team[]
+  created_at     DateTime          @default(now())
+  deleted_at     DateTime?
+
+  @@index([companyId, deleted_at])
 }
 
 model StudentProject {

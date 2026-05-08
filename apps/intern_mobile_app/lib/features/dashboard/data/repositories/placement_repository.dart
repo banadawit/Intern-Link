@@ -11,6 +11,7 @@ class PlacementProposal {
   final int studentId;
   final int companyId;
   final String status;
+  final String proposalType;
   final String? proposalLetter;
   final DateTime requestedAt;
   final String companyName;
@@ -20,20 +21,33 @@ class PlacementProposal {
     required this.studentId,
     required this.companyId,
     required this.status,
+    required this.proposalType,
     this.proposalLetter,
     required this.requestedAt,
     required this.companyName,
   });
 
+  bool get isOpenLetter => proposalType == 'Open_Letter';
+
   factory PlacementProposal.fromJson(Map<String, dynamic> json) {
+    int si(dynamic v) {
+      if (v == null) return 0;
+      if (v is int) return v;
+      if (v is double) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
     return PlacementProposal(
-      id: json['id'] ?? 0,
-      studentId: json['studentId'] ?? 0,
-      companyId: json['companyId'] ?? 0,
-      status: json['status'] ?? 'PENDING',
-      proposalLetter: json['proposal_letter'],
-      requestedAt: DateTime.parse(json['requested_at'] ?? DateTime.now().toIso8601String()),
-      companyName: json['company']?['name'] ?? 'Unknown Company',
+      id: si(json['id']),
+      studentId: si(json['studentId']),
+      companyId: si(json['companyId']),
+      status: json['status']?.toString() ?? 'PENDING',
+      proposalType: json['proposal_type']?.toString() ?? '',
+      proposalLetter: json['expected_outcomes']?.toString(),
+      requestedAt: json['submitted_at'] != null
+          ? DateTime.tryParse(json['submitted_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      companyName: json['company']?['name']?.toString() ?? 'Unknown Company',
     );
   }
 }
@@ -49,8 +63,9 @@ class PlacementRepository {
   Future<List<PlacementProposal>> getMyProposals() async {
     try {
       final response = await _apiClient.dio.get('/placements/my-proposals');
-      final data = response.data as List;
-      return data.map((e) => PlacementProposal.fromJson(e)).toList();
+      final raw = response.data;
+      final list = (raw is Map ? raw['data'] : raw) as List? ?? [];
+      return list.map((e) => PlacementProposal.fromJson(Map<String, dynamic>.from(e as Map))).toList();
     } on DioException catch (e) {
       final data = e.response?.data;
       String message = 'Failed to load proposals';
@@ -63,6 +78,19 @@ class PlacementRepository {
     } catch (e) {
       throw Exception('An unexpected error occurred: $e');
     }
+  }
+
+  Future<PlacementProposal> submitOpenLetter({
+    required String companyName,
+    required String coverLetter,
+  }) async {
+    final response = await _apiClient.dio.post('/students/open-letter', data: {
+      'company_name': companyName,
+      'cover_letter': coverLetter,
+    });
+    final raw = response.data;
+    final data = (raw is Map ? (raw['data'] ?? raw) : raw) as Map<String, dynamic>;
+    return PlacementProposal.fromJson(data);
   }
 }
 
