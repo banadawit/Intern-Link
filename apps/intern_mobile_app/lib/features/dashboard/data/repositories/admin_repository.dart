@@ -204,8 +204,18 @@ class AdminRepository {
     };
     final response = await apiClient.dio.post('/admin/universities', data: body);
     final raw = response.data;
-    if (raw is Map && raw['success'] == true) return Map<String, dynamic>.from(raw['data'] ?? {});
-    throw Exception(raw is Map ? (raw['error'] ?? raw['message'] ?? 'Failed') : 'Failed');
+    if (raw is Map) {
+      if (raw.containsKey('success')) {
+        if (raw['success'] == true) {
+          final data = raw['data'] is Map ? raw['data'] : {};
+          return Map<String, dynamic>.from(data['university'] ?? data);
+        }
+        throw Exception(raw['error'] ?? raw['message'] ?? 'Failed');
+      } else {
+        return Map<String, dynamic>.from(raw['university'] ?? raw);
+      }
+    }
+    throw Exception('Failed');
   }
 
   /// Create a company (auto-approved). Optionally creates a supervisor
@@ -226,8 +236,18 @@ class AdminRepository {
     };
     final response = await apiClient.dio.post('/admin/companies', data: body);
     final raw = response.data;
-    if (raw is Map && raw['success'] == true) return Map<String, dynamic>.from(raw['data'] ?? {});
-    throw Exception(raw is Map ? (raw['error'] ?? raw['message'] ?? 'Failed') : 'Failed');
+    if (raw is Map) {
+      if (raw.containsKey('success')) {
+        if (raw['success'] == true) {
+          final data = raw['data'] is Map ? raw['data'] : {};
+          return Map<String, dynamic>.from(data['company'] ?? data);
+        }
+        throw Exception(raw['error'] ?? raw['message'] ?? 'Failed');
+      } else {
+        return Map<String, dynamic>.from(raw['company'] ?? raw);
+      }
+    }
+    throw Exception('Failed');
   }
 
   /// Set per-university student registration override.

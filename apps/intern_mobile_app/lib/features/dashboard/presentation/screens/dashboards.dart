@@ -343,17 +343,17 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                     ref.read(dashboardIndexProvider.notifier).state = 4; // Reports tab
                   }, isSelected: currentIndex == 4),
                 ] else if (widget.roleLabel == 'ADMIN') ...[
-                  _buildDrawerItem(Icons.manage_accounts_rounded, 'User Management', () {
+                  _buildDrawerItem(Icons.business_rounded, 'Organizations', () {
                     Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 2; // Users Tab
-                  }, isSelected: currentIndex == 2),
-                  _buildDrawerItem(Icons.domain_verification_rounded, 'Institution Approvals', () {
-                    Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 1; // Approvals Tab
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // Orgs Tab
                   }, isSelected: currentIndex == 1),
-                  _buildDrawerItem(Icons.analytics_rounded, 'System Logs', () {
+                  _buildDrawerItem(Icons.receipt_long_rounded, 'System Logs', () {
                     Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 3; // Logs Tab
+                    ref.read(dashboardIndexProvider.notifier).state = 2; // Logs Tab
+                  }, isSelected: currentIndex == 2),
+                  _buildDrawerItem(Icons.settings_suggest_rounded, 'Config', () {
+                    Navigator.pop(context);
+                    ref.read(dashboardIndexProvider.notifier).state = 3; // Config Tab
                   }, isSelected: currentIndex == 3),
                 ],
 
@@ -8814,7 +8814,6 @@ class AdminDashboardScreen extends StatelessWidget {
           view: const _AdminOrganizationsTab(),
           secondaryFab: const _CreateOrgFab(),
         ),
-        const _DashboardTab(label: 'Users', icon: Icons.group_outlined, activeIcon: Icons.group_rounded, view: _AdminUsersTab()),
         const _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
         const _DashboardTab(label: 'Config', icon: Icons.settings_suggest_outlined, activeIcon: Icons.settings_suggest_rounded, view: _AdminSettingsTab()),
       ],
@@ -8880,9 +8879,9 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                     delegate: SliverChildListDelegate([
                       _buildOverviewGrid(context, stats, isDark),
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Pending Approvals'),
+                      _buildSectionHeader(theme, 'Pending Organizations'),
                       const SizedBox(height: 16),
-                      _buildPendingApprovalsPreview(context, ref, isDark),
+                      _buildPendingOrgsPreview(context, ref, isDark),
 
                       const SizedBox(height: 32),
                       _buildRecentActivitiesPreview(context, ref, isDark),
@@ -8961,15 +8960,13 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
     );
   }
 
-  Widget _buildPendingApprovalsPreview(BuildContext context, WidgetRef ref, bool isDark) {
+  Widget _buildPendingOrgsPreview(BuildContext context, WidgetRef ref, bool isDark) {
     final unis = ref.watch(pendingUniversitiesProvider).asData?.value ?? [];
     final comps = ref.watch(pendingCompaniesProvider).asData?.value ?? [];
-    final coords = ref.watch(pendingCoordinatorsProvider).asData?.value ?? [];
     
     final allPending = [
       ...unis.map((u) => {'id': u['id'], 'title': u['name'], 'subtitle': 'University Reg.', 'type': 'UNI'}),
       ...comps.map((c) => {'id': c['id'], 'title': c['name'], 'subtitle': 'Company Reg.', 'type': 'COMP'}),
-      ...coords.map((co) => {'id': co['userId'], 'title': co['user']['full_name'], 'subtitle': 'Coordinator Acc.', 'type': 'COORD'}),
     ].take(3).toList();
 
     if (allPending.isEmpty) {
@@ -8980,7 +8977,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
         ),
-        child: const Center(child: Text('All caught up! No pending approvals.', style: TextStyle(color: Colors.grey))),
+        child: const Center(child: Text('All caught up! No pending organizations.', style: TextStyle(color: Colors.grey))),
       );
     }
 
@@ -8999,11 +8996,11 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: (item['type'] == 'UNI' || item['type'] == 'COMP' ? Colors.blue : Colors.purple).withOpacity(0.1),
+                  color: Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(item['type'] == 'UNI' ? Icons.school_rounded : (item['type'] == 'COMP' ? Icons.business_rounded : Icons.person_rounded), 
-                  color: item['type'] == 'UNI' || item['type'] == 'COMP' ? Colors.blue : Colors.purple, size: 20),
+                child: Icon(item['type'] == 'UNI' ? Icons.school_rounded : Icons.business_rounded, 
+                  color: Colors.blue, size: 20),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -9025,12 +9022,10 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                         final type = item['type'] as String;
                         if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'REJECTED');
                         else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'REJECTED');
-                        else if (type == 'COORD') await adminRepo.rejectCoordinator(id);
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected'), backgroundColor: Colors.redAccent));
                         ref.invalidate(adminStatsProvider);
                         ref.invalidate(pendingUniversitiesProvider);
                         ref.invalidate(pendingCompaniesProvider);
-                        ref.invalidate(pendingCoordinatorsProvider);
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
                       }
@@ -9047,12 +9042,10 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                         final type = item['type'] as String;
                         if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'APPROVED');
                         else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'APPROVED');
-                        else if (type == 'COORD') await adminRepo.approveCoordinator(id);
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!'), backgroundColor: Colors.green));
                         ref.invalidate(adminStatsProvider);
                         ref.invalidate(pendingUniversitiesProvider);
                         ref.invalidate(pendingCompaniesProvider);
-                        ref.invalidate(pendingCoordinatorsProvider);
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
                       }
@@ -9066,11 +9059,123 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
           ),
         )),
         TextButton(
-          onPressed: () {}, // Tab switching handled by user manually or through complex logic
+          onPressed: () => ref.read(dashboardIndexProvider.notifier).state = 1,
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('View All Approvals'),
+              Text('View All Organizations'),
+              Icon(Icons.chevron_right_rounded, size: 16),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPendingUsersPreview(BuildContext context, WidgetRef ref, bool isDark) {
+    final coords = ref.watch(pendingCoordinatorsProvider).asData?.value ?? [];
+    final sups = ref.watch(pendingSupervisorsProvider).asData?.value ?? [];
+    
+    final allPending = [
+      ...coords.map((co) => {'id': co['userId'], 'title': co['user']['full_name'], 'subtitle': 'Coordinator Acc.', 'type': 'COORD'}),
+      ...sups.map((s) => {'id': s['userId'], 'title': s['user']['full_name'], 'subtitle': 'Supervisor Acc.', 'type': 'SUP'}),
+    ].take(3).toList();
+
+    if (allPending.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        ),
+        child: const Center(child: Text('All caught up! No pending users.', style: TextStyle(color: Colors.grey))),
+      );
+    }
+
+    return Column(
+      children: [
+        ...allPending.map((item) => Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.person_rounded, 
+                  color: Colors.purple, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item['title']! as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(item['subtitle']! as String, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () async {
+                      try {
+                        final adminRepo = ref.read(adminRepositoryProvider);
+                        final id = _parseInt(item['id']);
+                        final type = item['type'] as String;
+                        if (type == 'COORD') await adminRepo.rejectCoordinator(id);
+                        else if (type == 'SUP') await adminRepo.rejectSupervisor(id);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected'), backgroundColor: Colors.redAccent));
+                        ref.invalidate(adminStatsProvider);
+                        ref.invalidate(pendingCoordinatorsProvider);
+                        ref.invalidate(pendingSupervisorsProvider);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
+                      }
+                    },
+                    icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 20),
+                    style: IconButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.1)),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () async {
+                      try {
+                        final adminRepo = ref.read(adminRepositoryProvider);
+                        final id = _parseInt(item['id']);
+                        final type = item['type'] as String;
+                        if (type == 'COORD') await adminRepo.approveCoordinator(id);
+                        else if (type == 'SUP') await adminRepo.approveSupervisor(id);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!'), backgroundColor: Colors.green));
+                        ref.invalidate(adminStatsProvider);
+                        ref.invalidate(pendingCoordinatorsProvider);
+                        ref.invalidate(pendingSupervisorsProvider);
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
+                      }
+                    },
+                    icon: const Icon(Icons.check_rounded, color: Colors.green, size: 20),
+                    style: IconButton.styleFrom(backgroundColor: Colors.green.withOpacity(0.1)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        )),
+        TextButton(
+          onPressed: () => ref.read(dashboardIndexProvider.notifier).state = 2,
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('View All Users'),
               Icon(Icons.chevron_right_rounded, size: 16),
             ],
           ),
@@ -9209,9 +9314,8 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
       runSpacing: 12,
       children: [
         _buildNavChip(context, ref, 'Orgs', Icons.business_rounded, isDark, 1),
-        _buildNavChip(context, ref, 'Users', Icons.group_rounded, isDark, 2),
-        _buildNavChip(context, ref, 'Audit Logs', Icons.receipt_long_rounded, isDark, 3),
-        _buildNavChip(context, ref, 'Config', Icons.settings_rounded, isDark, 4),
+        _buildNavChip(context, ref, 'Audit Logs', Icons.receipt_long_rounded, isDark, 2),
+        _buildNavChip(context, ref, 'Config', Icons.settings_rounded, isDark, 3),
       ],
     );
   }
@@ -9247,6 +9351,8 @@ class _AdminOrganizationsTab extends ConsumerStatefulWidget {
   ConsumerState<_AdminOrganizationsTab> createState() => _AdminOrganizationsTabState();
 }
 
+final optimisticOrgsProvider = StateProvider<List<Map<String, dynamic>>>((ref) => []);
+
 // ── Standalone FAB — lives in the scaffold FAB slot, has its own ref ──────────
 class _CreateOrgFab extends ConsumerWidget {
   const _CreateOrgFab();
@@ -9262,6 +9368,19 @@ class _CreateOrgFab extends ConsumerWidget {
       child: const Icon(Icons.add_business_rounded),
     );
   }
+}
+
+String _getReadableError(dynamic e) {
+  if (e.runtimeType.toString() == 'DioException' || e.runtimeType.toString() == '_DioException') {
+    try {
+      final data = (e as dynamic).response?.data;
+      if (data is Map) {
+        return data['message'] ?? data['error'] ?? 'Server error';
+      }
+    } catch (_) {}
+    return 'Network connection failed.';
+  }
+  return e.toString().replaceAll('Exception: ', '');
 }
 
 /// Top-level function — no dependency on any State, works from any context.
@@ -9380,36 +9499,81 @@ void _showCreateOrgSheet(BuildContext context, WidgetRef ref) {
                           setSaveState(() => isSaving = true);
                           try {
                             final repo = ref.read(adminRepositoryProvider);
+                            Map<String, dynamic> createdOrg;
                             if (orgType == 'University') {
-                              await repo.createUniversity(
+                              createdOrg = await repo.createUniversity(
                                 name: name, officialEmail: email,
                                 address: addressCtrl.text.trim(),
                                 contactName: contactNameCtrl.text.trim(),
                                 contactEmail: contactEmailCtrl.text.trim(),
                               );
+                              createdOrg['type'] = 'University';
                             } else {
-                              await repo.createCompany(
+                              createdOrg = await repo.createCompany(
                                 name: name, officialEmail: email,
                                 address: addressCtrl.text.trim(),
                                 contactName: contactNameCtrl.text.trim(),
                                 contactEmail: contactEmailCtrl.text.trim(),
                               );
+                              createdOrg['type'] = 'Company';
                             }
+                            
+                            // Optimistically add to UI immediately
+                            createdOrg['approval_status'] = 'APPROVED'; // Admin created orgs are auto-approved
+                            ref.read(optimisticOrgsProvider.notifier).update((state) => [createdOrg, ...state]);
+
                             ref.invalidate(allUniversitiesProvider);
                             ref.invalidate(allCompaniesProvider);
                             ref.invalidate(adminStatsProvider);
                             if (context.mounted) {
                               Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content: Text('$orgType "$name" created${contactEmailCtrl.text.trim().isNotEmpty ? ' — setup email sent' : ''}'),
-                                backgroundColor: Colors.green,
-                              ));
+                              showDialog(
+                                context: context,
+                                builder: (c) => AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  title: const Row(
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, color: Colors.green),
+                                      SizedBox(width: 10),
+                                      Text('Success'),
+                                    ],
+                                  ),
+                                  content: Text(
+                                    '$orgType "$name" has been successfully created.'
+                                    '${contactEmailCtrl.text.trim().isNotEmpty ? '\n\nA password setup email has been sent to the contact person.' : ''}'
+                                  ),
+                                  actions: [
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(c),
+                                      style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                                      child: const Text('Great'),
+                                    ),
+                                  ],
+                                ),
+                              );
                             }
                           } catch (e) {
                             setSaveState(() => isSaving = false);
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                              showDialog(
+                                context: ctx, // using the modal's context so it appears over it
+                                builder: (c) => AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  title: const Row(
+                                    children: [
+                                      Icon(Icons.error_outline_rounded, color: Colors.red),
+                                      SizedBox(width: 10),
+                                      Text('Creation Failed'),
+                                    ],
+                                  ),
+                                  content: Text(_getReadableError(e)),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(c),
+                                      child: const Text('OK', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
                               );
                             }
                           }
@@ -9521,17 +9685,20 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
 
     return Material(
       color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+      child: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+            ),
           ),
-        ),
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
+          child: CustomScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const BouncingScrollPhysics(),
+            slivers: [
             ModernSliverAppBar(
               title: 'Organizations',
               subtitle: 'Manage Universities & Companies',
@@ -9563,6 +9730,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
+      ),
       ),
     );
   }
@@ -9668,15 +9836,39 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
         loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
         error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
         data: (comps) {
-          final all = [
-            ...unis.map((u) => {...Map<String, dynamic>.from(u), 'type': 'University'}),
-            ...comps.map((c) => {...Map<String, dynamic>.from(c), 'type': 'Company'}),
-          ].where((o) {
-            final matchesSearch = o['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
-            final matchesType = _orgTypeFilter == 'All' || o['type'] == _orgTypeFilter;
-            final matchesStatus = o['approval_status'] == _orgStatusFilter;
-            return matchesSearch && matchesType && matchesStatus;
-          }).toList();
+          final sQuery = _searchQuery.toLowerCase();
+          
+          Iterable<Map<String, dynamic>> filteredUnis = [];
+          if (_orgTypeFilter != 'Company') {
+            filteredUnis = unis.where((u) {
+              if (u['approval_status'] != _orgStatusFilter) return false;
+              if (sQuery.isNotEmpty && !u['name'].toString().toLowerCase().contains(sQuery)) return false;
+              return true;
+            }).map((u) => {...Map<String, dynamic>.from(u as Map), 'type': 'University'});
+          }
+
+          Iterable<Map<String, dynamic>> filteredComps = [];
+          if (_orgTypeFilter != 'University') {
+            filteredComps = comps.where((c) {
+              if (c['approval_status'] != _orgStatusFilter) return false;
+              if (sQuery.isNotEmpty && !c['name'].toString().toLowerCase().contains(sQuery)) return false;
+              return true;
+            }).map((c) => {...Map<String, dynamic>.from(c as Map), 'type': 'Company'});
+          }
+
+          final optimistic = ref.watch(optimisticOrgsProvider).where((o) {
+              if (o['approval_status'] != _orgStatusFilter) return false;
+              if (sQuery.isNotEmpty && !o['name'].toString().toLowerCase().contains(sQuery)) return false;
+              if (_orgTypeFilter != 'All' && o['type'] != _orgTypeFilter) return false;
+              return true;
+          });
+
+          // Merge and remove duplicates by ID
+          final Map<String, dynamic> uniqueMap = {};
+          for (var org in [...optimistic, ...filteredUnis, ...filteredComps]) {
+            uniqueMap[org['id'].toString()] = org;
+          }
+          final all = uniqueMap.values.toList();
 
           if (all.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No organizations found'))));
 
@@ -9907,39 +10099,39 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
                       const Text('Override the global setting for this university only.', style: TextStyle(fontSize: 11, color: Colors.grey)),
                       const SizedBox(height: 14),
                       Row(children: [
-                        Expanded(child: _regOverrideChip(setModalState, 'Global', null, studentRegEnabled, Colors.grey, (v) => studentRegEnabled = v)),
+                        Expanded(child: _regOverrideChip(setModalState, 'Global', null, studentRegEnabled, Colors.grey, (v) async {
+                          setModalState(() => studentRegEnabled = v);
+                          if (context.mounted) Navigator.pop(context);
+                          try {
+                            await ref.read(adminRepositoryProvider).setUniversityStudentReg(orgId, v);
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registration set to global'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)));
+                          } catch (e) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                          }
+                        })),
                         const SizedBox(width: 8),
-                        Expanded(child: _regOverrideChip(setModalState, 'Open', true, studentRegEnabled, Colors.green, (v) => studentRegEnabled = v)),
+                        Expanded(child: _regOverrideChip(setModalState, 'Open', true, studentRegEnabled, Colors.green, (v) async {
+                          setModalState(() => studentRegEnabled = v);
+                          if (context.mounted) Navigator.pop(context);
+                          try {
+                            await ref.read(adminRepositoryProvider).setUniversityStudentReg(orgId, v);
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registration opened'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)));
+                          } catch (e) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                          }
+                        })),
                         const SizedBox(width: 8),
-                        Expanded(child: _regOverrideChip(setModalState, 'Closed', false, studentRegEnabled, Colors.red, (v) => studentRegEnabled = v)),
+                        Expanded(child: _regOverrideChip(setModalState, 'Closed', false, studentRegEnabled, Colors.red, (v) async {
+                          setModalState(() => studentRegEnabled = v);
+                          if (context.mounted) Navigator.pop(context);
+                          try {
+                            await ref.read(adminRepositoryProvider).setUniversityStudentReg(orgId, v);
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registration closed'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)));
+                          } catch (e) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                          }
+                        })),
                       ]),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            try {
-                              await ref.read(adminRepositoryProvider).setUniversityStudentReg(orgId, studentRegEnabled);
-                              if (context.mounted) {
-                                final label = studentRegEnabled == null ? 'inheriting global' : studentRegEnabled! ? 'open' : 'closed';
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  content: Text('Student registration for "${org['name']}" set to $label'),
-                                  backgroundColor: Colors.green,
-                                ));
-                              }
-                            } catch (e) {
-                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                            }
-                          },
-                          icon: const Icon(Icons.save_rounded, size: 16),
-                          label: const Text('Save Override', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.indigo,
-                            side: const BorderSide(color: Colors.indigo),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ),
                     ]),
                   ),
                 ],
@@ -9963,7 +10155,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
   Widget _regOverrideChip(StateSetter setModalState, String label, bool? value, bool? current, Color color, void Function(bool?) onSelect) {
     final selected = current == value;
     return GestureDetector(
-      onTap: () => setModalState(() => onSelect(value)),
+      onTap: () => onSelect(value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 8),
