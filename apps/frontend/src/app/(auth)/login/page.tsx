@@ -236,7 +236,7 @@ const LoginPage = () => {
               type="email"
               autoComplete="email"
               required
-              placeholder="name@university.edu.et"
+              placeholder="Enter your email address"
               className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all duration-200 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                 ${errors.email && touched.email
