@@ -60,7 +60,12 @@ export const register = async (req: Request, res: Response) => {
 
         // Upload verification document if provided (PDF or image)
         let verificationDocUrl: string | null = null;
-        if (file) {
+
+        // Accept pre-uploaded Cloudinary URL from frontend
+        if (typeof req.body.verification_document === 'string' && req.body.verification_document.trim()) {
+            verificationDocUrl = req.body.verification_document.trim();
+        } else if (file) {
+            // Fallback: handle direct file upload
             const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
             const apiKey = process.env.CLOUDINARY_API_KEY;
             const apiSecret = process.env.CLOUDINARY_API_SECRET;
@@ -78,7 +83,6 @@ export const register = async (req: Request, res: Response) => {
                     verificationDocUrl = uploadResult.url!;
                 } else {
                     console.warn('Verification doc upload failed:', uploadResult.error);
-                    // Non-fatal — admin can request doc manually
                 }
             } else {
                 console.warn('Cloudinary not configured — skipping verification doc upload.');

@@ -142,9 +142,11 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   <th className="px-6 py-3">Name</th>
+                  <th className="px-6 py-3">Email</th>
+                  <th className="px-6 py-3">Address</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Registered</th>
-                  <th className="px-6 py-3">Document</th>
+                  <th className="px-6 py-3">Documents</th>
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -155,7 +157,16 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                     <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="px-6 py-4">
                         <p className="font-semibold text-slate-900">{p.organizationName}</p>
-                        {p.description && <p className="text-xs text-slate-400 truncate max-w-xs">{p.description}</p>}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {p.email ? (
+                          <a href={`mailto:${p.email}`} className="hover:text-teal-600 hover:underline">{p.email}</a>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-500 max-w-[160px] truncate">
+                        {p.description || <span className="italic text-slate-400">—</span>}
                       </td>
                       <td className="px-6 py-4">
                         <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ring-1", cfg.bg, cfg.text, cfg.ring)}>
@@ -166,14 +177,22 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                         {format(new Date(p.submittedAt), "MMM d, yyyy")}
                       </td>
                       <td className="px-6 py-4">
-                        {p.documents?.[0] ? (
-                          <a href={p.documents[0]} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
-                            View <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">None</span>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {p.documents?.[0] ? (
+                            <a href={p.documents[0]} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
+                              Verification doc <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">No doc</span>
+                          )}
+                          {p.stampImageUrl && (
+                            <a href={p.stampImageUrl} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
+                              Stamp <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-1.5">
