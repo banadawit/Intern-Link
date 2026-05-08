@@ -24,6 +24,7 @@ enum ApprovalStatus {
   REJECTED
   SUSPENDED
   CANCELLED
+  RESUBMITTED
 }
 
 enum InternshipStatus {
@@ -247,6 +248,8 @@ model InternshipProposal {
   expected_duration_weeks Int?
   expected_outcomes       String?    @db.Text
   responded_at            DateTime?
+  /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
+  attachments             Json       @default("[]")
 
   /// Additional team members (empty for INDIVIDUAL proposals)
   teamMembers   ProposalTeamMember[]
@@ -290,6 +293,8 @@ model WeeklyPlan {
   feedback         String?        @db.Text
   reviewed_at      DateTime?
   version          Int            @default(1)
+  /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
+  attachments      Json           @default("[]")
 
   presentation     WeeklyPresentation?
   weeklyReports    WeeklyReport[]
@@ -558,6 +563,8 @@ model AuditLog {
 enum FileType {
   VERIFICATION_DOC
   WEEKLY_PRESENTATION
+  PLAN_ATTACHMENT
+  PROPOSAL_ATTACHMENT
   COMPANY_STAMP
   FINAL_REPORT
   COMMON_FEED_IMAGE

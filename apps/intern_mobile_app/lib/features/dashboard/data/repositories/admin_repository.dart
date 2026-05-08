@@ -149,14 +149,99 @@ class AdminRepository {
   Future<Map<String, String>> getConfig() async {
     final response = await apiClient.dio.get('/admin/config');
     final raw = response.data;
+    // After interceptor unwrap: raw = { key: value, ... } (flat map)
+    // Or if not unwrapped: raw = { success: true, data: { key: value } }
+    Map<dynamic, dynamic>? configMap;
     if (raw is Map) {
-      return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+      // Check if it's already the flat config or still wrapped
+      if (raw.containsKey('success') && raw.containsKey('data')) {
+        configMap = raw['data'] as Map?;
+      } else {
+        configMap = raw;
+      }
     }
-    return {};
+    if (configMap == null) return {};
+    return Map<String, String>.fromEntries(
+      configMap.entries.map((e) => MapEntry(e.key.toString(), e.value?.toString() ?? '')),
+    );
   }
 
-  Future<void> updateConfig(Map<String, String> updates) async {
-    await apiClient.dio.patch('/admin/config', data: updates);
+  Future<Map<String, String>> updateConfig(Map<String, String> updates) async {
+    final response = await apiClient.dio.patch('/admin/config', data: updates);
+    final raw = response.data;
+    // Return the updated config so the UI can update immediately
+    Map<dynamic, dynamic>? configMap;
+    if (raw is Map) {
+      if (raw.containsKey('success') && raw.containsKey('data')) {
+        configMap = raw['data'] as Map?;
+      } else {
+        configMap = raw;
+      }
+    }
+    if (configMap == null) return updates;
+    return Map<String, String>.fromEntries(
+      configMap.entries.map((e) => MapEntry(e.key.toString(), e.value?.toString() ?? '')),
+    );
+  }
+
+  // --- MANUAL ENTITY CREATION ---
+
+  /// Create a university (auto-approved). Optionally creates a coordinator
+  /// contact user who receives a password setup email.
+  Future<Map<String, dynamic>> createUniversity({
+    required String name,
+    required String officialEmail,
+    String? address,
+    String? contactName,
+    String? contactEmail,
+  }) async {
+    final body = <String, dynamic>{
+      'name': name,
+      'official_email': officialEmail,
+      if (address != null && address.isNotEmpty) 'address': address,
+      if (contactName != null && contactName.isNotEmpty && contactEmail != null && contactEmail.isNotEmpty)
+        'contactUser': {'name': contactName, 'email': contactEmail},
+    };
+    final response = await apiClient.dio.post('/admin/universities', data: body);
+    final raw = response.data;
+    if (raw is Map && raw['success'] == true) return Map<String, dynamic>.from(raw['data'] ?? {});
+    throw Exception(raw is Map ? (raw['error'] ?? raw['message'] ?? 'Failed') : 'Failed');
+  }
+
+  /// Create a company (auto-approved). Optionally creates a supervisor
+  /// contact user who receives a password setup email.
+  Future<Map<String, dynamic>> createCompany({
+    required String name,
+    required String officialEmail,
+    String? address,
+    String? contactName,
+    String? contactEmail,
+  }) async {
+    final body = <String, dynamic>{
+      'name': name,
+      'official_email': officialEmail,
+      if (address != null && address.isNotEmpty) 'address': address,
+      if (contactName != null && contactName.isNotEmpty && contactEmail != null && contactEmail.isNotEmpty)
+        'contactUser': {'name': contactName, 'email': contactEmail},
+    };
+    final response = await apiClient.dio.post('/admin/companies', data: body);
+    final raw = response.data;
+    if (raw is Map && raw['success'] == true) return Map<String, dynamic>.from(raw['data'] ?? {});
+    throw Exception(raw is Map ? (raw['error'] ?? raw['message'] ?? 'Failed') : 'Failed');
+  }
+
+  /// Set per-university student registration override.
+  /// [enabled] = true/false to override, null to inherit global setting.
+  Future<void> setUniversityStudentReg(int universityId, bool? enabled) async {
+    await apiClient.dio.patch(
+      '/admin/universities/$universityId/config',
+      data: {'studentRegistrationEnabled': enabled},
+    );
+  }
+
+  /// Send (or resend) a password setup link to an existing user by email.
+  Future<void> sendSetupLink(String email) async {
+    await apiClient.dio.post('/auth/send-setup-link', data: {'email': email});
   }
 
   Future<bool> testSmtp() async {

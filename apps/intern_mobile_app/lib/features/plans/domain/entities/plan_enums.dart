@@ -2,23 +2,26 @@ enum WeeklyPlanStatus {
   draft,
   pending,
   approved,
-  rejected;
+  rejected,
+  resubmitted;
 
   static WeeklyPlanStatus fromApi(String raw) {
     final v = raw.trim().toUpperCase();
     return switch (v) {
-      'DRAFT' => WeeklyPlanStatus.draft,
-      'APPROVED' => WeeklyPlanStatus.approved,
-      'REJECTED' => WeeklyPlanStatus.rejected,
-      _ => WeeklyPlanStatus.pending,
+      'DRAFT'        => WeeklyPlanStatus.draft,
+      'APPROVED'     => WeeklyPlanStatus.approved,
+      'REJECTED'     => WeeklyPlanStatus.rejected,
+      'RESUBMITTED'  => WeeklyPlanStatus.resubmitted,
+      _              => WeeklyPlanStatus.pending,
     };
   }
 
   String toApi() => switch (this) {
-        WeeklyPlanStatus.draft => 'DRAFT',
-        WeeklyPlanStatus.pending => 'PENDING',
-        WeeklyPlanStatus.approved => 'APPROVED',
-        WeeklyPlanStatus.rejected => 'REJECTED',
+        WeeklyPlanStatus.draft        => 'DRAFT',
+        WeeklyPlanStatus.pending      => 'PENDING',
+        WeeklyPlanStatus.approved     => 'APPROVED',
+        WeeklyPlanStatus.rejected     => 'REJECTED',
+        WeeklyPlanStatus.resubmitted  => 'RESUBMITTED',
       };
 }
 

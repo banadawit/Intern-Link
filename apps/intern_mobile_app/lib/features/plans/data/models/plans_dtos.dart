@@ -44,6 +44,21 @@ class PlansDtos {
         ),
     ];
 
+    // Parse JSON attachments array
+    final rawAttachments = json['attachments'];
+    final attachments = <PlanAttachment>[];
+    if (rawAttachments is List) {
+      for (final a in rawAttachments) {
+        if (a is Map) {
+          try {
+            attachments.add(PlanAttachment.fromJson(Map<String, dynamic>.from(a)));
+          } catch (_) {}
+        }
+      }
+    }
+
+    final version = _safeInt(json['version'], 1);
+
     return WeeklyPlan(
       id: _safeInt(json['id']),
       studentId: _safeInt(json['studentId']),
@@ -56,6 +71,8 @@ class PlansDtos {
       createdAt: createdAt,
       checkins: daySubs,
       files: files,
+      attachments: attachments,
+      version: version,
     );
   }
 

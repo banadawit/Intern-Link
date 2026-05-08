@@ -12,6 +12,8 @@ const DEFAULTS: Record<string, string> = {
   registration_coordinator_open: 'true',
   registration_supervisor_open: 'true',
   registration_hod_open: 'true',
+  registration_university_open: 'true',
+  registration_company_open: 'true',
   // Internship rules
   internship_min_weeks: '4',
   internship_max_weeks: '24',
@@ -56,7 +58,7 @@ export const getConfig = async (req: AuthRequest, res: Response) => {
     const config = await getFullConfig();
     res.json({ success: true, data: config });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: e.message });
   }
 };
 
@@ -64,10 +66,9 @@ export const updateConfig = async (req: AuthRequest, res: Response) => {
   try {
     const updates = req.body as Record<string, string>;
     if (!updates || typeof updates !== 'object') {
-      return res.status(400).json({ error: 'Body must be a key-value object.' });
+      return res.status(400).json({ success: false, error: 'Body must be a key-value object.' });
     }
 
-    // Upsert each key
     await Promise.all(
       Object.entries(updates).map(([key, value]) =>
         prisma.systemConfig.upsert({
@@ -79,9 +80,9 @@ export const updateConfig = async (req: AuthRequest, res: Response) => {
     );
 
     const config = await getFullConfig();
-    res.json({ success: true, data: config });
+    res.json({ success: true, data: config, message: 'Configuration updated.' });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: e.message });
   }
 };
 
