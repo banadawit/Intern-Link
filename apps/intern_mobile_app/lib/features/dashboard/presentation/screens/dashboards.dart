@@ -8877,30 +8877,53 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                   padding: const EdgeInsets.all(24),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
+                      if (stats.pendingApprovals > 0) ...[
+                        _buildSectionHeader(theme, 'Priority Alerts'),
+                        const SizedBox(height: 16),
+                        _buildPriorityAlerts(context, stats, ref, isDark),
+                        const SizedBox(height: 32),
+                      ],
+
+                      _buildSectionHeader(theme, 'Overview Cards'),
+                      const SizedBox(height: 16),
                       _buildOverviewGrid(context, stats, isDark),
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Pending Organizations'),
-                      const SizedBox(height: 16),
-                      _buildPendingOrgsPreview(context, ref, isDark),
 
+                      _buildSectionHeader(theme, 'Growth & Analytics'),
+                      const SizedBox(height: 16),
+                      _buildGrowthAnalytics(context, isDark, theme),
                       const SizedBox(height: 32),
+
+                      _buildSectionHeader(theme, 'Organization Breakdown'),
+                      const SizedBox(height: 16),
+                      _buildOrganizationBreakdown(context, stats, isDark),
+                      const SizedBox(height: 32),
+
+                      _buildSectionHeader(theme, 'Internship Overview'),
+                      const SizedBox(height: 16),
+                      _buildInternshipOverview(context, stats, isDark),
+                      const SizedBox(height: 32),
+
+                      _buildSectionHeader(theme, 'Reports Snapshot'),
+                      const SizedBox(height: 16),
+                      _buildReportsSnapshot(context, stats, isDark),
+                      const SizedBox(height: 32),
+
+                      _buildSectionHeader(theme, 'Recent Activity'),
+                      const SizedBox(height: 16),
                       _buildRecentActivitiesPreview(context, ref, isDark),
-
-                      FeedPreviewSection(),
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Broadcast Announcement'),
-                      const SizedBox(height: 16),
-                      _buildQuickBroadcastBox(context, theme, isDark),
 
-                      const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'System Health'),
+                      _buildSectionHeader(theme, 'Security / Health'),
                       const SizedBox(height: 16),
                       _buildSystemHealthWidget(context, isDark),
-
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Quick Navigation'),
+
+                      _buildSectionHeader(theme, 'Quick Actions'),
                       const SizedBox(height: 16),
                       _buildQuickNavigation(context, ref, isDark),
+                      const SizedBox(height: 16),
+                      _buildQuickBroadcastBox(context, theme, isDark),
 
                       const SizedBox(height: 120),
                     ]),
@@ -8921,7 +8944,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
       crossAxisCount: 2,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      childAspectRatio: 1.05,
+      childAspectRatio: 0.85,
       children: [
         _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
         _buildStatCard(context, 'Institutions', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.account_balance_rounded, Colors.orange, isDark),
@@ -8933,256 +8956,263 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
 
   Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 12)),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+          // Radial Mesh Glow
+          Positioned(
+            right: -20,
+            top: -20,
+            child: Container(
+              width: 100, height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0)],
+                ),
+              ),
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
           ),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1)),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color.withValues(alpha: 0.8), color],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 6))],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+                const Spacer(),
+                Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1, color: isDark ? Colors.white : const Color(0xFF1E293B))),
+                const SizedBox(height: 4),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, fontSize: 13, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPendingOrgsPreview(BuildContext context, WidgetRef ref, bool isDark) {
-    final unis = ref.watch(pendingUniversitiesProvider).asData?.value ?? [];
-    final comps = ref.watch(pendingCompaniesProvider).asData?.value ?? [];
-    
-    final allPending = [
-      ...unis.map((u) => {'id': u['id'], 'title': u['name'], 'subtitle': 'University Reg.', 'type': 'UNI'}),
-      ...comps.map((c) => {'id': c['id'], 'title': c['name'], 'subtitle': 'Company Reg.', 'type': 'COMP'}),
-    ].take(3).toList();
+  Widget _buildPriorityAlerts(BuildContext context, dynamic stats, WidgetRef ref, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.red.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: 0.2), shape: BoxShape.circle),
+            child: const Icon(Icons.warning_rounded, color: Colors.redAccent),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Action Required', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.redAccent.shade700)),
+                const SizedBox(height: 4),
+                Text('There are ${stats.pendingApprovals} pending organizations/users waiting for approval.', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey.shade400 : Colors.grey.shade700)),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => ref.read(dashboardIndexProvider.notifier).state = 1,
+            child: const Text('Review', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (allPending.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-        ),
-        child: const Center(child: Text('All caught up! No pending organizations.', style: TextStyle(color: Colors.grey))),
-      );
-    }
+  Widget _buildGrowthAnalytics(BuildContext context, bool isDark, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.show_chart_rounded, color: Colors.blue),
+              const SizedBox(width: 8),
+              Text('Monthly Growth', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                child: const Text('+12.4%', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: _buildGrowthStat('New Users', '+342', Colors.purple, isDark)),
+              Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.2)),
+              Expanded(child: _buildGrowthStat('Organizations', '+15', Colors.orange, isDark)),
+              Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.2)),
+              Expanded(child: _buildGrowthStat('Placements', '+89', Colors.blue, isDark)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildGrowthStat(String label, String value, Color color, bool isDark) {
     return Column(
       children: [
-        ...allPending.map((item) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-          ),
-          child: Row(
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildOrganizationBreakdown(BuildContext context, dynamic stats, bool isDark) {
+    final total = stats.totalUniversities + stats.totalCompanies;
+    final uniPct = total == 0 ? 0.0 : stats.totalUniversities / total;
+    final compPct = total == 0 ? 0.0 : stats.totalCompanies / total;
+    
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(item['type'] == 'UNI' ? Icons.school_rounded : Icons.business_rounded, 
-                  color: Colors.blue, size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item['title']! as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text(item['subtitle']! as String, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () async {
-                      try {
-                        final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = _parseInt(item['id']);
-                        final type = item['type'] as String;
-                        if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'REJECTED');
-                        else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'REJECTED');
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected'), backgroundColor: Colors.redAccent));
-                        ref.invalidate(adminStatsProvider);
-                        ref.invalidate(pendingUniversitiesProvider);
-                        ref.invalidate(pendingCompaniesProvider);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
-                      }
-                    },
-                    icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 20),
-                    style: IconButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.1)),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () async {
-                      try {
-                        final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = _parseInt(item['id']);
-                        final type = item['type'] as String;
-                        if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'APPROVED');
-                        else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'APPROVED');
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!'), backgroundColor: Colors.green));
-                        ref.invalidate(adminStatsProvider);
-                        ref.invalidate(pendingUniversitiesProvider);
-                        ref.invalidate(pendingCompaniesProvider);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
-                      }
-                    },
-                    icon: const Icon(Icons.check_rounded, color: Colors.green, size: 20),
-                    style: IconButton.styleFrom(backgroundColor: Colors.green.withOpacity(0.1)),
-                  ),
-                ],
-              ),
+              _buildBreakdownItem('Universities', stats.totalUniversities.toString(), Colors.blue),
+              _buildBreakdownItem('Companies', stats.totalCompanies.toString(), Colors.purple),
             ],
           ),
-        )),
-        TextButton(
-          onPressed: () => ref.read(dashboardIndexProvider.notifier).state = 1,
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('View All Organizations'),
-              Icon(Icons.chevron_right_rounded, size: 16),
-            ],
+          const SizedBox(height: 20),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                Expanded(flex: (uniPct * 100).toInt() == 0 ? 1 : (uniPct * 100).toInt(), child: Container(height: 12, color: Colors.blue)),
+                Expanded(flex: (compPct * 100).toInt() == 0 ? 1 : (compPct * 100).toInt(), child: Container(height: 12, color: Colors.purple)),
+              ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreakdownItem(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildPendingUsersPreview(BuildContext context, WidgetRef ref, bool isDark) {
-    final coords = ref.watch(pendingCoordinatorsProvider).asData?.value ?? [];
-    final sups = ref.watch(pendingSupervisorsProvider).asData?.value ?? [];
-    
-    final allPending = [
-      ...coords.map((co) => {'id': co['userId'], 'title': co['user']['full_name'], 'subtitle': 'Coordinator Acc.', 'type': 'COORD'}),
-      ...sups.map((s) => {'id': s['userId'], 'title': s['user']['full_name'], 'subtitle': 'Supervisor Acc.', 'type': 'SUP'}),
-    ].take(3).toList();
-
-    if (allPending.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-        ),
-        child: const Center(child: Text('All caught up! No pending users.', style: TextStyle(color: Colors.grey))),
-      );
-    }
-
-    return Column(
-      children: [
-        ...allPending.map((item) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+  Widget _buildInternshipOverview(BuildContext context, dynamic stats, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.work_history_rounded, color: Colors.orange, size: 32),
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.person_rounded, 
-                  color: Colors.purple, size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item['title']! as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text(item['subtitle']! as String, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () async {
-                      try {
-                        final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = _parseInt(item['id']);
-                        final type = item['type'] as String;
-                        if (type == 'COORD') await adminRepo.rejectCoordinator(id);
-                        else if (type == 'SUP') await adminRepo.rejectSupervisor(id);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected'), backgroundColor: Colors.redAccent));
-                        ref.invalidate(adminStatsProvider);
-                        ref.invalidate(pendingCoordinatorsProvider);
-                        ref.invalidate(pendingSupervisorsProvider);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
-                      }
-                    },
-                    icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 20),
-                    style: IconButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.1)),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () async {
-                      try {
-                        final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = _parseInt(item['id']);
-                        final type = item['type'] as String;
-                        if (type == 'COORD') await adminRepo.approveCoordinator(id);
-                        else if (type == 'SUP') await adminRepo.approveSupervisor(id);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!'), backgroundColor: Colors.green));
-                        ref.invalidate(adminStatsProvider);
-                        ref.invalidate(pendingCoordinatorsProvider);
-                        ref.invalidate(pendingSupervisorsProvider);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
-                      }
-                    },
-                    icon: const Icon(Icons.check_rounded, color: Colors.green, size: 20),
-                    style: IconButton.styleFrom(backgroundColor: Colors.green.withOpacity(0.1)),
-                  ),
-                ],
-              ),
-            ],
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Total Evaluations', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                Text('${stats.totalEvaluations}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              ],
+            ),
           ),
-        )),
-        TextButton(
-          onPressed: () => ref.read(dashboardIndexProvider.notifier).state = 2,
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('View All Users'),
-              Icon(Icons.chevron_right_rounded, size: 16),
-            ],
-          ),
-        ),
-      ],
+          const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        ],
+      ),
     );
   }
+
+  Widget _buildReportsSnapshot(BuildContext context, dynamic stats, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.summarize_rounded, color: Colors.teal, size: 32),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Submitted Reports', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                Text('${stats.totalReports}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        ],
+      ),
+    );
+  }
+
+
 
   Widget _buildRecentActivitiesPreview(BuildContext context, WidgetRef ref, bool isDark) {
     final logs = ref.watch(auditLogsProvider).asData?.value ?? [];
@@ -9191,9 +9221,10 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
         children: [
@@ -9214,8 +9245,8 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(colors: [theme.colorScheme.primary, theme.colorScheme.secondary]),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 12))],
       ),
       child: Column(
         children: [
@@ -9274,9 +9305,10 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 24, offset: const Offset(0, 12))],
       ),
       child: Column(
         children: [
