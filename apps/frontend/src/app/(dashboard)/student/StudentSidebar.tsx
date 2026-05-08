@@ -43,7 +43,7 @@ const StudentSidebar = () => {
     router.push("/login");
   };
 
-  const displayName = user?.fullName ?? "John Doe";
+  const displayName = user?.fullName ?? "Student";
   const initials =
     user?.fullName
       ?.split(/\s+/)
