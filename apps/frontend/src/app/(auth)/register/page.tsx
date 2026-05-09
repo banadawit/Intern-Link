@@ -402,13 +402,9 @@ const RegisterPage = () => {
       
       const result = await register(registerData);
       
-      // Coordinators and HoDs go to verify-email with role param for proper redirect
+      // Redirect to verify-email page (no token in URL — token is only in the email link)
       const roleParam = role === 'coordinator' ? '&role=coordinator' : role === 'hod' ? '&role=hod' : role === 'student' ? '&role=student' : role === 'supervisor' ? '&role=supervisor' : '';
-      if (result?.verificationToken) {
-        router.push(`/verify-email?token=${encodeURIComponent(result.verificationToken)}&email=${encodeURIComponent(formData.email)}${roleParam}`);
-      } else {
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}${roleParam}`);
-      }
+      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}${roleParam}`);
       
     } catch (error: unknown) {
       const err = error as { message?: string };
@@ -563,7 +559,7 @@ const RegisterPage = () => {
                   value={formData.fullName}
                   onChange={handleInputChange}
                   onBlur={() => handleBlur('fullName')}
-                  placeholder="John Doe"
+                  placeholder="Enter your full name"
                   className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                     focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                     ${errors.fullName && touched.fullName 
@@ -593,7 +589,7 @@ const RegisterPage = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   onBlur={() => handleBlur('email')}
-                  placeholder={role === 'coordinator' ? 'name@university.edu.et' : 'name@email.com'}
+                  placeholder={role === 'coordinator' ? 'Enter your university email' : 'Enter your email address'}
                   className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                     focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                     ${errors.email && touched.email 
@@ -776,7 +772,7 @@ const RegisterPage = () => {
                       name="universityName"
                       value={formData.universityName}
                       onChange={handleInputChange}
-                      placeholder="e.g., Haramaya University"
+                      placeholder="Enter your university name"
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                     />
                   </div>
@@ -877,7 +873,7 @@ const RegisterPage = () => {
                       name="department"
                       value={formData.department}
                       onChange={handleInputChange}
-                      placeholder="e.g., Software Engineering"
+                      placeholder="Enter your department name"
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                     />
                   </div>
@@ -893,7 +889,7 @@ const RegisterPage = () => {
                     name="employeeId"
                     value={formData.employeeId}
                     onChange={handleInputChange}
-                    placeholder="e.g., EMP-2024-001"
+                    placeholder="Enter your employee ID (optional)"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                   />
                 </div>
@@ -913,7 +909,7 @@ const RegisterPage = () => {
                       name="companyName"
                       value={formData.companyName}
                       onChange={handleInputChange}
-                      placeholder="e.g., Ethio Telecom"
+                      placeholder="Enter your company name"
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                     />
                   </div>
@@ -927,7 +923,7 @@ const RegisterPage = () => {
                     name="position"
                     value={formData.position}
                     onChange={handleInputChange}
-                    placeholder="e.g., HR Manager"
+                    placeholder="Enter your position or job title"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                   />
                 </div>
@@ -1052,7 +1048,7 @@ const RegisterPage = () => {
                     name="studentId"
                     value={formData.studentId}
                     onChange={handleInputChange}
-                    placeholder="e.g., 2122/142"
+                    placeholder="Enter your student ID"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                   />
                 </div>

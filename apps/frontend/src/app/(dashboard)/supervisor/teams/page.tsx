@@ -145,8 +145,8 @@ export default function SupervisorTeamsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Teams</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 md:text-3xl">Teams</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Organize interns into teams and manage group assignments.
           </p>
         </div>
@@ -155,7 +155,7 @@ export default function SupervisorTeamsPage() {
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             Refresh
@@ -172,7 +172,7 @@ export default function SupervisorTeamsPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3 text-sm text-red-800 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
           <button type="button" onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
@@ -189,13 +189,13 @@ export default function SupervisorTeamsPage() {
             { label: "Total students", value: students.length, icon: Users, color: "bg-blue-50 text-blue-600" },
             { label: "Team members", value: teams.reduce((a, t) => a + t.members.length, 0), icon: UserPlus, color: "bg-emerald-50 text-emerald-600" },
           ].map((s) => (
-            <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm">
               <div className={cn("rounded-xl p-2.5", s.color)}>
                 <s.icon className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{s.label}</p>
-                <p className="text-xl font-bold text-slate-900">{s.value}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{s.label}</p>
+                <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{s.value}</p>
               </div>
             </div>
           ))}
@@ -204,14 +204,14 @@ export default function SupervisorTeamsPage() {
 
       {/* Team cards */}
       {loading ? (
-        <div className="flex min-h-[30vh] items-center justify-center text-slate-500">
+        <div className="flex min-h-[30vh] items-center justify-center text-slate-500 dark:text-slate-400">
           <RefreshCw className="h-8 w-8 animate-spin text-primary-600" />
         </div>
       ) : teams.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white py-16 text-center">
-          <UserSquare2 className="h-12 w-12 text-slate-300 mb-3" />
-          <p className="text-base font-semibold text-slate-600">No teams yet</p>
-          <p className="text-sm text-slate-400 mt-1">Create your first team to start organizing interns.</p>
+        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-16 text-center">
+          <UserSquare2 className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
+          <p className="text-base font-semibold text-slate-600 dark:text-slate-400">No teams yet</p>
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Create your first team to start organizing interns.</p>
           <button
             type="button"
             onClick={() => setShowCreate(true)}
@@ -226,16 +226,16 @@ export default function SupervisorTeamsPage() {
           {teams.map((team) => {
             const available = availableFor(team);
             return (
-              <div key={team.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+              <div key={team.id} className="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm transition-shadow hover:shadow-md">
                 {/* Card header */}
-                <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-700 px-5 py-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="rounded-xl bg-primary-50 p-2.5 text-primary-600 shrink-0">
                       <UsersRound className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <h2 className="truncate font-bold text-slate-900">{team.name}</h2>
-                      <p className="text-xs text-slate-400">
+                      <h2 className="truncate font-bold text-slate-900 dark:text-slate-100">{team.name}</h2>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         {team.members.length} member{team.members.length !== 1 ? "s" : ""}
                       </p>
                     </div>
@@ -257,13 +257,13 @@ export default function SupervisorTeamsPage() {
                       <div
                         key={m.student.id}
                         title={m.student.user.full_name}
-                        className={cn("flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 ring-white", colorForId(m.student.id))}
+                        className={cn("flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ring-2 ring-white dark:ring-slate-900", colorForId(m.student.id))}
                       >
                         {initials(m.student.user.full_name)}
                       </div>
                     ))}
                     {team.members.length > 5 && (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 ring-2 ring-white">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 ring-2 ring-white dark:ring-slate-900">
                         +{team.members.length - 5}
                       </div>
                     )}
@@ -273,17 +273,17 @@ export default function SupervisorTeamsPage() {
                 {/* Members list */}
                 <div className="flex-1 px-5 py-3 space-y-2">
                   {team.members.length === 0 ? (
-                    <p className="text-sm text-slate-400 italic">No members yet.</p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 italic">No members yet.</p>
                   ) : (
                     team.members.map((m) => (
-                      <div key={m.student.id} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                      <div key={m.student.id} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 dark:bg-slate-800 px-3 py-2">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold", colorForId(m.student.id))}>
                             {initials(m.student.user.full_name)}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900">{m.student.user.full_name}</p>
-                            <p className="truncate text-xs text-slate-500">{m.student.user.email}</p>
+                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{m.student.user.full_name}</p>
+                            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{m.student.user.email}</p>
                           </div>
                         </div>
                         <button
@@ -300,7 +300,7 @@ export default function SupervisorTeamsPage() {
                 </div>
 
                 {/* Add member */}
-                <div className="border-t border-slate-100 px-5 py-3">
+                <div className="border-t border-slate-100 dark:border-slate-700 px-5 py-3">
                   <div className="flex gap-2">
                     <StudentPicker
                       students={available.map((s) => s.student)}
@@ -319,7 +319,7 @@ export default function SupervisorTeamsPage() {
                     </button>
                   </div>
                   {available.length === 0 && (
-                    <p className="mt-1.5 text-xs text-slate-400">All active students are already in this team.</p>
+                    <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">All active students are already in this team.</p>
                   )}
                 </div>
               </div>
@@ -330,9 +330,9 @@ export default function SupervisorTeamsPage() {
 
       {/* Recently deleted */}
       {deletedTeams.length > 0 && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">🗑️ Recently deleted</h2>
-          <p className="text-xs text-slate-400 mb-4">Teams are permanently deleted after 24 hours. Restore them before then.</p>
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">🗑️ Recently deleted</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">Teams are permanently deleted after 24 hours. Restore them before then.</p>
           <div className="space-y-2">
             {deletedTeams.map((t) => {
               const deletedAt = new Date(t.deleted_at);
@@ -341,10 +341,10 @@ export default function SupervisorTeamsPage() {
               const hLeft = Math.max(0, Math.floor(msLeft / 3600000));
               const mLeft = Math.max(0, Math.floor((msLeft % 3600000) / 60000));
               return (
-                <div key={t.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                <div key={t.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3">
                   <div>
-                    <p className="font-semibold text-slate-700 text-sm">{t.name}</p>
-                    <p className="text-xs text-slate-400">Expires in {hLeft}h {mLeft}m</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">{t.name}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">Expires in {hLeft}h {mLeft}m</p>
                   </div>
                   <button
                     type="button"
@@ -363,28 +363,28 @@ export default function SupervisorTeamsPage() {
       {/* Create team modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl mx-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">New team</h3>
-              <button type="button" onClick={() => setShowCreate(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">New team</h3>
+              <button type="button" onClick={() => setShowCreate(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form onSubmit={(e) => void create(e)} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-700">Team name</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Team name</label>
                 <input
                   autoFocus
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. Frontend Team"
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                 />
               </div>
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setShowCreate(false)}
-                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
                   Cancel
                 </button>
                 <button type="submit" disabled={creating || !newName.trim()}
@@ -399,19 +399,19 @@ export default function SupervisorTeamsPage() {
       {/* Delete confirmation modal */}
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl mx-4 space-y-4">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-red-50 p-2.5 text-red-600">
                 <Trash2 className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Delete team?</h3>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Delete team?</h3>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               <strong>"{deleteModal.name}"</strong> will be moved to trash. You have <strong>24 hours</strong> to restore it before it's permanently deleted.
             </p>
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={() => setDeleteModal(null)}
-                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
                 Cancel
               </button>
               <button type="button" onClick={() => void confirmDelete()} disabled={deleting}

@@ -169,9 +169,7 @@ export const useAuth = create<AuthState>()(
         email: data.email,
         password: data.password,
         role: data.role.toUpperCase(),
-        verification_document: data.verificationDocument, // Now a string URL
-        
-        // Role-specific fields
+        verification_document: typeof data.verificationDocument === 'string' ? data.verificationDocument : undefined,
         ...(data.role === 'coordinator' && {
           university_name: data.universityName,
           position: data.position,
@@ -192,34 +190,7 @@ export const useAuth = create<AuthState>()(
         }),
       };
 
-          // Add role-specific fields
-          if (data.role === 'coordinator') {
-            if (data.universityName) formData.append('university_name', data.universityName);
-            if (data.position) formData.append('position', data.position);
-          } else if (data.role === 'hod') {
-            if (data.universityId) formData.append('university_id', String(data.universityId));
-            if (data.department) formData.append('department', data.department);
-            if (data.employeeId) formData.append('employee_id', data.employeeId);
-          } else if (data.role === 'supervisor') {
-            if (data.companyName) formData.append('company_name', data.companyName);
-            if (data.position) formData.append('position', data.position);
-          } else if (data.role === 'student') {
-            if (data.universityId) formData.append('university_id', String(data.universityId));
-            if (data.hodId) formData.append('hod_id', String(data.hodId));
-            if (data.studentId) formData.append('student_id', data.studentId);
-          }
-
-          // Accept either a File upload or a pre-uploaded URL string
-          if (data.verificationDocument instanceof File) {
-            formData.append('verification_document', data.verificationDocument);
-          } else if (typeof data.verificationDocument === 'string' && data.verificationDocument.trim()) {
-            formData.append('verification_document', data.verificationDocument.trim());
-          }
-
-          // Send as multipart/form-data (let browser set Content-Type with boundary)
-          const response = await api.post<RegisterResponse>('/auth/register', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
+          const response = await api.post<RegisterResponse>('/auth/register', payload);
           
           set({ isLoading: false });
           return {

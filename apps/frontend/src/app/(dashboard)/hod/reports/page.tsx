@@ -40,7 +40,7 @@ export default function HodReportsPage() {
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto"
+            className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
             Refresh
@@ -49,11 +49,11 @@ export default function HodReportsPage() {
       />
 
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">{error}</div>
       )}
 
       {loading && reports.length === 0 ? (
-        <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
+        <div className="flex min-h-[40vh] items-center justify-center text-slate-500 dark:text-slate-400">
           <Loader2 className="h-10 w-10 animate-spin text-primary-600" aria-hidden />
         </div>
       ) : (

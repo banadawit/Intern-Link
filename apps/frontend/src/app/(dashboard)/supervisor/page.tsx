@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/api/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -47,8 +47,9 @@ export default function SupervisorDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await api.get<{ success: boolean; data: MeResponse }>("/supervisor/me");
       setData(res.data.data);
@@ -60,13 +61,13 @@ export default function SupervisorDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">
+      <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
         <AlertCircle className="h-5 w-5 shrink-0" />{error}
       </div>
     );
@@ -84,7 +85,7 @@ export default function SupervisorDashboardPage() {
 
   if (!supervisor?.company) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
+      <div className="flex min-h-[40vh] items-center justify-center text-slate-500 dark:text-slate-400">
         Company profile not linked. Contact support.
       </div>
     );
@@ -110,10 +111,10 @@ export default function SupervisorDashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-primary-600">Company portal</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl dark:text-slate-100">
             Welcome back, {user?.fullName ?? supervisor.user.full_name}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {supervisor.company.name} · {supervisor.company.official_email}
           </p>
         </div>
@@ -121,7 +122,7 @@ export default function SupervisorDashboardPage() {
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           Refresh
@@ -131,14 +132,14 @@ export default function SupervisorDashboardPage() {
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {/* Pending proposals */}
-        <Link href="/supervisor/proposals" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-300 hover:shadow-md">
+        <Link href="/supervisor/proposals" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pending proposals</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Pending proposals</p>
               <p className={cn("mt-2 text-3xl font-bold", stats.pendingProposalsCount > 0 ? "text-violet-600" : "text-slate-900")}>
                 {stats.pendingProposalsCount}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {stats.pendingProposalsCount > 0 ? "Need your response" : "All reviewed"}
               </p>
             </div>
@@ -154,14 +155,14 @@ export default function SupervisorDashboardPage() {
         </Link>
 
         {/* Pending weekly plans */}
-        <Link href="/supervisor/plans" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md">
+        <Link href="/supervisor/plans" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pending plans</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Pending plans</p>
               <p className={cn("mt-2 text-3xl font-bold", stats.pendingWeeklyPlansCount > 0 ? "text-amber-600" : "text-slate-900")}>
                 {stats.pendingWeeklyPlansCount}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {stats.pendingWeeklyPlansCount > 0 ? "Awaiting review" : "All up to date"}
               </p>
             </div>
@@ -177,18 +178,18 @@ export default function SupervisorDashboardPage() {
         </Link>
 
         {/* Active interns */}
-        <Link href="/supervisor/students" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md">
+        <Link href="/supervisor/students" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Active interns</p>
-              <p className="mt-2 text-3xl font-bold text-slate-900">{stats.placedStudentsCount}</p>
-              <p className="mt-1 text-xs text-slate-500">Placed at your company</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Active interns</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{stats.placedStudentsCount}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Placed at your company</p>
             </div>
             <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600 shrink-0">
               <Users className="h-5 w-5" />
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
+          <div className="mt-3 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
             <span className="flex items-center gap-1">
               <Send className="h-3 w-3 text-emerald-500" />
               {approvedProposalsCount} total approved
@@ -197,12 +198,12 @@ export default function SupervisorDashboardPage() {
         </Link>
 
         {/* Reports */}
-        <Link href="/supervisor/reports" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-rose-300 hover:shadow-md">
+        <Link href="/supervisor/reports" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-rose-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Reports submitted</p>
-              <p className="mt-2 text-3xl font-bold text-slate-900">{reportsSubmittedCount}</p>
-              <p className="mt-1 text-xs text-slate-500">Final evaluations sent</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Reports submitted</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{reportsSubmittedCount}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Final evaluations sent</p>
             </div>
             <div className="rounded-xl bg-rose-50 p-2.5 text-rose-600 shrink-0">
               <FileCheck className="h-5 w-5" />
@@ -218,15 +219,15 @@ export default function SupervisorDashboardPage() {
         <div className="grid gap-5 lg:grid-cols-2">
           {/* Pending proposals */}
           {recentPendingProposals.length > 0 && (
-            <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
+            <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-5 dark:border-violet-900/50 dark:bg-violet-900/20">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="rounded-lg bg-violet-100 p-1.5 text-violet-600">
                     <Inbox className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Incoming proposals</h3>
-                    <p className="text-xs text-slate-500">{stats.pendingProposalsCount} awaiting response</p>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Incoming proposals</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{stats.pendingProposalsCount} awaiting response</p>
                   </div>
                 </div>
                 <Link href="/supervisor/proposals" className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 transition-colors">
@@ -235,15 +236,15 @@ export default function SupervisorDashboardPage() {
               </div>
               <div className="space-y-2">
                 {recentPendingProposals.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-violet-100 bg-white px-4 py-2.5">
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-violet-100 bg-white px-4 py-2.5 dark:border-violet-900/50 dark:bg-slate-900">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
                       {p.studentName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{p.studentName}</p>
-                      <p className="text-xs text-slate-500 truncate">{p.universityName}</p>
+                      <p className="text-sm font-semibold text-slate-900 truncate dark:text-slate-100">{p.studentName}</p>
+                      <p className="text-xs text-slate-500 truncate dark:text-slate-400">{p.universityName}</p>
                     </div>
-                    <span className="shrink-0 flex items-center gap-1 text-xs text-slate-400">
+                    <span className="shrink-0 flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
                       <Clock className="h-3 w-3" />
                       {formatDistanceToNow(new Date(p.submitted_at), { addSuffix: true })}
                     </span>
@@ -255,15 +256,15 @@ export default function SupervisorDashboardPage() {
 
           {/* Pending weekly plans */}
           {recentPendingPlans.length > 0 && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 dark:border-amber-900/50 dark:bg-amber-900/20">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="rounded-lg bg-amber-100 p-1.5 text-amber-600">
                     <ClipboardList className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Plans awaiting review</h3>
-                    <p className="text-xs text-slate-500">{stats.pendingWeeklyPlansCount} pending</p>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Plans awaiting review</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{stats.pendingWeeklyPlansCount} pending</p>
                   </div>
                 </div>
                 <Link href="/supervisor/plans" className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors">
@@ -272,15 +273,15 @@ export default function SupervisorDashboardPage() {
               </div>
               <div className="space-y-2">
                 {recentPendingPlans.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-amber-100 bg-white px-4 py-2.5">
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-amber-100 bg-white px-4 py-2.5 dark:border-amber-900/50 dark:bg-slate-900">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
                       {p.studentName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{p.studentName}</p>
-                      <p className="text-xs text-slate-500">Week {p.weekNumber}</p>
+                      <p className="text-sm font-semibold text-slate-900 truncate dark:text-slate-100">{p.studentName}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Week {p.weekNumber}</p>
                     </div>
-                    <span className="shrink-0 flex items-center gap-1 text-xs text-slate-400">
+                    <span className="shrink-0 flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
                       <Clock className="h-3 w-3" />
                       {formatDistanceToNow(new Date(p.submitted_at), { addSuffix: true })}
                     </span>
@@ -293,23 +294,23 @@ export default function SupervisorDashboardPage() {
       )}
 
       {/* Quick links grid */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-base font-bold text-slate-900">Quick access</h2>
-        <p className="mt-0.5 text-sm text-slate-500">Jump to any section of your workspace.</p>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Quick access</h2>
+        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Jump to any section of your workspace.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {quickLinks.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 transition-colors hover:border-primary-200 hover:bg-primary-50/40 group"
+              className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 transition-colors hover:border-primary-200 hover:bg-primary-50/40 group dark:border-slate-700 dark:bg-slate-800/60 dark:hover:bg-primary-900/20"
             >
               <span className="flex min-w-0 items-center gap-3">
                 <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", item.color)}>
                   <item.icon className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-900">{item.label}</span>
-                  <span className="block truncate text-xs text-slate-500">{item.desc}</span>
+                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">{item.label}</span>
+                  <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{item.desc}</span>
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-1.5">
@@ -318,7 +319,7 @@ export default function SupervisorDashboardPage() {
                     {item.badge}
                   </span>
                 )}
-                <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-primary-600 transition-colors" />
+                <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-primary-600 transition-colors dark:text-slate-500" />
               </span>
             </Link>
           ))}

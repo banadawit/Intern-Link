@@ -31,7 +31,7 @@ export class CloudinaryService {
     this.uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'internlink_uploads';
     
     if (!this.cloudName) {
-      console.error('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME is not set');
+      // Cloudinary not configured — direct uploads will be unavailable
     }
   }
 

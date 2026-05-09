@@ -18,12 +18,12 @@ type Notification = {
 
 function iconFor(message: string) {
   const m = message.toLowerCase();
-  if (m.startsWith("📢") || m.includes("announcement")) return <Megaphone className="h-4 w-4 text-amber-500" />;
-  if (m.includes("message") || m.includes("chat")) return <MessageSquare className="h-4 w-4 text-blue-500" />;
-  if (m.includes("project") || m.includes("assigned")) return <FolderKanban className="h-4 w-4 text-teal-600" />;
-  if (m.includes("approved") || m.includes("approval")) return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-  if (m.includes("proposal") || m.includes("internship")) return <FileText className="h-4 w-4 text-primary-500" />;
-  return <Info className="h-4 w-4 text-slate-400" />;
+  if (m.startsWith("📢") || m.includes("announcement")) return <Megaphone className="h-4 w-4 text-amber-500 dark:text-amber-400" />;
+  if (m.includes("message") || m.includes("chat")) return <MessageSquare className="h-4 w-4 text-blue-500 dark:text-blue-400" />;
+  if (m.includes("project") || m.includes("assigned")) return <FolderKanban className="h-4 w-4 text-teal-600 dark:text-teal-400" />;
+  if (m.includes("approved") || m.includes("approval")) return <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />;
+  if (m.includes("proposal") || m.includes("internship")) return <FileText className="h-4 w-4 text-primary-500 dark:text-primary-400" />;
+  return <Info className="h-4 w-4 text-slate-400 dark:text-slate-500" />;
 }
 
 function linkFor(message: string, role: string | undefined): string | null {
@@ -110,11 +110,11 @@ export default function NotificationBell() {
       {/* Panel */}
       <div
         style={{ top: panelPos.top, right: panelPos.right }}
-        className="fixed z-[9999] w-[min(100vw-2rem,22rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        className="fixed z-[9999] w-[min(100vw-2rem,22rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <p className="text-sm font-bold text-slate-900">Notifications</p>
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-700">
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Notifications</p>
           <div className="flex items-center gap-3">
             {unread > 0 && (
               <button
@@ -128,7 +128,7 @@ export default function NotificationBell() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               <X className="h-4 w-4" />
             </button>
@@ -136,9 +136,9 @@ export default function NotificationBell() {
         </div>
 
         {/* List */}
-        <ul className="max-h-[70vh] overflow-y-auto divide-y divide-slate-50">
+        <ul className="max-h-[70vh] overflow-y-auto divide-y divide-slate-50 dark:divide-slate-800">
           {notifications.length === 0 ? (
-            <li className="px-4 py-10 text-center text-sm text-slate-400">
+            <li className="px-4 py-10 text-center text-sm text-slate-400 dark:text-slate-500">
               No notifications yet.
             </li>
           ) : (
@@ -152,20 +152,20 @@ export default function NotificationBell() {
                     if (link) { setOpen(false); router.push(link); }
                   }}
                   className={cn(
-                    "flex items-start gap-3 px-4 py-3 transition-colors hover:bg-slate-50",
+                    "flex items-start gap-3 px-4 py-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/70",
                     link ? "cursor-pointer" : !n.is_read ? "cursor-pointer" : "cursor-default",
-                    !n.is_read && "bg-primary-50/50"
+                    !n.is_read && "bg-primary-50/50 dark:bg-primary-900/20"
                   )}
                 >
                   <span className="mt-0.5 shrink-0">{iconFor(n.message)}</span>
                   <div className="min-w-0 flex-1">
                     <p className={cn(
-                      "text-sm leading-snug text-slate-700",
-                      !n.is_read && "font-semibold text-slate-900"
+                      "text-sm leading-snug text-slate-700 dark:text-slate-300",
+                      !n.is_read && "font-semibold text-slate-900 dark:text-slate-100"
                     )}>
                       {n.message}
                     </p>
-                    <p className="mt-0.5 text-xs text-slate-400">
+                    <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
                       {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                     </p>
                     {link && (

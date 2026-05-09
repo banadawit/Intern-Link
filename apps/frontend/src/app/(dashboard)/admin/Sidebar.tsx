@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import LogoutModal from "@/components/common/LogoutModal";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 
 type ViewKey =
   | "dashboard"
@@ -118,6 +119,9 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
       </nav>
 
       <div className="mt-auto hidden border-t border-slate-200 lg:block dark:border-slate-800">
+        <div className="px-4 pt-4">
+          <ThemeToggle variant="inline" className="w-full justify-center" />
+        </div>
         <div className="flex items-center gap-3 p-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-50 text-sm font-bold text-teal-600 ring-2 ring-white shadow-sm dark:bg-teal-900/30 dark:text-teal-200 dark:ring-slate-800">
             {initials}
@@ -144,14 +148,17 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
           </div>
           <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.fullName ?? "Admin"}</span>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowLogout(true)}
-          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-          aria-label="Logout"
-        >
-          <LogOut className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle variant="inline" className="px-2.5 py-2 [&>span]:hidden" />
+          <button
+            type="button"
+            onClick={() => setShowLogout(true)}
+            className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+            aria-label="Logout"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
       </div>
     </aside>
   );
