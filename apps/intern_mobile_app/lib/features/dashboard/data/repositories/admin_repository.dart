@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/api_client.dart';
 
@@ -111,12 +112,18 @@ class AdminRepository {
     return _deepList(response.data);
   }
 
-  Future<void> updateUniversityStatus(int id, String status) async {
-    await apiClient.dio.patch('/admin/university-status/$id', data: {'status': status});
+  Future<void> updateUniversityStatus(int id, String status, {String? reason}) async {
+    await apiClient.dio.patch('/admin/university-status/$id', data: {
+      'status': status,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    });
   }
 
-  Future<void> updateCompanyStatus(int id, String status) async {
-    await apiClient.dio.patch('/admin/company-status/$id', data: {'status': status});
+  Future<void> updateCompanyStatus(int id, String status, {String? reason}) async {
+    await apiClient.dio.patch('/admin/company-status/$id', data: {
+      'status': status,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    });
   }
 
   Future<void> approveCoordinator(int userId) async {
@@ -277,8 +284,18 @@ class AdminRepository {
   }
 
   Future<String> exportAuditLogsCsv() async {
-    final response = await apiClient.dio.get('/admin/config/export-audit-csv');
+    final response = await apiClient.dio.get(
+      '/admin/config/export-audit-csv',
+      options: Options(responseType: ResponseType.plain),
+    );
     return response.data.toString();
+  }
+
+  Future<Map<String, dynamic>> getAnalytics() async {
+    final response = await apiClient.dio.get('/admin/analytics');
+    final raw = response.data;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return {};
   }
 }
 
@@ -332,4 +349,8 @@ final verifiedCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
 
 final systemConfigProvider = FutureProvider<Map<String, String>>((ref) {
   return ref.watch(adminRepositoryProvider).getConfig();
+});
+
+final adminAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getAnalytics();
 });

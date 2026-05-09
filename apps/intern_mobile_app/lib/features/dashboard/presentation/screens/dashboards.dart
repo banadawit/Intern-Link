@@ -11,6 +11,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/desktop_layout.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/services/session_service.dart';
+import '../../../../core/utils/download_helper.dart';
 
 import '../../data/repositories/student_repository.dart';
 import '../../data/repositories/progress_repository.dart';
@@ -463,6 +464,9 @@ class ModernSliverAppBar extends ConsumerWidget {
               onPressed: () => Navigator.of(context).pop(),
             );
           }
+          // On wide screens (tablet/desktop) the sidebar IS the navigation —
+          // hide the hamburger so it doesn't try to open a non-existent drawer.
+          if (isWideScreen(context)) return const SizedBox.shrink();
           return IconButton(
             icon: Container(
               padding: const EdgeInsets.all(10),
@@ -476,7 +480,7 @@ class ModernSliverAppBar extends ConsumerWidget {
           );
         },
       ),
-      expandedHeight: 220,
+      expandedHeight: responsiveValue(context, mobile: 200.0, tablet: 240.0, desktop: 280.0),
       floating: false,
       pinned: true,
       stretch: true,
@@ -601,7 +605,7 @@ class ModernSliverAppBar extends ConsumerWidget {
                         title,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 42,
+                          fontSize: responsiveValue(context, mobile: 32.0, tablet: 38.0, desktop: 44.0),
                           fontWeight: FontWeight.w900,
                           letterSpacing: -1.5,
                           height: 1,
@@ -918,6 +922,78 @@ bool _parseBool(dynamic v) {
   return false;
 }
 
+/// Top-level reusable verification document row.
+/// Shows a tappable "Open" button when a URL exists, or a muted "No document" label.
+Widget _buildDocumentRow(BuildContext context, String docUrl, bool hasDoc, bool isDark) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: hasDoc
+          ? Colors.blue.withOpacity(0.07)
+          : (isDark ? Colors.white.withOpacity(0.03) : Colors.grey.withOpacity(0.07)),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(
+        color: hasDoc ? Colors.blue.withOpacity(0.2) : Colors.grey.withOpacity(0.15),
+      ),
+    ),
+    child: Row(children: [
+      Icon(
+        hasDoc ? Icons.description_rounded : Icons.description_outlined,
+        size: 16,
+        color: hasDoc ? Colors.blue : Colors.grey,
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          hasDoc ? 'Verification document uploaded' : 'No verification document',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: hasDoc ? Colors.blue.shade700 : Colors.grey,
+          ),
+        ),
+      ),
+      if (hasDoc)
+        GestureDetector(
+          onTap: () async {
+            final uri = Uri.tryParse(docUrl);
+            if (uri != null) {
+              try {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Could not open document')),
+                  );
+                }
+              }
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.open_in_new_rounded, size: 12, color: Colors.white),
+              SizedBox(width: 4),
+              Text('Open', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+            ]),
+          ),
+        ),
+    ]),
+  );
+}
+
+/// Simple data holder for analytics stat cells.
+class _StatItem {
+  const _StatItem(this.label, this.value, this.color);
+  final String label;
+  final String value;
+  final Color color;
+}
+
 // ── Proposal Status Badge ─────────────────────────────────────────────────────
 /// Compact badge showing a student's proposal status in the picker list.
 class _ProposalStatusBadge extends StatelessWidget {
@@ -1016,23 +1092,40 @@ Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
   String submissionTitle = 'Report Submissions',
   String submissionSub = '95% Weekly Target'
 }) {
+  final bool wide = isWideScreen(context);
   return Column(
     children: [
-      Row(
-        children: [
-          Expanded(child: _buildChartCard(growthTitle, growthTrend, _buildLineChart(isDark), isDark)),
-          const SizedBox(width: 16),
-          Expanded(child: _buildChartCard(placementTitle, placementSub, _buildBarChart(isDark), isDark)),
-        ],
-      ),
-      const SizedBox(height: 16),
-      Row(
-        children: [
-          Expanded(child: _buildChartCard(successTitle, '${(successRate * 100).toInt()}% Rate', _buildCircularProgress(successRate, Colors.blue), isDark)),
-          const SizedBox(width: 16),
-          Expanded(child: _buildChartCard(submissionTitle, submissionSub, _buildBarChart(isDark, color: Colors.orange), isDark)),
-        ],
-      ),
+      if (wide)
+        Row(
+          children: [
+            Expanded(child: _buildChartCard(growthTitle, growthTrend, _buildLineChart(isDark), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard(placementTitle, placementSub, _buildBarChart(isDark), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard(successTitle, '${(successRate * 100).toInt()}% Rate', _buildCircularProgress(successRate, Colors.blue), isDark)),
+          ],
+        )
+      else ...[
+        Row(
+          children: [
+            Expanded(child: _buildChartCard(growthTitle, growthTrend, _buildLineChart(isDark), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard(placementTitle, placementSub, _buildBarChart(isDark), isDark)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _buildChartCard(successTitle, '${(successRate * 100).toInt()}% Rate', _buildCircularProgress(successRate, Colors.blue), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard(submissionTitle, submissionSub, _buildBarChart(isDark, color: Colors.orange), isDark)),
+          ],
+        ),
+      ],
+      if (wide) ...[
+        const SizedBox(height: 16),
+        _buildChartCard(submissionTitle, submissionSub, _buildBarChart(isDark, color: Colors.orange), isDark),
+      ],
     ],
   );
 }
@@ -1683,7 +1776,7 @@ class _StudentHomeTab extends ConsumerWidget {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
+      crossAxisCount: isWideScreen(context) ? 3 : 2,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
       childAspectRatio: 1.1,
@@ -8829,14 +8922,6 @@ class _AdminOverviewTab extends ConsumerStatefulWidget {
 }
 
 class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
-  final _broadcastController = TextEditingController();
-
-  @override
-  void dispose() {
-    _broadcastController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -8891,22 +8976,22 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
 
                       _buildSectionHeader(theme, 'Growth & Analytics'),
                       const SizedBox(height: 16),
-                      _buildGrowthAnalytics(context, isDark, theme),
+                      _buildGrowthAnalytics(context, ref, isDark, theme),
                       const SizedBox(height: 32),
 
                       _buildSectionHeader(theme, 'Organization Breakdown'),
                       const SizedBox(height: 16),
-                      _buildOrganizationBreakdown(context, stats, isDark),
+                      _buildOrganizationBreakdown(context, ref, stats, isDark),
                       const SizedBox(height: 32),
 
                       _buildSectionHeader(theme, 'Internship Overview'),
                       const SizedBox(height: 16),
-                      _buildInternshipOverview(context, stats, isDark),
+                      _buildInternshipOverview(context, ref, stats, isDark),
                       const SizedBox(height: 32),
 
                       _buildSectionHeader(theme, 'Reports Snapshot'),
                       const SizedBox(height: 16),
-                      _buildReportsSnapshot(context, stats, isDark),
+                      _buildReportsSnapshot(context, ref, stats, isDark),
                       const SizedBox(height: 32),
 
                       _buildSectionHeader(theme, 'Recent Activity'),
@@ -8922,8 +9007,6 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                       _buildSectionHeader(theme, 'Quick Actions'),
                       const SizedBox(height: 16),
                       _buildQuickNavigation(context, ref, isDark),
-                      const SizedBox(height: 16),
-                      _buildQuickBroadcastBox(context, theme, isDark),
 
                       const SizedBox(height: 120),
                     ]),
@@ -9045,172 +9128,354 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
     );
   }
 
-  Widget _buildGrowthAnalytics(BuildContext context, bool isDark, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
+  Widget _buildGrowthAnalytics(BuildContext context, WidgetRef ref, bool isDark, ThemeData theme) {
+    final analyticsAsync = ref.watch(adminAnalyticsProvider);
+    return analyticsAsync.when(
+      loading: () => _analyticsShimmer(isDark),
+      error: (e, _) => _analyticsError(isDark, 'Growth & Analytics'),
+      data: (data) {
+        final userGrowth = (data['userGrowth'] as List?) ?? [];
+        // Sum totals across all months for display
+        int totalNew = 0, newStudents = 0, newCoords = 0, newSups = 0;
+        for (final m in userGrowth) {
+          totalNew += _parseInt(m['total']);
+          newStudents += _parseInt(m['students']);
+          newCoords += _parseInt(m['coordinators']);
+          newSups += _parseInt(m['supervisors']);
+        }
+        // Month-over-month growth % (last vs second-to-last month)
+        String growthPct = '—';
+        Color growthColor = Colors.grey;
+        if (userGrowth.length >= 2) {
+          final last = _parseInt(userGrowth.last['total']);
+          final prev = _parseInt(userGrowth[userGrowth.length - 2]['total']);
+          if (prev > 0) {
+            final pct = ((last - prev) / prev * 100);
+            growthPct = '${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%';
+            growthColor = pct >= 0 ? Colors.green : Colors.red;
+          } else if (last > 0) {
+            growthPct = '+100%';
+            growthColor = Colors.green;
+          }
+        }
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: _cardDecor(isDark),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
               const Icon(Icons.show_chart_rounded, color: Colors.blue),
               const SizedBox(width: 8),
-              Text('Monthly Growth', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+              Text('User Growth (6 months)', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                child: const Text('+12.4%', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                decoration: BoxDecoration(color: growthColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: Text(growthPct, style: TextStyle(color: growthColor, fontWeight: FontWeight.bold, fontSize: 12)),
               ),
+            ]),
+            const SizedBox(height: 20),
+            // Bar chart — one bar per month
+            if (userGrowth.isNotEmpty) ...[
+              _buildBarChart(userGrowth, isDark),
+              const SizedBox(height: 16),
             ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(child: _buildGrowthStat('New Users', '+342', Colors.purple, isDark)),
-              Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.2)),
-              Expanded(child: _buildGrowthStat('Organizations', '+15', Colors.orange, isDark)),
-              Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.2)),
-              Expanded(child: _buildGrowthStat('Placements', '+89', Colors.blue, isDark)),
-            ],
-          ),
-        ],
-      ),
+            _buildStatsRow([
+              _StatItem('New Users', '$totalNew', Colors.purple),
+              _StatItem('Students', '$newStudents', Colors.blue),
+              _StatItem('Coordinators', '$newCoords', Colors.orange),
+              _StatItem('Supervisors', '$newSups', Colors.teal),
+            ]),          ]),
+        );
+      },
     );
   }
 
-  Widget _buildGrowthStat(String label, String value, Color color, bool isDark) {
-    return Column(
-      children: [
-        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-      ],
-    );
-  }
-
-  Widget _buildOrganizationBreakdown(BuildContext context, dynamic stats, bool isDark) {
-    final total = stats.totalUniversities + stats.totalCompanies;
-    final uniPct = total == 0 ? 0.0 : stats.totalUniversities / total;
-    final compPct = total == 0 ? 0.0 : stats.totalCompanies / total;
-    
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildBreakdownItem('Universities', stats.totalUniversities.toString(), Colors.blue),
-              _buildBreakdownItem('Companies', stats.totalCompanies.toString(), Colors.purple),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Row(
-              children: [
-                Expanded(flex: (uniPct * 100).toInt() == 0 ? 1 : (uniPct * 100).toInt(), child: Container(height: 12, color: Colors.blue)),
-                Expanded(flex: (compPct * 100).toInt() == 0 ? 1 : (compPct * 100).toInt(), child: Container(height: 12, color: Colors.purple)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBreakdownItem(String label, String value, Color color) {
-    return Row(
-      children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
+  Widget _buildBarChart(List<dynamic> months, bool isDark) {
+    final maxVal = months.map((m) => _parseInt(m['total'])).fold(0, (a, b) => a > b ? a : b);
+    if (maxVal == 0) return const SizedBox.shrink();
+    return ClipRect(
+      child: SizedBox(
+        height: 72,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: months.map((m) {
+            final val = _parseInt(m['total']);
+            final frac = maxVal == 0 ? 0.0 : val / maxVal;
+            final isLast = m == months.last;
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (val > 0)
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('$val', style: TextStyle(fontSize: 8, color: Colors.grey.shade500)),
+                      ),
+                    const SizedBox(height: 1),
+                    Container(
+                      height: (frac * 36).clamp(3.0, 36.0),
+                      decoration: BoxDecoration(
+                        color: isLast ? Colors.blue : Colors.blue.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        m['label']?.toString() ?? '',
+                        style: const TextStyle(fontSize: 8, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+        }).toList(),
         ),
-      ],
-    );
-  }
-
-  Widget _buildInternshipOverview(BuildContext context, dynamic stats, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-            child: const Icon(Icons.work_history_rounded, color: Colors.orange, size: 32),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Total Evaluations', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                Text('${stats.totalEvaluations}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded, color: Colors.grey),
-        ],
       ),
     );
   }
 
-  Widget _buildReportsSnapshot(BuildContext context, dynamic stats, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-            child: const Icon(Icons.summarize_rounded, color: Colors.teal, size: 32),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Submitted Reports', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                Text('${stats.totalReports}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right_rounded, color: Colors.grey),
-        ],
-      ),
+  Widget _buildOrganizationBreakdown(BuildContext context, WidgetRef ref, dynamic stats, bool isDark) {
+    final analyticsAsync = ref.watch(adminAnalyticsProvider);
+    return analyticsAsync.when(
+      loading: () => _analyticsShimmer(isDark),
+      error: (_, __) {
+        // Fallback to stats data
+        final total = stats.totalUniversities + stats.totalCompanies;
+        final uniPct = total == 0 ? 0.0 : stats.totalUniversities / total;
+        final compPct = total == 0 ? 0.0 : stats.totalCompanies / total;
+        return _orgBreakdownCard(isDark, stats.totalUniversities, stats.totalCompanies, 0, 0, uniPct, compPct);
+      },
+      data: (data) {
+        final orgStats = data['orgStats'] as Map? ?? {};
+        final unis = orgStats['universities'] as Map? ?? {};
+        final comps = orgStats['companies'] as Map? ?? {};
+        final totalUnis = _parseInt(unis['total']);
+        final approvedUnis = _parseInt(unis['approved']);
+        final totalComps = _parseInt(comps['total']);
+        final approvedComps = _parseInt(comps['approved']);
+        final total = totalUnis + totalComps;
+        final uniPct = total == 0 ? 0.0 : totalUnis / total;
+        final compPct = total == 0 ? 0.0 : totalComps / total;
+        return _orgBreakdownCard(isDark, totalUnis, totalComps, approvedUnis, approvedComps, uniPct, compPct);
+      },
     );
   }
+
+  Widget _orgBreakdownCard(bool isDark, int totalUnis, int totalComps, int approvedUnis, int approvedComps, double uniPct, double compPct) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: _cardDecor(isDark),
+      child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          _buildBreakdownItem('Universities', '$totalUnis', Colors.blue, sub: '$approvedUnis approved'),
+          _buildBreakdownItem('Companies', '$totalComps', Colors.purple, sub: '$approvedComps approved'),
+        ]),
+        const SizedBox(height: 20),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Row(children: [
+            Expanded(flex: (uniPct * 100).toInt().clamp(1, 99), child: Container(height: 12, color: Colors.blue)),
+            Expanded(flex: (compPct * 100).toInt().clamp(1, 99), child: Container(height: 12, color: Colors.purple)),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle)),
+          const SizedBox(width: 4),
+          Text('${(uniPct * 100).toStringAsFixed(0)}% Universities', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          const Spacer(),
+          Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.purple, shape: BoxShape.circle)),
+          const SizedBox(width: 4),
+          Text('${(compPct * 100).toStringAsFixed(0)}% Companies', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _buildInternshipOverview(BuildContext context, WidgetRef ref, dynamic stats, bool isDark) {
+    final analyticsAsync = ref.watch(adminAnalyticsProvider);
+    return analyticsAsync.when(
+      loading: () => _analyticsShimmer(isDark),
+      error: (_, __) => _buildInternshipFallback(stats, isDark),
+      data: (data) {
+        final placement = data['placementStats'] as Map? ?? {};
+        final proposals = data['proposalStats'] as Map? ?? {};
+        final total = _parseInt(placement['total']);
+        final placed = _parseInt(placement['placed']);
+        final completed = _parseInt(placement['completed']);
+        final pending = _parseInt(placement['pending']);
+        final placedPct = total == 0 ? 0.0 : placed / total;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: _cardDecor(isDark),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.work_history_rounded, color: Colors.orange),
+              const SizedBox(width: 8),
+              Text('Internship Overview', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+            ]),
+            const SizedBox(height: 16),
+            // Placement progress bar
+            Row(children: [
+              Text('Placement rate', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+              const Spacer(),
+              Text('${(placedPct * 100).toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            ]),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: placedPct,
+                minHeight: 8,
+                backgroundColor: Colors.grey.withOpacity(0.15),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildStatsRow([
+              _StatItem('Total', '$total', Colors.grey),
+              _StatItem('Placed', '$placed', Colors.orange),
+              _StatItem('Completed', '$completed', Colors.green),
+              _StatItem('Pending', '$pending', Colors.blue),
+            ]),
+            const Divider(height: 24),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.description_rounded, size: 13, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text('Proposals:', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                ]),
+                _proposalBadge('${proposals['approved'] ?? 0} approved', Colors.green),
+                _proposalBadge('${proposals['pending'] ?? 0} pending', Colors.orange),
+                _proposalBadge('${proposals['rejected'] ?? 0} rejected', Colors.red),
+              ],
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
+  Widget _buildInternshipFallback(dynamic stats, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: _cardDecor(isDark),
+      child: Row(children: [
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+          child: const Icon(Icons.work_history_rounded, color: Colors.orange, size: 32)),
+        const SizedBox(width: 20),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Total Evaluations', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+          Text('${stats.totalEvaluations}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _proposalBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+      child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildReportsSnapshot(BuildContext context, WidgetRef ref, dynamic stats, bool isDark) {
+    final analyticsAsync = ref.watch(adminAnalyticsProvider);
+    return analyticsAsync.when(
+      loading: () => _analyticsShimmer(isDark),
+      error: (_, __) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: _cardDecor(isDark),
+        child: Row(children: [
+          Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.summarize_rounded, color: Colors.teal, size: 32)),
+          const SizedBox(width: 20),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Submitted Reports', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+            Text('${stats.totalReports}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          ])),
+        ]),
+      ),
+      data: (data) {
+        final wpTrend = (data['weeklyPlanTrend'] as List?) ?? [];
+        int totalPlans = 0, approvedPlans = 0;
+        for (final m in wpTrend) {
+          totalPlans += _parseInt(m['submitted']);
+          approvedPlans += _parseInt(m['approved']);
+        }
+        final approvalRate = totalPlans == 0 ? 0.0 : approvedPlans / totalPlans;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: _cardDecor(isDark),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.summarize_rounded, color: Colors.teal),
+              const SizedBox(width: 8),
+              Text('Weekly Plans & Reports', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+            ]),
+            const SizedBox(height: 16),
+            _buildStatsRow([
+              _StatItem('Plans (6mo)', '$totalPlans', Colors.teal),
+              _StatItem('Approved', '$approvedPlans', Colors.green),
+              _StatItem('Reports', '${stats.totalReports}', Colors.blue),
+              _StatItem('Evaluations', '${stats.totalEvaluations}', Colors.purple),
+            ]),
+            const SizedBox(height: 16),
+            Row(children: [
+              Text('Plan approval rate', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+              const Spacer(),
+              Text('${(approvalRate * 100).toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            ]),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: approvalRate,
+                minHeight: 8,
+                backgroundColor: Colors.grey.withOpacity(0.15),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
+              ),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+
+  // ── Shared helpers ──────────────────────────────────────────────────────────
+
+  BoxDecoration _cardDecor(bool isDark) => BoxDecoration(
+    color: isDark ? const Color(0xFF1E293B).withOpacity(0.5) : Colors.white.withOpacity(0.8),
+    borderRadius: BorderRadius.circular(24),
+    border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.white, width: 2),
+    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8))],
+  );
+
+  Widget _analyticsShimmer(bool isDark) => Container(
+    height: 100,
+    decoration: _cardDecor(isDark),
+    child: const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+  );
+
+  Widget _analyticsError(bool isDark, String label) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: _cardDecor(isDark),
+    child: Row(children: [
+      const Icon(Icons.error_outline_rounded, color: Colors.grey),
+      const SizedBox(width: 12),
+      Text('$label unavailable', style: const TextStyle(color: Colors.grey)),
+    ]),
+  );
 
 
 
@@ -9240,65 +9505,50 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
     );
   }
 
-  Widget _buildQuickBroadcastBox(BuildContext context, ThemeData theme, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [theme.colorScheme.primary, theme.colorScheme.secondary]),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 12))],
-      ),
-      child: Column(
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.campaign_rounded, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Broadcast Announcement', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _broadcastController,
-            style: const TextStyle(color: Colors.white),
-            maxLines: 2,
-            decoration: InputDecoration(
-              hintText: 'Type message to all users...',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.1),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () async {
-                final content = _broadcastController.text.trim();
-                if (content.isEmpty) return;
-                try {
-                  await ref.read(adminRepositoryProvider).broadcast('System Broadcast', content);
-                  _broadcastController.clear();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Broadcast sent successfully!')));
-                    ref.invalidate(feedProvider);
-                  }
-                } catch (e) {
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: theme.colorScheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Send to Everyone'),
-            ),
-          ),
-        ],
-      ),
-    );
+  /// Evenly-spaced stat items that never overflow — uses LayoutBuilder to
+  /// decide between a single Row (wide) or a 2×2 grid (narrow).
+  Widget _buildStatsRow(List<_StatItem> items) {
+    return LayoutBuilder(builder: (ctx, constraints) {
+      // Each item needs ~60px minimum; if not enough space, wrap into 2 rows
+      final useGrid = constraints.maxWidth < items.length * 64;
+      if (useGrid) {
+        final half = (items.length / 2).ceil();
+        return Column(children: [
+          Row(children: items.take(half).map((s) => Expanded(child: _statCell(s))).toList()),
+          const SizedBox(height: 8),
+          Row(children: items.skip(half).map((s) => Expanded(child: _statCell(s))).toList()),
+        ]);
+      }
+      return Row(children: items.map((s) => Expanded(child: _statCell(s))).toList());
+    });
+  }
+
+  Widget _statCell(_StatItem s) {
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(s.value, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: s.color), overflow: TextOverflow.ellipsis),
+      const SizedBox(height: 2),
+      Text(s.label, style: const TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
+    ]);
+  }
+
+  Widget _buildGrowthStat(String label, String value, Color color, bool isDark) {
+    return Column(children: [
+      Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+      const SizedBox(height: 3),
+      Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
+    ]);
+  }
+
+  Widget _buildBreakdownItem(String label, String value, Color color, {String? sub}) {
+    return Row(children: [
+      Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 8),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        if (sub != null) Text(sub, style: TextStyle(fontSize: 10, color: color.withOpacity(0.7))),
+      ]),
+    ]);
   }
 
   Widget _buildSystemHealthWidget(BuildContext context, bool isDark) {
@@ -9424,212 +9674,279 @@ void _showCreateOrgSheet(BuildContext context, WidgetRef ref) {
   final addressCtrl = TextEditingController();
   final contactNameCtrl = TextEditingController();
   final contactEmailCtrl = TextEditingController();
+  bool isSaving = false;
 
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    isDismissible: true,
+    enableDrag: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModalState) {
-        bool isSaving = false;
-        final color = orgType == 'University' ? Colors.blue : Colors.purple;
+        final color = orgType == 'University' ? const Color(0xFF3B82F6) : const Color(0xFF8B5CF6);
         final icon = orgType == 'University' ? Icons.account_balance_rounded : Icons.business_rounded;
+        final roleLabel = orgType == 'University' ? 'Coordinator' : 'Supervisor';
 
         return Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Container(
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Handle bar
-                  Center(child: Container(width: 40, height: 4,
-                    decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
-                  const SizedBox(height: 20),
-                  // Header
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: const Color(0xFF4286F4).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.add_business_rounded, color: Color(0xFF4286F4), size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Create Organization', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                      Text('Auto-approved · setup email sent', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    ]),
-                  ]),
-                  const SizedBox(height: 24),
-                  // Type selector
-                  Row(children: [
-                    Expanded(child: _OrgTypeChip(
-                      label: 'University', icon: Icons.account_balance_rounded,
-                      color: Colors.blue, selected: orgType == 'University',
-                      onTap: () => setModalState(() => orgType = 'University'),
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _OrgTypeChip(
-                      label: 'Company', icon: Icons.business_rounded,
-                      color: Colors.purple, selected: orgType == 'Company',
-                      onTap: () => setModalState(() => orgType = 'Company'),
-                    )),
-                  ]),
-                  const SizedBox(height: 20),
-                  // Fields
-                  _OrgFormField(ctrl: nameCtrl, hint: 'e.g. Addis Ababa University', label: 'Organization Name *', icon: icon, isDark: isDark),
-                  const SizedBox(height: 14),
-                  _OrgFormField(ctrl: emailCtrl, hint: 'e.g. info@aau.edu.et', label: 'Official Email *', icon: Icons.email_rounded, isDark: isDark, keyboardType: TextInputType.emailAddress),
-                  const SizedBox(height: 14),
-                  _OrgFormField(ctrl: addressCtrl, hint: 'e.g. Addis Ababa, Ethiopia', label: 'Address (optional)', icon: Icons.location_on_rounded, isDark: isDark),
-                  const SizedBox(height: 20),
-                  // Contact person box
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.04) : color.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: color.withOpacity(0.2)),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Icon(Icons.person_add_rounded, size: 15, color: color),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${orgType == 'University' ? 'Coordinator' : 'Supervisor'} Contact (optional)',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color),
-                        ),
-                      ]),
-                      const SizedBox(height: 4),
-                      const Text('Creates an account and sends a password setup email.', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                      const SizedBox(height: 12),
-                      _OrgFormField(ctrl: contactNameCtrl, hint: 'Full name', label: '', icon: Icons.person_rounded, isDark: isDark),
-                      const SizedBox(height: 8),
-                      _OrgFormField(ctrl: contactEmailCtrl, hint: 'Email address', label: '', icon: Icons.email_outlined, isDark: isDark, keyboardType: TextInputType.emailAddress),
-                    ]),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Header ──────────────────────────────────────────────────
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
                   ),
-                  const SizedBox(height: 28),
-                  // Submit button
-                  StatefulBuilder(
-                    builder: (_, setSaveState) => SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: FilledButton.icon(
-                        onPressed: isSaving ? null : () async {
-                          final name = nameCtrl.text.trim();
-                          final email = emailCtrl.text.trim();
-                          if (name.isEmpty || email.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Name and email are required'), backgroundColor: Colors.red),
-                            );
-                            return;
-                          }
-                          setSaveState(() => isSaving = true);
-                          try {
-                            final repo = ref.read(adminRepositoryProvider);
-                            Map<String, dynamic> createdOrg;
-                            if (orgType == 'University') {
-                              createdOrg = await repo.createUniversity(
-                                name: name, officialEmail: email,
-                                address: addressCtrl.text.trim(),
-                                contactName: contactNameCtrl.text.trim(),
-                                contactEmail: contactEmailCtrl.text.trim(),
-                              );
-                              createdOrg['type'] = 'University';
-                            } else {
-                              createdOrg = await repo.createCompany(
-                                name: name, officialEmail: email,
-                                address: addressCtrl.text.trim(),
-                                contactName: contactNameCtrl.text.trim(),
-                                contactEmail: contactEmailCtrl.text.trim(),
-                              );
-                              createdOrg['type'] = 'Company';
-                            }
-                            
-                            // Optimistically add to UI immediately
-                            createdOrg['approval_status'] = 'APPROVED'; // Admin created orgs are auto-approved
-                            ref.read(optimisticOrgsProvider.notifier).update((state) => [createdOrg, ...state]);
-
-                            ref.invalidate(allUniversitiesProvider);
-                            ref.invalidate(allCompaniesProvider);
-                            ref.invalidate(adminStatsProvider);
-                            if (context.mounted) {
-                              Navigator.pop(ctx);
-                              showDialog(
-                                context: context,
-                                builder: (c) => AlertDialog(
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                  title: const Row(
-                                    children: [
-                                      Icon(Icons.check_circle_rounded, color: Colors.green),
-                                      SizedBox(width: 10),
-                                      Text('Success'),
-                                    ],
-                                  ),
-                                  content: Text(
-                                    '$orgType "$name" has been successfully created.'
-                                    '${contactEmailCtrl.text.trim().isNotEmpty ? '\n\nA password setup email has been sent to the contact person.' : ''}'
-                                  ),
-                                  actions: [
-                                    FilledButton(
-                                      onPressed: () => Navigator.pop(c),
-                                      style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                                      child: const Text('Great'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            setSaveState(() => isSaving = false);
-                            if (context.mounted) {
-                              showDialog(
-                                context: ctx, // using the modal's context so it appears over it
-                                builder: (c) => AlertDialog(
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                  title: const Row(
-                                    children: [
-                                      Icon(Icons.error_outline_rounded, color: Colors.red),
-                                      SizedBox(width: 10),
-                                      Text('Creation Failed'),
-                                    ],
-                                  ),
-                                  content: Text(_getReadableError(e)),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(c),
-                                      child: const Text('OK', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        icon: isSaving
-                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.check_rounded),
-                        label: Text(isSaving ? 'Creating...' : 'Create $orgType',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: color,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.fromLTRB(24, 12, 16, 16),
+                  child: Column(children: [
+                    // Drag handle
+                    Center(child: Container(width: 36, height: 4,
+                      decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+                    const SizedBox(height: 14),
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Create Organization', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                        Text('Auto-approved · setup email sent to contact', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      ])),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), shape: BoxShape.circle),
+                          child: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
                         ),
                       ),
-                    ),
+                    ]),
+                  ]),
+                ),
+
+                // ── Scrollable body ──────────────────────────────────────────
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                      // Type toggle
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(children: [
+                          _typeToggle('University', Icons.account_balance_rounded, const Color(0xFF3B82F6), orgType, (v) => setModalState(() => orgType = v)),
+                          _typeToggle('Company', Icons.business_rounded, const Color(0xFF8B5CF6), orgType, (v) => setModalState(() => orgType = v)),
+                        ]),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Organization details section
+                      _sectionLabel('Organization Details', isDark),
+                      const SizedBox(height: 12),
+                      _formField(nameCtrl, 'Name *', 'e.g. Addis Ababa University', icon, isDark),
+                      const SizedBox(height: 12),
+                      _formField(emailCtrl, 'Official Email *', 'e.g. info@aau.edu.et', Icons.email_rounded, isDark, keyboard: TextInputType.emailAddress),
+                      const SizedBox(height: 12),
+                      _formField(addressCtrl, 'Address', 'e.g. Addis Ababa, Ethiopia', Icons.location_on_rounded, isDark),
+                      const SizedBox(height: 24),
+
+                      // Contact person section
+                      Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? color.withOpacity(0.06) : color.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: color.withOpacity(0.18)),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                              child: Icon(Icons.person_add_rounded, size: 14, color: color)),
+                            const SizedBox(width: 10),
+                            Text('$roleLabel Contact', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color)),
+                            const SizedBox(width: 6),
+                            Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.grey.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                              child: const Text('optional', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600))),
+                          ]),
+                          const SizedBox(height: 4),
+                          Text('Creates an account and sends a password setup email.', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                          const SizedBox(height: 14),
+                          _formField(contactNameCtrl, 'Full Name', 'Contact person\'s name', Icons.person_rounded, isDark),
+                          const SizedBox(height: 10),
+                          _formField(contactEmailCtrl, 'Email', 'Contact person\'s email', Icons.email_outlined, isDark, keyboard: TextInputType.emailAddress),
+                        ]),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Submit button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: FilledButton.icon(
+                          onPressed: isSaving ? null : () async {
+                            final name = nameCtrl.text.trim();
+                            final email = emailCtrl.text.trim();
+                            if (name.isEmpty || email.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Name and email are required'), backgroundColor: Colors.red),
+                              );
+                              return;
+                            }
+                            setModalState(() => isSaving = true);
+                            try {
+                              final repo = ref.read(adminRepositoryProvider);
+                              Map<String, dynamic> createdOrg;
+                              if (orgType == 'University') {
+                                createdOrg = await repo.createUniversity(
+                                  name: name, officialEmail: email,
+                                  address: addressCtrl.text.trim(),
+                                  contactName: contactNameCtrl.text.trim(),
+                                  contactEmail: contactEmailCtrl.text.trim(),
+                                );
+                                createdOrg['type'] = 'University';
+                              } else {
+                                createdOrg = await repo.createCompany(
+                                  name: name, officialEmail: email,
+                                  address: addressCtrl.text.trim(),
+                                  contactName: contactNameCtrl.text.trim(),
+                                  contactEmail: contactEmailCtrl.text.trim(),
+                                );
+                                createdOrg['type'] = 'Company';
+                              }
+                              createdOrg['approval_status'] = 'APPROVED';
+                              ref.read(optimisticOrgsProvider.notifier).update((state) => [createdOrg, ...state]);
+                              ref.invalidate(allUniversitiesProvider);
+                              ref.invalidate(allCompaniesProvider);
+                              ref.invalidate(adminStatsProvider);
+                              if (context.mounted) {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Row(children: [
+                                    const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Text(
+                                      '$orgType "$name" created successfully.'
+                                      '${contactEmailCtrl.text.trim().isNotEmpty ? ' Setup email sent.' : ''}',
+                                    )),
+                                  ]),
+                                  backgroundColor: Colors.green,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  duration: const Duration(seconds: 4),
+                                ));
+                              }
+                            } catch (e) {
+                              setModalState(() => isSaving = false);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Row(children: [
+                                    const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Text(_getReadableError(e))),
+                                  ]),
+                                  backgroundColor: Colors.red,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ));
+                              }
+                            }
+                          },
+                          icon: isSaving
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.add_rounded, size: 20),
+                          label: Text(isSaving ? 'Creating...' : 'Create $orgType',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: color,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ),
+                    ]),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
       },
     ),
   );
+}
+
+/// Segmented type toggle button for University / Company.
+Widget _typeToggle(String label, IconData icon, Color color, String current, ValueChanged<String> onTap) {
+  final selected = current == label;
+  return Expanded(
+    child: GestureDetector(
+      onTap: () => onTap(label),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        decoration: BoxDecoration(
+          color: selected ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: selected ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))] : [],
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 15, color: selected ? Colors.white : Colors.grey),
+          const SizedBox(width: 7),
+          Text(label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: selected ? Colors.white : Colors.grey)),
+        ]),
+      ),
+    ),
+  );
+}
+
+/// Section label for the create org form.
+Widget _sectionLabel(String text, bool isDark) {
+  return Text(text, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: isDark ? Colors.white70 : Colors.black87));
+}
+
+/// Compact form field for the create org sheet.
+Widget _formField(TextEditingController ctrl, String label, String hint, IconData icon, bool isDark, {TextInputType? keyboard}) {
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    if (label.isNotEmpty) ...[
+      Text(label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: isDark ? Colors.white60 : Colors.black54)),
+      const SizedBox(height: 5),
+    ],
+    TextField(
+      controller: ctrl,
+      keyboardType: keyboard,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+        prefixIcon: Icon(icon, size: 17, color: Colors.grey.shade400),
+        filled: true,
+        fillColor: isDark ? Colors.white.withOpacity(0.06) : Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.08) : Colors.grey.withOpacity(0.15))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      ),
+    ),
+  ]);
 }
 
 // ── Small reusable widgets for the create-org sheet ──────────────────────────
@@ -9704,7 +10021,7 @@ class _OrgFormField extends StatelessWidget {
 class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> {
   String _searchQuery = '';
   String _orgTypeFilter = 'All'; // 'All', 'University', 'Company'
-  String _orgStatusFilter = 'PENDING'; // 'PENDING', 'APPROVED', 'SUSPENDED'
+  String _orgStatusFilter = 'All'; // 'All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'
 
   @override
   Widget build(BuildContext context) {
@@ -9768,44 +10085,66 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
   }
 
   Widget _buildOrgStatsRow(AsyncValue<AdminStats> statsAsync, bool isDark) {
-    return statsAsync.when(
-      loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (stats) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildMiniStat('Pending Unis', stats.pendingApprovals.toString(), Icons.school_rounded, Colors.orange, isDark),
-            const SizedBox(width: 12),
-            _buildMiniStat('Verified', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.verified_rounded, Colors.green, isDark),
-            const SizedBox(width: 12),
-            _buildMiniStat('Suspended', '0', Icons.block_rounded, Colors.red, isDark),
-          ],
-        ),
-      ),
+    final unisAsync = ref.watch(allUniversitiesProvider);
+    final compsAsync = ref.watch(allCompaniesProvider);
+
+    // Compute real counts from the full org lists
+    int pending = 0, approved = 0, rejected = 0, suspended = 0;
+    final unis = unisAsync.asData?.value ?? [];
+    final comps = compsAsync.asData?.value ?? [];
+    for (final o in [...unis, ...comps]) {
+      final s = o['approval_status']?.toString() ?? '';
+      if (s == 'PENDING') pending++;
+      else if (s == 'APPROVED') approved++;
+      else if (s == 'REJECTED') rejected++;
+      else if (s == 'SUSPENDED') suspended++;
+    }
+
+    final isLoading = unisAsync.isLoading || compsAsync.isLoading;
+
+    if (isLoading) return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        _buildMiniStat('Pending', '$pending', Icons.pending_actions_rounded, Colors.orange, isDark,
+            onTap: () => setState(() => _orgStatusFilter = 'PENDING')),
+        const SizedBox(width: 12),
+        _buildMiniStat('Approved', '$approved', Icons.verified_rounded, Colors.green, isDark,
+            onTap: () => setState(() => _orgStatusFilter = 'APPROVED')),
+        const SizedBox(width: 12),
+        _buildMiniStat('Rejected', '$rejected', Icons.cancel_rounded, Colors.red, isDark,
+            onTap: () => setState(() => _orgStatusFilter = 'REJECTED')),
+        const SizedBox(width: 12),
+        _buildMiniStat('Suspended', '$suspended', Icons.block_rounded, Colors.grey, isDark,
+            onTap: () => setState(() => _orgStatusFilter = 'SUSPENDED')),
+      ]),
     );
   }
 
-  Widget _buildMiniStat(String label, String value, IconData icon, Color color, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
+  Widget _buildMiniStat(String label, String value, IconData icon, Color color, bool isDark, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: (_orgStatusFilter == label.toUpperCase())
+                ? color.withOpacity(0.5)
+                : isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+            width: (_orgStatusFilter == label.toUpperCase()) ? 1.5 : 1,
+          ),
+        ),
+        child: Row(children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+          ]),
+        ]),
       ),
     );
   }
@@ -9831,7 +10170,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildDropdownFilter('Status: $_orgStatusFilter', ['PENDING', 'APPROVED', 'SUSPENDED', 'REJECTED'], (v) => setState(() => _orgStatusFilter = v!)),
+              child: _buildDropdownFilter('Status: $_orgStatusFilter', ['All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'], (v) => setState(() => _orgStatusFilter = v!)),
             ),
           ],
         ),
@@ -9869,11 +10208,12 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
         error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
         data: (comps) {
           final sQuery = _searchQuery.toLowerCase();
-          
+          final filterByStatus = _orgStatusFilter != 'All';
+
           Iterable<Map<String, dynamic>> filteredUnis = [];
           if (_orgTypeFilter != 'Company') {
             filteredUnis = unis.where((u) {
-              if (u['approval_status'] != _orgStatusFilter) return false;
+              if (filterByStatus && u['approval_status'] != _orgStatusFilter) return false;
               if (sQuery.isNotEmpty && !u['name'].toString().toLowerCase().contains(sQuery)) return false;
               return true;
             }).map((u) => {...Map<String, dynamic>.from(u as Map), 'type': 'University'});
@@ -9882,14 +10222,14 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
           Iterable<Map<String, dynamic>> filteredComps = [];
           if (_orgTypeFilter != 'University') {
             filteredComps = comps.where((c) {
-              if (c['approval_status'] != _orgStatusFilter) return false;
+              if (filterByStatus && c['approval_status'] != _orgStatusFilter) return false;
               if (sQuery.isNotEmpty && !c['name'].toString().toLowerCase().contains(sQuery)) return false;
               return true;
             }).map((c) => {...Map<String, dynamic>.from(c as Map), 'type': 'Company'});
           }
 
           final optimistic = ref.watch(optimisticOrgsProvider).where((o) {
-              if (o['approval_status'] != _orgStatusFilter) return false;
+              if (filterByStatus && o['approval_status'] != _orgStatusFilter) return false;
               if (sQuery.isNotEmpty && !o['name'].toString().toLowerCase().contains(sQuery)) return false;
               if (_orgTypeFilter != 'All' && o['type'] != _orgTypeFilter) return false;
               return true;
@@ -10017,7 +10357,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
                   if (status == 'APPROVED')
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () => _updateStatus(ref, org, 'SUSPENDED'),
+                        onPressed: () => _showSuspendDialog(ref, org),
                         icon: const Icon(Icons.block_rounded, size: 16),
                         label: const Text('Suspend'),
                         style: FilledButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -10059,11 +10399,15 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => DraggableScrollableSheet(
           initialChildSize: 0.65,
           maxChildSize: 0.92,
           minChildSize: 0.4,
+          snap: true,
+          snapSizes: const [0.4, 0.65, 0.92],
           builder: (_, controller) => Container(
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E293B) : Colors.white,
@@ -10073,8 +10417,24 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
               controller: controller,
               padding: const EdgeInsets.all(24),
               children: [
-                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
-                const SizedBox(height: 24),
+                // Drag handle + close button row
+                Row(children: [
+                  const Spacer(),
+                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 20),
                 Row(children: [
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -10099,6 +10459,14 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
                 if (org['address'] != null) _detailRow(Icons.location_on_rounded, 'Address', org['address'].toString()),
                 if (org['website'] != null) _detailRow(Icons.language_rounded, 'Website', org['website'].toString()),
                 if (org['created_at'] != null) _detailRow(Icons.calendar_today_rounded, 'Registered', org['created_at'].toString().split('T')[0]),
+                // Verification document
+                const SizedBox(height: 12),
+                _buildDocumentRow(
+                  ctx,
+                  org['verification_doc']?.toString() ?? '',
+                  (org['verification_doc']?.toString() ?? '').isNotEmpty,
+                  isDark,
+                ),
                 if (org['rejection_reason'] != null && org['rejection_reason'].toString().isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
@@ -10218,47 +10586,134 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
 
   void _showRejectDialog(WidgetRef ref, Map<String, dynamic> org) {
     final reasonCtrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Reject Organization', style: TextStyle(fontWeight: FontWeight.w900)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-              child: Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: 20)),
+          const SizedBox(width: 12),
+          const Text('Reject Organization', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(color: Colors.red.withOpacity(0.06), borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red.withOpacity(0.2))),
+            child: Row(children: [
+              Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, size: 16, color: Colors.red),
+              const SizedBox(width: 8),
+              Expanded(child: Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          const Text('Reason for rejection', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: reasonCtrl,
+            maxLines: 3,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'e.g. Incomplete documentation, invalid credentials...',
+              hintStyle: const TextStyle(fontSize: 12),
+              filled: true,
+              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.red.withOpacity(0.5))),
+              contentPadding: const EdgeInsets.all(12),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonCtrl, maxLines: 3,
-              decoration: InputDecoration(hintText: 'Enter rejection reason (optional)...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), contentPadding: const EdgeInsets.all(12)),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text('This reason will be emailed to the organization.', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () { Navigator.pop(ctx); _updateStatus(ref, org, 'REJECTED'); },
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Confirm Reject'),
+          FilledButton.icon(
+            onPressed: () {
+              final reason = reasonCtrl.text.trim();
+              Navigator.pop(ctx);
+              _updateStatus(ref, org, 'REJECTED', reason: reason.isEmpty ? null : reason);
+            },
+            icon: const Icon(Icons.cancel_rounded, size: 16),
+            label: const Text('Reject'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _updateStatus(WidgetRef ref, Map<String, dynamic> org, String status) async {
+  void _showSuspendDialog(WidgetRef ref, Map<String, dynamic> org) {
+    final reasonCtrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.block_rounded, color: Colors.orange, size: 20)),
+          const SizedBox(width: 12),
+          const Text('Suspend Organization', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(color: Colors.orange.withOpacity(0.06), borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withOpacity(0.2))),
+            child: Row(children: [
+              Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, size: 16, color: Colors.orange),
+              const SizedBox(width: 8),
+              Expanded(child: Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          const Text('Reason for suspension', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: reasonCtrl,
+            maxLines: 3,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'e.g. Policy violation, pending investigation...',
+              hintStyle: const TextStyle(fontSize: 12),
+              filled: true,
+              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.orange.withOpacity(0.5))),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text('The organization will lose access until reactivated.', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton.icon(
+            onPressed: () {
+              final reason = reasonCtrl.text.trim();
+              Navigator.pop(ctx);
+              _updateStatus(ref, org, 'SUSPENDED', reason: reason.isEmpty ? null : reason);
+            },
+            icon: const Icon(Icons.block_rounded, size: 16),
+            label: const Text('Suspend'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateStatus(WidgetRef ref, Map<String, dynamic> org, String status, {String? reason}) async {
     try {
       final repo = ref.read(adminRepositoryProvider);
       final id = _parseInt(org['id']);
       if (org['type'] == 'University') {
-        await repo.updateUniversityStatus(id, status);
+        await repo.updateUniversityStatus(id, status, reason: reason);
       } else {
-        await repo.updateCompanyStatus(id, status);
+        await repo.updateCompanyStatus(id, status, reason: reason);
       }
       ref.invalidate(allUniversitiesProvider);
       ref.invalidate(allCompaniesProvider);
@@ -10266,7 +10721,10 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
       ref.invalidate(pendingUniversitiesProvider);
       ref.invalidate(pendingCompaniesProvider);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${org['name']} → $status'), backgroundColor: status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : Colors.orange),
+        SnackBar(
+          content: Text('${org['name']} → $status'),
+          backgroundColor: status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : Colors.orange,
+        ),
       );
     } catch (e) {
       final msg = _extractErrorMessage(e);
@@ -10708,6 +11166,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
     final approval = (user['institution_access_approval'] ?? 'PENDING') as String;
     final isPending = approval == 'PENDING';
     final uniName = coord['pending_university_name'] as String? ?? 'University not linked';
+    final docUrl = user['verification_document']?.toString() ?? '';
+    final hasDoc = docUrl.isNotEmpty;
     final statusColor = switch (approval) {
       'APPROVED' => Colors.green,
       'PENDING' => Colors.orange,
@@ -10760,9 +11220,14 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
             ])),
           ]),
         ),
+        // Verification document row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: _buildDocumentRow(context, docUrl, hasDoc, isDark),
+        ),
         if (isPending)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
             child: Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
@@ -10827,6 +11292,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
     final company = sup['company'] as Map<String, dynamic>? ?? {};
     final approval = (user['institution_access_approval'] ?? 'PENDING') as String;
     final isPending = approval == 'PENDING';
+    final docUrl = user['verification_document']?.toString() ?? '';
+    final hasDoc = docUrl.isNotEmpty;
     final statusColor = switch (approval) {
       'APPROVED' => Colors.green,
       'PENDING' => Colors.orange,
@@ -10880,9 +11347,14 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
             ])),
           ]),
         ),
+        // Verification document row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: _buildDocumentRow(context, docUrl, hasDoc, isDark),
+        ),
         if (isPending)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
             child: Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
@@ -10941,6 +11413,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
     );
   }
 
+  /// Reusable document row shown on coordinator/supervisor cards.
   Future<void> _sendSetupLink(String email) async {
     if (email.isEmpty) return;
     final confirmed = await showDialog<bool>(
@@ -11098,20 +11571,22 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
 
 class _AdminLogsTab extends ConsumerStatefulWidget {
   const _AdminLogsTab();
-
   @override
   ConsumerState<_AdminLogsTab> createState() => _AdminLogsTabState();
 }
 
 class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
+  final _searchCtrl = TextEditingController();
   String _searchQuery = '';
-  String _typeFilter = 'All';
-  String _roleFilter = 'All';
+  String _actionFilter = 'All';
+  String _dateFilter  = 'All';
+
+  @override
+  void dispose() { _searchCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final logsAsync = ref.watch(auditLogsProvider);
 
     return Material(
@@ -11131,46 +11606,67 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text('Error: $err')),
           data: (logs) {
-            final filteredLogs = logs.where((l) {
-              final action = l['action'].toString().toLowerCase();
-              final matchesSearch = action.contains(_searchQuery.toLowerCase()) || 
-                  l['details'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
-              final matchesType = _typeFilter == 'All' || l['action'].toString().contains(_typeFilter.toUpperCase());
-              return matchesSearch && matchesType;
+            final now = DateTime.now();
+            final filtered = logs.where((l) {
+              final action = (l['action'] ?? '').toString().toLowerCase();
+              final details = (l['details'] ?? '').toString().toLowerCase();
+              final admin = (l['admin']?['full_name'] ?? '').toString().toLowerCase();
+              final q = _searchQuery.toLowerCase();
+              if (q.isNotEmpty && !action.contains(q) && !details.contains(q) && !admin.contains(q)) return false;
+              if (_actionFilter != 'All' && !action.contains(_actionFilter.toLowerCase())) return false;
+              if (_dateFilter != 'All') {
+                final ts = DateTime.tryParse(l['timestamp']?.toString() ?? '');
+                if (ts == null) return false;
+                if (_dateFilter == 'Today' && !_sameDay(ts, now)) return false;
+                if (_dateFilter == 'This Week' && now.difference(ts).inDays > 7) return false;
+                if (_dateFilter == 'This Month' && (ts.month != now.month || ts.year != now.year)) return false;
+              }
+              return true;
             }).toList();
+
+            // Summary counts
+            int approvals = 0, rejections = 0, suspensions = 0, creations = 0;
+            for (final l in logs) {
+              final a = (l['action'] ?? '').toString().toUpperCase();
+              if (a.contains('APPROVE')) approvals++;
+              else if (a.contains('REJECT')) rejections++;
+              else if (a.contains('SUSPEND')) suspensions++;
+              else if (a.contains('CREATE')) creations++;
+            }
 
             return CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
+                // ── App bar ────────────────────────────────────────────────
                 ModernSliverAppBar(
                   title: 'Audit Logs',
-                  subtitle: 'System-wide activity trace',
+                  subtitle: '${logs.length} total actions recorded',
                   profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
-                  gradient: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
+                  gradient: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
                   backgroundIcon: Icons.receipt_long_rounded,
                   actions: [
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
-                      tooltip: 'Export PDF',
-                    ),
                     IconButton(
                       onPressed: () async {
                         try {
                           final csv = await ref.read(adminRepositoryProvider).exportAuditLogsCsv();
-                          // In a real mobile app, we'd use path_provider and open_file or share_plus
-                          // For now, we'll show success.
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                              content: Text('Audit Log CSV generated successfully (5000 records)'),
+                          final filename = 'audit-log-${DateTime.now().millisecondsSinceEpoch}.csv';
+                          downloadCsv(csv, filename);
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                                const SizedBox(width: 8),
+                                const Expanded(child: Text('Audit log CSV downloaded', overflow: TextOverflow.ellipsis)),
+                              ]),
                               backgroundColor: Colors.green,
-                            ));
-                          }
-                          print('CSV Data: ${csv.substring(0, 100)}...');
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
                         } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export failed: $e')));
-                          }
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Export failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red),
+                          );
                         }
                       },
                       icon: const Icon(Icons.file_download_rounded, color: Colors.white),
@@ -11178,37 +11674,127 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
                     ),
                   ],
                 ),
+
+                // ── Summary strip ──────────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFilters(theme, isDark),
-                        const SizedBox(height: 32),
-                        Row(
-                          children: [
-                            const Icon(Icons.timeline_rounded, size: 20, color: Colors.grey),
-                            const SizedBox(width: 12),
-                            Text('Activity Timeline (${filteredLogs.length})', 
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                          ],
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _logStat('Approvals',  approvals,   Colors.green,  Icons.check_circle_rounded, isDark),
+                        const SizedBox(width: 10),
+                        _logStat('Rejections', rejections,  Colors.red,    Icons.cancel_rounded,       isDark),
+                        const SizedBox(width: 10),
+                        _logStat('Suspensions',suspensions, Colors.orange, Icons.block_rounded,        isDark),
+                        const SizedBox(width: 10),
+                        _logStat('Creations',  creations,   Colors.blue,   Icons.add_circle_rounded,   isDark),
+                      ]),
+                    ),
+                  ),
+                ),
+
+                // ── Search ─────────────────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                      decoration: InputDecoration(
+                        hintText: 'Search action, detail, or admin name...',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded, size: 18),
+                                onPressed: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); })
+                            : null,
+                        filled: true,
+                        fillColor: isDark ? Colors.white.withOpacity(0.06) : Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ── Action filter chips ────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _chip('All',     _actionFilter == 'All',     Colors.purple, () => setState(() => _actionFilter = 'All'),     isDark),
+                        const SizedBox(width: 8),
+                        _chip('Approve', _actionFilter == 'APPROVE', Colors.green,  () => setState(() => _actionFilter = 'APPROVE'), isDark),
+                        const SizedBox(width: 8),
+                        _chip('Reject',  _actionFilter == 'REJECT',  Colors.red,    () => setState(() => _actionFilter = 'REJECT'),  isDark),
+                        const SizedBox(width: 8),
+                        _chip('Suspend', _actionFilter == 'SUSPEND', Colors.orange, () => setState(() => _actionFilter = 'SUSPEND'), isDark),
+                        const SizedBox(width: 8),
+                        _chip('Create',  _actionFilter == 'CREATE',  Colors.blue,   () => setState(() => _actionFilter = 'CREATE'),  isDark),
+                        const SizedBox(width: 16),
+                        _dateChip('All time',   _dateFilter == 'All',        () => setState(() => _dateFilter = 'All'),        isDark),
+                        const SizedBox(width: 8),
+                        _dateChip('Today',      _dateFilter == 'Today',      () => setState(() => _dateFilter = 'Today'),      isDark),
+                        const SizedBox(width: 8),
+                        _dateChip('This Week',  _dateFilter == 'This Week',  () => setState(() => _dateFilter = 'This Week'),  isDark),
+                        const SizedBox(width: 8),
+                        _dateChip('This Month', _dateFilter == 'This Month', () => setState(() => _dateFilter = 'This Month'), isDark),
+                      ]),
+                    ),
+                  ),
+                ),
+
+                // ── Result count + clear ───────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                    child: Row(children: [
+                      const Icon(Icons.timeline_rounded, size: 15, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Text('${filtered.length} result${filtered.length == 1 ? '' : 's'}',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.grey.shade500)),
+                      if (filtered.length != logs.length) ...[
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _actionFilter = 'All'; _dateFilter = 'All';
+                            _searchQuery = ''; _searchCtrl.clear();
+                          }),
+                          child: Text('Clear filters',
+                              style: TextStyle(fontSize: 12, color: Colors.purple.shade400, fontWeight: FontWeight.w600)),
                         ),
-                        const SizedBox(height: 16),
                       ],
-                    ),
+                    ]),
                   ),
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _buildTimelineItem(context, filteredLogs[index], isDark, 
-                        isFirst: index == 0, isLast: index == filteredLogs.length - 1),
-                      childCount: filteredLogs.length,
+
+                // ── Log list ───────────────────────────────────────────────
+                if (filtered.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(48),
+                      child: Column(children: [
+                        Icon(Icons.search_off_rounded, size: 52, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No logs match your filters',
+                            style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, i) => _logCard(filtered[i], isDark, i, filtered.length),
+                        childCount: filtered.length,
+                      ),
                     ),
                   ),
-                ),
+
                 const SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             );
@@ -11218,194 +11804,191 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
     );
   }
 
-  Widget _buildFilters(ThemeData theme, bool isDark) {
-    return Column(
-      children: [
-        TextField(
-          onChanged: (v) => setState(() => _searchQuery = v),
-          decoration: InputDecoration(
-            hintText: 'Search by action or detail...',
-            prefixIcon: const Icon(Icons.search_rounded),
-            filled: true,
-            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildFilterChip('Action: $_typeFilter', Icons.bolt_rounded, () => _showFilterDialog('Action')),
-              const SizedBox(width: 8),
-              _buildFilterChip('Role: $_roleFilter', Icons.badge_rounded, () => _showFilterDialog('Role')),
-              const SizedBox(width: 8),
-              _buildFilterChip('Date: Today', Icons.calendar_today_rounded, () {}),
-            ],
-          ),
-        ),
-      ],
+  // ── Widgets ────────────────────────────────────────────────────────────────
+
+  Widget _logStat(String label, int count, Color color, IconData icon, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.12 : 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.22)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$count', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: color)),
+          Text(label, style: TextStyle(fontSize: 10, color: color.withOpacity(0.7), fontWeight: FontWeight.w600)),
+        ]),
+      ]),
     );
   }
 
-  Widget _buildFilterChip(String label, IconData icon, VoidCallback onTap) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return InkWell(
+  Widget _chip(String label, bool selected, Color color, VoidCallback onTap, bool isDark) {
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+          color: selected ? color : (isDark ? Colors.white.withOpacity(0.06) : Colors.white),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? color : Colors.grey.withOpacity(0.2)),
         ),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down_rounded, size: 16, color: Colors.grey),
-          ],
-        ),
+        child: Text(label, style: TextStyle(
+          fontSize: 12, fontWeight: FontWeight.w700,
+          color: selected ? Colors.white : Colors.grey,
+        )),
       ),
     );
   }
 
-  Widget _buildTimelineItem(BuildContext context, dynamic log, bool isDark, {bool isFirst = false, bool isLast = false}) {
-    final actionColor = _getActionColor(log['action'].toString());
-    
+  Widget _dateChip(String label, bool selected, VoidCallback onTap, bool isDark) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? Colors.purple.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? Colors.purple.withOpacity(0.4) : Colors.grey.withOpacity(0.2)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.calendar_today_rounded, size: 11, color: selected ? Colors.purple : Colors.grey),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(
+            fontSize: 11, fontWeight: FontWeight.w700,
+            color: selected ? Colors.purple : Colors.grey,
+          )),
+        ]),
+      ),
+    );
+  }
+
+  Widget _logCard(dynamic log, bool isDark, int index, int total) {
+    final action    = (log['action']  ?? '').toString();
+    final color     = _actionColor(action);
+    final icon      = _actionIcon(action);
+    final adminName = (log['admin']?['full_name'] ?? 'System').toString();
+    final adminEmail= (log['admin']?['email']     ?? '').toString();
+    final details   = (log['details'] ?? 'No details').toString();
+    final ts        = DateTime.tryParse(log['timestamp']?.toString() ?? '');
+    final isFirst   = index == 0;
+    final isLast    = index == total - 1;
+
     return IntrinsicHeight(
-      child: Row(
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 2,
-                height: 20,
-                color: isFirst ? Colors.transparent : Colors.grey.withOpacity(0.2),
-              ),
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: actionColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: actionColor.withOpacity(0.2), width: 4, strokeAlign: BorderSide.strokeAlignOutside),
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  width: 2,
-                  color: isLast ? Colors.transparent : Colors.grey.withOpacity(0.2),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 24),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(log['action'], style: TextStyle(fontWeight: FontWeight.w900, color: actionColor, fontSize: 13)),
-                      Text(_formatTime(log['timestamp']), style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(log['details'] ?? 'No details available', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      CircleAvatar(radius: 8, child: Text(log['admin']?['full_name']?[0] ?? '?', style: const TextStyle(fontSize: 8))),
-                      const SizedBox(width: 8),
-                      Text(log['admin']?['full_name'] ?? 'System', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                      const Spacer(),
-                      const Icon(Icons.devices_rounded, size: 10, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text('Web/192.168.1.1', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                    ],
-                  ),
-                ],
-              ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // Timeline spine
+        SizedBox(width: 28, child: Column(children: [
+          Container(width: 2, height: 20, color: isFirst ? Colors.transparent : Colors.grey.withOpacity(0.2)),
+          Container(
+            width: 28, height: 28,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withOpacity(0.3), width: 1.5),
             ),
+            child: Icon(icon, size: 13, color: color),
           ),
-        ],
-      ),
+          Expanded(child: Container(width: 2, color: isLast ? Colors.transparent : Colors.grey.withOpacity(0.2))),
+        ])),
+        const SizedBox(width: 12),
+        // Card
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Action badge + relative time
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                  child: Text(action, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+                ),
+                const Spacer(),
+                if (ts != null)
+                  Text(_relTime(ts), style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+              ]),
+              const SizedBox(height: 8),
+              // Details
+              Text(details,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 10),
+              // Admin row
+              Row(children: [
+                CircleAvatar(
+                  radius: 10,
+                  backgroundColor: color.withOpacity(0.15),
+                  child: Text(
+                    adminName.isNotEmpty ? adminName[0].toUpperCase() : '?',
+                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color),
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(adminName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                  if (adminEmail.isNotEmpty)
+                    Text(adminEmail, style: TextStyle(fontSize: 10, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                ])),
+                if (ts != null)
+                  Text(
+                    '${ts.day.toString().padLeft(2,'0')}/${ts.month.toString().padLeft(2,'0')}/${ts.year}',
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                  ),
+              ]),
+            ]),
+          ),
+        ),
+      ]),
     );
   }
 
-  Color _getActionColor(String action) {
-    if (action.contains('APPROVE')) return Colors.green;
-    if (action.contains('REJECT')) return Colors.red;
-    if (action.contains('SUSPEND')) return Colors.orange;
-    if (action.contains('CREATE')) return Colors.blue;
-    if (action.contains('DELETE')) return Colors.redAccent;
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  Color _actionColor(String a) {
+    final u = a.toUpperCase();
+    if (u.contains('APPROVE'))                  return Colors.green;
+    if (u.contains('REJECT'))                   return Colors.red;
+    if (u.contains('SUSPEND'))                  return Colors.orange;
+    if (u.contains('CREATE'))                   return Colors.blue;
+    if (u.contains('DELETE'))                   return Colors.redAccent;
+    if (u.contains('UPDATE') || u.contains('CONFIG')) return Colors.teal;
     return Colors.purple;
   }
 
-  String _formatTime(String? timestamp) {
-    if (timestamp == null) return '--:--';
-    try {
-      final dt = DateTime.parse(timestamp);
-      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} ${dt.day}/${dt.month}';
-    } catch (_) {
-      return timestamp;
-    }
+  IconData _actionIcon(String a) {
+    final u = a.toUpperCase();
+    if (u.contains('APPROVE'))                  return Icons.check_circle_rounded;
+    if (u.contains('REJECT'))                   return Icons.cancel_rounded;
+    if (u.contains('SUSPEND'))                  return Icons.block_rounded;
+    if (u.contains('CREATE'))                   return Icons.add_circle_rounded;
+    if (u.contains('DELETE'))                   return Icons.delete_rounded;
+    if (u.contains('UPDATE') || u.contains('CONFIG')) return Icons.settings_rounded;
+    return Icons.history_rounded;
   }
 
-  void _showFilterDialog(String type) {
-    final options = type == 'Role' 
-      ? ['All', 'ADMIN', 'COORDINATOR', 'SUPERVISOR', 'SYSTEM']
-      : ['All', 'APPROVE', 'REJECT', 'SUSPEND', 'CREATE', 'UPDATE'];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Select $type', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: options.map((opt) {
-                final isSelected = type == 'Role' ? _roleFilter == opt : _typeFilter == opt;
-                return ChoiceChip(
-                  label: Text(opt),
-                  selected: isSelected,
-                  onSelected: (s) {
-                    setState(() {
-                      if (type == 'Role') _roleFilter = opt;
-                      else _typeFilter = opt;
-                    });
-                    Navigator.pop(ctx);
-                  },
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
+  String _relTime(DateTime dt) {
+    final d = DateTime.now().difference(dt);
+    if (d.inSeconds < 60)  return 'just now';
+    if (d.inMinutes < 60)  return '${d.inMinutes}m ago';
+    if (d.inHours   < 24)  return '${d.inHours}h ago';
+    if (d.inDays    < 7)   return '${d.inDays}d ago';
+    if (d.inDays    < 30)  return '${(d.inDays / 7).floor()}w ago';
+    if (d.inDays    < 365) return '${(d.inDays / 30).floor()}mo ago';
+    return '${(d.inDays / 365).floor()}y ago';
   }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 class _AdminSettingsTab extends ConsumerStatefulWidget {
@@ -11476,18 +12059,18 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error: $err')),
       data: (config) {
-        final regStudent = _cfg(config, 'registration_student_open', 'true') == 'true';
+        final regStudent     = _cfg(config, 'registration_student_open',     'true') == 'true';
         final regCoordinator = _cfg(config, 'registration_coordinator_open', 'true') == 'true';
-        final regHod = _cfg(config, 'registration_hod_open', 'true') == 'true';
-        final regSupervisor = _cfg(config, 'registration_supervisor_open', 'true') == 'true';
-        final regUni = _cfg(config, 'registration_university_open', 'true') == 'true';
-        final regComp = _cfg(config, 'registration_company_open', 'true') == 'true';
-        final maintenance = _cfg(config, 'maintenance_mode', 'false') == 'true';
-        final maintenanceMessage = _cfg(config, 'maintenance_message', '');
-        final passwordMinLength = config['password_min_length'] ?? '8';
-        final sessionTimeoutMin = config['session_timeout_min'] ?? '30';
-        final apiRateLimitPerMin = config['api_rate_limit_per_min'] ?? '60';
-        
+        final regHod         = _cfg(config, 'registration_hod_open',         'true') == 'true';
+        final regSupervisor  = _cfg(config, 'registration_supervisor_open',  'true') == 'true';
+        final regUni         = _cfg(config, 'registration_university_open',  'true') == 'true';
+        final regComp        = _cfg(config, 'registration_company_open',     'true') == 'true';
+        final maintenance    = _cfg(config, 'maintenance_mode',              'false') == 'true';
+        final maintenanceMessage  = _cfg(config, 'maintenance_message', '');
+        final passwordMinLength   = config['password_min_length']   ?? '8';
+        final sessionTimeoutMin   = config['session_timeout_min']   ?? '30';
+        final apiRateLimitPerMin  = config['api_rate_limit_per_min'] ?? '60';
+
         return Material(
           color: Colors.transparent,
           child: Container(
@@ -11501,274 +12084,323 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                 ],
               ),
             ),
-            child: Stack(
-              children: [
-                CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    ModernSliverAppBar(
-                      title: 'Settings',
-                      subtitle: 'System Control Panel',
-                      profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
-                      gradient: const [Color(0xFF2C3E50), Color(0xFF000000)],
-                      backgroundIcon: Icons.settings_suggest_rounded,
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.all(24),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          _buildSection(context, 'System Configuration', [
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              child: Text(
-                                'Manage platform-wide settings, registration controls, and operational parameters.',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ),
-                            _buildSectionHeaderSmall('Registration Controls'),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                              child: Text(
-                                'Enable or disable new registrations per role. Existing accounts are not affected.',
-                                style: TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                            ),
-                            _buildSwitchTile('Student registration open', regStudent, (v) => _updateConfig('registration_student_open', v.toString()), isDark),
-                            _buildSwitchTile('Coordinator registration open', regCoordinator, (v) => _updateConfig('registration_coordinator_open', v.toString()), isDark),
-                            _buildSwitchTile('Hod registration open', regHod, (v) => _updateConfig('registration_hod_open', v.toString()), isDark),
-                            _buildSwitchTile('Supervisor registration open', regSupervisor, (v) => _updateConfig('registration_supervisor_open', v.toString()), isDark),
-                            
-                            const Divider(height: 32),
-                            _buildSectionHeaderSmall('Institutional Controls'),
-                            _buildSwitchTile('Registration: University', regUni, (v) => _updateConfig('registration_university_open', v.toString()), isDark),
-                            _buildSwitchTile('Registration: Company', regComp, (v) => _updateConfig('registration_company_open', v.toString()), isDark),
-                            const Padding(
-                              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
-                              child: Text(
-                                'Per-university student registration overrides are managed in Organizations → Details.',
-                                style: TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                            ),
-                            
-                            const Divider(height: 32),
-                            _buildSectionHeaderSmall('Onboarding'),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                              child: Text(
-                                'Manually create organizations and send secure password setup links.',
-                                style: TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                            ),
-                            _buildActionTile('Create University', Icons.account_balance_rounded, Colors.blue, isDark, () {
-                              final orgsTab = ref.read(dashboardIndexProvider.notifier);
-                              orgsTab.state = 1; // Navigate to Orgs tab
-                              Future.delayed(const Duration(milliseconds: 300), () {
-                                if (mounted) {
-                                  final isDarkNow = Theme.of(context).brightness == Brightness.dark;
-                                  // Show create dialog — we need to find the orgs tab state
-                                  // For now show a direct dialog
-                                  _showQuickCreateDialog(context, 'University', isDark);
-                                }
-                              });
-                            }),
-                            _buildActionTile('Create Company', Icons.business_rounded, Colors.purple, isDark, () {
-                              _showQuickCreateDialog(context, 'Company', isDark);
-                            }),
-                            _buildActionTile('Send Setup Link', Icons.link_rounded, Colors.teal, isDark, () {
-                              _showSendSetupLinkDialog(context, isDark);
-                            }),
-                            
-                            const Divider(height: 32),
-                            _buildSectionHeaderSmall('Operational Rules'),
-                            _buildConfigItem('Internship Rules', 
-                              'Min ${config['internship_min_weeks']} Weeks, Max ${config['internship_max_weeks']} Weeks', 
-                              Icons.rule_rounded, isDark, 
-                              onTap: () => _showInternshipRulesDialog(context, config)),
-                            _buildConfigItem('Weekly Deadlines', 
-                              'Deadline: ${config['weekly_plan_deadline_day']}', 
-                              Icons.event_note_rounded, isDark, 
-                              onTap: () => _showWeeklyDeadlineDialog(context, config)),
-                          ]),
-                          const SizedBox(height: 32),
-                          _buildSection(context, 'Maintenance Mode', [
-                            _buildSwitchTile('Enable Maintenance', maintenance, (v) => _updateConfig('maintenance_mode', v.toString()), isDark),
-                            if (maintenance)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                child: TextFormField(
-                                  initialValue: maintenanceMessage,
-                                  onFieldSubmitted: (v) => _updateConfig('maintenance_message', v),
-                                  decoration: InputDecoration(
-                                    hintText: 'Maintenance message...',
-                                    helperText: 'Press Enter to save message',
-                                    filled: true,
-                                    fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                                  ),
+            child: Stack(children: [
+              CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  ModernSliverAppBar(
+                    title: 'Settings',
+                    subtitle: 'System Control Panel',
+                    profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Admin',
+                    gradient: const [Color(0xFF2C3E50), Color(0xFF000000)],
+                    backgroundIcon: Icons.settings_suggest_rounded,
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+
+                        // ── Registration Controls ──────────────────────────
+                        _cfgCard(isDark, [
+                          _cfgCardHeader('Registration Controls', Icons.how_to_reg_rounded, Colors.blue, isDark),
+                          const SizedBox(height: 4),
+                          _cfgNote('Enable or disable new registrations per role. Existing accounts are unaffected.', isDark),
+                          const SizedBox(height: 8),
+                          _cfgLabel('USERS', isDark),
+                          _switchRow('Student',     Icons.school_rounded,          Colors.blue,   regStudent,     (v) => _updateConfig('registration_student_open',     v.toString()), isDark),
+                          _switchRow('Coordinator', Icons.account_balance_rounded, Colors.indigo, regCoordinator, (v) => _updateConfig('registration_coordinator_open', v.toString()), isDark),
+                          _switchRow('HoD',         Icons.supervisor_account_rounded, Colors.teal, regHod,        (v) => _updateConfig('registration_hod_open',         v.toString()), isDark),
+                          _switchRow('Supervisor',  Icons.business_center_rounded, Colors.purple, regSupervisor,  (v) => _updateConfig('registration_supervisor_open',  v.toString()), isDark),
+                          const Divider(height: 24),
+                          _cfgLabel('INSTITUTIONS', isDark),
+                          _switchRow('University',  Icons.account_balance_rounded, Colors.blue,   regUni,  (v) => _updateConfig('registration_university_open', v.toString()), isDark),
+                          _switchRow('Company',     Icons.business_rounded,        Colors.purple, regComp, (v) => _updateConfig('registration_company_open',    v.toString()), isDark),
+                          _cfgNote('Per-university student overrides → Organizations → Details.', isDark),
+                        ]),
+                        const SizedBox(height: 16),
+
+                        // ── Internship Rules ───────────────────────────────
+                        _cfgCard(isDark, [
+                          _cfgCardHeader('Internship Rules', Icons.work_history_rounded, Colors.orange, isDark),
+                          const SizedBox(height: 12),
+                          _cfgTapRow(
+                            icon: Icons.timelapse_rounded, color: Colors.orange, isDark: isDark,
+                            title: 'Duration Limits',
+                            subtitle: 'Min ${config['internship_min_weeks'] ?? '4'} weeks · Max ${config['internship_max_weeks'] ?? '24'} weeks',
+                            onTap: () => _showInternshipRulesDialog(context, config),
+                          ),
+                          _cfgTapRow(
+                            icon: Icons.event_note_rounded, color: Colors.teal, isDark: isDark,
+                            title: 'Weekly Plan Deadline',
+                            subtitle: 'Due every ${config['weekly_plan_deadline_day'] ?? 'Sunday'}',
+                            onTap: () => _showWeeklyDeadlineDialog(context, config),
+                          ),
+                        ]),
+                        const SizedBox(height: 16),
+
+                        // ── Maintenance Mode ───────────────────────────────
+                        _cfgCard(isDark, [
+                          _cfgCardHeader('Maintenance Mode', Icons.construction_rounded, Colors.red, isDark),
+                          const SizedBox(height: 4),
+                          _cfgNote('When enabled, all users see a maintenance message and cannot log in.', isDark),
+                          const SizedBox(height: 8),
+                          _switchRow('Enable Maintenance', Icons.construction_rounded, Colors.red, maintenance,
+                              (v) => _updateConfig('maintenance_mode', v.toString()), isDark),
+                          if (maintenance) ...[
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: TextFormField(
+                                initialValue: maintenanceMessage,
+                                onFieldSubmitted: (v) => _updateConfig('maintenance_message', v),
+                                maxLines: 2,
+                                decoration: InputDecoration(
+                                  hintText: 'Maintenance message shown to users...',
+                                  helperText: 'Press Enter to save',
+                                  filled: true,
+                                  fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.red.withOpacity(0.04),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.red.withOpacity(0.4))),
                                 ),
                               ),
-                          ]),
-                          const SizedBox(height: 32),
-                          _buildSection(context, 'Email / SMTP', [
-                            _buildActionTile('SMTP Configuration', Icons.mail_rounded, Colors.blue, isDark, () => _showSMTPDialog(context)),
-                            _buildActionTile('Send Test Email', Icons.send_rounded, Colors.green, isDark, () async {
-                              final ok = await ref.read(adminRepositoryProvider).testSmtp();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  content: Text(ok ? 'SMTP Connection Successful' : 'SMTP Connection Failed'),
-                                  backgroundColor: ok ? Colors.green : Colors.red,
-                                ));
-                              }
-                            }),
-                          ]),
-                          const SizedBox(height: 32),
-                          _buildSection(context, 'Notifications / Broadcast', [
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Global Announcement', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    controller: _broadcastTitleCtrl,
-                                    decoration: InputDecoration(
-                                      hintText: 'Announcement Title...',
-                                      filled: true,
-                                      fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextField(
-                                    controller: _broadcastContentCtrl,
-                                    maxLines: 3,
-                                    decoration: InputDecoration(
-                                      hintText: 'Type message here...',
-                                      filled: true,
-                                      fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text('Note: This will be visible to all roles in their common feed and send a notification.', 
-                                          style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      FilledButton.icon(
-                                        onPressed: () async {
-                                          if (_broadcastTitleCtrl.text.isEmpty || _broadcastContentCtrl.text.isEmpty) return;
-                                          try {
-                                            await ref.read(adminRepositoryProvider).broadcast(_broadcastTitleCtrl.text, _broadcastContentCtrl.text);
-                                            _broadcastTitleCtrl.clear();
-                                            _broadcastContentCtrl.clear();
-                                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Announcement Broadcasted!')));
-                                          } catch (e) {
-                                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-                                          }
-                                        },
-                                        icon: const Icon(Icons.campaign_rounded, size: 18),
-                                        label: const Text('Broadcast'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
                             ),
-                          ]),
-                          const SizedBox(height: 32),
-                          _buildSection(context, 'Security', [
-                            _buildConfigItem(
-                              'Password Policy',
-                              'Minimum length: $passwordMinLength',
-                              Icons.password_rounded,
-                              isDark,
-                              onTap: () => _showSingleValueConfigDialog(
-                                context: context,
-                                title: 'Password Policy',
-                                label: 'Minimum password length',
-                                configKey: 'password_min_length',
-                                initialValue: passwordMinLength,
-                                isNumber: true,
-                              ),
-                            ),
-                            _buildConfigItem(
-                              'Session Timeout',
-                              '$sessionTimeoutMin minutes',
-                              Icons.timer_rounded,
-                              isDark,
-                              onTap: () => _showSingleValueConfigDialog(
-                                context: context,
-                                title: 'Session Timeout',
-                                label: 'Session timeout (minutes)',
-                                configKey: 'session_timeout_min',
-                                initialValue: sessionTimeoutMin,
-                                isNumber: true,
-                              ),
-                            ),
-                            _buildConfigItem(
-                              'API Limits / Rate Limiting',
-                              '$apiRateLimitPerMin requests/min',
-                              Icons.speed_rounded,
-                              isDark,
-                              onTap: () => _showSingleValueConfigDialog(
-                                context: context,
-                                title: 'API Rate Limit',
-                                label: 'Requests per minute',
-                                configKey: 'api_rate_limit_per_min',
-                                initialValue: apiRateLimitPerMin,
-                                isNumber: true,
-                              ),
-                            ),
-                            _buildActionTile('Export Audit Logs (CSV)', Icons.download_rounded, Colors.teal, isDark, () async {
+                          ],
+                        ]),
+                        const SizedBox(height: 16),
+
+                        // ── Security ───────────────────────────────────────
+                        _cfgCard(isDark, [
+                          _cfgCardHeader('Security', Icons.security_rounded, Colors.green, isDark),
+                          const SizedBox(height: 12),
+                          _cfgTapRow(
+                            icon: Icons.password_rounded, color: Colors.green, isDark: isDark,
+                            title: 'Password Policy',
+                            subtitle: 'Minimum length: $passwordMinLength characters',
+                            onTap: () => _showSingleValueConfigDialog(context: context, title: 'Password Policy', label: 'Minimum password length', configKey: 'password_min_length', initialValue: passwordMinLength, isNumber: true),
+                          ),
+                          _cfgTapRow(
+                            icon: Icons.timer_rounded, color: Colors.blue, isDark: isDark,
+                            title: 'Session Timeout',
+                            subtitle: '$sessionTimeoutMin minutes of inactivity',
+                            onTap: () => _showSingleValueConfigDialog(context: context, title: 'Session Timeout', label: 'Timeout (minutes)', configKey: 'session_timeout_min', initialValue: sessionTimeoutMin, isNumber: true),
+                          ),
+                          _cfgTapRow(
+                            icon: Icons.speed_rounded, color: Colors.purple, isDark: isDark,
+                            title: 'API Rate Limit',
+                            subtitle: '$apiRateLimitPerMin requests per minute',
+                            onTap: () => _showSingleValueConfigDialog(context: context, title: 'API Rate Limit', label: 'Requests per minute', configKey: 'api_rate_limit_per_min', initialValue: apiRateLimitPerMin, isNumber: true),
+                          ),
+                          _cfgTapRow(
+                            icon: Icons.download_rounded, color: Colors.teal, isDark: isDark,
+                            title: 'Export Audit Logs',
+                            subtitle: 'Download CSV (up to 5000 records)',
+                            onTap: () async {
                               try {
                                 final csv = await ref.read(adminRepositoryProvider).exportAuditLogsCsv();
                                 if (!mounted) return;
-                                showDialog(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Audit Logs CSV (preview)'),
-                                    content: SizedBox(
-                                      width: 420,
-                                      child: SingleChildScrollView(
-                                        child: SelectableText(
-                                          csv.length > 2000 ? '${csv.substring(0, 2000)}\n\n...truncated...' : csv,
-                                        ),
-                                      ),
-                                    ),
-                                    actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-                                  ),
-                                );
+                                downloadCsv(csv, 'audit-log-${DateTime.now().millisecondsSinceEpoch}.csv');
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Audit log CSV downloaded'), backgroundColor: Colors.green));
                               } catch (e) {
-                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed export: $e')));
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
                               }
-                            }),
-                          ]),
-                          const SizedBox(height: 120),
+                            },
+                          ),
                         ]),
-                      ),
-                    ),
-                  ],
-                ),
-                if (_isUpdating)
-                  const Positioned.fill(
-                    child: Center(
-                      child: CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+
+                        // ── Email / SMTP ───────────────────────────────────
+                        _cfgCard(isDark, [
+                          _cfgCardHeader('Email / SMTP', Icons.mail_rounded, Colors.blue, isDark),
+                          const SizedBox(height: 12),
+                          _cfgTapRow(
+                            icon: Icons.settings_rounded, color: Colors.blue, isDark: isDark,
+                            title: 'SMTP Configuration',
+                            subtitle: 'Host, port, credentials',
+                            onTap: () => _showSMTPDialog(context),
+                          ),
+                          _cfgTapRow(
+                            icon: Icons.send_rounded, color: Colors.green, isDark: isDark,
+                            title: 'Send Test Email',
+                            subtitle: 'Verify SMTP connection is working',
+                            onTap: () async {
+                              final ok = await ref.read(adminRepositoryProvider).testSmtp();
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text(ok ? '✓ SMTP connection successful' : '✗ SMTP connection failed'),
+                                backgroundColor: ok ? Colors.green : Colors.red,
+                              ));
+                            },
+                          ),
+                        ]),
+                        const SizedBox(height: 16),
+
+                        // ── Broadcast ──────────────────────────────────────
+                        _cfgCard(isDark, [
+                          _cfgCardHeader('Broadcast Announcement', Icons.campaign_rounded, Colors.deepOrange, isDark),
+                          const SizedBox(height: 4),
+                          _cfgNote('Sends a pinned post to the common feed and a notification to every user.', isDark),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _broadcastTitleCtrl,
+                            decoration: InputDecoration(
+                              hintText: 'Announcement title...',
+                              prefixIcon: const Icon(Icons.title_rounded, size: 18),
+                              filled: true,
+                              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _broadcastContentCtrl,
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              hintText: 'Message content...',
+                              filled: true,
+                              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.all(14),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: () async {
+                                if (_broadcastTitleCtrl.text.trim().isEmpty || _broadcastContentCtrl.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Title and content are required'), backgroundColor: Colors.red));
+                                  return;
+                                }
+                                try {
+                                  await ref.read(adminRepositoryProvider).broadcast(_broadcastTitleCtrl.text.trim(), _broadcastContentCtrl.text.trim());
+                                  _broadcastTitleCtrl.clear();
+                                  _broadcastContentCtrl.clear();
+                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Announcement broadcasted to all users!'), backgroundColor: Colors.green));
+                                } catch (e) {
+                                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
+                                }
+                              },
+                              icon: const Icon(Icons.campaign_rounded, size: 18),
+                              label: const Text('Send to Everyone', style: TextStyle(fontWeight: FontWeight.w700)),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.deepOrange,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 16),
+
+                        // ── Onboarding shortcuts ───────────────────────────
+                        _cfgCard(isDark, [
+                          _cfgCardHeader('Quick Onboarding', Icons.rocket_launch_rounded, Colors.indigo, isDark),
+                          const SizedBox(height: 4),
+                          _cfgNote('Manually create organizations or resend password setup links.', isDark),
+                          const SizedBox(height: 12),
+                          _cfgTapRow(icon: Icons.account_balance_rounded, color: Colors.blue,   isDark: isDark, title: 'Create University', subtitle: 'Auto-approved · setup email sent', onTap: () => _showQuickCreateDialog(context, 'University', isDark)),
+                          _cfgTapRow(icon: Icons.business_rounded,        color: Colors.purple, isDark: isDark, title: 'Create Company',    subtitle: 'Auto-approved · setup email sent', onTap: () => _showQuickCreateDialog(context, 'Company',    isDark)),
+                          _cfgTapRow(icon: Icons.link_rounded,            color: Colors.teal,   isDark: isDark, title: 'Send Setup Link',   subtitle: 'Resend password setup to any user', onTap: () => _showSendSetupLinkDialog(context, isDark)),
+                        ]),
+
+                      ]),
                     ),
                   ),
-              ],
-            ),
+                ],
+              ),
+              if (_isUpdating)
+                const Positioned.fill(child: Center(child: CircularProgressIndicator())),
+            ]),
           ),
         );
       },
+    );
+  }
+
+  // ── Reusable card widgets ──────────────────────────────────────────────────
+
+  Widget _cfgCard(bool isDark, List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05)),
+        boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+    );
+  }
+
+  Widget _cfgCardHeader(String title, IconData icon, Color color, bool isDark) {
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [color.withOpacity(0.7), color]),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: Colors.white, size: 16),
+      ),
+      const SizedBox(width: 12),
+      Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+    ]);
+  }
+
+  Widget _cfgLabel(String label, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
+      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.2, color: Colors.grey.shade500)),
+    );
+  }
+
+  Widget _cfgNote(String text, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Text(text, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+    );
+  }
+
+  Widget _switchRow(String label, IconData icon, Color color, bool value, ValueChanged<bool> onChanged, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+          child: Icon(icon, size: 14, color: color),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+        Switch.adaptive(
+          value: value,
+          onChanged: onChanged,
+          activeColor: color,
+        ),
+      ]),
+    );
+  }
+
+  Widget _cfgTapRow({required IconData icon, required Color color, required bool isDark, required String title, required String subtitle, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          ])),
+          Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey.shade400),
+        ]),
+      ),
     );
   }
 
@@ -11855,63 +12487,6 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSection(BuildContext context, String title, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-        const SizedBox(height: 16),
-        ...children,
-      ],
-    );
-  }
-
-  Widget _buildSectionHeaderSmall(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.2,
-          color: Colors.blue,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwitchTile(String title, bool value, ValueChanged<bool> onChanged, bool isDark) {
-    return ListTile(
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      trailing: Switch.adaptive(value: value, onChanged: onChanged),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-    );
-  }
-
-  Widget _buildConfigItem(String title, String value, IconData icon, bool isDark, {VoidCallback? onTap}) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey, size: 20),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      subtitle: Text(value, style: const TextStyle(fontSize: 12)),
-      trailing: const Icon(Icons.edit_rounded, size: 18),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildActionTile(String title, IconData icon, Color color, bool isDark, VoidCallback onTap) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
     );
   }
 

@@ -23,12 +23,29 @@ class SupervisorStudentsTab extends ConsumerWidget {
         SliverPadding(
           padding: const EdgeInsets.all(24),
           sliver: studentsAsync.when(
-            data: (students) => SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _StudentCard(student: students[index]),
-                childCount: students.length,
-              ),
-            ),
+            data: (students) {
+              final bool wide = isWideScreen(context);
+              if (wide) {
+                return SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 1.6,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => _StudentCard(student: students[index]),
+                    childCount: students.length,
+                  ),
+                );
+              }
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _StudentCard(student: students[index]),
+                  childCount: students.length,
+                ),
+              );
+            },
             loading: () => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
             error: (err, _) => SliverFillRemaining(child: Center(child: Text('Error: $err'))),
           ),

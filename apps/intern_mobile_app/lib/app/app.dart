@@ -11,9 +11,10 @@ import 'desktop_layout.dart';
 /// Small tablet (600–839px): 1.35
 /// Large tablet / desktop (840px+): 1.55
 double _responsiveTextScale(double screenWidth) {
-  if (screenWidth >= 840) return 1.55;
-  if (screenWidth >= 600) return 1.35;
-  return 1.15;
+  if (screenWidth >= 1200) return 1.40; // Full Desktop
+  if (screenWidth >= 900)  return 1.25; // Large Tablet
+  if (screenWidth >= 600)  return 1.15; // Small Tablet
+  return 1.05; // Mobile
 }
 
 class InternLinkApp extends StatelessWidget {
