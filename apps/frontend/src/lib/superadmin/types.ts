@@ -9,6 +9,8 @@ export interface VerificationProposal {
   status: VerificationStatus;
   documents: string[]; // URLs to PDFs
   description: string;
+  email?: string;
+  stampImageUrl?: string; // company only
   rejectionReason?: string;
   reviewedAt?: string;
 }

@@ -5,7 +5,7 @@ import AdminRouteGuard from "@/app/(dashboard)/admin/AdminRouteGuard";
 export default function AdminDashboardPage() {
   return (
     <AdminRouteGuard>
-      <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8 text-center text-slate-500">Loading admin…</div>}>
+      <Suspense fallback={<div className="min-h-screen bg-slate-50 p-8 text-center text-slate-500 dark:bg-slate-950 dark:text-slate-400">Loading admin…</div>}>
         <App />
       </Suspense>
     </AdminRouteGuard>

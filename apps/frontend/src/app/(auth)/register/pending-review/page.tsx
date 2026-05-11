@@ -1,7 +1,8 @@
 'use client';
 
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { Clock, Mail, CheckCircle, Suspense } from 'lucide-react';
+import { Clock, Mail, CheckCircle } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
 function PendingReviewContent() {

@@ -22,26 +22,26 @@ const links = [
 
 export default function HodQuickLinks() {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="text-lg font-bold text-slate-900">Department tools</h2>
-      <p className="mt-1 text-sm text-slate-500">Jump to a section from the sidebar or below.</p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Department tools</h2>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Jump to a section from the sidebar or below.</p>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {links.map((item) => (
           <li key={item.href}>
             <Link
               href={item.href}
-              className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50/40"
+              className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50/40 dark:border-slate-700 dark:bg-slate-800/60 dark:hover:bg-primary-900/20"
             >
               <span className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
                   <item.icon className="h-5 w-5" aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-semibold text-slate-900">{item.label}</span>
-                  <span className="block truncate text-xs text-slate-500">{item.desc}</span>
+                  <span className="block font-semibold text-slate-900 dark:text-slate-100">{item.label}</span>
+                  <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{item.desc}</span>
                 </span>
               </span>
-              <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" aria-hidden />
+              <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden />
             </Link>
           </li>
         ))}

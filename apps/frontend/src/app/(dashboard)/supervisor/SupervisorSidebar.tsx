@@ -84,26 +84,26 @@ const SupervisorSidebar = () => {
     cn(
       "flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 lg:gap-3 lg:px-4 lg:py-3",
       active
-        ? "bg-primary-light text-primary-base shadow-sm ring-1 ring-primary-100"
-        : "text-text-muted hover:bg-bg-tertiary hover:text-text-body active:scale-[0.98]",
+        ? "bg-primary-light text-primary-base shadow-sm ring-1 ring-primary-100 dark:bg-teal-900/40 dark:text-teal-400 dark:ring-slate-700"
+        : "text-text-muted hover:bg-bg-tertiary hover:text-text-body active:scale-[0.98] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-300",
     );
 
   return (
-    <aside className="sticky top-0 z-40 w-full shrink-0 border-b border-border-default bg-bg-main shadow-sm lg:flex lg:h-screen lg:w-64 lg:flex-col lg:border-r lg:border-b-0 lg:shadow-none">
+    <aside className="sticky top-0 z-40 w-full shrink-0 border-b border-border-default bg-bg-main shadow-sm lg:flex lg:h-screen lg:w-64 lg:flex-col lg:border-r lg:border-b-0 lg:shadow-none dark:bg-slate-900 dark:border-slate-700">
       {showLogout && (
         <LogoutModal onConfirm={handleLogout} onCancel={() => setShowLogout(false)} />
       )}
-      <div className="flex items-center gap-3 border-b border-border-default px-4 py-4 lg:px-6">
+      <div className="flex items-center gap-3 border-b border-border-default px-4 py-4 lg:px-6 dark:border-slate-700">
         <div className="rounded-xl bg-primary-base p-2.5 shadow-sm shadow-primary-900/10">
           <Building2 className="h-6 w-6 text-white" />
         </div>
         <div className="min-w-0">
-          <span className="block truncate text-lg font-bold tracking-tight text-text-heading">
+          <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">
             Company Portal
           </span>
           {companyName
             ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{companyName}</span>
-            : <span className="hidden text-xs text-text-muted sm:block">Supervisor workspace</span>
+            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">Supervisor workspace</span>
           }
         </div>
       </div>
@@ -130,8 +130,8 @@ const SupervisorSidebar = () => {
           );
         })}
 
-        <div className="mt-0.5 flex w-full min-w-0 flex-col gap-0.5 border-t border-border-default/60 pt-2 lg:mt-1 lg:border-t-0 lg:pt-0">
-          <p className="hidden px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted lg:block">
+        <div className="mt-0.5 flex w-full min-w-0 flex-col gap-0.5 border-t border-border-default/60 pt-2 lg:mt-1 lg:border-t-0 lg:pt-0 dark:border-slate-700/60">
+          <p className="hidden px-3 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted lg:block dark:text-slate-400">
             Attendance
           </p>
           <div className="flex gap-1 lg:flex-col lg:gap-1.5">
@@ -148,37 +148,37 @@ const SupervisorSidebar = () => {
         </div>
       </nav>
 
-      <div className="mt-auto hidden border-t border-border-default lg:block">
+      <div className="mt-auto hidden border-t border-border-default lg:block dark:border-slate-700">
         <div className="flex items-center gap-3 p-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary-base ring-2 ring-white shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary-base ring-2 ring-white shadow-sm dark:ring-slate-800 dark:bg-teal-900/40 dark:text-teal-400">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-text-heading">{displayName}</p>
-            <p className="truncate text-xs text-text-muted">Supervisor</p>
+            <p className="truncate text-sm font-bold text-text-heading dark:text-slate-100">{displayName}</p>
+            <p className="truncate text-xs text-text-muted dark:text-slate-400">Supervisor</p>
           </div>
         </div>
         <button
           type="button"
           onClick={() => setShowLogout(true)}
-          className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+          className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
         >
           <LogOut className="h-5 w-5 shrink-0" />
           Logout
         </button>
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-border-default px-3 py-3 lg:hidden">
+      <div className="flex items-center justify-between gap-2 border-t border-border-default px-3 py-3 lg:hidden dark:border-slate-700">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-bold text-primary-base">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-bold text-primary-base dark:bg-teal-900/40 dark:text-teal-400">
             {initials}
           </div>
-          <span className="truncate text-sm font-semibold text-text-heading">{displayName}</span>
+          <span className="truncate text-sm font-semibold text-text-heading dark:text-slate-100">{displayName}</span>
         </div>
         <button
           type="button"
           onClick={() => setShowLogout(true)}
-          className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+          className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
           aria-label="Logout"
         >
           <LogOut className="h-5 w-5" />

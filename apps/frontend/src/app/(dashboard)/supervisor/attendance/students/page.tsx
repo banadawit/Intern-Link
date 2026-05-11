@@ -21,10 +21,11 @@ export default function SupervisorAttendanceStudentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const hmRes = await api.get<HeatmapResponse>("/supervisor/attendance-heatmap");
-      setHeatmap(hmRes.data);
+      const hmRes = await api.get<{ success: boolean; data: HeatmapResponse }>("/supervisor/attendance-heatmap");
+      const hmData = hmRes.data.data;
+      setHeatmap(hmData);
       setSelectedStudentId((prev) => {
-        const list = hmRes.data.students;
+        const list = hmData?.students ?? [];
         if (prev != null && list.some((s) => s.studentId === prev)) return prev;
         return list[0]?.studentId ?? null;
       });

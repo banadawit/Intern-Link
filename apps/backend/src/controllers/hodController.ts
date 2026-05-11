@@ -166,7 +166,7 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
                 ...(status === 'placed' ? { internship_status: 'PLACED' } : {}),
             },
             include: {
-                user: { select: { id: true, email: true, full_name: true, verification_status: true } },
+                user: { select: { id: true, email: true, full_name: true, verification_status: true, verification_document: true } },
             },
             orderBy: { id: 'desc' },
         });

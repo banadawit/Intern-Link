@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 
@@ -33,77 +32,53 @@ enum InternshipStatus {
   COMPLETED
 }
 
-enum AssignmentStatus {
-  ACTIVE
-  COMPLETED
-  TERMINATED
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
-
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  LATE
-}
-
-// --- MODELS (Tables 2 - 17) ---
 
 model User {
-  id                Int            @id @default(autoincrement())
-  reset_password_token   String?
-  reset_password_expires DateTime?
-  full_name         String
-  email             String         @unique
-  password_hash     String
-  role              Role
-  verification_status ApprovalStatus @default(PENDING)
-
-  // ✅ NEW: Email Verification Fields
-  verification_token       String?        @unique
-  verification_token_expiry DateTime?
-  verification_document    String?
-
+  id                          Int             @id @default(autoincrement())
+  full_name                   String
+  email                       String          @unique
+  password_hash               String
+  role                        Role
+  created_at                  DateTime        @default(now())
+  updated_at                  DateTime        @updatedAt
+  verification_status         ApprovalStatus  @default(PENDING)
+  reset_password_expires      DateTime?
+  reset_password_token        String?
+  verification_token          String?         @unique
+  verification_token_expiry   DateTime?
+  verification_document       String?
   /// COORDINATOR/SUPERVISOR/HOD: Pending until admin (coord./sup.) or coordinator (HOD) approves. STUDENT/ADMIN default APPROVED.
-  institution_access_approval ApprovalStatus @default(APPROVED)
-
-  created_at        DateTime       @default(now())
-  updated_at        DateTime       @updatedAt
-
-  /// Set to true when account is created by a coordinator/admin with a temp password.
-  /// User must change password on first login before accessing the dashboard.
-  must_change_password Boolean @default(false)
-
-  
-
-  // Specific Role Relations
-  studentProfile    Student?
-  coordinatorProfile Coordinator?
-  hodProfile        HodProfile?
-  supervisorProfile Supervisor?
-  
-  // Announcements & Notifications
-  announcements     Announcement[]
-  notifications     Notification[]
-  
-  // Common Feed
-  commonPosts       CommonPost[]
-  postComments      PostComment[]
-  postLikes         PostLike[]
-  postViews         PostView[]
-  postReports       PostReport[]
-
-  aiChatMessages    AiChatMessage[]
-  activityLogs      ActivityLog[]
-  sentMessages      ChatMessage[]   @relation("SentMessages")
-  receivedMessages  ChatMessage[]   @relation("ReceivedMessages")
+  institution_access_approval ApprovalStatus  @default(APPROVED)
+  must_change_password        Boolean         @default(false)
+  aiChatMessages              AiChatMessage[]
+  announcements               Announcement[]
+  receivedMessages            ChatMessage[]   @relation("ReceivedMessages")
+  sentMessages                ChatMessage[]   @relation("SentMessages")
+  commonPosts                 CommonPost[]
+  coordinatorProfile          Coordinator?
+  hodProfile                  HodProfile?
+  notifications               Notification[]
+  postComments                PostComment[]
+  postLikes                   PostLike[]
+  postReports                 PostReport[]
+  postViews                   PostView[]
+  studentProfile              Student?
+  supervisorProfile           Supervisor?
+  activityLogs                ActivityLog[]
 }
 
 /// Daily activity counts for contribution heatmap (login, submissions, etc.).
 model ActivityLog {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date      DateTime @db.Date
-  count     Int      @default(0)
+  id     Int      @id @default(autoincrement())
+  userId Int
+  date   DateTime @db.Date
+  count  Int      @default(0)
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([userId, date])
@@ -114,23 +89,22 @@ model ActivityLog {
 model AiChatMessage {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  speaker   String   // "user" | "assistant"
-  content   String   @db.Text
+  speaker   String
+  content   String
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
 
 model University {
-  id                Int            @id @default(autoincrement())
-  name              String
-  official_email    String         @unique
-  address           String?
-  verification_doc  String?        // URL/Path to PDF
-  approval_status   ApprovalStatus @default(PENDING)
-  created_at        DateTime       @default(now())
-
+  id               Int                  @id @default(autoincrement())
+  name             String
+  official_email   String               @unique
+  address          String?
+  verification_doc String?
+  approval_status  ApprovalStatus       @default(PENDING)
+  created_at       DateTime             @default(now())
   rejection_reason String?
   coordinators      Coordinator[]
   hods              HodProfile[]
@@ -141,112 +115,98 @@ model University {
 }
 
 model Company {
-  id                Int            @id @default(autoincrement())
+  id                Int                    @id @default(autoincrement())
   name              String
-  official_email    String         @unique
+  official_email    String                 @unique
   address           String?
   stamp_image_url   String?
   verification_doc  String?
-  rejection_reason String?
-  approval_status   ApprovalStatus @default(PENDING)
-  created_at        DateTime       @default(now())
-
-  supervisors       Supervisor[]
+  approval_status   ApprovalStatus         @default(PENDING)
+  created_at        DateTime               @default(now())
+  rejection_reason  String?
   assignments       InternshipAssignment[]
   proposalsReceived InternshipProposal[]
-  teams             Team[]
   projects          Project[]
+  supervisors       Supervisor[]
+  teams             Team[]
 }
 
 model Coordinator {
-  id            Int         @id @default(autoincrement())
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        Int         @unique
-  university    University? @relation(fields: [universityId], references: [id])
-  universityId  Int?        @unique
+  id                      Int         @id @default(autoincrement())
+  userId                  Int         @unique
+  universityId            Int?        @unique
+  phone_number            String?
   /// Stored during registration; used to create the University record upon admin approval
   pending_university_name String?
-  phone_number  String?
+  university              University? @relation(fields: [universityId], references: [id])
+  user                    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 /// Maps to the `Hod` table (see migration add_hod_module). Prisma model name kept as HodProfile for stable client API.
 model HodProfile {
-  id           Int         @id @default(autoincrement())
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId       Int         @unique
-  university   University @relation(fields: [universityId], references: [id])
+  id           Int        @id @default(autoincrement())
+  userId       Int        @unique
   universityId Int
   department   String
-
   phone_number String?
+  university   University @relation(fields: [universityId], references: [id])
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students     Student[]
 
   @@index([universityId, department])
   @@map("Hod")
-
-  students     Student[]
-
 }
 
 model Supervisor {
-  id            Int       @id @default(autoincrement())
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        Int       @unique
-  company       Company   @relation(fields: [companyId], references: [id])
+  id            Int               @id @default(autoincrement())
+  userId        Int               @unique
   companyId     Int
   phone_number  String?
-  
   evaluations   FinalEvaluation[]
+  company       Company           @relation(fields: [companyId], references: [id])
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   weeklyReports WeeklyReport[]
 }
 
 model Student {
-  id                Int              @id @default(autoincrement())
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId            Int              @unique
-  university        University       @relation(fields: [universityId], references: [id])
-  universityId      Int
-  hod               HodProfile?      @relation(fields: [hodId], references: [id])
-  hodId             Int?
-  registration_type String           // e.g. "Official" or "Personal"
-  internship_status InternshipStatus @default(PENDING)
-  created_at        DateTime         @default(now())
-
-  studentId         String?          
-  department        String?
+  id                  Int                    @id @default(autoincrement())
+  userId              Int                    @unique
+  universityId        Int
+  registration_type   String
+  internship_status   InternshipStatus       @default(PENDING)
+  created_at          DateTime               @default(now())
+  department          String?
+  studentId           String?
   /// HOD must approve self-registered students before full access (coordinator-registered students are APPROVED).
-  hod_approval_status ApprovalStatus @default(PENDING)
+  hod_approval_status ApprovalStatus         @default(PENDING)
+  hodId               Int?
   /// Optional flag set by HoD: 'LOW_PERFORMANCE' | 'INACTIVE'
-  flag_type         String?
-  flag_note         String?          @db.Text
-
-  assignments       InternshipAssignment[]
-  weeklyPlans       WeeklyPlan[]
-  proposals         InternshipProposal[]
-  teamProposals     ProposalTeamMember[]
-  finalEvaluation   FinalEvaluation?
-  finalReport       Report?
-  weeklyReports     WeeklyReport[]
-  studentTeams      StudentTeam[]
-  studentProjects   StudentProject[]
+  flag_type           String?
+  flag_note           String?
+  finalEvaluation     FinalEvaluation?
+  assignments         InternshipAssignment[]
+  proposals           InternshipProposal[]
+  teamProposals       ProposalTeamMember[]
+  finalReport         Report?
+  hod                 HodProfile?            @relation(fields: [hodId], references: [id])
+  university          University             @relation(fields: [universityId], references: [id])
+  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentProjects     StudentProject[]
+  studentTeams        StudentTeam[]
+  weeklyPlans         WeeklyPlan[]
+  weeklyReports       WeeklyReport[]
 }
 
 model InternshipProposal {
-  id            Int            @id @default(autoincrement())
-  university    University     @relation(fields: [universityId], references: [id])
-  universityId  Int
-  company       Company        @relation(fields: [companyId], references: [id])
-  companyId     Int
-  student       Student        @relation(fields: [studentId], references: [id])
-  studentId     Int
-  status        ApprovalStatus @default(PENDING)
-  proposal_type String         // "University_Initiated" | "Open_Letter" | "HoD_Initiated"
-  /// "INDIVIDUAL" (default) or "TEAM"
-  proposal_kind String         @default("INDIVIDUAL")
-  /// Optional team name for TEAM proposals
-  team_name     String?
-  submitted_at  DateTime       @default(now())
+  id                      Int                  @id @default(autoincrement())
+  universityId            Int
+  companyId               Int
+  studentId               Int
+  status                  ApprovalStatus       @default(PENDING)
+  proposal_type           String
+  submitted_at            DateTime             @default(now())
   expected_duration_weeks Int?
-  expected_outcomes       String?    @db.Text
+  expected_outcomes       String?
   responded_at            DateTime?
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
   attachments             Json       @default("[]")
@@ -260,10 +220,10 @@ model InternshipProposal {
 /// Join table for team proposal members (excludes the lead student already in studentId).
 model ProposalTeamMember {
   id         Int                @id @default(autoincrement())
-  proposal   InternshipProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   proposalId Int
-  student    Student            @relation(fields: [studentId], references: [id])
   studentId  Int
+  proposal   InternshipProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  student    Student            @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([proposalId, studentId])
   @@index([proposalId])
@@ -271,26 +231,25 @@ model ProposalTeamMember {
 }
 
 model InternshipAssignment {
-  id            Int              @id @default(autoincrement())
-  student       Student          @relation(fields: [studentId], references: [id])
-  studentId     Int
-  company       Company          @relation(fields: [companyId], references: [id])
-  companyId     Int
-  start_date    DateTime
-  end_date      DateTime?
-  status        AssignmentStatus @default(ACTIVE)
-   project_name String? 
+  id           Int              @id @default(autoincrement())
+  studentId    Int
+  companyId    Int
+  start_date   DateTime
+  end_date     DateTime?
+  status       AssignmentStatus @default(ACTIVE)
+  project_name String?
+  company      Company          @relation(fields: [companyId], references: [id])
+  student      Student          @relation(fields: [studentId], references: [id])
 }
 
 model WeeklyPlan {
-  id               Int            @id @default(autoincrement())
-  student          Student        @relation(fields: [studentId], references: [id])
+  id               Int                       @id @default(autoincrement())
   studentId        Int
   week_number      Int
-  plan_description String         @db.Text
-  status           ApprovalStatus @default(PENDING)
-  submitted_at     DateTime       @default(now())
-  feedback         String?        @db.Text
+  plan_description String
+  status           ApprovalStatus            @default(PENDING)
+  submitted_at     DateTime                  @default(now())
+  feedback         String?
   reviewed_at      DateTime?
   version          Int            @default(1)
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
@@ -299,81 +258,81 @@ model WeeklyPlan {
   presentation     WeeklyPresentation?
   weeklyReports    WeeklyReport[]
   daySubmissions   WeeklyPlanDaySubmission[]
+  presentation     WeeklyPresentation?
+  weeklyReports    WeeklyReport?
 }
 
 /// One row per calendar day the student marked as submitted for that approved weekly plan (daily check-in).
 model WeeklyPlanDaySubmission {
-  id             Int        @id @default(autoincrement())
-  weeklyPlan     WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
-  weeklyPlanId   Int
-  workDate       DateTime   @db.Date
-  notes          String?    @db.Text
-  submittedAt    DateTime   @default(now())
+  id           Int        @id @default(autoincrement())
+  weeklyPlanId Int
+  workDate     DateTime   @db.Date
+  notes        String?
+  submittedAt  DateTime   @default(now())
+  weeklyPlan   WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
 
   @@unique([weeklyPlanId, workDate])
   @@index([weeklyPlanId])
 }
 
 model WeeklyPresentation {
-  id             Int        @id @default(autoincrement())
-  weeklyPlan     WeeklyPlan @relation(fields: [weeklyPlanId], references: [id])
-  weeklyPlanId   Int        @unique
-  file_url       String     // Path to PPT/PDF
-  uploaded_at    DateTime   @default(now())
+  id           Int        @id @default(autoincrement())
+  weeklyPlanId Int        @unique
+  file_url     String
+  uploaded_at  DateTime   @default(now())
+  weeklyPlan   WeeklyPlan @relation(fields: [weeklyPlanId], references: [id])
 }
 
 model WeeklyReport {
   id               Int              @id @default(autoincrement())
   studentId        Int
-  student          Student          @relation(fields: [studentId], references: [id])
-  weeklyPlanId     Int?             @unique
-  weeklyPlan       WeeklyPlan?      @relation(fields: [weeklyPlanId], references: [id])
-  supervisor       Supervisor       @relation(fields: [supervisorId], references: [id])
   supervisorId     Int
-  attendanceStatus AttendanceStatus @default(PRESENT)
-  execution_status String?          @db.Text
-  remarks          String?          @db.Text
+  remarks          String?
   submitted_at     DateTime         @default(now())
+  weeklyPlanId     Int?             @unique
+  attendanceStatus AttendanceStatus @default(PRESENT)
+  execution_status String?
+  student          Student          @relation(fields: [studentId], references: [id])
+  supervisor       Supervisor       @relation(fields: [supervisorId], references: [id])
+  weeklyPlan       WeeklyPlan?      @relation(fields: [weeklyPlanId], references: [id])
 }
 
 model FinalEvaluation {
-  id              Int        @id @default(autoincrement())
-  student         Student    @relation(fields: [studentId], references: [id])
-  studentId       Int        @unique
-  supervisor      Supervisor @relation(fields: [supervisorId], references: [id])
-  supervisorId    Int
-  technical_score Decimal    @db.Decimal(5, 2)
-  soft_skill_score Decimal   @db.Decimal(5, 2)
-  comments        String?    @db.Text
-  evaluated_at    DateTime   @default(now())
+  id               Int        @id @default(autoincrement())
+  studentId        Int        @unique
+  supervisorId     Int
+  technical_score  Decimal    @db.Decimal(5, 2)
+  soft_skill_score Decimal    @db.Decimal(5, 2)
+  comments         String?
+  evaluated_at     DateTime   @default(now())
+  student          Student    @relation(fields: [studentId], references: [id])
+  supervisor       Supervisor @relation(fields: [supervisorId], references: [id])
 }
 
 model Report {
-  id                   Int         @id @default(autoincrement())
-  student              Student     @relation(fields: [studentId], references: [id])
-  studentId            Int         @unique
-  pdf_url              String
-  stamped              Boolean     @default(false)
-  generated_at         DateTime    @default(now())
-  sent_at              DateTime?
-  locked               Boolean     @default(false)
-  sentToUniversityId   Int?
-  sentToUniversity     University? @relation("ReportToUniversity", fields: [sentToUniversityId], references: [id])
+  id                 Int         @id @default(autoincrement())
+  studentId          Int         @unique
+  pdf_url            String
+  stamped            Boolean     @default(false)
+  generated_at       DateTime    @default(now())
+  sent_at            DateTime?
+  locked             Boolean     @default(false)
+  sentToUniversityId Int?
+  sentToUniversity   University? @relation("ReportToUniversity", fields: [sentToUniversityId], references: [id])
+  student            Student     @relation(fields: [studentId], references: [id])
 }
 
 model Team {
   id           Int           @id @default(autoincrement())
   name         String
   companyId    Int
-  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  /// Optional: link this team to a project
-  projectId    Int?
-  project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  /// Supervisor who created/owns this team
   supervisorId Int?
-  members      StudentTeam[]
+  projectId    Int?
   created_at   DateTime      @default(now())
   deleted_at   DateTime?
+  members      StudentTeam[]
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project      Project?      @relation(fields: [projectId], references: [id])
 }
 
 model StudentTeam {
@@ -386,94 +345,64 @@ model StudentTeam {
 }
 
 model Project {
-  id             Int               @id @default(autoincrement())
+  id             Int              @id @default(autoincrement())
   name           String
-  description    String?           @db.Text
-  /// Max number of students that can be assigned (0 = unlimited)
-  capacity       Int               @default(0)
-  /// JSON array of required skill strings e.g. ["Python","React"]
-  requiredSkills String[]          @default([])
   companyId      Int
-  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  /// Supervisor who owns this project
   supervisorId   Int?
+  description    String?
+  capacity       Int              @default(0)
+  requiredSkills String[]         @default([])
+  created_at     DateTime         @default(now())
+  deleted_at     DateTime?
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   students       StudentProject[]
   teams          Team[]
-  created_at     DateTime          @default(now())
-  deleted_at     DateTime?
-
-  @@index([companyId, deleted_at])
 }
 
 model StudentProject {
   studentId Int
   projectId Int
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@id([studentId, projectId])
 }
 
-enum PostType {
-  ANNOUNCEMENT
-  OPPORTUNITY
-  EXPERIENCE
-  GENERAL_UPDATE
-}
-
-enum PostVisibility {
-  PUBLIC          // Visible to all authenticated users
-  UNIVERSITY      // Visible to specific university members
-  COMPANY         // Visible to specific company members
-  ROLE_SPECIFIC   // Visible to specific roles
-}
-
 model Announcement {
   id         Int      @id @default(autoincrement())
-  author     User     @relation(fields: [authorId], references: [id])
   authorId   Int
   title      String
-  content    String   @db.Text
+  content    String
   created_at DateTime @default(now())
+  author     User     @relation(fields: [authorId], references: [id])
 }
 
 model CommonPost {
-  id              Int            @id @default(autoincrement())
-  author          User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId        Int
-  postType        PostType       @default(GENERAL_UPDATE)
-  visibility      PostVisibility @default(PUBLIC)
-  title           String
-  content         String         @db.Text
-  
-  // Optional attachments
-  imageUrls       String[]       @default([])
-  documentUrls    String[]       @default([])
-  
-  // Visibility filters
+  id                 Int            @id @default(autoincrement())
+  authorId           Int
+  postType           PostType       @default(GENERAL_UPDATE)
+  visibility         PostVisibility @default(PUBLIC)
+  title              String
+  content            String
+  imageUrls          String[]       @default([])
+  documentUrls       String[]       @default([])
   targetUniversityId Int?
   targetCompanyId    Int?
-  targetRoles        Role[]       @default([])
-  
-  // Engagement metrics
-  viewCount       Int            @default(0)
-  likeCount       Int            @default(0)
-  commentCount    Int            @default(0)
-  
-  // Moderation
-  isModerated     Boolean        @default(false)
-  isPinned        Boolean        @default(false)
-  isArchived      Boolean        @default(false)
-  
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  
-  // Relations
-  comments        PostComment[]
-  likes           PostLike[]
-  views           PostView[]
-  reports         PostReport[]
-  
+  targetRoles        Role[]         @default([])
+  viewCount          Int            @default(0)
+  likeCount          Int            @default(0)
+  commentCount       Int            @default(0)
+  isModerated        Boolean        @default(false)
+  isPinned           Boolean        @default(false)
+  isArchived         Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  author             User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments           PostComment[]
+  likes              PostLike[]
+  reports            PostReport[]
+  views              PostView[]
+
   @@index([authorId, createdAt])
   @@index([postType, createdAt])
   @@index([visibility, createdAt])
@@ -481,83 +410,72 @@ model CommonPost {
 }
 
 model PostComment {
-  id          Int        @id @default(autoincrement())
-  post        CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId      Int
-  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId    Int
-  content     String     @db.Text
-  
-  // Nested comments support
-  parentId    Int?
-  parent      PostComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     PostComment[] @relation("CommentReplies")
-  
-  isEdited    Boolean    @default(false)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  
+  id        Int           @id @default(autoincrement())
+  postId    Int
+  authorId  Int
+  content   String
+  parentId  Int?
+  isEdited  Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent    PostComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   PostComment[] @relation("CommentReplies")
+  post      CommonPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
   @@index([postId, createdAt])
   @@index([authorId])
 }
 
 model PostLike {
   id        Int        @id @default(autoincrement())
-  post      CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   postId    Int
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    Int
   createdAt DateTime   @default(now())
-  
+  post      CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([postId, userId])
   @@index([postId])
   @@index([userId])
 }
 
 model PostView {
-  id        Int        @id @default(autoincrement())
-  post      CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId    Int
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    Int
-  viewedAt  DateTime   @default(now())
-  
+  id       Int        @id @default(autoincrement())
+  postId   Int
+  userId   Int
+  viewedAt DateTime   @default(now())
+  post     CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([postId, userId])
   @@index([postId])
 }
 
 model PostReport {
   id          Int        @id @default(autoincrement())
-  post        CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   postId      Int
-  reporter    User       @relation(fields: [reporterId], references: [id], onDelete: Cascade)
   reporterId  Int
   reason      String
-  description String?    @db.Text
-  status      String     @default("PENDING") // PENDING, REVIEWED, RESOLVED
+  description String?
+  status      String     @default("PENDING")
   createdAt   DateTime   @default(now())
   reviewedAt  DateTime?
-  
+  post        CommonPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter    User       @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
   @@index([postId])
   @@index([reporterId])
   @@index([status])
 }
 
 model Notification {
-  id           Int      @id @default(autoincrement())
-  recipient    User     @relation(fields: [recipientId], references: [id])
-  recipientId  Int
-  message      String   @db.Text
-  is_read      Boolean  @default(false)
-  created_at   DateTime @default(now())
-}
-model AuditLog {
   id          Int      @id @default(autoincrement())
-  adminId     Int
-  action      String
-  targetId    Int
-  details     String?
-  timestamp   DateTime @default(now())
+  recipientId Int
+  message     String
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now())
+  recipient   User     @relation(fields: [recipientId], references: [id])
 }
 
 enum FileType {
@@ -574,10 +492,10 @@ enum FileType {
 model File {
   id             String   @id @default(uuid())
   userId         Int?
-  organizationId Int?     // universityId or companyId
+  organizationId Int?
   type           FileType
   url            String
-  publicId       String   // Cloudinary public_id for deletion
+  publicId       String
   filename       String
   mimeType       String
   size           Int
@@ -592,7 +510,7 @@ model File {
 /// Key-value store for platform-wide configuration set by admins.
 model SystemConfig {
   key       String   @id
-  value     String   @db.Text
+  value     String
   updatedAt DateTime @updatedAt
 }
 
@@ -610,13 +528,70 @@ model UniversityConfig {
 model ChatMessage {
   id         Int      @id @default(autoincrement())
   senderId   Int
-  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   receiverId Int
-  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-  content    String   @db.Text
+  content    String
   is_read    Boolean  @default(false)
   created_at DateTime @default(now())
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([senderId, receiverId, created_at])
   @@index([receiverId, is_read])
+}
+
+enum Role {
+  ADMIN
+  COORDINATOR
+  SUPERVISOR
+  STUDENT
+  HOD
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+  CANCELLED
+}
+
+enum InternshipStatus {
+  PENDING
+  PLACED
+  COMPLETED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+enum PostType {
+  ANNOUNCEMENT
+  OPPORTUNITY
+  EXPERIENCE
+  GENERAL_UPDATE
+}
+
+enum PostVisibility {
+  PUBLIC
+  UNIVERSITY
+  COMPANY
+  ROLE_SPECIFIC
+}
+
+enum FileType {
+  VERIFICATION_DOC
+  WEEKLY_PRESENTATION
+  COMPANY_STAMP
+  FINAL_REPORT
+  COMMON_FEED_IMAGE
+  COMMON_FEED_DOCUMENT
 }

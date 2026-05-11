@@ -209,7 +209,7 @@ const WeeklyPlans = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {loadError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300" role="alert">
           {loadError}
         </div>
       )}
@@ -270,7 +270,7 @@ const WeeklyPlans = () => {
         </div>
       )}
 
-      <details className="group rounded-2xl border border-border-default bg-white shadow-sm">
+      <details className="group rounded-2xl border border-border-default bg-white shadow-sm dark:bg-slate-900">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-semibold text-text-heading hover:bg-bg-secondary/50 [&::-webkit-details-marker]:hidden">
           <Info className="h-4 w-4 shrink-0 text-primary-600" aria-hidden />
           What happens if you miss a weekly submission deadline?
@@ -316,8 +316,8 @@ const WeeklyPlans = () => {
                 <div className="flex items-center gap-4">
                   <div className={cn(
                     "p-3 rounded-xl",
-                    plan.status === 'Approved' ? "bg-green-50 text-green-600" : 
-                    plan.status === 'Rejected' ? "bg-red-50 text-red-600" : "bg-yellow-50 text-yellow-600"
+                    plan.status === 'Approved' ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300" : 
+                    plan.status === 'Rejected' ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300" : "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300"
                   )}>
                     {plan.status === 'Approved' ? <CheckCircle2 className="w-5 h-5" /> : 
                      plan.status === 'Rejected' ? <XCircle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
@@ -379,7 +379,7 @@ const WeeklyPlans = () => {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="card p-6 sticky top-24"
+              className="card p-6 sticky top-24"
               >
                 <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-primary-base" />
@@ -388,7 +388,7 @@ const WeeklyPlans = () => {
                 
                 <div className="space-y-6">
                   {profile?.supervisorName && (
-                    <div className="rounded-xl border border-border-default bg-bg-secondary/60 px-4 py-3">
+                <div className="rounded-xl border border-border-default bg-bg-secondary/60 px-4 py-3">
                       <p className="text-xs font-bold uppercase tracking-tight text-text-muted">Assigned supervisor</p>
                       <p className="text-sm font-semibold text-text-heading">{profile.supervisorName}</p>
                       {profile.supervisorEmail && (
@@ -429,7 +429,7 @@ const WeeklyPlans = () => {
                                 className={cn(
                                   'rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors',
                                   done
-                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
                                     : 'border-border-default bg-white text-text-body hover:border-primary-300',
                                   busy && 'opacity-60',
                                 )}
@@ -469,12 +469,12 @@ const WeeklyPlans = () => {
                   {selectedPlan.feedback && (
                     <div className={cn(
                       "p-4 rounded-xl border",
-                      selectedPlan.status === 'Approved' ? "bg-green-50 border-green-100" : "bg-red-50 border-red-100"
+                      selectedPlan.status === 'Approved' ? "bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-900/50" : "bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-900/50"
                     )}>
                       <p className="text-xs text-text-muted uppercase font-bold tracking-tight mb-2">Supervisor Feedback</p>
                       <p className={cn(
                         "text-sm font-medium",
-                        selectedPlan.status === 'Approved' ? "text-green-900" : "text-red-900"
+                        selectedPlan.status === 'Approved' ? "text-green-900 dark:text-green-200" : "text-red-900 dark:text-red-200"
                       )}>
                         {selectedPlan.feedback}
                       </p>
@@ -562,9 +562,9 @@ const WeeklyPlans = () => {
               exit={{ opacity: 0, scale: 0.96, y: 16 }}
               transition={{ type: 'spring', damping: 26, stiffness: 320 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative z-10 w-full max-w-xl overflow-hidden rounded-3xl border border-white/60 bg-bg-main shadow-[0_25px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5"
+              className="relative z-10 w-full max-w-xl overflow-hidden rounded-3xl border border-white/60 bg-bg-main shadow-[0_25px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 dark:border-slate-700"
             >
-              <div className="relative overflow-hidden bg-gradient-to-br from-primary-50/90 via-white to-slate-50 px-6 pb-5 pt-6 sm:px-8 sm:pb-6 sm:pt-7">
+              <div className="relative overflow-hidden bg-gradient-to-br from-primary-50/90 via-white to-slate-50 px-6 pb-5 pt-6 sm:px-8 sm:pb-6 sm:pt-7 dark:from-primary-900/30 dark:via-slate-900 dark:to-slate-950">
                 <div
                   className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary-300/35 blur-3xl"
                   aria-hidden
@@ -600,7 +600,7 @@ const WeeklyPlans = () => {
                   <button
                     type="button"
                     onClick={closeSubmitModal}
-                    className="shrink-0 rounded-xl border border-border-default bg-white/80 p-2 text-slate-500 shadow-sm transition-all hover:bg-white hover:text-slate-800 hover:shadow-md active:scale-95"
+                    className="shrink-0 rounded-xl border border-border-default bg-white/80 p-2 text-slate-500 shadow-sm transition-all hover:bg-white hover:text-slate-800 hover:shadow-md active:scale-95 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -609,7 +609,7 @@ const WeeklyPlans = () => {
 
               <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6 sm:px-8 sm:pb-8">
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                     <Calendar className="h-4 w-4 text-primary-600" />
                     Week number
                   </label>
@@ -621,8 +621,8 @@ const WeeklyPlans = () => {
                       type="number"
                       min={1}
                       className={cn(
-                        'input-field w-full rounded-xl border-border-default py-3 pl-14 text-base font-semibold text-slate-900 transition-shadow focus:border-primary-300 focus:ring-2 focus:ring-primary-200',
-                        (reviseFromPlan || editPendingPlan) && 'cursor-not-allowed bg-slate-50 text-slate-600'
+                        'input-field w-full rounded-xl border-border-default py-3 pl-14 text-base font-semibold text-slate-900 transition-shadow focus:border-primary-300 focus:ring-2 focus:ring-primary-200 dark:text-slate-100',
+                        (reviseFromPlan || editPendingPlan) && 'cursor-not-allowed bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
                       )}
                       value={formData.weekNumber}
                       readOnly={!!reviseFromPlan || !!editPendingPlan}
@@ -634,7 +634,7 @@ const WeeklyPlans = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                     <ClipboardList className="h-4 w-4 text-primary-600" />
                     Planned tasks
                   </label>
@@ -645,11 +645,11 @@ const WeeklyPlans = () => {
                     onChange={(e) => setFormData({ ...formData, tasks: e.target.value })}
                     required
                   />
-                  <p className="text-xs text-slate-500">Be specific — it helps your supervisor give useful feedback.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Be specific — it helps your supervisor give useful feedback.</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                     <Upload className="h-4 w-4 text-primary-600" />
                     Presentation <span className="font-normal text-slate-400">(optional)</span>
                   </label>
@@ -669,15 +669,15 @@ const WeeklyPlans = () => {
                     type="button"
                     onClick={() => presentationInputRef.current?.click()}
                     className={cn(
-                      'group relative w-full overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-slate-50/80 to-white p-6 text-center transition-all duration-200',
+                      'group relative w-full overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-slate-50/80 to-white p-6 text-center transition-all duration-200 dark:border-slate-700 dark:from-slate-800 dark:to-slate-900',
                       'hover:border-primary-300 hover:shadow-md hover:shadow-primary-900/5 focus:outline-none focus:ring-2 focus:ring-primary-200'
                     )}
                   >
                     <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-100 text-primary-600 transition-transform group-hover:scale-105 group-hover:bg-primary-200/80">
                       <Upload className="h-6 w-6" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-800">Drop a file or click to browse</p>
-                    <p className="mt-1 text-xs text-slate-500">PDF or PowerPoint — up to ~10MB</p>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Drop a file or click to browse</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">PDF or PowerPoint — up to ~10MB</p>
                     {editPendingPlan && editPendingPlan.presentationFileName && !formData.presentation && (
                       <p className="mt-2 text-xs text-slate-500">
                         Current file:{' '}

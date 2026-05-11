@@ -111,6 +111,7 @@ export function mapUniversityToProposal(u: {
   name: string;
   created_at: string;
   approval_status: string;
+  official_email?: string | null;
   verification_doc?: string | null;
   address?: string | null;
   rejection_reason?: string | null;
@@ -123,6 +124,7 @@ export function mapUniversityToProposal(u: {
     status: mapVerificationStatus(u.approval_status),
     documents: u.verification_doc ? [apiFileUrl(u.verification_doc)] : [],
     description: u.address ?? "",
+    email: u.official_email ?? undefined,
     rejectionReason: u.rejection_reason ?? undefined,
   };
 }
@@ -132,7 +134,9 @@ export function mapCompanyToProposal(c: {
   name: string;
   created_at: string;
   approval_status: string;
+  official_email?: string | null;
   verification_doc?: string | null;
+  stamp_image_url?: string | null;
   address?: string | null;
   rejection_reason?: string | null;
 }): VerificationProposal {
@@ -144,6 +148,8 @@ export function mapCompanyToProposal(c: {
     status: mapVerificationStatus(c.approval_status),
     documents: c.verification_doc ? [apiFileUrl(c.verification_doc)] : [],
     description: c.address ?? "",
+    email: c.official_email ?? undefined,
+    stampImageUrl: c.stamp_image_url ?? undefined,
     rejectionReason: c.rejection_reason ?? undefined,
   };
 }

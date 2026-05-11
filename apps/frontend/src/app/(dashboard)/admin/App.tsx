@@ -76,11 +76,13 @@ export default function App() {
     setListsLoading(true);
     try {
       const [uniRes, compRes] = await Promise.all([api.get("/admin/universities"), api.get("/admin/companies")]);
-      const uniRows = uniRes.data as Record<string, unknown>[];
-      const compRows = compRes.data as Record<string, unknown>[];
+      const uniRows = Array.isArray(uniRes.data) ? uniRes.data as Record<string, unknown>[] : [];
+      const compRows = Array.isArray(compRes.data) ? compRes.data as Record<string, unknown>[] : [];
       const u = uniRows.map((row) => mapUniversityToProposal(row as never));
       const c = compRows.map((row) => mapCompanyToProposal(row as never));
       setProposals([...u, ...c]);
+    } catch (e) {
+      console.error("Failed to load organizations:", e);
     } finally {
       setListsLoading(false);
     }
@@ -234,7 +236,7 @@ export default function App() {
   }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row dark:bg-slate-950 dark:text-slate-300">
       <Sidebar activeView={activeView} onNavigate={handleNavigate} pendingCount={pendingVerificationCount} pendingCoordinatorCount={stats?.pendingCoordinators ?? 0} pendingSupervisorCount={stats?.pendingSupervisors ?? 0} />
 
       <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">

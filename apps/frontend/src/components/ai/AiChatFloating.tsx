@@ -123,7 +123,7 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
           onClick={() => setOpen((o) => !o)}
           className={cn(
             "fixed bottom-5 right-5 z-[60] flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all",
-            "bg-primary-600 text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2",
+            "bg-primary-600 text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2 dark:focus:ring-offset-slate-950",
             open && "ring-2 ring-primary-300"
           )}
           aria-expanded={open}
@@ -137,7 +137,7 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
       {open && !expanded && (
         <div
           ref={panelRef}
-          className="fixed bottom-24 right-5 z-[60] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+          className="fixed bottom-24 right-5 z-[60] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden dark:border-slate-700 dark:bg-slate-900"
           style={{ width: panelW, height: panelH }}
           role="dialog"
           aria-label="AI assistant chat"
@@ -162,16 +162,16 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
             className="absolute top-0 left-0 h-4 w-4 cursor-nw-resize z-20"
             title="Drag to resize"
           />
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-2.5">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-950">
             <div className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4 text-primary-600" />
-              <span className="text-sm font-semibold text-slate-900">InternLink AI</span>
+              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">InternLink AI</span>
             </div>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => clearRef.current?.()}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 aria-label="Clear chat history"
                 title="Clear history"
               >
@@ -180,7 +180,7 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
               <button
                 type="button"
                 onClick={() => setExpanded(true)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 aria-label="Expand to full panel"
                 title="Expand"
               >
@@ -189,7 +189,7 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 aria-label="Close AI assistant"
               >
                 <X className="h-3.5 w-3.5" />
@@ -213,7 +213,7 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
       {/* ── Expanded full right-panel ── */}
       {expanded && (
         <div
-          className="fixed inset-y-0 right-0 z-[60] flex flex-col border-l border-slate-200 bg-white shadow-2xl"
+          className="fixed inset-y-0 right-0 z-[60] flex flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
           style={{ width: expandedW }}
           role="dialog"
           aria-label="AI assistant chat"
@@ -224,16 +224,16 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
             className="absolute inset-y-0 left-0 w-1.5 cursor-w-resize hover:bg-primary-200 transition-colors z-10"
             title="Drag to resize width"
           />
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 dark:border-slate-700 dark:bg-slate-950">
             <div className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-primary-600" />
-              <span className="text-base font-semibold text-slate-900">InternLink AI</span>
+              <span className="text-base font-semibold text-slate-900 dark:text-slate-100">InternLink AI</span>
             </div>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => clearRef.current?.()}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 aria-label="Clear chat history"
                 title="Clear history"
               >
@@ -242,7 +242,7 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 aria-label="Collapse to floating"
                 title="Collapse"
               >
@@ -251,7 +251,7 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
               <button
                 type="button"
                 onClick={() => { setExpanded(false); setOpen(false); }}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 aria-label="Close AI assistant"
               >
                 <X className="h-4 w-4" />
