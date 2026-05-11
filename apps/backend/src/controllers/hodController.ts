@@ -84,16 +84,11 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
         const hod = await getHodOr403(uid);
         if (!hod) return sendError(res, 'HOD profile not found.', 403);
 
-        const baseStudentWhere = {
-            universityId: hod.universityId,
-            department: { not: null },
-        };
-
         const students = await prisma.student.findMany({
-            where: baseStudentWhere,
-            select: { id: true, department: true, hod_approval_status: true, internship_status: true },
+            where: { universityId: hod.universityId },
+            select: { id: true, department: true, hodId: true, hod_approval_status: true, internship_status: true },
         });
-        const inDept = students.filter((s) => departmentsMatch(s.department, hod.department));
+        const inDept = students.filter((s) => s.hodId === hod.id || departmentsMatch(s.department, hod.department));
         const deptStudentIds = inDept.map((s) => s.id);
 
         const [reportCount, proposalStats, recentStudents] = await Promise.all([
@@ -161,7 +156,6 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
         const rows = await prisma.student.findMany({
             where: {
                 universityId: hod.universityId,
-                department: { not: null },
                 ...(hodApprovalFilter !== 'all' ? { hod_approval_status: hodApprovalFilter } : {}),
                 ...(status === 'placed' ? { internship_status: 'PLACED' } : {}),
             },
@@ -171,7 +165,8 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
             orderBy: { id: 'desc' },
         });
 
-        const filtered = rows.filter((s) => departmentsMatch(s.department, hod.department));
+        // Match by hodId (direct link) OR by department name
+        const filtered = rows.filter((s) => s.hodId === hod.id || departmentsMatch(s.department, hod.department));
 
         // Enrich each student with their latest proposal info so the UI can
         // show smart status badges without extra round-trips.
