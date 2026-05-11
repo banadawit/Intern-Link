@@ -1,14 +1,11 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  CheckCircle,
   Clock,
-  XCircle,
   FileText,
   Settings,
   LogOut,
   ShieldCheck,
-  Ban,
   MessageSquare,
   Building2,
   BarChart3,
@@ -23,9 +20,6 @@ type ViewKey =
   | "analytics"
   | "approvals"
   | "organizations"
-  | "approved"
-  | "rejected"
-  | "suspended"
   | "audit-log"
   | "settings";
 
@@ -54,14 +48,11 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
     .toUpperCase()
     .slice(0, 2) ?? 'AD';
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
-    { icon: BarChart3, label: "Analytics", view: "analytics" },
-    { icon: Clock, label: "Approvals", view: "approvals" },
-    { icon: Building2, label: "Organizations", view: "organizations" },
-    { icon: CheckCircle, label: "Approved History", view: "approved" },
-    { icon: Ban, label: "Suspended", view: "suspended" },
-    { icon: XCircle, label: "Rejected History", view: "rejected" },
-    { icon: FileText, label: "Audit Log", view: "audit-log" },
-    { icon: Settings, label: "System Config", view: "settings" },
+    { icon: BarChart3,  label: "Platform Overview",    view: "analytics"     },
+    { icon: Clock,      label: "Pending Approvals",    view: "approvals"     },
+    { icon: Building2,  label: "Universities & Companies", view: "organizations" },
+    { icon: FileText,   label: "Activity History",     view: "audit-log"     },
+    { icon: Settings,   label: "Platform Settings",    view: "settings"      },
   ];
 
   return (
