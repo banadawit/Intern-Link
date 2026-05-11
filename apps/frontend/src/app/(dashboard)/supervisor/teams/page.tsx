@@ -16,7 +16,14 @@ type Team = {
 };
 
 type DeletedTeam = { id: number; name: string; deleted_at: string };
-type StudentOpt = { student: { id: number; user: { full_name: string; email: string } } };
+type StudentOpt = {
+  student: {
+    id: number;
+    user: { full_name: string; email: string };
+    internship_status?: string;
+    department?: string | null;
+  };
+};
 
 function initials(name: string) {
   return name.split(/\s+/).map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -53,11 +60,11 @@ export default function SupervisorTeamsPage() {
     setError(null);
     try {
       const [t, s] = await Promise.all([
-        api.get<{ active: Team[]; deleted: DeletedTeam[] }>("/supervisor/teams"),
+        api.get<{ success: boolean; data: { active: Team[]; deleted: DeletedTeam[] } }>("/supervisor/teams"),
         api.get<{ success: boolean; data: StudentOpt[] }>("/supervisor/students"),
       ]);
-      setTeams(t.data.active);
-      setDeletedTeams(t.data.deleted);
+      setTeams(t.data.data?.active ?? []);
+      setDeletedTeams(t.data.data?.deleted ?? []);
       setStudents(Array.isArray(s.data.data) ? s.data.data : []);
     } catch {
       setError("Could not load teams.");

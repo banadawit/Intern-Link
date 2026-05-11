@@ -76,8 +76,8 @@ export default function SupervisorStudentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {rows.map((r) => (
-                  <tr key={r.student.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
+                {rows.map((r, idx) => (
+                  <tr key={`${r.student.id}-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
                     <td className="px-4 py-3">
                       <p className="font-medium text-slate-900 dark:text-slate-100">{r.student.user.full_name}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{r.student.user.email}</p>

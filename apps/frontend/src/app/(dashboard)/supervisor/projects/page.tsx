@@ -16,7 +16,14 @@ type Project = {
 };
 
 type DeletedProject = { id: number; name: string; deleted_at: string };
-type StudentOpt = { student: { id: number; user: { full_name: string; email: string } } };
+type StudentOpt = {
+  student: {
+    id: number;
+    user: { full_name: string; email: string };
+    internship_status?: string;
+    department?: string | null;
+  };
+};
 
 function initials(name: string) {
   return name.split(/\s+/).map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -53,12 +60,12 @@ export default function SupervisorProjectsPage() {
     setError(null);
     try {
       const [p, s] = await Promise.all([
-        api.get<{ active: Project[]; deleted: DeletedProject[] }>("/supervisor/projects"),
-        api.get<StudentOpt[]>("/supervisor/students"),
+        api.get<{ success: boolean; data: { active: Project[]; deleted: DeletedProject[] } }>("/supervisor/projects"),
+        api.get<{ success: boolean; data: StudentOpt[] }>("/supervisor/students"),
       ]);
-      setProjects(p.data.active);
-      setDeletedProjects(p.data.deleted);
-      setStudents(s.data);
+      setProjects(p.data.data?.active ?? []);
+      setDeletedProjects(p.data.data?.deleted ?? []);
+      setStudents(Array.isArray(s.data.data) ? s.data.data : []);
     } catch {
       setError("Could not load projects.");
     } finally {
@@ -137,7 +144,7 @@ export default function SupervisorProjectsPage() {
 
   // Students not assigned to any active project at all
   const assignedToAnyProject = new Set(
-    projects.flatMap((p) => p.students.map((m) => m.student.id))
+    (projects ?? []).flatMap((p) => (p.students ?? []).map((m) => m.student.id))
   );
 
   const availableFor = (proj: Project) => {

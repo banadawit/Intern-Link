@@ -7,6 +7,8 @@ import Link from "next/link";
 import api from "@/lib/api/client";
 import AdminPageHero from "./AdminPageHero";
 import { getViewerUrl } from "@/lib/utils";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import SuccessToast from "@/components/shared/SuccessToast";
 
 interface PendingSupervisor {
   id: number;
@@ -32,6 +34,8 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState<{ userId: number; reason: string } | null>(null);
+  const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,6 +53,8 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
     setActionLoading(userId);
     try {
       await api.post(`/admin/supervisors/${userId}/approve`);
+      setConfirmApprove(null);
+      setToast({ show: true, message: "✅ Supervisor approved successfully" });
       await load();
       onActionComplete?.();
     } catch (e) {
@@ -64,6 +70,7 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
     try {
       await api.post(`/admin/supervisors/${rejectReason.userId}/reject`, { reason: rejectReason.reason });
       setRejectReason(null);
+      setToast({ show: true, message: "Supervisor registration rejected" });
       await load();
       onActionComplete?.();
     } catch (e) {
@@ -139,7 +146,7 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => handleApprove(s.userId)}
+                        onClick={() => setConfirmApprove(s.userId)}
                         disabled={actionLoading === s.userId}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                       >
@@ -205,6 +212,22 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
         </div>
       )}
 
+      <ConfirmDialog
+        open={confirmApprove !== null}
+        title="Approve supervisor?"
+        message="This will grant the supervisor access to InternLink and allow them to manage interns at their company. They will be notified by email."
+        confirmLabel="Approve"
+        variant="success"
+        loading={actionLoading !== null}
+        onConfirm={() => confirmApprove !== null && void handleApprove(confirmApprove)}
+        onCancel={() => setConfirmApprove(null)}
+      />
+
+      <SuccessToast
+        show={toast.show}
+        message={toast.message}
+        onClose={() => setToast({ show: false, message: "" })}
+      />
     </div>
   );
 };

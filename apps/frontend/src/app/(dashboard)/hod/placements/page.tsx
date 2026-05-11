@@ -6,7 +6,8 @@ import { Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodSendProposalForm from "@/components/hod/HodSendProposalForm";
 import HodProposalTrackerTable from "@/components/hod/HodProposalTrackerTable";
-import { cn } from "@/lib/utils";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import SuccessToast from "@/components/shared/SuccessToast";
 import type { HodCompanyRow, HodProposalRow, HodStudentRow } from "@/components/hod/types";
 
 export default function HodPlacementsPage() {
@@ -24,6 +25,8 @@ export default function HodPlacementsPage() {
   const [reassignStudent, setReassignStudent] = useState<HodStudentRow | null>(null);
   const [reassignCompanyId, setReassignCompanyId] = useState("");
   const [reassignWeeks, setReassignWeeks] = useState("");
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
+  const [confirmProposal, setConfirmProposal] = useState<React.FormEvent | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +77,7 @@ export default function HodPlacementsPage() {
       setProposalCompanyId("");
       setProposalWeeks("");
       setProposalOutcomes("");
+      setToast({ show: true, message: "✅ Proposal sent to company successfully" });
       await load();
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { error?: string } } };
@@ -98,6 +102,7 @@ export default function HodPlacementsPage() {
       setReassignStudent(null);
       setReassignCompanyId("");
       setReassignWeeks("");
+      setToast({ show: true, message: "✅ Student reassigned to new company" });
       await load();
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { error?: string } } };
@@ -225,6 +230,12 @@ export default function HodPlacementsPage() {
           </div>
         </div>
       )}
+
+      <SuccessToast
+        show={toast.show}
+        message={toast.message}
+        onClose={() => setToast({ show: false, message: "" })}
+      />
     </div>
   );
 }

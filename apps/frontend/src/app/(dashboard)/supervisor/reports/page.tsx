@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api/client";
+import { getViewerUrl } from "@/lib/utils";
 import { AlertCircle, Download, FileCheck, Send, Eye } from "lucide-react";
 import PdfViewerPage from "@/components/shared/PdfViewerPage";
 
@@ -137,12 +138,12 @@ export default function SupervisorReportsPage() {
         ) : rows.length === 0 ? (
           <p className="text-slate-500 dark:text-slate-400">No placed students yet.</p>
         ) : (
-          rows.map((r) => {
+          rows.map((r, idx) => {
             const fr = r.student.finalReport;
             const locked = fr?.locked === true;
             return (
               <div
-                key={r.student.id}
+                key={`${r.student.id}-${idx}`}
                 className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900"
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
