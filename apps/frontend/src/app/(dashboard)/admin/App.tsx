@@ -10,9 +10,6 @@ import AdminPageHero from "./AdminPageHero";
 import CoordinatorApprovals from "./CoordinatorApprovals";
 import SupervisorApprovals from "./SupervisorApprovals";
 import ApprovalsView from "./ApprovalsView";
-import ApprovedHistoryView from "./ApprovedHistoryView";
-import RejectedHistoryView from "./RejectedHistoryView";
-import SuspendedView from "./SuspendedView";
 import SystemSettings from "./SystemSettings";
 import OrganizationsView from "./OrganizationsView";
 import AnalyticsView from "./AnalyticsView";
@@ -31,9 +28,6 @@ type ViewKey =
   | "analytics"
   | "approvals"
   | "organizations"
-  | "approved"
-  | "rejected"
-  | "suspended"
   | "audit-log"
   | "settings";
 
@@ -41,9 +35,6 @@ const VALID_VIEWS: ViewKey[] = [
   "analytics",
   "approvals",
   "organizations",
-  "approved",
-  "rejected",
-  "suspended",
   "audit-log",
   "settings",
 ];
@@ -192,34 +183,6 @@ export default function App() {
         />
       );
     if (activeView === "analytics") return <AnalyticsView />;
-    if (activeView === "approved")
-      return (
-        <ApprovedHistoryView
-          proposals={proposals}
-          listsLoading={listsLoading}
-          onReview={setSelectedProposal}
-        />
-      );
-    if (activeView === "rejected")
-      return (
-        <RejectedHistoryView
-          proposals={proposals}
-          listsLoading={listsLoading}
-          onReview={setSelectedProposal}
-          rejectedCoordinatorCount={stats?.rejectedCoordinators ?? 0}
-          rejectedSupervisorCount={stats?.rejectedSupervisors ?? 0}
-        />
-      );
-    if (activeView === "suspended")
-      return (
-        <SuspendedView
-          proposals={proposals}
-          listsLoading={listsLoading}
-          onReview={setSelectedProposal}
-          suspendedCoordinatorCount={stats?.suspendedCoordinators ?? 0}
-          suspendedSupervisorCount={stats?.suspendedSupervisors ?? 0}
-        />
-      );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
     if (activeView === "settings") return <SystemSettings />;
   }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, listsLoading]);

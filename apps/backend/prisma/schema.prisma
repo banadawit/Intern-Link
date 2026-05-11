@@ -68,6 +68,8 @@ enum FileType {
   COMMON_FEED_DOCUMENT
 }
 
+// ─── Models ───────────────────────────────────────────────────────────────────
+
 model User {
   id                          Int             @id @default(autoincrement())
   full_name                   String
@@ -287,10 +289,10 @@ model WeeklyPlan {
   version          Int                       @default(1)
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
   attachments      Json                      @default("[]")
-  student          Student                   @relation(fields: [studentId], references: [id])
   presentation     WeeklyPresentation?
-  weeklyReports    WeeklyReport[]
+  weeklyReport     WeeklyReport?
   daySubmissions   WeeklyPlanDaySubmission[]
+  student          Student                   @relation(fields: [studentId], references: [id])
 }
 
 /// One row per calendar day the student marked as submitted for that approved weekly plan (daily check-in).
@@ -527,13 +529,6 @@ model File {
   @@map("files")
 }
 
-/// Key-value store for platform-wide configuration set by admins.
-model SystemConfig {
-  key       String   @id
-  value     String
-  updatedAt DateTime @updatedAt
-}
-
 /// Admin action audit trail.
 model AuditLog {
   id        Int      @id @default(autoincrement())
@@ -542,9 +537,18 @@ model AuditLog {
   targetId  Int?
   details   String?
   timestamp DateTime @default(now())
-  admin     User     @relation(fields: [adminId], references: [id])
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId, timestamp])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+/// Key-value store for platform-wide configuration set by admins.
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 /// Per-university registration override.
