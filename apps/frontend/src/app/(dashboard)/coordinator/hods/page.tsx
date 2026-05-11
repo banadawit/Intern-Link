@@ -16,6 +16,8 @@ import api from "@/lib/api/client";
 import CoordinatorPageHero from "../CoordinatorPageHero";
 import Link from "next/link";
 import { getViewerUrl } from "@/lib/utils";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import SuccessToast from "@/components/shared/SuccessToast";
 
 interface PendingHod {
   id: number;
@@ -38,6 +40,8 @@ export default function CoordinatorHodsPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState<{ userId: number; reason: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,6 +64,8 @@ export default function CoordinatorHodsPage() {
     setError(null);
     try {
       await api.patch("/coordinator/verify-hod", { userId, status: "APPROVED" });
+      setConfirmApprove(null);
+      setToast({ show: true, message: "✅ Head of Department approved successfully" });
       await load();
     } catch {
       setError("Failed to approve HoD.");
@@ -79,6 +85,7 @@ export default function CoordinatorHodsPage() {
         reason: rejectReason.reason,
       });
       setRejectReason(null);
+      setToast({ show: true, message: "HOD registration rejected" });
       await load();
     } catch {
       setError("Failed to reject HoD.");
@@ -170,7 +177,7 @@ export default function CoordinatorHodsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleApprove(h.user.id)}
+                          onClick={() => setConfirmApprove(h.user.id)}
                           disabled={actionLoading === h.user.id}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                         >
@@ -239,6 +246,23 @@ export default function CoordinatorHodsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmApprove !== null}
+        title="Approve Head of Department?"
+        message="This will grant the HOD access to InternLink and allow them to manage students in their department. They will be notified by email."
+        confirmLabel="Approve HOD"
+        variant="success"
+        loading={actionLoading !== null}
+        onConfirm={() => confirmApprove !== null && void handleApprove(confirmApprove)}
+        onCancel={() => setConfirmApprove(null)}
+      />
+
+      <SuccessToast
+        show={toast.show}
+        message={toast.message}
+        onClose={() => setToast({ show: false, message: "" })}
+      />
     </div>
   );
 }

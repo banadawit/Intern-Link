@@ -6,12 +6,19 @@ import { Loader2, RefreshCw } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodStudentApprovalsTable from "@/components/hod/HodStudentApprovalsTable";
 import type { HodStudentRow } from "@/components/hod/types";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import SuccessToast from "@/components/shared/SuccessToast";
 
 export default function HodStudentsPage() {
   const [students, setStudents] = useState<HodStudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Confirm dialog state
+  const [confirm, setConfirm] = useState<{ id: number; action: "approve" | "reject" } | null>(null);
+  // Success toast state
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -26,17 +33,24 @@ export default function HodStudentsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  const actOnStudent = async (id: number, action: "approve" | "reject") => {
+  const actOnStudent = async () => {
+    if (!confirm) return;
     setSubmitting(true);
     try {
-      await api.patch(`/hod/students/${id}/${action}`);
+      await api.patch(`/hod/students/${confirm.id}/${confirm.action}`);
+      setConfirm(null);
+      setToast({
+        show: true,
+        message: confirm.action === "approve"
+          ? "✅ Student approved successfully"
+          : "Student registration rejected",
+      });
       await load();
     } catch {
-      setError(`Failed to ${action} student.`);
+      setError(`Failed to ${confirm.action} student.`);
+      setConfirm(null);
     } finally {
       setSubmitting(false);
     }
@@ -47,7 +61,7 @@ export default function HodStudentsPage() {
       <HodPageHero
         badge="Student approvals"
         title="Student approvals"
-        description="Approve or reject student registrations in your department. Switch between table and card layout for long lists."
+        description="Approve or reject student registrations in your department."
         action={
           <button
             type="button"
@@ -66,17 +80,38 @@ export default function HodStudentsPage() {
       )}
 
       {loading && students.length === 0 ? (
-        <div className="flex min-h-[40vh] items-center justify-center text-slate-500 dark:text-slate-400">
+        <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
           <Loader2 className="h-10 w-10 animate-spin text-primary-600" aria-hidden />
         </div>
       ) : (
         <HodStudentApprovalsTable
           students={students}
           submitting={submitting}
-          onApprove={(id) => void actOnStudent(id, "approve")}
-          onReject={(id) => void actOnStudent(id, "reject")}
+          onApprove={(id) => setConfirm({ id, action: "approve" })}
+          onReject={(id) => setConfirm({ id, action: "reject" })}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.action === "approve" ? "Approve student?" : "Reject student?"}
+        message={
+          confirm?.action === "approve"
+            ? "This will grant the student access to InternLink features. You can review their profile before confirming."
+            : "This will reject the student's registration. They will be notified by email."
+        }
+        confirmLabel={confirm?.action === "approve" ? "Approve" : "Reject"}
+        variant={confirm?.action === "approve" ? "success" : "danger"}
+        loading={submitting}
+        onConfirm={() => void actOnStudent()}
+        onCancel={() => setConfirm(null)}
+      />
+
+      <SuccessToast
+        show={toast.show}
+        message={toast.message}
+        onClose={() => setToast({ show: false, message: "" })}
+      />
     </div>
   );
 }

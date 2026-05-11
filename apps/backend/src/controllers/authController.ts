@@ -475,7 +475,7 @@ export const login = async (req: Request, res: Response) => {
         );
 
         if (user.role === Role.STUDENT) {
-            void incrementActivityForUser(user.id);
+            // Activity is tracked on meaningful actions (plan submissions, check-ins) — not on login
         }
 
         return sendSuccess(res, {

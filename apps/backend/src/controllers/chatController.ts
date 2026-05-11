@@ -155,7 +155,7 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
             return tb - ta;
         });
 
-        return sendSuccess(res, conversations);
+        return res.json(conversations);
     } catch (e: any) {
         return sendError(res, e.message);
     }
