@@ -7,6 +7,7 @@ import {
     checkUniversityVerification,
 } from '../utils/institutionVerification';
 import { attachVerificationSla } from '../utils/verificationSla';
+import { UploadResult } from '../services/cloudinary.service';
 
 // --- INSTITUTION MANAGEMENT ---
 
@@ -871,7 +872,7 @@ export const uploadVerificationDocument = async (req: AuthRequest, res: Response
         const orgId = parseInt(organizationId);
         const folder = `internlink/${orgId}/verification-docs`;
 
-        const uploadResult = await CloudinaryService.uploadDocument(file, {
+        const uploadResult: UploadResult = await CloudinaryService.uploadDocument(file, {
             organizationId: orgId,
             fileType: 'VERIFICATION_DOC',
             folder,
