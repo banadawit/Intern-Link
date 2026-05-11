@@ -45,7 +45,23 @@ class ApiClient {
           return handler.next(response);
         },
         onError: (DioException e, handler) {
-          // Handle global errors here if needed (e.g. 401 token expiry)
+          // Extract server error message and attach it to the exception
+          final data = e.response?.data;
+          String? serverMsg;
+          if (data is Map) {
+            serverMsg = (data['error'] ?? data['message'] ?? data['msg'])?.toString();
+          }
+          if (serverMsg != null && serverMsg.isNotEmpty) {
+            return handler.next(
+              DioException(
+                requestOptions: e.requestOptions,
+                response: e.response,
+                type: e.type,
+                error: serverMsg,
+                message: serverMsg,
+              ),
+            );
+          }
           return handler.next(e);
         },
       ),

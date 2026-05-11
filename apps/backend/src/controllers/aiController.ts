@@ -73,7 +73,7 @@ function safeMessage(err: unknown): string {
     }
     if (err instanceof Error) {
         if (err.message === 'AI_UNAVAILABLE') {
-            return 'AI is not configured. Set OPENAI_API_KEY on the server.';
+            return 'AI is not configured. Set GROQ_API_KEY on the server.';
         }
         return err.message;
     }
@@ -83,7 +83,7 @@ function safeMessage(err: unknown): string {
 export const postGeneratePlan = async (req: AuthRequest, res: Response) => {
     try {
         if (!ai.isAiConfigured()) {
-            return res.status(503).json({ success: false, message: 'AI is not configured. Set OPENAI_API_KEY on the server.' });
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
         }
         const { field, week, skills, internshipType } = req.body ?? {};
         if (typeof field !== 'string' || !field.trim()) {
@@ -115,7 +115,7 @@ export const postGeneratePlan = async (req: AuthRequest, res: Response) => {
 export const postGenerateFeedback = async (req: AuthRequest, res: Response) => {
     try {
         if (!ai.isAiConfigured()) {
-            return res.status(503).json({ success: false, message: 'AI is not configured. Set OPENAI_API_KEY on the server.' });
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
         }
         const { plan, studentName, week } = req.body ?? {};
         if (typeof plan !== 'string' || !plan.trim()) {
@@ -146,7 +146,7 @@ export const postGenerateFeedback = async (req: AuthRequest, res: Response) => {
 export const postChat = async (req: AuthRequest, res: Response) => {
     try {
         if (!ai.isChatAiConfigured()) {
-            return res.status(503).json({ success: false, message: 'AI is not configured. Set OPENAI_API_KEY on the server.' });
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
         }
         const uid = req.user?.userId;
         const appRole = req.user?.role;

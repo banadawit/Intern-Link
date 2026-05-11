@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as adminCtrl from '../controllers/adminController';
 import * as configCtrl from '../controllers/systemConfigController';
+import * as onboardCtrl from '../controllers/adminOnboardingController';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
 import { uploadVerification } from '../config/multer.config';
@@ -23,6 +24,14 @@ router.patch('/university-status/:id', adminCtrl.updateUniversityStatus);
 
 router.get('/pending-companies', adminCtrl.getPendingCompanies);
 router.patch('/company-status/:id', adminCtrl.updateCompanyStatus);
+
+// ── Admin Manual Creation (Universities & Companies) ──────────────────────────
+// POST /admin/universities — create university + optional coordinator (sends setup link)
+// POST /admin/companies   — create company + optional supervisor (sends setup link)
+// PATCH /admin/universities/:id/config — per-university student registration toggle
+router.post('/universities', onboardCtrl.adminCreateUniversity);
+router.post('/companies', onboardCtrl.adminCreateCompany);
+router.patch('/universities/:id/config', onboardCtrl.updateUniversityConfig);
 
 // File Upload
 router.post('/upload-verification', uploadVerification.single('file'), adminCtrl.uploadVerificationDocument);

@@ -58,8 +58,31 @@ export const uploadVerification = multer({
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-// Middleware exports
-export const uploadSingleImage = uploadImage.single('file');
+// File filter for plan/proposal attachments (PDF, PPT, PPTX, DOC, DOCX, images)
+const planAttachmentFileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const allowedMimes = [
+        'application/pdf',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg', 'image/jpg', 'image/png',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Invalid file type. Allowed: PDF, PPT, PPTX, DOC, DOCX, JPG, PNG.'));
+    }
+};
+
+export const uploadPlanAttachment = multer({
+    storage,
+    fileFilter: planAttachmentFileFilter,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+});
+
+// Up to 5 attachments per plan/proposal
+export const uploadPlanAttachments = uploadPlanAttachment.array('attachments', 5);
 export const uploadSingleDocument = uploadDocument.single('file');
 export const uploadVerificationDocument = uploadVerification.single('verification_document');
 export const uploadMultipleImages = uploadImage.array('images', 5);

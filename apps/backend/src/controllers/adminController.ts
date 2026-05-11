@@ -3,10 +3,11 @@ import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { sendOrganizationApprovalEmail, sendOrganizationRejectionEmail } from '../services/email.service';
 import {
-    assertCompanyVerificationProposalExists,
-    assertUniversityVerificationProposalExists,
+    checkCompanyVerification,
+    checkUniversityVerification,
 } from '../utils/institutionVerification';
 import { attachVerificationSla } from '../utils/verificationSla';
+import { UploadResult } from '../services/cloudinary.service';
 
 // --- INSTITUTION MANAGEMENT ---
 
@@ -71,9 +72,9 @@ export const listUniversities = async (req: AuthRequest, res: Response) => {
             where: status ? { approval_status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' } : {},
             orderBy: { created_at: 'desc' },
         });
-        res.json(universities.map((u) => attachVerificationSla(u)));
+        res.json({ success: true, data: universities.map((u) => attachVerificationSla(u)) });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, error: error.message });
     }
 };
 
@@ -87,9 +88,9 @@ export const listCompanies = async (req: AuthRequest, res: Response) => {
             where: status ? { approval_status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' } : {},
             orderBy: { created_at: 'desc' },
         });
-        res.json(companies.map((c) => attachVerificationSla(c)));
+        res.json({ success: true, data: companies.map((c) => attachVerificationSla(c)) });
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, error: error.message });
     }
 };
 
@@ -119,18 +120,26 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
 
 // List all pending universities (includes 24h SLA response window metadata)
 export const getPendingUniversities = async (req: AuthRequest, res: Response) => {
-    const universities = await prisma.university.findMany({
-        where: { approval_status: 'PENDING' }
-    });
-    res.json(universities.map((u) => attachVerificationSla(u)));
+    try {
+        const universities = await prisma.university.findMany({
+            where: { approval_status: 'PENDING' }
+        });
+        res.json({ success: true, data: universities.map((u) => attachVerificationSla(u)) });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 };
 
 // List all pending companies (includes 24h SLA response window metadata)
 export const getPendingCompanies = async (req: AuthRequest, res: Response) => {
-    const companies = await prisma.company.findMany({
-        where: { approval_status: 'PENDING' }
-    });
-    res.json(companies.map((c) => attachVerificationSla(c)));
+    try {
+        const companies = await prisma.company.findMany({
+            where: { approval_status: 'PENDING' }
+        });
+        res.json({ success: true, data: companies.map((c) => attachVerificationSla(c)) });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 };
 
 // Approve, Reject, Suspend, or reactivate (APPROVED from SUSPENDED) a university
@@ -153,10 +162,10 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
 
         if (status === 'APPROVED') {
             if (existing.approval_status !== 'SUSPENDED') {
-                try {
-                    await assertUniversityVerificationProposalExists(uid);
-                } catch (e: any) {
-                    return res.status(400).json({ error: e.message || 'Approval validation failed' });
+                // Non-blocking: log warning but allow admin to approve regardless
+                const check = await checkUniversityVerification(uid);
+                if (!check.verified && check.warning) {
+                    console.warn(`[Admin Approval] University ${uid}: ${check.warning}`);
                 }
             }
         }
@@ -196,9 +205,10 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
                 details: `${updated.name}: ${status}${status === 'REJECTED' && rejectionReason ? ` — ${rejectionReason}` : ''}`,
             },
         });
-        res.json({ message: `University ${status}`, updated });
+        res.json({ success: true, message: `University ${status}`, data: updated });
     } catch (error: any) {
-        res.status(400).json({ error: "Update failed" });
+        console.error('[updateUniversityStatus] Error:', error?.message || error);
+        res.status(500).json({ success: false, error: error?.message || 'Update failed' });
     }
 };
 
@@ -222,10 +232,10 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
 
         if (status === 'APPROVED') {
             if (existing.approval_status !== 'SUSPENDED') {
-                try {
-                    await assertCompanyVerificationProposalExists(cid);
-                } catch (e: any) {
-                    return res.status(400).json({ error: e.message || 'Approval validation failed' });
+                // Non-blocking: log warning but allow admin to approve regardless
+                const check = await checkCompanyVerification(cid);
+                if (!check.verified && check.warning) {
+                    console.warn(`[Admin Approval] Company ${cid}: ${check.warning}`);
                 }
             }
         }
@@ -265,9 +275,10 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
                 details: `${updated.name}: ${status}${status === 'REJECTED' && rejectionReason ? ` — ${rejectionReason}` : ''}`,
             },
         });
-        res.json({ message: `Company ${status}`, updated });
+        res.json({ success: true, message: `Company ${status}`, data: updated });
     } catch (error: any) {
-        res.status(400).json({ error: "Update failed" });
+        console.error('[updateCompanyStatus] Error:', error?.message || error);
+        res.status(500).json({ success: false, error: error?.message || 'Update failed' });
     }
 };
 
@@ -355,14 +366,17 @@ export const verifyInstitution = async (req: AuthRequest, res: Response) => {
         }
 
         if (status === 'APPROVED' && existing.approval_status !== 'SUSPENDED') {
-            try {
-                if (type === 'UNIVERSITY') {
-                    await assertUniversityVerificationProposalExists(iid);
-                } else {
-                    await assertCompanyVerificationProposalExists(iid);
+            // Non-blocking: warn but allow admin to approve regardless
+            if (type === 'UNIVERSITY') {
+                const check = await checkUniversityVerification(iid);
+                if (!check.verified && check.warning) {
+                    console.warn(`[Admin Approval] University ${iid}: ${check.warning}`);
                 }
-            } catch (e: any) {
-                return res.status(400).json({ error: e.message || 'Approval validation failed' });
+            } else {
+                const check = await checkCompanyVerification(iid);
+                if (!check.verified && check.warning) {
+                    console.warn(`[Admin Approval] Company ${iid}: ${check.warning}`);
+                }
             }
         }
 
@@ -858,7 +872,7 @@ export const uploadVerificationDocument = async (req: AuthRequest, res: Response
         const orgId = parseInt(organizationId);
         const folder = `internlink/${orgId}/verification-docs`;
 
-        const uploadResult = await CloudinaryService.uploadDocument(file, {
+        const uploadResult: UploadResult = await CloudinaryService.uploadDocument(file, {
             organizationId: orgId,
             fileType: 'VERIFICATION_DOC',
             folder,

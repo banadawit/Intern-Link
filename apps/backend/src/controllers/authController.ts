@@ -27,7 +27,18 @@ const getJwtSecret = (): string => {
 // ============================================
 export const register = async (req: Request, res: Response) => {
     try {
-        const { full_name, email, password, role, university_name, company_name, department, student_id, position } = req.body;
+        const { 
+            full_name, 
+            email, 
+            password, 
+            role, 
+            university_name, 
+            company_name, 
+            department, 
+            student_id, 
+            position,
+            verification_document // This is now a URL string from frontend
+        } = req.body;
         
         // Get uploaded file if exists
         const file = (req as any).file;
@@ -40,10 +51,15 @@ export const register = async (req: Request, res: Response) => {
 
         // Check if registration is open for this role
         const roleUpper = (role ?? '').toUpperCase();
-        const registrationOpen = await isRegistrationOpen(roleUpper);
-        if (!registrationOpen) {
-            return sendError(res, `Registration for ${roleUpper} accounts is currently closed. Please try again later.`, 403, 'REGISTRATION_CLOSED');
+        // For students, pass universityId so per-university override is checked
+        const universityIdForCheck = roleUpper === 'STUDENT'
+            ? parseInt(String(req.body.university_id ?? '0'), 10) || undefined
+            : undefined;
+        const regCheck = await isRegistrationOpen(roleUpper, universityIdForCheck);
+        if (!regCheck.allowed) {
+            return sendError(res, regCheck.reason ?? `Registration for ${roleUpper} accounts is currently closed.`, 403, 'REGISTRATION_CLOSED');
         }
+
 
         // Check if user exists
         const userExists = await prisma.user.findUnique({ where: { email } });
@@ -58,36 +74,8 @@ export const register = async (req: Request, res: Response) => {
         const verificationToken = generateVerificationToken();
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
-        // Upload verification document if provided (PDF or image)
-        let verificationDocUrl: string | null = null;
-
-        // Accept pre-uploaded Cloudinary URL from frontend
-        if (typeof req.body.verification_document === 'string' && req.body.verification_document.trim()) {
-            verificationDocUrl = req.body.verification_document.trim();
-        } else if (file) {
-            // Fallback: handle direct file upload
-            const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-            const apiKey = process.env.CLOUDINARY_API_KEY;
-            const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-            if (cloudName && apiKey && apiSecret) {
-                const { CloudinaryService } = await import('../services/cloudinary.service');
-                const folder = `internlink/verification-docs`;
-
-                const uploadResult = await CloudinaryService.uploadVerificationDoc(file, {
-                    fileType: 'VERIFICATION_DOC',
-                    folder,
-                });
-
-                if (uploadResult.success) {
-                    verificationDocUrl = uploadResult.url!;
-                } else {
-                    console.warn('Verification doc upload failed:', uploadResult.error);
-                }
-            } else {
-                console.warn('Cloudinary not configured — skipping verification doc upload.');
-            }
-        }
+        // The URL is already provided by the frontend after Cloudinary upload
+        const verificationDocUrl = verification_document || null;
 
         // Create user with verification token
         const needsIndividualAdminApproval =
@@ -151,7 +139,8 @@ export const register = async (req: Request, res: Response) => {
                         data: {
                             name: company_name,
                             official_email: email,
-                            approval_status: 'PENDING'
+                            approval_status: 'PENDING',
+                            verification_doc: verificationDocUrl
                         }
                     });
                     createdNewCompany = true;
