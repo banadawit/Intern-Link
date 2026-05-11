@@ -47,9 +47,9 @@ const StatCard = ({
 }) => (
   <div className="card flex items-start justify-between p-6 transition-shadow duration-200 hover:shadow-md">
     <div>
-      <p className="mb-1 text-sm font-medium text-slate-500">{label}</p>
-      <h3 className="text-2xl font-bold text-slate-900">{value}</h3>
-      {subValue && <p className="mt-1 text-xs text-slate-500">{subValue}</p>}
+      <p className="mb-1 text-sm font-medium text-slate-500 dark:text-slate-400">{label}</p>
+      <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</h3>
+      {subValue && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subValue}</p>}
     </div>
     <div className={cn("rounded-xl p-3", colorClass)}>
       <Icon className="h-6 w-6" />
@@ -89,13 +89,13 @@ const Dashboard = ({ pendingVerificationCount, stats, statsLoading }: DashboardP
       {pendingVerificationCount > 0 && (
         <div
           role="status"
-          className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 dark:border-amber-800/50 dark:bg-amber-950/30 p-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex gap-3">
             <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden />
             <div>
-              <p className="font-semibold text-amber-950">{pendingVerificationCount} verification request(s) pending</p>
-              <p className="text-sm text-amber-900/80">Review organization credentials to keep onboarding moving.</p>
+              <p className="font-semibold text-amber-950 dark:text-amber-200">{pendingVerificationCount} verification request(s) pending</p>
+              <p className="text-sm text-amber-900/80 dark:text-amber-300/80">Review organization credentials to keep onboarding moving.</p>
             </div>
           </div>
           <Link
@@ -138,7 +138,7 @@ const Dashboard = ({ pendingVerificationCount, stats, statsLoading }: DashboardP
       </div>
 
       <section>
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Quick navigation</h2>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick navigation</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {quickLinks.map((q) => (
             <Link
@@ -153,7 +153,7 @@ const Dashboard = ({ pendingVerificationCount, stats, statsLoading }: DashboardP
                 <span className={cn("rounded-xl p-2.5 ring-1", q.accent)}>
                   <q.icon className="h-5 w-5" />
                 </span>
-                <span className="font-semibold text-slate-900">{q.label}</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{q.label}</span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-teal-600" />
             </Link>
@@ -163,7 +163,7 @@ const Dashboard = ({ pendingVerificationCount, stats, statsLoading }: DashboardP
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="card p-6 lg:col-span-2">
-          <h3 className="mb-6 text-lg font-bold text-slate-900">Verification distribution</h3>
+          <h3 className="mb-6 text-lg font-bold text-slate-900 dark:text-slate-100">Verification distribution</h3>
           <div className="h-[300px]">
             {stats && chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -183,7 +183,7 @@ const Dashboard = ({ pendingVerificationCount, stats, statsLoading }: DashboardP
         </div>
 
         <div className="card flex flex-col p-6">
-          <h3 className="mb-6 text-lg font-bold text-slate-900">Security alerts</h3>
+          <h3 className="mb-6 text-lg font-bold text-slate-900 dark:text-slate-100">Security alerts</h3>
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-lg border border-red-100 bg-red-50 p-3">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />

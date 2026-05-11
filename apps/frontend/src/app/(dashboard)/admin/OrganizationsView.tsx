@@ -68,7 +68,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
       />
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+      <div className="flex gap-1 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-1">
         {([
           { id: "universities" as const, label: "Universities", icon: Building, count: counts.universities, pending: counts.uniPending },
           { id: "companies" as const, label: "Companies", icon: Briefcase, count: counts.companies, pending: counts.compPending },
@@ -79,7 +79,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
             onClick={() => { setTab(t.id); setSearch(""); setStatusFilter("All"); }}
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-              tab === t.id ? "bg-white text-teal-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-700"
+              tab === t.id ? "bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             )}
           >
             <t.icon className="h-4 w-4 shrink-0" />
@@ -105,7 +105,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={`Search ${tab}…`}
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -117,7 +117,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
               onClick={() => setStatusFilter(s)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-semibold transition-all",
-                statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
               )}
             >
               {s}
@@ -127,7 +127,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
         {loading ? (
           <div className="flex min-h-[30vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
@@ -140,7 +140,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <th className="px-6 py-3">Name</th>
                   <th className="px-6 py-3">Email</th>
                   <th className="px-6 py-3">Address</th>
@@ -150,22 +150,22 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                   <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {filtered.map((p) => {
                   const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.Pending;
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
+                    <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="font-semibold text-slate-900">{p.organizationName}</p>
+                        <p className="font-semibold text-slate-900 dark:text-slate-100">{p.organizationName}</p>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
                         {p.email ? (
                           <a href={`mailto:${p.email}`} className="hover:text-teal-600 hover:underline">{p.email}</a>
                         ) : (
                           <span className="text-xs text-slate-400 italic">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-xs text-slate-500 max-w-[160px] truncate">
+                      <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400 max-w-[160px] truncate">
                         {p.description || <span className="italic text-slate-400">—</span>}
                       </td>
                       <td className="px-6 py-4">
@@ -199,7 +199,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                           <button
                             type="button"
                             onClick={() => onReview(p)}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                           >
                             Review
                           </button>
