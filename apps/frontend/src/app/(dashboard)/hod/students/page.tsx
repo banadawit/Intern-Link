@@ -8,6 +8,7 @@ import HodStudentApprovalsTable from "@/components/hod/HodStudentApprovalsTable"
 import type { HodStudentRow } from "@/components/hod/types";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import SuccessToast from "@/components/shared/SuccessToast";
+import { useHodStore } from "@/lib/store/hodStore";
 
 export default function HodStudentsPage() {
   const [students, setStudents] = useState<HodStudentRow[]>([]);

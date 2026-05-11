@@ -23,30 +23,37 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
+import { useSupervisorStore } from "@/lib/store/supervisorStore";
 
 const SupervisorSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
-  const [pendingProposals, setPendingProposals] = useState(0);
-  const [pendingPlans, setPendingPlans] = useState(0);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const { unreadCount, fetchUnread } = useChatStore();
+  const { pendingProposals, pendingPlans, fetchCounts } = useSupervisorStore();
 
   useEffect(() => {
-    api.get<{ success: boolean; data: { supervisor: { company: { name: string } }; stats: { pendingProposalsCount: number; pendingWeeklyPlansCount: number } } }>("/supervisor/me")
+    // Fetch company name once
+    api.get<{ success: boolean; data: { supervisor: { company: { name: string } } } }>("/supervisor/me")
       .then(({ data }) => {
-        const d = data.data;
-        setPendingProposals(d.stats.pendingProposalsCount);
-        setPendingPlans(d.stats.pendingWeeklyPlansCount);
-        if (d.supervisor?.company?.name) setCompanyName(d.supervisor.company.name);
+        if (data.data.supervisor?.company?.name) setCompanyName(data.data.supervisor.company.name);
       })
       .catch(() => {});
+
+    // Fetch counts immediately and poll every 30s
+    void fetchCounts();
+    const countsInterval = setInterval(() => void fetchCounts(), 30000);
+
     void fetchUnread();
-    const interval = setInterval(() => void fetchUnread(), 10000);
-    return () => clearInterval(interval);
-  }, [fetchUnread]);
+    const chatInterval = setInterval(() => void fetchUnread(), 10000);
+
+    return () => {
+      clearInterval(countsInterval);
+      clearInterval(chatInterval);
+    };
+  }, [fetchCounts, fetchUnread]);
 
   const handleLogout = () => {
     logout();

@@ -477,7 +477,6 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
                 ? `HoD_Team:${(team_name || 'Team').trim()}:${allStudentIds.join(',')}`
                 : (proposal_type || 'HoD_Initiated'),
             status: 'PENDING' as const,
-            attachments: proposalAttachments,
             ...(expected_duration_weeks != null ? { expected_duration_weeks: parseInt(String(expected_duration_weeks), 10) } : {}),
             ...(typeof expected_outcomes === 'string' && expected_outcomes.trim() ? { expected_outcomes: expected_outcomes.trim() } : {}),
         };

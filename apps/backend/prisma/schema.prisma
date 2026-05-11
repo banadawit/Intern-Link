@@ -241,8 +241,6 @@ model InternshipProposal {
   expected_duration_weeks Int?
   expected_outcomes       String?
   responded_at            DateTime?
-  /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
-  attachments             Json                 @default("[]")
   /// Additional team members (empty for INDIVIDUAL proposals)
   teamMembers             ProposalTeamMember[]
   university              University           @relation(fields: [universityId], references: [id])
@@ -287,8 +285,6 @@ model WeeklyPlan {
   feedback         String?
   reviewed_at      DateTime?
   version          Int                       @default(1)
-  /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
-  attachments      Json                      @default("[]")
   presentation     WeeklyPresentation?
   weeklyReport     WeeklyReport?
   daySubmissions   WeeklyPlanDaySubmission[]

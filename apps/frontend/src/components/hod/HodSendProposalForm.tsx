@@ -1,26 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Search, ChevronDown, X, Building, GraduationCap } from "lucide-react";
+import { Send, Search, ChevronDown, X, Building, GraduationCap, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HodCompanyRow, HodStudentRow } from "./types";
 
-// ─── Generic searchable picker ───────────────────────────────────────────────
+// ─── Company searchable picker (single select) ────────────────────────────────
 
 type PickerItem = { id: number; label: string; sub?: string };
 
-function SearchPicker({
+function CompanyPicker({
   items,
   value,
   onChange,
-  placeholder,
-  icon: Icon,
 }: {
   items: PickerItem[];
   value: string;
   onChange: (v: string) => void;
-  placeholder: string;
-  icon: React.ComponentType<{ className?: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -44,12 +40,6 @@ function SearchPicker({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const select = (id: number) => {
-    onChange(String(id));
-    setOpen(false);
-    setSearch("");
-  };
-
   const clear = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange("");
@@ -67,7 +57,7 @@ function SearchPicker({
             : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600"
         )}
       >
-        <Icon className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+        <Building className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
         {selected ? (
           <>
             <span className="flex-1 truncate text-left font-medium text-slate-900 dark:text-slate-100">{selected.label}</span>
@@ -78,7 +68,7 @@ function SearchPicker({
           </>
         ) : (
           <>
-            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">{placeholder}</span>
+            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">Search company…</span>
             <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform dark:text-slate-500", open && "rotate-180")} />
           </>
         )}
@@ -104,7 +94,7 @@ function SearchPicker({
                 <li key={item.id}>
                   <button
                     type="button"
-                    onClick={() => select(item.id)}
+                    onClick={() => { onChange(String(item.id)); setOpen(false); setSearch(""); }}
                     className={cn(
                       "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800",
                       String(item.id) === value && "bg-primary-50 dark:bg-primary-900/30"
@@ -125,17 +115,203 @@ function SearchPicker({
   );
 }
 
+// ─── Multi-select student picker ──────────────────────────────────────────────
+
+function StudentMultiPicker({
+  students,
+  selectedIds,
+  onChange,
+}: {
+  students: HodStudentRow[];
+  selectedIds: Set<number>;
+  onChange: (ids: Set<number>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = students.filter(
+    (s) =>
+      s.user.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      (s.department ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      s.user.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggle = (id: number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange(next);
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length && filtered.length > 0) {
+      // deselect all filtered
+      const next = new Set(selectedIds);
+      filtered.forEach((s) => next.delete(s.id));
+      onChange(next);
+    } else {
+      // select all filtered
+      const next = new Set(selectedIds);
+      filtered.forEach((s) => next.add(s.id));
+      onChange(next);
+    }
+  };
+
+  const clearAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange(new Set());
+  };
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((s) => selectedIds.has(s.id));
+
+  const selectedNames = students
+    .filter((s) => selectedIds.has(s.id))
+    .map((s) => s.user.full_name);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex w-full min-h-[42px] items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all",
+          open
+            ? "border-primary-500 ring-2 ring-primary-500/20 bg-white dark:bg-slate-900"
+            : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600"
+        )}
+      >
+        <GraduationCap className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+        {selectedIds.size === 0 ? (
+          <>
+            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">Select students…</span>
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform dark:text-slate-500", open && "rotate-180")} />
+          </>
+        ) : (
+          <>
+            <div className="flex flex-1 flex-wrap gap-1 py-0.5">
+              {selectedNames.slice(0, 3).map((name) => (
+                <span key={name} className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+                  {name}
+                </span>
+              ))}
+              {selectedIds.size > 3 && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  +{selectedIds.size - 3} more
+                </span>
+              )}
+            </div>
+            <span role="button" onClick={clearAll} className="shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
+              <X className="h-3.5 w-3.5" />
+            </span>
+          </>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          {/* Search */}
+          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 dark:border-slate-700">
+            <Search className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search students…"
+              className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none dark:text-slate-200 dark:placeholder:text-slate-500"
+            />
+          </div>
+
+          {/* Select all row */}
+          {filtered.length > 1 && (
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="flex w-full items-center gap-3 border-b border-slate-100 px-4 py-2.5 text-left text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              <div className={cn(
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                allFilteredSelected
+                  ? "border-primary-600 bg-primary-600"
+                  : "border-slate-300 dark:border-slate-600"
+              )}>
+                {allFilteredSelected && <Check className="h-3 w-3 text-white" />}
+              </div>
+              {allFilteredSelected ? "Deselect all" : `Select all (${filtered.length})`}
+            </button>
+          )}
+
+          <ul className="max-h-56 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <li className="px-4 py-3 text-center text-sm text-slate-400 dark:text-slate-500">No students found.</li>
+            ) : (
+              filtered.map((s) => {
+                const checked = selectedIds.has(s.id);
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => toggle(s.id)}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800",
+                        checked && "bg-primary-50 dark:bg-primary-900/20"
+                      )}
+                    >
+                      <div className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+                        checked
+                          ? "border-primary-600 bg-primary-600"
+                          : "border-slate-300 dark:border-slate-600"
+                      )}>
+                        {checked && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{s.user.full_name}</p>
+                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">{s.department ?? s.user.email}</p>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+
+          {/* Footer */}
+          {selectedIds.size > 0 && (
+            <div className="border-t border-slate-100 px-4 py-2 dark:border-slate-700">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {selectedIds.size} student{selectedIds.size !== 1 ? "s" : ""} selected
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main form ────────────────────────────────────────────────────────────────
 
 type Props = {
   approvedStudents: HodStudentRow[];
   companies: HodCompanyRow[];
   submitting: boolean;
-  proposalStudentId: string;
+  selectedStudentIds: Set<number>;
   proposalCompanyId: string;
   proposalWeeks: string;
   proposalOutcomes: string;
-  onStudentId: (v: string) => void;
+  onStudentIds: (ids: Set<number>) => void;
   onCompanyId: (v: string) => void;
   onWeeks: (v: string) => void;
   onOutcomes: (v: string) => void;
@@ -146,22 +322,16 @@ export default function HodSendProposalForm({
   approvedStudents,
   companies,
   submitting,
-  proposalStudentId,
+  selectedStudentIds,
   proposalCompanyId,
   proposalWeeks,
   proposalOutcomes,
-  onStudentId,
+  onStudentIds,
   onCompanyId,
   onWeeks,
   onOutcomes,
   onSubmit,
 }: Props) {
-  const studentItems: PickerItem[] = approvedStudents.map((s) => ({
-    id: s.id,
-    label: s.user.full_name,
-    sub: s.department ?? s.user.email,
-  }));
-
   const companyItems: PickerItem[] = companies.map((c) => ({
     id: c.id,
     label: c.name,
@@ -171,23 +341,23 @@ export default function HodSendProposalForm({
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900">
       <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Send placement proposal</h2>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Only approved students and verified companies are listed.</p>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        Select one or more approved students and a verified company. A separate proposal is sent for each student.
+      </p>
 
       <form onSubmit={onSubmit} className="mt-5 grid gap-5 sm:grid-cols-2">
-        {/* Student picker */}
-        <div>
+        {/* Student multi-picker */}
+        <div className="sm:col-span-2">
           <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Student <span className="text-red-500">*</span>
+            Students <span className="text-red-500">*</span>
           </label>
-          <SearchPicker
-            items={studentItems}
-            value={proposalStudentId}
-            onChange={onStudentId}
-            placeholder="Search student…"
-            icon={GraduationCap}
+          <StudentMultiPicker
+            students={approvedStudents}
+            selectedIds={selectedStudentIds}
+            onChange={onStudentIds}
           />
-          {studentItems.length === 0 && (
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">No approved students yet.</p>
+          {approvedStudents.length === 0 && (
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">No approved students available.</p>
           )}
         </div>
 
@@ -196,12 +366,10 @@ export default function HodSendProposalForm({
           <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
             Company <span className="text-red-500">*</span>
           </label>
-          <SearchPicker
+          <CompanyPicker
             items={companyItems}
             value={proposalCompanyId}
             onChange={onCompanyId}
-            placeholder="Search company…"
-            icon={Building}
           />
           {companyItems.length === 0 && (
             <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">No verified companies yet.</p>
@@ -237,11 +405,15 @@ export default function HodSendProposalForm({
         <div className="sm:col-span-2">
           <button
             type="submit"
-            disabled={submitting || !proposalStudentId || !proposalCompanyId}
+            disabled={submitting || selectedStudentIds.size === 0 || !proposalCompanyId}
             className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="h-4 w-4" />
-            {submitting ? "Sending…" : "Send proposal"}
+            {submitting
+              ? "Sending…"
+              : selectedStudentIds.size > 1
+                ? `Send ${selectedStudentIds.size} proposals`
+                : "Send proposal"}
           </button>
         </div>
       </form>
