@@ -10,10 +10,11 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color, icon) = switch (status) {
-      WeeklyPlanStatus.draft => ('Draft', const Color(0xFF475467), Icons.edit_note_rounded),
-      WeeklyPlanStatus.pending => ('Pending', const Color(0xFFB54708), Icons.pending_rounded),
-      WeeklyPlanStatus.approved => ('Approved', const Color(0xFF067647), Icons.check_circle_rounded),
-      WeeklyPlanStatus.rejected => ('Rejected', const Color(0xFFB42318), Icons.cancel_rounded),
+      WeeklyPlanStatus.draft       => ('Draft',       const Color(0xFF475467), Icons.edit_note_rounded),
+      WeeklyPlanStatus.pending     => ('Pending',     const Color(0xFFB54708), Icons.pending_rounded),
+      WeeklyPlanStatus.approved    => ('Approved',    const Color(0xFF067647), Icons.check_circle_rounded),
+      WeeklyPlanStatus.rejected    => ('Rejected',    const Color(0xFFB42318), Icons.cancel_rounded),
+      WeeklyPlanStatus.resubmitted => ('Resubmitted', const Color(0xFF6941C6), Icons.refresh_rounded),
     };
 
     return Container(

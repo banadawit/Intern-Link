@@ -11,7 +11,9 @@ import {
     updateCurrentUser,
     changePassword
 } from '../controllers/authController';
-import { authenticate } from '../middlewares/authMiddleware';
+import { sendSetupLink } from '../controllers/adminOnboardingController';
+import { authenticate, authorize } from '../middlewares/authMiddleware';
+import { Role } from '@prisma/client';
 import { uploadVerificationDocument } from '../config/multer.config';
 
 import { validate } from '../middlewares/validationMiddleware';
@@ -33,7 +35,7 @@ router.post('/login', validate(loginSchema), login);
 router.post('/verify-email', verifyEmail);
 router.post('/resend-verification', resendVerification);
 
-// Password Reset
+// Password Reset / Setup
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
@@ -45,6 +47,9 @@ router.post('/reset-password', resetPassword);
 router.get('/me', authenticate, getCurrentUser);
 router.patch('/me', authenticate, updateCurrentUser);
 router.post('/change-password', authenticate, changePassword);
+
+// Admin: send password setup link to a user
+router.post('/send-setup-link', authenticate, authorize([Role.ADMIN]), sendSetupLink);
 
 // Logout (client-side token removal, but can add blacklist if needed)
 router.post('/logout', authenticate, (req, res) => {

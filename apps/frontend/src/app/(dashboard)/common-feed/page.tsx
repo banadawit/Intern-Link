@@ -505,10 +505,10 @@ export default function CommonFeedPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading feed...</p>
+          <p className="mt-4 text-slate-600 dark:text-slate-400">Loading feed...</p>
         </div>
       </div>
     );
@@ -521,38 +521,38 @@ export default function CommonFeedPage() {
           {/* Main Feed */}
           <div className="lg:col-span-9">
             {/* Create Post Card */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4 sticky top-0 z-10">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4 mb-4 sticky top-0 z-10">
               <div className="flex gap-3">
                 <div 
                   onClick={() => {
                     const userId = currentUser?.userId || currentUser?.id;
                     if (userId) openUserProfile(userId);
                   }}
-                  className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                  className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                 >
                   {currentUser ? getInitials(currentUser.fullName || 'User') : 'U'}
                 </div>
                 <button
                   onClick={() => setShowCreatePost(true)}
-                  className="flex-1 text-left px-4 py-3 rounded-full border border-slate-300 hover:bg-slate-50 text-slate-600 font-medium transition-colors"
+                  className="flex-1 text-left px-4 py-3 rounded-full border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium transition-colors"
                 >
                   Start a post
                 </button>
               </div>
-              <div className="flex justify-between mt-3 pt-3 border-t border-slate-200">
-                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors">
+              <div className="flex justify-between mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors">
                   <ImageIcon className="w-5 h-5 text-teal-500" />
                   <span className="hidden sm:inline">Photo</span>
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors">
+                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors">
                   <Video className="w-5 h-5 text-emerald-500" />
                   <span className="hidden sm:inline">Video</span>
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors">
+                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors">
                   <Calendar className="w-5 h-5 text-orange-500" />
                   <span className="hidden sm:inline">Event</span>
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors">
+                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors">
                   <FileText className="w-5 h-5 text-rose-500" />
                   <span className="hidden sm:inline">Article</span>
                 </button>
@@ -560,8 +560,8 @@ export default function CommonFeedPage() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="bg-white rounded-lg border border-slate-200 mb-4">
-              <div className="flex border-b border-slate-200 overflow-x-auto">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 mb-4">
+              <div className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
                 {['ALL', 'ANNOUNCEMENT', 'OPPORTUNITY', 'EXPERIENCE', 'GENERAL_UPDATE'].map((type) => (
                   <button
                     key={type}
@@ -572,7 +572,7 @@ export default function CommonFeedPage() {
                     className={`px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                       filter === type
                         ? 'text-teal-600 border-b-2 border-teal-600'
-                        : 'text-slate-600 hover:text-slate-900'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                   >
                     {type === 'ALL' ? 'All Posts' : type.replace('_', ' ')}
@@ -584,14 +584,14 @@ export default function CommonFeedPage() {
             {/* Posts */}
             <div className="space-y-4">
               {posts.map((post) => (
-                <div key={post.id} className="bg-white rounded-lg border border-slate-200">
+                <div key={post.id} className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
                   {/* Post Header */}
                   <div className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex gap-3">
                         <div 
                           onClick={() => openUserProfile(post.author.id)}
-                          className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                          className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                         >
                           {getInitials(post.author.full_name)}
                         </div>
@@ -599,32 +599,32 @@ export default function CommonFeedPage() {
                           <div className="flex items-center gap-2">
                             <h3 
                               onClick={() => openUserProfile(post.author.id)}
-                              className="font-semibold text-slate-900 hover:text-teal-600 cursor-pointer"
+                              className="font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer"
                             >
                               {post.author.full_name}
                             </h3>
-                            <span className="text-xs text-slate-500">• 1st</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">• 1st</span>
                           </div>
-                          <p className="text-sm text-slate-600">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
                             {getRoleBadge(post.author.role).label} • {getPostTypeLabel(post.postType)}
                           </p>
-                          <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+                          <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
                             <span>{formatTimeAgo(post.createdAt)}</span>
                             <span>•</span>
                             <Globe className="w-3 h-3" />
                           </div>
                         </div>
                       </div>
-                      <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                        <MoreHorizontal className="w-5 h-5 text-slate-600" />
+                      <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                        <MoreHorizontal className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                       </button>
                     </div>
 
                     {/* Post Content */}
                     <div className="mt-3">
-                      <h4 className="font-semibold text-slate-900 mb-2">{post.title}</h4>
+                      <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">{post.title}</h4>
                       <div 
-                        className="text-slate-700 text-sm leading-relaxed"
+                        className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed"
                         dangerouslySetInnerHTML={{ __html: post.content }}
                       />
                     </div>
@@ -667,7 +667,7 @@ export default function CommonFeedPage() {
                   </div>
 
                   {/* Post Stats */}
-                  <div className="px-4 py-2 flex items-center justify-between text-xs text-slate-600 border-t border-slate-200">
+                  <div className="px-4 py-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-1">
                       {post.likeCount > 0 && (
                         <>
@@ -691,11 +691,11 @@ export default function CommonFeedPage() {
                   </div>
 
                   {/* Post Actions */}
-                  <div className="px-2 py-1 flex items-center justify-around border-t border-slate-200">
+                  <div className="px-2 py-1 flex items-center justify-around border-t border-slate-200 dark:border-slate-700">
                     <button
                       onClick={() => toggleLike(post.id)}
-                      className={`flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg font-medium transition-colors flex-1 justify-center ${
-                        post.isLikedByUser ? 'text-teal-600' : 'text-slate-600'
+                      className={`flex items-center gap-2 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg font-medium transition-colors flex-1 justify-center ${
+                        post.isLikedByUser ? 'text-teal-600' : 'text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       <ThumbsUp className={`w-5 h-5 ${post.isLikedByUser ? 'fill-teal-600' : ''}`} />
@@ -703,21 +703,21 @@ export default function CommonFeedPage() {
                     </button>
                     <button
                       onClick={() => toggleComments(post.id)}
-                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center"
+                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors flex-1 justify-center"
                     >
                       <MessageCircle className="w-5 h-5" />
                       <span>Comment</span>
                     </button>
                     <button 
                       onClick={() => handleShare(post)}
-                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center"
+                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors flex-1 justify-center"
                     >
                       <Share2 className="w-5 h-5" />
                       <span>Share</span>
                     </button>
                     <button 
                       onClick={() => handleSend(post)}
-                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-600 font-medium transition-colors flex-1 justify-center"
+                      className="flex items-center gap-2 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors flex-1 justify-center"
                     >
                       <Send className="w-5 h-5" />
                       <span>Send</span>
@@ -726,10 +726,10 @@ export default function CommonFeedPage() {
 
                   {/* Comments Section */}
                   {selectedPost?.id === post.id && (
-                    <div className="border-t border-slate-200 p-4 bg-slate-50">
+                    <div className="border-t border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-800/50">
                       {/* Add Comment */}
                       <div className="flex gap-3 mb-4">
-                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300">
                           {currentUser ? getInitials(currentUser.fullName || 'User') : 'U'}
                         </div>
                         <div className="flex-1 flex gap-2">
@@ -739,12 +739,12 @@ export default function CommonFeedPage() {
                             onChange={(e) => setNewComment(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && addComment(post.id)}
                             placeholder="Add a comment..."
-                            className="flex-1 px-4 py-2 rounded-full border border-slate-300 focus:outline-none focus:border-slate-400 text-sm"
+                            className="flex-1 px-4 py-2 rounded-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-slate-400 dark:focus:border-slate-500 text-sm"
                           />
                           <button
                             onClick={() => addComment(post.id)}
                             disabled={newComment.trim().length < 10}
-                            className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed text-sm font-medium"
+                            className="px-4 py-2 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-sm font-medium"
                           >
                             Post
                           </button>
@@ -860,14 +860,14 @@ export default function CommonFeedPage() {
       {/* Create Post Modal */}
       {showCreatePost && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200">
-              <h2 className="text-xl font-semibold text-slate-900">Create a post</h2>
+          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Create a post</h2>
               <button
                 onClick={() => setShowCreatePost(false)}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
               >
-                <X className="w-5 h-5 text-slate-600" />
+                <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
             </div>
 
@@ -993,9 +993,9 @@ export default function CommonFeedPage() {
       {/* Share Modal */}
       {showShareModal && selectedSharePost && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h2 className="text-xl font-bold text-slate-900">Share Post</h2>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Share Post</h2>
               <button
                 onClick={() => setShowShareModal(false)}
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"

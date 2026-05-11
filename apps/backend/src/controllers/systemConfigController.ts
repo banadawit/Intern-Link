@@ -12,6 +12,8 @@ const DEFAULTS: Record<string, string> = {
   registration_coordinator_open: 'true',
   registration_supervisor_open: 'true',
   registration_hod_open: 'true',
+  registration_university_open: 'true',
+  registration_company_open: 'true',
   // Internship rules
   internship_min_weeks: '4',
   internship_max_weeks: '24',
@@ -56,7 +58,7 @@ export const getConfig = async (req: AuthRequest, res: Response) => {
     const config = await getFullConfig();
     res.json({ success: true, data: config });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: e.message });
   }
 };
 
@@ -64,10 +66,9 @@ export const updateConfig = async (req: AuthRequest, res: Response) => {
   try {
     const updates = req.body as Record<string, string>;
     if (!updates || typeof updates !== 'object') {
-      return res.status(400).json({ error: 'Body must be a key-value object.' });
+      return res.status(400).json({ success: false, error: 'Body must be a key-value object.' });
     }
 
-    // Upsert each key
     await Promise.all(
       Object.entries(updates).map(([key, value]) =>
         prisma.systemConfig.upsert({
@@ -79,9 +80,9 @@ export const updateConfig = async (req: AuthRequest, res: Response) => {
     );
 
     const config = await getFullConfig();
-    res.json({ success: true, data: config });
+    res.json({ success: true, data: config, message: 'Configuration updated.' });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ success: false, error: e.message });
   }
 };
 
@@ -167,21 +168,40 @@ export const broadcastAnnouncement = async (req: AuthRequest, res: Response) => 
 
 /**
  * Middleware-style helper: check if registration is open for a given role.
+ * For STUDENT role, also checks per-university override if universityId is provided.
  * Used in authController to gate registrations.
  */
-export async function isRegistrationOpen(role: string): Promise<boolean> {
+export async function isRegistrationOpen(role: string, universityId?: number): Promise<{ allowed: boolean; reason?: string }> {
   const key = `registration_${role.toLowerCase()}_open`;
   let row: { value: string } | null = null;
   try {
     row = await prisma.systemConfig.findUnique({ where: { key } });
   } catch (error) {
-    if (!isMissingSystemConfigTableError(error)) {
-      throw error;
-    }
-    return (DEFAULTS[key] ?? 'true') === 'true';
+    if (!isMissingSystemConfigTableError(error)) throw error;
   }
-  const value = row?.value ?? DEFAULTS[key] ?? 'true';
-  return value === 'true';
+  const globalValue = row?.value ?? DEFAULTS[key] ?? 'true';
+  const globalAllowed = globalValue === 'true';
+
+  // For students, check per-university override
+  if (role.toUpperCase() === 'STUDENT' && universityId) {
+    try {
+      const uniConfig = await prisma.universityConfig.findUnique({ where: { universityId } });
+      if (uniConfig && uniConfig.studentRegistrationEnabled !== null) {
+        // University has an explicit override
+        if (!uniConfig.studentRegistrationEnabled) {
+          return { allowed: false, reason: 'Student registration is currently disabled for your university.' };
+        }
+        return { allowed: true };
+      }
+    } catch (_) {
+      // UniversityConfig table may not exist yet — fall through to global
+    }
+  }
+
+  if (!globalAllowed) {
+    return { allowed: false, reason: `Registration for ${role} accounts is currently closed.` };
+  }
+  return { allowed: true };
 }
 
 export async function isMaintenanceMode(): Promise<{ active: boolean; message: string }> {

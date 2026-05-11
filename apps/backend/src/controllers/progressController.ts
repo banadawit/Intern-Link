@@ -9,6 +9,55 @@ import { incrementActivityForUser } from '../services/activityLog.service';
 import { sendSuccess, sendError } from '../utils/responseHelper';
 import { notifyStudentPlanReview } from '../services/notification.service';
 
+// ── Attachment helpers ────────────────────────────────────────────────────────
+
+interface AttachmentMeta {
+    url: string;
+    name: string;
+    type: string;
+    size: number;
+    uploadedAt: string;
+}
+
+/**
+ * Upload files to Cloudinary and return attachment metadata.
+ * Falls back to a placeholder URL if Cloudinary is not configured.
+ */
+async function uploadAttachments(
+    files: Express.Multer.File[],
+    userId: number,
+    folder: string,
+): Promise<AttachmentMeta[]> {
+    if (!files || files.length === 0) return [];
+
+    const { CloudinaryService } = await import('../services/cloudinary.service');
+    const results: AttachmentMeta[] = [];
+
+    for (const file of files) {
+        const upload = await CloudinaryService.uploadDocument(file, {
+            userId,
+            organizationId: userId,
+            fileType: 'WEEKLY_PRESENTATION' as any, // PLAN_ATTACHMENT added in new schema
+            folder,
+            resourceType: 'raw',
+        });
+
+        if (upload.success && upload.url) {
+            results.push({
+                url: upload.url,
+                name: file.originalname,
+                type: file.mimetype,
+                size: file.size,
+                uploadedAt: new Date().toISOString(),
+            });
+        }
+    }
+
+    return results;
+}
+
+// ── Student endpoints ─────────────────────────────────────────────────────────
+
 /** List weekly plans for the logged-in student */
 export const getMyWeeklyPlans = async (req: AuthRequest, res: Response) => {
     try {
@@ -30,13 +79,13 @@ export const getMyWeeklyPlans = async (req: AuthRequest, res: Response) => {
     }
 };
 
-/** Student updates own plan while still PENDING (description only; new file via new submission if needed) */
+/** Student updates own plan while still PENDING or REJECTED (description + attachments) */
 export const updateMyWeeklyPlan = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const planId = parseInt(Array.isArray(id) ? id[0] : id, 10);
         const { plan_description } = req.body;
-        const userId = req.user?.userId;
+        const userId = req.user?.userId!;
 
         const student = await prisma.student.findUnique({ where: { userId } });
         if (!student) return sendError(res, 'Student profile not found.', 404);
@@ -45,14 +94,29 @@ export const updateMyWeeklyPlan = async (req: AuthRequest, res: Response) => {
             where: { id: planId, studentId: student.id },
         });
         if (!existing) return sendError(res, 'Plan not found.', 404);
-        if (existing.status !== 'PENDING') {
-            return sendError(res, 'Only pending plans can be edited.', 400);
+
+        // Allow editing PENDING or REJECTED plans
+        if (existing.status !== 'PENDING' && existing.status !== 'REJECTED') {
+            return sendError(res, 'Only pending or rejected plans can be edited.', 400);
         }
+
+        // Upload new attachments if provided
+        const files = (req.files as Express.Multer.File[]) ?? [];
+        const newAttachments = await uploadAttachments(
+            files,
+            userId,
+            `internlink/plans/${student.id}`,
+        );
+
+        // Merge with existing attachments
+        const existingAttachments = (existing.attachments as unknown as AttachmentMeta[]) ?? [];
+        const mergedAttachments = [...existingAttachments, ...newAttachments];
 
         const updated = await prisma.weeklyPlan.update({
             where: { id: planId },
             data: {
                 plan_description: typeof plan_description === 'string' ? plan_description : existing.plan_description,
+                attachments: mergedAttachments as any,
             },
             include: { presentation: true },
         });
@@ -62,120 +126,208 @@ export const updateMyWeeklyPlan = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// 1. STUDENT: Submit Weekly Plan & Presentation (FR-5.3 & FR-5.5)
+/** Student: Submit a new weekly plan with optional attachments */
 export const submitWeeklyPlan = async (req: AuthRequest, res: Response) => {
     try {
         const { week_number, plan_description } = req.body;
-        const userId = req.user?.userId;
+        const userId = req.user?.userId!;
 
-        // 1. Verify Student is PLACED
         const student = await prisma.student.findUnique({
             where: { userId },
-            include: { assignments: { where: { status: 'ACTIVE' } } }
+            include: { assignments: { where: { status: 'ACTIVE' } } },
         });
 
         if (!student || student.internship_status !== 'PLACED') {
-            return sendError(res, "You must be placed in a company to submit plans.", 403);
+            return sendError(res, 'You must be placed in a company to submit plans.', 403);
         }
 
-        // 2. Prevent duplicate plan for the same week
         const weekNum = parseInt(week_number);
-        const existingPlan = await prisma.weeklyPlan.findFirst({
-            where: { studentId: student.id, week_number: weekNum }
-        });
+        if (Number.isNaN(weekNum)) return sendError(res, 'week_number must be a number.', 400);
 
+        const existingPlan = await prisma.weeklyPlan.findFirst({
+            where: { studentId: student.id, week_number: weekNum },
+        });
         if (existingPlan) {
-            return sendError(res, `A weekly plan for Week ${weekNum} already exists.`, 400);
+            return sendError(res, `A weekly plan for Week ${weekNum} already exists. Use resubmit if it was rejected.`, 400);
         }
 
-        // 3. Create the Weekly Plan and Link Presentation File if uploaded
+        // Upload attachments
+        const files = (req.files as Express.Multer.File[]) ?? [];
+        const attachments = await uploadAttachments(files, userId, `internlink/plans/${student.id}`);
+
+        // Handle legacy single-file presentation (backward compat)
+        const singleFile = req.file;
+
         const plan = await prisma.weeklyPlan.create({
             data: {
                 studentId: student.id,
-                week_number: parseInt(week_number),
+                week_number: weekNum,
                 plan_description,
                 status: 'PENDING',
-                presentation: req.file ? {
-                    create: {
-                        file_url: req.file.path
-                    }
-                } : undefined
+                attachments: attachments as any,
+                presentation: singleFile ? {
+                    create: { file_url: singleFile.path ?? singleFile.originalname },
+                } : undefined,
             },
-            include: { presentation: true }
+            include: { presentation: true },
         });
 
-        if (userId) {
-            void incrementActivityForUser(userId);
-        }
+        if (userId) void incrementActivityForUser(userId);
 
-        return sendSuccess(res, { plan }, "Weekly plan submitted successfully.", 201);
+        return sendSuccess(res, { plan }, 'Weekly plan submitted successfully.', 201);
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
 };
 
-// 2. SUPERVISOR: Review and Approve/Reject Plan (FR-6.3 & BR-004)
+/**
+ * Student: Resubmit a REJECTED plan.
+ * Creates a new version of the plan (increments version, resets status to RESUBMITTED).
+ * Previous feedback is preserved in the old plan record.
+ */
+export const resubmitWeeklyPlan = async (req: AuthRequest, res: Response) => {
+    try {
+        const planId = parseInt(String(req.params.id), 10);
+        if (Number.isNaN(planId)) return sendError(res, 'Invalid plan id.', 400);
+
+        const { plan_description } = req.body;
+        const userId = req.user?.userId!;
+
+        const student = await prisma.student.findUnique({ where: { userId } });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
+
+        const existing = await prisma.weeklyPlan.findFirst({
+            where: { id: planId, studentId: student.id },
+        });
+        if (!existing) return sendError(res, 'Plan not found.', 404);
+        if (existing.status !== 'REJECTED') {
+            return sendError(res, 'Only rejected plans can be resubmitted.', 400);
+        }
+
+        // Upload new attachments
+        const files = (req.files as Express.Multer.File[]) ?? [];
+        const newAttachments = await uploadAttachments(files, userId, `internlink/plans/${student.id}`);
+
+        // Keep existing attachments + add new ones
+        const existingAttachments = (existing.attachments as unknown as AttachmentMeta[]) ?? [];
+        const mergedAttachments = [...existingAttachments, ...newAttachments];
+
+        const updated = await prisma.weeklyPlan.update({
+            where: { id: planId },
+            data: {
+                plan_description: typeof plan_description === 'string' ? plan_description : existing.plan_description,
+                status: 'RESUBMITTED',
+                submitted_at: new Date(),
+                version: existing.version + 1,
+                feedback: null,
+                reviewed_at: null,
+                attachments: mergedAttachments as any,
+            },
+            include: { presentation: true },
+        });
+
+        if (userId) void incrementActivityForUser(userId);
+
+        return sendSuccess(res, { plan: updated }, 'Plan resubmitted successfully.', 200);
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
+    }
+};
+
+/** Student: Remove a specific attachment from a plan */
+export const removePlanAttachment = async (req: AuthRequest, res: Response) => {
+    try {
+        const planId = parseInt(String(req.params.id), 10);
+        const { attachmentUrl } = req.body as { attachmentUrl?: string };
+        if (Number.isNaN(planId) || !attachmentUrl) {
+            return sendError(res, 'planId and attachmentUrl are required.', 400);
+        }
+
+        const userId = req.user?.userId;
+        const student = await prisma.student.findUnique({ where: { userId } });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
+
+        const plan = await prisma.weeklyPlan.findFirst({ where: { id: planId, studentId: student.id } });
+        if (!plan) return sendError(res, 'Plan not found.', 404);
+        if (plan.status !== 'PENDING' && plan.status !== 'REJECTED') {
+            return sendError(res, 'Cannot remove attachments from a reviewed plan.', 400);
+        }
+
+        const attachments = (plan.attachments as unknown as { url: string }[]) ?? [];
+        const filtered = attachments.filter((a) => a.url !== attachmentUrl);
+
+        await prisma.weeklyPlan.update({ where: { id: planId }, data: { attachments: filtered as any } });
+        return sendSuccess(res, { removed: attachments.length - filtered.length }, 'Attachment removed.');
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
+    }
+};
+
+// ── Supervisor endpoints ──────────────────────────────────────────────────────
+
+/** Supervisor: Review and Approve/Reject Plan */
 export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params; // Plan ID
-        const { status, remarks, attendance } = req.body; // status: 'APPROVED' or 'REJECTED'
+        const { id } = req.params;
+        const { status, remarks, attendance } = req.body;
 
-        const planId = Array.isArray(id) ? id[0] : id;
-        const parsedId = parseInt(String(planId), 10);
-        if (Number.isNaN(parsedId)) {
-            return sendError(res, 'Invalid plan id.', 400);
-        }
+        const planId = parseInt(String(Array.isArray(id) ? id[0] : id), 10);
+        if (Number.isNaN(planId)) return sendError(res, 'Invalid plan id.', 400);
 
         const supervisor = await prisma.supervisor.findUnique({
             where: { userId: req.user?.userId },
         });
-
         if (!supervisor) return sendError(res, 'Only supervisors can review plans.', 403);
 
         if (status !== 'APPROVED' && status !== 'REJECTED') {
             return sendError(res, "status must be 'APPROVED' or 'REJECTED'.", 400);
         }
-
         if (status === 'REJECTED' && (!remarks || remarks.trim().length < 5)) {
-            return sendError(res, "Feedback is required when rejecting a plan (min 5 chars).", 400);
+            return sendError(res, 'Feedback is required when rejecting a plan (min 5 chars).', 400);
         }
 
         const existing = await prisma.weeklyPlan.findUnique({
-            where: { id: parsedId },
+            where: { id: planId },
             include: {
                 student: {
                     include: {
                         user: { select: { id: true } },
-                        assignments: {
-                            where: { companyId: supervisor.companyId, status: 'ACTIVE' },
-                        },
+                        assignments: { where: { companyId: supervisor.companyId, status: 'ACTIVE' } },
                     },
                 },
             },
         });
 
-        if (!existing) {
-            return sendError(res, 'Plan not found.', 404);
-        }
+        if (!existing) return sendError(res, 'Plan not found.', 404);
         if (existing.student.assignments.length === 0) {
-            return sendError(res, 'This weekly plan is not for a student currently assigned to your company.', 403);
+            return sendError(res, 'This plan is not for a student assigned to your company.', 403);
+        }
+
+        // Block re-reviewing an already-reviewed plan (unless it was resubmitted)
+        if (existing.status === 'APPROVED') {
+            return sendError(res, 'This plan has already been approved.', 400);
         }
 
         const now = new Date();
         const updatedPlan = await prisma.weeklyPlan.update({
-            where: { id: parsedId },
+            where: { id: planId },
             data: {
                 status,
-                feedback: typeof req.body?.remarks === 'string' ? req.body.remarks : null,
+                feedback: typeof remarks === 'string' ? remarks : null,
                 reviewed_at: now,
             },
+            include: { presentation: true },
         });
 
-        // If approved, also log the Weekly Report/Attendance (FR-6.5)
         if (status === 'APPROVED') {
             const present = attendance === 'true' || attendance === true;
-            await prisma.weeklyReport.create({
-                data: {
+            await prisma.weeklyReport.upsert({
+                where: { weeklyPlanId: planId },
+                update: {
+                    attendanceStatus: present ? 'PRESENT' : 'ABSENT',
+                    remarks: typeof remarks === 'string' ? remarks : 'Plan approved.',
+                },
+                create: {
                     studentId: updatedPlan.studentId,
                     supervisorId: supervisor.id,
                     weeklyPlanId: updatedPlan.id,
@@ -185,7 +337,6 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
             });
         }
 
-        // Trigger real-time notification
         void notifyStudentPlanReview(existing.student.userId, existing.week_number, status);
 
         return sendSuccess(res, { updatedPlan }, `Plan ${status}`);
@@ -194,17 +345,15 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
     }
 };
 
-/** Student: list daily check-ins for a plan (same data as embedded in my-plans). */
+// ── Daily check-in endpoints (unchanged) ─────────────────────────────────────
+
 export const getPlanDaySubmissions = async (req: AuthRequest, res: Response) => {
     try {
         const planId = parseInt(String(req.params.id), 10);
-        if (Number.isNaN(planId)) {
-            return sendError(res, 'Invalid plan id.', 400);
-        }
+        if (Number.isNaN(planId)) return sendError(res, 'Invalid plan id.', 400);
         const userId = req.user?.userId;
         const student = await prisma.student.findUnique({ where: { userId } });
         if (!student) return sendError(res, 'Student profile not found.', 404);
-
         const plan = await prisma.weeklyPlan.findFirst({
             where: { id: planId, studentId: student.id },
             include: { daySubmissions: { orderBy: { workDate: 'asc' } } },
@@ -212,23 +361,18 @@ export const getPlanDaySubmissions = async (req: AuthRequest, res: Response) => 
         if (!plan) return sendError(res, 'Plan not found.', 404);
         return sendSuccess(res, plan.daySubmissions, 'Day submissions fetched');
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Server error';
-        return sendError(res, message, 500);
+        return sendError(res, error instanceof Error ? error.message : 'Server error', 500);
     }
 };
 
-/** Student: log a daily check-in for an approved plan (date must fall in that internship week). */
 export const submitPlanDay = async (req: AuthRequest, res: Response) => {
     try {
         const planId = parseInt(String(req.params.id), 10);
-        if (Number.isNaN(planId)) {
-            return sendError(res, 'Invalid plan id.', 400);
-        }
+        if (Number.isNaN(planId)) return sendError(res, 'Invalid plan id.', 400);
         const workDateRaw = (req.body as { workDate?: string })?.workDate;
         if (typeof workDateRaw !== 'string' || !parseIsoDateOnly(workDateRaw)) {
             return sendError(res, 'workDate must be YYYY-MM-DD.', 400);
         }
-
         const userId = req.user?.userId;
         const student = await prisma.student.findUnique({
             where: { userId },
@@ -236,13 +380,8 @@ export const submitPlanDay = async (req: AuthRequest, res: Response) => {
         });
         if (!student) return sendError(res, 'Student profile not found.', 404);
         const assignment = student.assignments[0];
-        if (!assignment) {
-            return sendError(res, 'You need an active placement to log daily tasks.', 403);
-        }
-
-        const plan = await prisma.weeklyPlan.findFirst({
-            where: { id: planId, studentId: student.id },
-        });
+        if (!assignment) return sendError(res, 'You need an active placement to log daily tasks.', 403);
+        const plan = await prisma.weeklyPlan.findFirst({ where: { id: planId, studentId: student.id } });
         if (!plan) return sendError(res, 'Plan not found.', 404);
         if (plan.status !== 'APPROVED') {
             return sendError(res, 'Daily check-ins are only available after your weekly plan is approved.', 400);
@@ -250,39 +389,20 @@ export const submitPlanDay = async (req: AuthRequest, res: Response) => {
         if (!isWorkDateInInternshipWeek(assignment.start_date, plan.week_number, workDateRaw)) {
             return sendError(res, 'That date is outside the internship week for this plan.', 400);
         }
-
         const existingCheckin = await prisma.weeklyPlanDaySubmission.findUnique({
-            where: {
-                weeklyPlanId_workDate: {
-                    weeklyPlanId: planId,
-                    workDate: new Date(`${workDateRaw}T12:00:00.000Z`),
-                },
-            },
+            where: { weeklyPlanId_workDate: { weeklyPlanId: planId, workDate: new Date(`${workDateRaw}T12:00:00.000Z`) } },
         });
-
-        if (existingCheckin) {
-            return sendError(res, "You have already checked in for this date.", 400);
-        }
-
+        if (existingCheckin) return sendError(res, 'You have already checked in for this date.', 400);
         const created = await prisma.weeklyPlanDaySubmission.create({
-            data: {
-                weeklyPlanId: planId,
-                workDate: new Date(`${workDateRaw}T12:00:00.000Z`),
-            },
+            data: { weeklyPlanId: planId, workDate: new Date(`${workDateRaw}T12:00:00.000Z`) },
         });
-
-        if (userId) {
-            void incrementActivityForUser(userId);
-        }
-
+        if (userId) void incrementActivityForUser(userId);
         return sendSuccess(res, created, 'Daily check-in submitted.', 201);
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Server error';
-        return sendError(res, message, 500);
+        return sendError(res, error instanceof Error ? error.message : 'Server error', 500);
     }
 };
 
-/** Student: remove a daily check-in */
 export const deletePlanDay = async (req: AuthRequest, res: Response) => {
     try {
         const planId = parseInt(String(req.params.id), 10);
@@ -290,26 +410,16 @@ export const deletePlanDay = async (req: AuthRequest, res: Response) => {
         if (Number.isNaN(planId) || !parseIsoDateOnly(workDateParam)) {
             return sendError(res, 'Invalid plan or date.', 400);
         }
-
         const userId = req.user?.userId;
         const student = await prisma.student.findUnique({ where: { userId } });
         if (!student) return sendError(res, 'Student profile not found.', 404);
-
-        const plan = await prisma.weeklyPlan.findFirst({
-            where: { id: planId, studentId: student.id },
-        });
+        const plan = await prisma.weeklyPlan.findFirst({ where: { id: planId, studentId: student.id } });
         if (!plan) return sendError(res, 'Plan not found.', 404);
-
         await prisma.weeklyPlanDaySubmission.deleteMany({
-            where: {
-                weeklyPlanId: planId,
-                workDate: new Date(`${workDateParam}T12:00:00.000Z`),
-            },
+            where: { weeklyPlanId: planId, workDate: new Date(`${workDateParam}T12:00:00.000Z`) },
         });
-
         return sendSuccess(res, null, 'Removed.');
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Server error';
-        return sendError(res, message, 500);
+        return sendError(res, error instanceof Error ? error.message : 'Server error', 500);
     }
-};
+};

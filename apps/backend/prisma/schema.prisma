@@ -1,5 +1,35 @@
 generator client {
   provider = "prisma-client-js"
+
+}
+// supabase password amanuell2123A@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+enum Role {
+  ADMIN
+  COORDINATOR
+  HOD
+  SUPERVISOR
+  STUDENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+  CANCELLED
+  RESUBMITTED
+}
+
+enum InternshipStatus {
+  PENDING
+  PLACED
+  COMPLETED
 }
 
 datasource db {
@@ -76,11 +106,12 @@ model University {
   approval_status  ApprovalStatus       @default(PENDING)
   created_at       DateTime             @default(now())
   rejection_reason String?
-  coordinators     Coordinator[]
-  hods             HodProfile[]
-  proposalsSent    InternshipProposal[]
-  reportsReceived  Report[]             @relation("ReportToUniversity")
-  students         Student[]
+  coordinators      Coordinator[]
+  hods              HodProfile[]
+  students          Student[]
+  proposalsSent     InternshipProposal[]
+  reportsReceived   Report[] @relation("ReportToUniversity")
+  config            UniversityConfig?
 }
 
 model Company {
@@ -177,14 +208,11 @@ model InternshipProposal {
   expected_duration_weeks Int?
   expected_outcomes       String?
   responded_at            DateTime?
-  /// "INDIVIDUAL" (default) or "TEAM"
-  proposal_kind           String               @default("INDIVIDUAL")
-  /// Optional team name for TEAM proposals
-  team_name               String?
-  company                 Company              @relation(fields: [companyId], references: [id])
-  student                 Student              @relation(fields: [studentId], references: [id])
-  university              University           @relation(fields: [universityId], references: [id])
-  teamMembers             ProposalTeamMember[]
+  /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
+  attachments             Json       @default("[]")
+
+  /// Additional team members (empty for INDIVIDUAL proposals)
+  teamMembers   ProposalTeamMember[]
 
   @@index([studentId, companyId, status])
 }
@@ -223,8 +251,12 @@ model WeeklyPlan {
   submitted_at     DateTime                  @default(now())
   feedback         String?
   reviewed_at      DateTime?
-  version          Int                       @default(1)
-  student          Student                   @relation(fields: [studentId], references: [id])
+  version          Int            @default(1)
+  /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
+  attachments      Json           @default("[]")
+
+  presentation     WeeklyPresentation?
+  weeklyReports    WeeklyReport[]
   daySubmissions   WeeklyPlanDaySubmission[]
   presentation     WeeklyPresentation?
   weeklyReports    WeeklyReport?
@@ -446,13 +478,15 @@ model Notification {
   recipient   User     @relation(fields: [recipientId], references: [id])
 }
 
-model AuditLog {
-  id        Int      @id @default(autoincrement())
-  adminId   Int
-  action    String
-  targetId  Int
-  details   String?
-  timestamp DateTime @default(now())
+enum FileType {
+  VERIFICATION_DOC
+  WEEKLY_PRESENTATION
+  PLAN_ATTACHMENT
+  PROPOSAL_ATTACHMENT
+  COMPANY_STAMP
+  FINAL_REPORT
+  COMMON_FEED_IMAGE
+  COMMON_FEED_DOCUMENT
 }
 
 model File {
@@ -478,6 +512,17 @@ model SystemConfig {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Per-university registration override.
+/// studentRegistrationEnabled = null → use global SystemConfig setting.
+/// studentRegistrationEnabled = true/false → override global setting.
+model UniversityConfig {
+  id                          Int        @id @default(autoincrement())
+  university                  University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  universityId                Int        @unique
+  studentRegistrationEnabled  Boolean?   // null = inherit global
+  updatedAt                   DateTime   @updatedAt
 }
 
 model ChatMessage {

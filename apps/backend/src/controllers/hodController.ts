@@ -463,6 +463,16 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
         const leadStudentId = allStudentIds[0];
         const additionalStudentIds = allStudentIds.slice(1);
 
+        // Parse attachments from request body (JSON string array or already parsed)
+        let proposalAttachments: object[] = [];
+        if (req.body.attachments) {
+            try {
+                proposalAttachments = typeof req.body.attachments === 'string'
+                    ? JSON.parse(req.body.attachments)
+                    : req.body.attachments;
+            } catch { proposalAttachments = []; }
+        }
+
         // Use only the core fields that definitely exist in the current Prisma client
         const coreProposalData = {
             studentId: leadStudentId,
@@ -472,6 +482,7 @@ export const sendProposal = async (req: AuthRequest, res: Response) => {
                 ? `HoD_Team:${(team_name || 'Team').trim()}:${allStudentIds.join(',')}`
                 : (proposal_type || 'HoD_Initiated'),
             status: 'PENDING' as const,
+            attachments: proposalAttachments,
             ...(expected_duration_weeks != null ? { expected_duration_weeks: parseInt(String(expected_duration_weeks), 10) } : {}),
             ...(typeof expected_outcomes === 'string' && expected_outcomes.trim() ? { expected_outcomes: expected_outcomes.trim() } : {}),
         };

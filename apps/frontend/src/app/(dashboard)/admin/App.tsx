@@ -14,6 +14,8 @@ import SystemSettings from "./SystemSettings";
 import OrganizationsView from "./OrganizationsView";
 import AnalyticsView from "./AnalyticsView";
 import api from "@/lib/api/client";
+import NotificationBell from "@/components/shared/NotificationBell";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 import {
   mapUniversityToProposal,
   mapCompanyToProposal,
@@ -189,9 +191,17 @@ export default function App() {
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row dark:bg-slate-950 dark:text-slate-300">
       <Sidebar activeView={activeView} onNavigate={handleNavigate} pendingCount={pendingVerificationCount} pendingCoordinatorCount={stats?.pendingCoordinators ?? 0} pendingSupervisorCount={stats?.pendingSupervisors ?? 0} />
 
-      <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-        <div className="mx-auto w-full max-w-7xl">{mainContent}</div>
-      </main>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Top bar — matches other dashboards */}
+        <div className="flex items-center justify-end gap-2 border-b border-border-default bg-bg-main/95 dark:bg-slate-900/95 dark:border-slate-700 px-4 py-3 backdrop-blur-sm sm:px-6 lg:px-8">
+          <ThemeToggle variant="inline" className="px-2.5 py-2 [&>span]:hidden" />
+          <NotificationBell />
+        </div>
+
+        <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+          <div className="mx-auto w-full max-w-7xl">{mainContent}</div>
+        </main>
+      </div>
 
       <VerificationDetail
         proposal={selectedProposal}
