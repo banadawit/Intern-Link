@@ -109,14 +109,13 @@ export const updateMyWeeklyPlan = async (req: AuthRequest, res: Response) => {
         );
 
         // Merge with existing attachments
-        const existingAttachments = (existing.attachments as unknown as AttachmentMeta[]) ?? [];
+        const existingAttachments = ((existing as any).attachments as AttachmentMeta[]) ?? [];
         const mergedAttachments = [...existingAttachments, ...newAttachments];
 
         const updated = await prisma.weeklyPlan.update({
             where: { id: planId },
             data: {
                 plan_description: typeof plan_description === 'string' ? plan_description : existing.plan_description,
-                attachments: mergedAttachments as any,
             },
             include: { presentation: true },
         });
@@ -164,7 +163,6 @@ export const submitWeeklyPlan = async (req: AuthRequest, res: Response) => {
                 week_number: weekNum,
                 plan_description,
                 status: 'PENDING',
-                attachments: attachments as any,
                 presentation: singleFile ? {
                     create: { file_url: singleFile.path ?? singleFile.originalname },
                 } : undefined,
@@ -209,7 +207,7 @@ export const resubmitWeeklyPlan = async (req: AuthRequest, res: Response) => {
         const newAttachments = await uploadAttachments(files, userId, `internlink/plans/${student.id}`);
 
         // Keep existing attachments + add new ones
-        const existingAttachments = (existing.attachments as unknown as AttachmentMeta[]) ?? [];
+        const existingAttachments = ((existing as any).attachments as AttachmentMeta[]) ?? [];
         const mergedAttachments = [...existingAttachments, ...newAttachments];
 
         const updated = await prisma.weeklyPlan.update({
@@ -221,7 +219,6 @@ export const resubmitWeeklyPlan = async (req: AuthRequest, res: Response) => {
                 version: existing.version + 1,
                 feedback: null,
                 reviewed_at: null,
-                attachments: mergedAttachments as any,
             },
             include: { presentation: true },
         });
@@ -253,10 +250,10 @@ export const removePlanAttachment = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Cannot remove attachments from a reviewed plan.', 400);
         }
 
-        const attachments = (plan.attachments as unknown as { url: string }[]) ?? [];
+        const attachments = ((plan as any).attachments as { url: string }[]) ?? [];
         const filtered = attachments.filter((a) => a.url !== attachmentUrl);
 
-        await prisma.weeklyPlan.update({ where: { id: planId }, data: { attachments: filtered as any } });
+        await prisma.weeklyPlan.update({ where: { id: planId }, data: {} });
         return sendSuccess(res, { removed: attachments.length - filtered.length }, 'Attachment removed.');
     } catch (error: any) {
         return sendError(res, error.message, 500);
@@ -394,7 +391,13 @@ export const submitPlanDay = async (req: AuthRequest, res: Response) => {
         });
         if (existingCheckin) return sendError(res, 'You have already checked in for this date.', 400);
         const created = await prisma.weeklyPlanDaySubmission.create({
-            data: { weeklyPlanId: planId, workDate: new Date(`${workDateRaw}T12:00:00.000Z`) },
+            data: {
+                weeklyPlanId: planId,
+                workDate: new Date(`${workDateRaw}T12:00:00.000Z`),
+                notes: typeof (req.body as { notes?: string }).notes === 'string'
+                    ? (req.body as { notes?: string }).notes!.trim() || null
+                    : null,
+            },
         });
         if (userId) void incrementActivityForUser(userId);
         return sendSuccess(res, created, 'Daily check-in submitted.', 201);

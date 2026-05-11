@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api/client";
-import { AlertCircle, CheckCircle2, Clock, XCircle, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, XCircle, FileText, ChevronDown, ChevronUp, PartyPopper } from "lucide-react";
 import PdfViewerModal from "@/components/shared/PdfViewerModal";
+import { useSupervisorStore } from "@/lib/store/supervisorStore";
 
 type ProposalRow = {
   id: number;
@@ -32,9 +33,17 @@ export default function SupervisorProposalsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const { fetchCounts } = useSupervisorStore();
+
+  // Approve confirmation modal
+  const [approveConfirm, setApproveConfirm] = useState<{ id: number; name: string } | null>(null);
+  // Reject modal
   const [rejectModal, setRejectModal] = useState<{ id: number; name: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  // Success celebration modal
+  const [successStudent, setSuccessStudent] = useState<string | null>(null);
+  // PDF viewer
   const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -52,11 +61,16 @@ export default function SupervisorProposalsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const approve = async (id: number) => {
+  const doApprove = async () => {
+    if (!approveConfirm) return;
+    const { id, name } = approveConfirm;
+    setApproveConfirm(null);
     setActingId(id);
     try {
       await api.patch(`/placements/respond/${id}`, { status: "APPROVED" });
       await load();
+      void fetchCounts();
+      setSuccessStudent(name);
     } catch {
       setError("Failed to approve proposal.");
     } finally {
@@ -75,6 +89,7 @@ export default function SupervisorProposalsPage() {
       setRejectModal(null);
       setRejectReason("");
       await load();
+      void fetchCounts();
     } catch {
       setError("Failed to reject proposal.");
     } finally {
@@ -178,11 +193,11 @@ export default function SupervisorProposalsPage() {
                     <button
                       type="button"
                       disabled={actingId === p.id}
-                      onClick={() => void approve(p.id)}
+                      onClick={() => setApproveConfirm({ id: p.id, name: p.student.user.full_name })}
                       className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      Approve
+                      {actingId === p.id ? "Approving…" : "Approve"}
                     </button>
                   </div>
                 </div>
@@ -252,14 +267,59 @@ export default function SupervisorProposalsPage() {
         onClose={() => setDocUrl(null)}
       />
 
-      {/* Rejection reason modal */}
+      {/* ── Approve confirmation modal ─────────────────────────────────────── */}
+      {approveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4 dark:bg-slate-900 dark:border dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Approve proposal?</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">This will place the student at your company.</p>
+              </div>
+            </div>
+            <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <span className="font-semibold">{approveConfirm.name}</span> will be notified and their internship will begin.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setApproveConfirm(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void doApprove()}
+                className="flex-1 rounded-xl bg-primary-600 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
+              >
+                Yes, approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Rejection reason modal ─────────────────────────────────────────── */}
       {rejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4 dark:bg-slate-900 dark:border dark:border-slate-700">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Reject proposal</h3>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <XCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Reject proposal</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Rejecting <strong>{rejectModal.name}</strong>&apos;s application.
+                </p>
+              </div>
+            </div>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              You are rejecting <strong>{rejectModal.name}</strong>&apos;s application.
-              Please provide a reason — this will be sent to the student by email.
+              Provide a reason — this will be sent to the student by email.
             </p>
             <textarea
               value={rejectReason}
@@ -285,6 +345,37 @@ export default function SupervisorProposalsPage() {
                 {actingId !== null ? "Rejecting…" : "Confirm Reject"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Approval success celebration modal ────────────────────────────── */}
+      {successStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl mx-4 text-center space-y-4 dark:bg-slate-900 dark:border dark:border-slate-700">
+            {/* Animated checkmark */}
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+              <CheckCircle2 className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <PartyPopper className="h-5 w-5 text-primary-500" />
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Proposal Approved!</h3>
+              <PartyPopper className="h-5 w-5 text-primary-500 scale-x-[-1]" />
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{successStudent}</span> has been placed at your company.
+              They will receive an email notification shortly.
+            </p>
+            <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              ✅ Internship placement confirmed
+            </div>
+            <button
+              type="button"
+              onClick={() => setSuccessStudent(null)}
+              className="w-full rounded-xl bg-primary-600 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

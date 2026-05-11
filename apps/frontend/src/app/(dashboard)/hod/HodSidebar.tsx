@@ -21,6 +21,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
+import { useHodStore } from "@/lib/store/hodStore";
 
 const HodSidebar = () => {
   const pathname = usePathname();
@@ -29,25 +30,26 @@ const HodSidebar = () => {
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const { unreadCount, fetchUnread } = useChatStore();
-  const [pendingStudents, setPendingStudents] = useState(0);
+  const { pendingStudents, fetchCounts } = useHodStore();
 
   useEffect(() => {
-    api.get<{ success: boolean; data: { university?: { name: string }; pendingApprovals?: number } }>("/hod/dashboard-stats")
-      .then(({ data }) => {
-        const d = data.data;
-        if (d?.university?.name) setUniversityName(d.university.name);
-        if (typeof d?.pendingApprovals === 'number') setPendingStudents(d.pendingApprovals);
-      })
+    // Fetch university name once
+    api.get<{ success: boolean; data: { university?: { name: string } } }>("/hod/dashboard-stats")
+      .then(({ data }) => { if (data.data?.university?.name) setUniversityName(data.data.university.name); })
       .catch(() => {});
+
+    // Fetch counts immediately and poll every 30s
+    void fetchCounts();
+    const countsInterval = setInterval(() => void fetchCounts(), 30000);
+
     void fetchUnread();
-    const interval = setInterval(() => {
-      void fetchUnread();
-      api.get<{ success: boolean; data: { pendingApprovals?: number } }>("/hod/dashboard-stats")
-        .then(({ data }) => { if (typeof data.data?.pendingApprovals === 'number') setPendingStudents(data.data.pendingApprovals); })
-        .catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchUnread]);
+    const chatInterval = setInterval(() => void fetchUnread(), 10000);
+
+    return () => {
+      clearInterval(countsInterval);
+      clearInterval(chatInterval);
+    };
+  }, [fetchCounts, fetchUnread]);
 
   const handleLogout = () => {
     logout();

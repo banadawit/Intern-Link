@@ -17,32 +17,37 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
+import { useCoordinatorStore } from "@/lib/store/coordinatorStore";
 
 const CoordinatorSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
-  const [pendingHodCount, setPendingHodCount] = useState(0);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const { unreadCount, fetchUnread } = useChatStore();
+  const { pendingHodCount, fetchCounts } = useCoordinatorStore();
 
   useEffect(() => {
-    api.get<{ id: number; university?: { name: string } }[]>("/coordinator/pending-hods")
-      .then(({ data }) => {
-        setPendingHodCount(data.length);
-        if (data.length > 0 && data[0].university?.name) setUniversityName(data[0].university.name);
-      })
-      .catch(() => {});
+    // Fetch university name once
     api.get<{ id: number; university?: { name: string } }[]>("/coordinator/approved-hods")
       .then(({ data }) => {
         if (data.length > 0 && data[0].university?.name) setUniversityName(data[0].university.name);
       })
       .catch(() => {});
+
+    // Fetch counts immediately and poll every 30s
+    void fetchCounts();
+    const countsInterval = setInterval(() => void fetchCounts(), 30000);
+
     void fetchUnread();
-    const interval = setInterval(() => void fetchUnread(), 10000);
-    return () => clearInterval(interval);
-  }, [fetchUnread]);
+    const chatInterval = setInterval(() => void fetchUnread(), 10000);
+
+    return () => {
+      clearInterval(countsInterval);
+      clearInterval(chatInterval);
+    };
+  }, [fetchCounts, fetchUnread]);
 
   const handleLogout = () => {
     logout();
