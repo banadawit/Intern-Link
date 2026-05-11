@@ -330,7 +330,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                 });
                 assignments.forEach((a) => {
                     contacts.push({ ...a.student.user, role: 'STUDENT' });
-                    if (a.student.hod) contacts.push({ ...a.student.hod.user, role: 'HOD' });
+                    if (a.student.hod?.user) contacts.push({ ...a.student.hod.user, role: 'HOD' });
                 });
             }
 
