@@ -29,10 +29,6 @@ export class CloudinaryService {
   constructor() {
     this.cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '';
     this.uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'internlink_uploads';
-    
-    if (!this.cloudName) {
-      // Cloudinary not configured — direct uploads will be unavailable
-    }
   }
 
   /**

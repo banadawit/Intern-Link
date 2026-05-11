@@ -40,6 +40,8 @@ import {
 } from '@/lib/student/desktopNotifications';
 import StudentPageHero from './StudentPageHero';
 import { getInternshipWeekDateStrings } from '@/lib/student/internshipWeekDates';
+import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import SuccessToast from '@/components/shared/SuccessToast';
 
 const WeeklyPlans = () => {
   const router = useRouter();
@@ -78,10 +80,13 @@ const WeeklyPlans = () => {
       const rows = (plansRes.data as Record<string, unknown>[]) ?? [];
       const mapped = rows.map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0]));
       setPlans(mapped);
-      const maxW = mapped.length ? Math.max(...mapped.map((p) => p.weekNumber)) : 0;
+      // Find the next week number not yet submitted
+      const submittedWeeks = new Set(mapped.map((p) => p.weekNumber));
+      let nextWeek = 1;
+      while (submittedWeeks.has(nextWeek)) nextWeek++;
       setFormData((prev) => ({
         ...prev,
-        weekNumber: maxW + 1,
+        weekNumber: nextWeek,
       }));
       return mapped;
     } catch (e: unknown) {
@@ -131,6 +136,8 @@ const WeeklyPlans = () => {
   }, [searchParams, plans, router]);
 
   const [dayToggleBusy, setDayToggleBusy] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
+  const [confirmSubmit, setConfirmSubmit] = useState<React.FormEvent | null>(null);
 
   const togglePlanDay = async (planId: string, ymd: string, currentlyOn: boolean) => {
     setDayToggleBusy(`${planId}-${ymd}`);
@@ -177,6 +184,7 @@ const WeeklyPlans = () => {
         });
         await loadPlansAndProfile();
         closeSubmitModal();
+        setToast({ show: true, message: "✅ Plan updated successfully" });
         return;
       }
 
@@ -189,15 +197,14 @@ const WeeklyPlans = () => {
       await api.post('/progress/submit', fd);
       await loadPlansAndProfile();
       setReviseFromPlan(null);
-      const maxW = plans.length
-        ? Math.max(...plans.map((p) => p.weekNumber), formData.weekNumber)
-        : formData.weekNumber;
+      // Next week is recalculated by loadPlansAndProfile via the submittedWeeks logic
       setFormData({
-        weekNumber: maxW + 1,
+        weekNumber: formData.weekNumber, // will be overwritten by loadPlansAndProfile
         tasks: '',
         presentation: null,
       });
       closeSubmitModal();
+      setToast({ show: true, message: "✅ Weekly plan submitted successfully" });
     } catch (err: unknown) {
       const data = err && typeof err === 'object' && 'response' in err ? (err as { response?: { data?: { message?: string } } }).response?.data : undefined;
       setLoadError(data?.message ?? 'Could not submit plan. Are you placed with a company?');
@@ -607,11 +614,14 @@ const WeeklyPlans = () => {
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6 sm:px-8 sm:pb-8">
+              <form onSubmit={(e) => { e.preventDefault(); setConfirmSubmit(e); }} className="space-y-5 px-6 py-6 sm:px-8 sm:pb-8">
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                     <Calendar className="h-4 w-4 text-primary-600" />
                     Week number
+                    {!reviseFromPlan && !editPendingPlan && (
+                      <span className="ml-auto text-xs font-normal text-slate-400">Auto-assigned</span>
+                    )}
                   </label>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500">
@@ -621,14 +631,10 @@ const WeeklyPlans = () => {
                       type="number"
                       min={1}
                       className={cn(
-                        'input-field w-full rounded-xl border-border-default py-3 pl-14 text-base font-semibold text-slate-900 transition-shadow focus:border-primary-300 focus:ring-2 focus:ring-primary-200 dark:text-slate-100',
-                        (reviseFromPlan || editPendingPlan) && 'cursor-not-allowed bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                        'input-field w-full rounded-xl border-border-default py-3 pl-14 text-base font-semibold text-slate-900 transition-shadow dark:text-slate-100 cursor-not-allowed bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
                       )}
                       value={formData.weekNumber}
-                      readOnly={!!reviseFromPlan || !!editPendingPlan}
-                      onChange={(e) =>
-                        setFormData({ ...formData, weekNumber: parseInt(e.target.value, 10) })
-                      }
+                      readOnly
                     />
                   </div>
                 </div>
@@ -721,6 +727,32 @@ const WeeklyPlans = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={confirmSubmit !== null}
+        title={editPendingPlan ? "Update plan?" : "Submit weekly plan?"}
+        message={
+          editPendingPlan
+            ? "Your changes will be saved and sent to your supervisor for review."
+            : `You're submitting Week ${formData.weekNumber} plan. Your supervisor will be notified to review it.`
+        }
+        confirmLabel={editPendingPlan ? "Save changes" : "Submit plan"}
+        variant="confirm"
+        loading={submitting}
+        onConfirm={() => {
+          if (confirmSubmit) {
+            setConfirmSubmit(null);
+            void handleSubmit(confirmSubmit);
+          }
+        }}
+        onCancel={() => setConfirmSubmit(null)}
+      />
+
+      <SuccessToast
+        show={toast.show}
+        message={toast.message}
+        onClose={() => setToast({ show: false, message: "" })}
+      />
     </div>
   );
 };

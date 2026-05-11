@@ -234,7 +234,6 @@ export default function App() {
           <ThemeToggle variant="inline" className="px-2.5 py-2 [&>span]:hidden" />
           <NotificationBell />
         </div>
-
         <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
           <div className="mx-auto w-full max-w-7xl">{mainContent}</div>
         </main>

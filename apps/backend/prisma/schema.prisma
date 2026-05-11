@@ -1,13 +1,12 @@
 generator client {
   provider = "prisma-client-js"
-
 }
-// supabase password amanuell2123A@
+
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
-
 
 enum Role {
   ADMIN
@@ -32,10 +31,41 @@ enum InternshipStatus {
   COMPLETED
 }
 
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+enum PostType {
+  ANNOUNCEMENT
+  OPPORTUNITY
+  EXPERIENCE
+  GENERAL_UPDATE
+}
+
+enum PostVisibility {
+  PUBLIC
+  UNIVERSITY
+  COMPANY
+  ROLE_SPECIFIC
+}
+
+enum FileType {
+  VERIFICATION_DOC
+  WEEKLY_PRESENTATION
+  PLAN_ATTACHMENT
+  PROPOSAL_ATTACHMENT
+  COMPANY_STAMP
+  FINAL_REPORT
+  COMMON_FEED_IMAGE
+  COMMON_FEED_DOCUMENT
 }
 
 model User {
@@ -70,6 +100,7 @@ model User {
   studentProfile              Student?
   supervisorProfile           Supervisor?
   activityLogs                ActivityLog[]
+  auditLogs                   AuditLog[]
 }
 
 /// Daily activity counts for contribution heatmap (login, submissions, etc.).
@@ -106,12 +137,12 @@ model University {
   approval_status  ApprovalStatus       @default(PENDING)
   created_at       DateTime             @default(now())
   rejection_reason String?
-  coordinators      Coordinator[]
-  hods              HodProfile[]
-  students          Student[]
-  proposalsSent     InternshipProposal[]
-  reportsReceived   Report[] @relation("ReportToUniversity")
-  config            UniversityConfig?
+  coordinators     Coordinator[]
+  hods             HodProfile[]
+  students         Student[]
+  proposalsSent    InternshipProposal[]
+  reportsReceived  Report[]             @relation("ReportToUniversity")
+  config           UniversityConfig?
 }
 
 model Company {
@@ -209,10 +240,12 @@ model InternshipProposal {
   expected_outcomes       String?
   responded_at            DateTime?
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
-  attachments             Json       @default("[]")
-
+  attachments             Json                 @default("[]")
   /// Additional team members (empty for INDIVIDUAL proposals)
-  teamMembers   ProposalTeamMember[]
+  teamMembers             ProposalTeamMember[]
+  university              University           @relation(fields: [universityId], references: [id])
+  company                 Company              @relation(fields: [companyId], references: [id])
+  student                 Student              @relation(fields: [studentId], references: [id])
 
   @@index([studentId, companyId, status])
 }
@@ -251,15 +284,13 @@ model WeeklyPlan {
   submitted_at     DateTime                  @default(now())
   feedback         String?
   reviewed_at      DateTime?
-  version          Int            @default(1)
+  version          Int                       @default(1)
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
-  attachments      Json           @default("[]")
-
+  attachments      Json                      @default("[]")
+  student          Student                   @relation(fields: [studentId], references: [id])
   presentation     WeeklyPresentation?
   weeklyReports    WeeklyReport[]
   daySubmissions   WeeklyPlanDaySubmission[]
-  presentation     WeeklyPresentation?
-  weeklyReports    WeeklyReport?
 }
 
 /// One row per calendar day the student marked as submitted for that approved weekly plan (daily check-in).
@@ -478,17 +509,6 @@ model Notification {
   recipient   User     @relation(fields: [recipientId], references: [id])
 }
 
-enum FileType {
-  VERIFICATION_DOC
-  WEEKLY_PRESENTATION
-  PLAN_ATTACHMENT
-  PROPOSAL_ATTACHMENT
-  COMPANY_STAMP
-  FINAL_REPORT
-  COMMON_FEED_IMAGE
-  COMMON_FEED_DOCUMENT
-}
-
 model File {
   id             String   @id @default(uuid())
   userId         Int?
@@ -514,15 +534,28 @@ model SystemConfig {
   updatedAt DateTime @updatedAt
 }
 
+/// Admin action audit trail.
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int
+  action    String
+  targetId  Int?
+  details   String?
+  timestamp DateTime @default(now())
+  admin     User     @relation(fields: [adminId], references: [id])
+
+  @@index([adminId, timestamp])
+}
+
 /// Per-university registration override.
 /// studentRegistrationEnabled = null → use global SystemConfig setting.
 /// studentRegistrationEnabled = true/false → override global setting.
 model UniversityConfig {
-  id                          Int        @id @default(autoincrement())
-  university                  University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-  universityId                Int        @unique
-  studentRegistrationEnabled  Boolean?   // null = inherit global
-  updatedAt                   DateTime   @updatedAt
+  id                         Int        @id @default(autoincrement())
+  universityId               Int        @unique
+  studentRegistrationEnabled Boolean?
+  updatedAt                  DateTime   @updatedAt
+  university                 University @relation(fields: [universityId], references: [id], onDelete: Cascade)
 }
 
 model ChatMessage {
@@ -537,61 +570,4 @@ model ChatMessage {
 
   @@index([senderId, receiverId, created_at])
   @@index([receiverId, is_read])
-}
-
-enum Role {
-  ADMIN
-  COORDINATOR
-  SUPERVISOR
-  STUDENT
-  HOD
-}
-
-enum ApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  SUSPENDED
-  CANCELLED
-}
-
-enum InternshipStatus {
-  PENDING
-  PLACED
-  COMPLETED
-}
-
-enum AssignmentStatus {
-  ACTIVE
-  COMPLETED
-  TERMINATED
-}
-
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  LATE
-}
-
-enum PostType {
-  ANNOUNCEMENT
-  OPPORTUNITY
-  EXPERIENCE
-  GENERAL_UPDATE
-}
-
-enum PostVisibility {
-  PUBLIC
-  UNIVERSITY
-  COMPANY
-  ROLE_SPECIFIC
-}
-
-enum FileType {
-  VERIFICATION_DOC
-  WEEKLY_PRESENTATION
-  COMPANY_STAMP
-  FINAL_REPORT
-  COMMON_FEED_IMAGE
-  COMMON_FEED_DOCUMENT
 }
