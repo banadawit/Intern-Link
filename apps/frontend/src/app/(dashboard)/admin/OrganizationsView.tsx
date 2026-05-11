@@ -10,17 +10,18 @@ import {
   Ban,
   RotateCcw,
   Loader2,
-  ExternalLink,
   Filter,
   UserCheck,
   User,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import AdminPageHero from "./AdminPageHero";
 import { VerificationProposal } from "@/lib/superadmin/types";
 import api from "@/lib/api/client";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 type OrgTab = "universities" | "companies" | "coordinators" | "supervisors";
 
@@ -281,6 +282,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
   const [tab, setTab] = useState<OrgTab>("universities");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Approved" | "Rejected" | "Suspended">("All");
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -421,20 +423,24 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                             {format(new Date(p.submittedAt), "MMM d, yyyy")}
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1">
                               {p.documents?.[0] ? (
-                                <a href={p.documents[0]} target="_blank" rel="noopener noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => setDocUrl(p.documents[0])}
                                   className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
-                                  Verification doc <ExternalLink className="h-3 w-3" />
-                                </a>
+                                  <FileText className="h-3 w-3" /> Verification doc
+                                </button>
                               ) : (
                                 <span className="text-xs text-slate-400 italic">No doc</span>
                               )}
                               {p.stampImageUrl && (
-                                <a href={p.stampImageUrl} target="_blank" rel="noopener noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => setDocUrl(p.stampImageUrl!)}
                                   className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
-                                  Stamp <ExternalLink className="h-3 w-3" />
-                                </a>
+                                  <FileText className="h-3 w-3" /> Stamp
+                                </button>
                               )}
                             </div>
                           </td>
@@ -462,13 +468,18 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                                   <RotateCcw className="h-3.5 w-3.5" /> Reactivate
                                 </button>
                               )}
+                              {p.status === "Rejected" && (
+                                <button type="button" onClick={() => onReview(p)}
+                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors">
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                                </button>
+                              )}
                               {(p.status === "Pending" || p.status === "Approved") && (
                                 <button type="button" onClick={() => onReview(p)}
                                   className="inline-flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors">
                                   <XCircle className="h-3.5 w-3.5" /> Reject
                                 </button>
-                              )}
-                            </div>
+                              )}                            </div>
                           </td>
                         </tr>
                       );
@@ -484,6 +495,12 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
           </p>
         </>
       )}
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title="Verification Document"
+        onClose={() => setDocUrl(null)}
+      />
     </div>
   );
 }

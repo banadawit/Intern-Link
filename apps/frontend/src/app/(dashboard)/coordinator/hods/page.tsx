@@ -8,16 +8,14 @@ import {
   User,
   Building,
   Loader2,
-  ExternalLink,
   RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api/client";
 import CoordinatorPageHero from "../CoordinatorPageHero";
-import Link from "next/link";
-import { getViewerUrl } from "@/lib/utils";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import SuccessToast from "@/components/shared/SuccessToast";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 interface PendingHod {
   id: number;
@@ -42,6 +40,7 @@ export default function CoordinatorHodsPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,14 +158,14 @@ export default function CoordinatorHodsPage() {
                     </td>
                     <td className="px-6 py-4">
                       {h.user.verification_document ? (
-                        <Link
-                          href={getViewerUrl(h.user.verification_document)}
+                        <button
+                          type="button"
+                          onClick={() => setDocUrl(h.user.verification_document)}
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           <FileText className="w-4 h-4" />
                           View Doc
-                          <ExternalLink className="w-3 h-3" />
-                        </Link>
+                        </button>
                       ) : (
                         <span className="text-xs text-slate-400 italic">No document</span>
                       )}
@@ -262,6 +261,12 @@ export default function CoordinatorHodsPage() {
         show={toast.show}
         message={toast.message}
         onClose={() => setToast({ show: false, message: "" })}
+      />
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title="Verification Document"
+        onClose={() => setDocUrl(null)}
       />
     </div>
   );

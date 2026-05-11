@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
+  LayoutDashboard,
   Clock,
   FileText,
   Settings,
@@ -8,7 +9,6 @@ import {
   ShieldCheck,
   MessageSquare,
   Building2,
-  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import LogoutModal from "@/components/common/LogoutModal";
 
 type ViewKey =
-  | "analytics"
+  | "dashboard"
   | "approvals"
   | "organizations"
   | "audit-log"
@@ -47,11 +47,11 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
     .toUpperCase()
     .slice(0, 2) ?? 'AD';
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
-    { icon: BarChart3,  label: "Platform Overview",    view: "analytics"     },
-    { icon: Clock,      label: "Pending Approvals",    view: "approvals"     },
-    { icon: Building2,  label: "Universities & Companies", view: "organizations" },
-    { icon: FileText,   label: "Activity History",     view: "audit-log"     },
-    { icon: Settings,   label: "Platform Settings",    view: "settings"      },
+    { icon: LayoutDashboard, label: "Dashboard",                view: "dashboard"     },
+    { icon: Clock,           label: "Pending Approvals",        view: "approvals"     },
+    { icon: Building2,       label: "Universities & Companies", view: "organizations" },
+    { icon: FileText,        label: "Activity History",         view: "audit-log"     },
+    { icon: Settings,        label: "Platform Settings",        view: "settings"      },
   ];
 
   return (

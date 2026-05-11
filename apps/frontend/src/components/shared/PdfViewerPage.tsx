@@ -55,7 +55,7 @@ export default function PdfViewerPage({ url, title = 'Document', onClose }: PdfV
             className="shrink-0 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            Cancel
           </button>
           <div className="h-5 w-px bg-slate-300" />
           <span className="truncate text-sm font-semibold text-slate-900">{title}</span>

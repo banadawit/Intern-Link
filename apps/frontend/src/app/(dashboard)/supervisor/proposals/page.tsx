@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api/client";
 import { AlertCircle, CheckCircle2, Clock, XCircle, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 type ProposalRow = {
   id: number;
@@ -34,6 +35,7 @@ export default function SupervisorProposalsPage() {
   const [rejectModal, setRejectModal] = useState<{ id: number; name: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -225,15 +227,14 @@ export default function SupervisorProposalsPage() {
                     {p.student.user.verification_document && (
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Verification Document</p>
-                        <a
-                          href={p.student.user.verification_document}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setDocUrl(p.student.user.verification_document)}
                           className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100"
                         >
                           <FileText className="h-3.5 w-3.5" />
                           View Document
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -243,6 +244,13 @@ export default function SupervisorProposalsPage() {
           </div>
         )}
       </div>
+
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title="Verification Document"
+        onClose={() => setDocUrl(null)}
+      />
 
       {/* Rejection reason modal */}
       {rejectModal && (

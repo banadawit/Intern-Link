@@ -71,8 +71,20 @@ export const listUniversities = async (req: AuthRequest, res: Response) => {
         const universities = await prisma.university.findMany({
             where: status ? { approval_status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' } : {},
             orderBy: { created_at: 'desc' },
+            include: {
+                coordinators: {
+                    take: 1,
+                    include: { user: { select: { verification_document: true } } },
+                },
+            },
         });
-        res.json({ success: true, data: universities.map((u) => attachVerificationSla(u)) });
+        const rows = universities.map((u) => {
+            // Fall back to coordinator's verification_document if university has none
+            const fallbackDoc = u.coordinators[0]?.user?.verification_document ?? null;
+            const { coordinators, ...rest } = u;
+            return attachVerificationSla({ ...rest, verification_doc: rest.verification_doc ?? fallbackDoc });
+        });
+        res.json({ success: true, data: rows });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -87,8 +99,20 @@ export const listCompanies = async (req: AuthRequest, res: Response) => {
         const companies = await prisma.company.findMany({
             where: status ? { approval_status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' } : {},
             orderBy: { created_at: 'desc' },
+            include: {
+                supervisors: {
+                    take: 1,
+                    include: { user: { select: { verification_document: true } } },
+                },
+            },
         });
-        res.json({ success: true, data: companies.map((c) => attachVerificationSla(c)) });
+        const rows = companies.map((c) => {
+            // Fall back to supervisor's verification_document if company has none
+            const fallbackDoc = c.supervisors[0]?.user?.verification_document ?? null;
+            const { supervisors, ...rest } = c;
+            return attachVerificationSla({ ...rest, verification_doc: rest.verification_doc ?? fallbackDoc });
+        });
+        res.json({ success: true, data: rows });
     } catch (error: any) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -157,12 +181,15 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
         }
 
         if (status === 'SUSPENDED' && existing.approval_status !== 'APPROVED') {
+            // Already suspended — treat as no-op instead of erroring
+            if (existing.approval_status === 'SUSPENDED') {
+                return res.json({ success: true, message: 'University is already suspended', data: existing });
+            }
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
         }
 
         if (status === 'APPROVED') {
             if (existing.approval_status !== 'SUSPENDED') {
-                // Non-blocking: log warning but allow admin to approve regardless
                 const check = await checkUniversityVerification(uid);
                 if (!check.verified && check.warning) {
                     console.warn(`[Admin Approval] University ${uid}: ${check.warning}`);
@@ -170,19 +197,27 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             }
         }
 
+        // When approving, pull verification_doc from the linked coordinator if not already set
+        let coordVerificationDoc: string | null = null;
+        if (status === 'APPROVED' && existing.verification_doc == null) {
+            const coordinator = await prisma.coordinator.findFirst({
+                where: { universityId: uid },
+                include: { user: { select: { verification_document: true } } },
+            });
+            coordVerificationDoc = coordinator?.user?.verification_document ?? null;
+        }
+
         const updated = await prisma.university.update({
             where: { id: uid },
             data: {
                 approval_status: status,
                 ...(status === 'REJECTED'
-                    ? {
-                          rejection_reason: rejectionReason,
-                          verification_doc: null,
-                      }
+                    ? { rejection_reason: rejectionReason, verification_doc: null }
                     : status === 'SUSPENDED'
                       ? {}
                       : {
                             rejection_reason: null,
+                            ...(coordVerificationDoc ? { verification_doc: coordVerificationDoc } : {}),
                         }),
             },
         });
@@ -227,12 +262,14 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
         }
 
         if (status === 'SUSPENDED' && existing.approval_status !== 'APPROVED') {
+            if (existing.approval_status === 'SUSPENDED') {
+                return res.json({ success: true, message: 'Company is already suspended', data: existing });
+            }
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
         }
 
         if (status === 'APPROVED') {
             if (existing.approval_status !== 'SUSPENDED') {
-                // Non-blocking: log warning but allow admin to approve regardless
                 const check = await checkCompanyVerification(cid);
                 if (!check.verified && check.warning) {
                     console.warn(`[Admin Approval] Company ${cid}: ${check.warning}`);
@@ -240,19 +277,27 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
             }
         }
 
+        // When approving, pull verification_doc from the linked supervisor if not already set
+        let supVerificationDoc: string | null = null;
+        if (status === 'APPROVED' && existing.verification_doc == null) {
+            const supervisor = await prisma.supervisor.findFirst({
+                where: { companyId: cid },
+                include: { user: { select: { verification_document: true } } },
+            });
+            supVerificationDoc = supervisor?.user?.verification_document ?? null;
+        }
+
         const updated = await prisma.company.update({
             where: { id: cid },
             data: {
                 approval_status: status,
                 ...(status === 'REJECTED'
-                    ? {
-                          rejection_reason: rejectionReason,
-                          verification_doc: null,
-                      }
+                    ? { rejection_reason: rejectionReason, verification_doc: null }
                     : status === 'SUSPENDED'
                       ? {}
                       : {
                             rejection_reason: null,
+                            ...(supVerificationDoc ? { verification_doc: supVerificationDoc } : {}),
                         }),
             }
         });
@@ -543,7 +588,13 @@ export const approveSupervisor = async (req: AuthRequest, res: Response) => {
 
         await prisma.company.update({
             where: { id: supervisor.companyId },
-            data: { approval_status: 'APPROVED' },
+            data: {
+                approval_status: 'APPROVED',
+                // Copy supervisor's verification doc to company if not already set
+                ...(supervisor.company.verification_doc == null && supervisor.user.verification_document
+                    ? { verification_doc: supervisor.user.verification_document }
+                    : {}),
+            },
         });
 
         await prisma.auditLog.create({
@@ -725,12 +776,19 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
                         ? `coord-${coordinator.user.id}@${coordinator.user.email.split('@')[1]}`
                         : coordinator.user.email,
                     approval_status: 'APPROVED',
+                    verification_doc: coordinator.user.verification_document ?? null,
                 },
             });
         } else if (university.approval_status !== 'APPROVED') {
             await prisma.university.update({
                 where: { id: university.id },
-                data: { approval_status: 'APPROVED' },
+                data: {
+                    approval_status: 'APPROVED',
+                    // Only set verification_doc if not already present
+                    ...(university.verification_doc == null && coordinator.user.verification_document
+                        ? { verification_doc: coordinator.user.verification_document }
+                        : {}),
+                },
             });
         }
 
@@ -921,10 +979,14 @@ export const uploadVerificationDocument = async (req: AuthRequest, res: Response
 export const getAnalytics = async (req: AuthRequest, res: Response) => {
     try {
         // ── User growth: last 6 months, grouped by month ──────────────────────
+        const now = new Date();
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
         sixMonthsAgo.setDate(1);
         sixMonthsAgo.setHours(0, 0, 0, 0);
+
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
         const users = await prisma.user.findMany({
             where: { created_at: { gte: sixMonthsAgo } },
@@ -1025,6 +1087,68 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         }
         const weeklyPlanTrend = Object.values(wpMap);
 
+        // ── Platform totals ───────────────────────────────────────────────────
+        const [totalUsers, totalEvaluations, totalReports, newUsersThisMonth] = await Promise.all([
+            prisma.user.count(),
+            prisma.finalEvaluation.count(),
+            prisma.report.count(),
+            prisma.user.count({ where: { created_at: { gte: oneMonthAgo } } }),
+        ]);
+
+        // ── Pending approvals summary ─────────────────────────────────────────
+        const [pendingUnis, pendingComps, pendingCoords, pendingSupervs] = await Promise.all([
+            prisma.university.count({ where: { approval_status: 'PENDING' } }),
+            prisma.company.count({ where: { approval_status: 'PENDING' } }),
+            prisma.coordinator.count({ where: { universityId: null } }),
+            prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'PENDING' } }),
+        ]);
+        const pendingApprovals = {
+            universities: pendingUnis,
+            companies: pendingComps,
+            coordinators: pendingCoords,
+            supervisors: pendingSupervs,
+            total: pendingUnis + pendingComps + pendingCoords + pendingSupervs,
+        };
+
+        // ── Evaluation stats ──────────────────────────────────────────────────
+        const evalData = await prisma.finalEvaluation.findMany({
+            select: { technical_score: true, soft_skill_score: true },
+        });
+        const evalStats = evalData.length > 0
+            ? {
+                count: evalData.length,
+                avgTechnical: Math.round(evalData.reduce((s, e) => s + Number(e.technical_score), 0) / evalData.length * 10) / 10,
+                avgSoftSkill: Math.round(evalData.reduce((s, e) => s + Number(e.soft_skill_score), 0) / evalData.length * 10) / 10,
+            }
+            : { count: 0, avgTechnical: 0, avgSoftSkill: 0 };
+
+        // ── Recent activity (paginated) ───────────────────────────────────────
+        const activityPage = Math.max(1, parseInt(String(req.query.activityPage ?? '1'), 10) || 1);
+        const activityLimit = Math.min(50, Math.max(1, parseInt(String(req.query.activityLimit ?? '4'), 10) || 4));
+        const activitySkip = (activityPage - 1) * activityLimit;
+
+        const [recentLogs, totalActivity] = await Promise.all([
+            prisma.auditLog.findMany({
+                orderBy: { timestamp: 'desc' },
+                skip: activitySkip,
+                take: activityLimit,
+            }),
+            prisma.auditLog.count(),
+        ]);
+        const recentAdminIds = [...new Set(recentLogs.map((l) => l.adminId))];
+        const recentAdmins = await prisma.user.findMany({
+            where: { id: { in: recentAdminIds } },
+            select: { id: true, full_name: true },
+        });
+        const recentAdminMap = new Map(recentAdmins.map((a) => [a.id, a.full_name]));
+        const recentActivity = recentLogs.map((l) => ({
+            id: l.id,
+            action: l.action,
+            details: l.details,
+            adminName: recentAdminMap.get(l.adminId) ?? 'Admin',
+            timestamp: l.timestamp,
+        }));
+
         return res.json({
             userGrowth,
             placementStats,
@@ -1032,6 +1156,17 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
             proposalStats,
             orgStats,
             weeklyPlanTrend,
+            totalUsers,
+            totalEvaluations,
+            totalReports,
+            newUsersThisMonth,
+            pendingApprovals,
+            evalStats,
+            recentActivity,
+            totalActivity,
+            activityPage,
+            activityLimit,
+            generatedAt: now.toISOString(),
         });
     } catch (error: any) {
         return res.status(500).json({ error: error.message });
