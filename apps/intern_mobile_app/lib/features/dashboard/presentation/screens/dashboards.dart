@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/desktop_layout.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/services/session_service.dart';
 
 import '../../data/repositories/student_repository.dart';
@@ -342,17 +343,17 @@ class _ModernDashboardScaffoldState extends ConsumerState<_ModernDashboardScaffo
                     ref.read(dashboardIndexProvider.notifier).state = 4; // Reports tab
                   }, isSelected: currentIndex == 4),
                 ] else if (widget.roleLabel == 'ADMIN') ...[
-                  _buildDrawerItem(Icons.manage_accounts_rounded, 'User Management', () {
+                  _buildDrawerItem(Icons.business_rounded, 'Organizations', () {
                     Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 2; // Users Tab
-                  }, isSelected: currentIndex == 2),
-                  _buildDrawerItem(Icons.domain_verification_rounded, 'Institution Approvals', () {
-                    Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 1; // Approvals Tab
+                    ref.read(dashboardIndexProvider.notifier).state = 1; // Orgs Tab
                   }, isSelected: currentIndex == 1),
-                  _buildDrawerItem(Icons.analytics_rounded, 'System Logs', () {
+                  _buildDrawerItem(Icons.receipt_long_rounded, 'System Logs', () {
                     Navigator.pop(context);
-                    ref.read(dashboardIndexProvider.notifier).state = 3; // Logs Tab
+                    ref.read(dashboardIndexProvider.notifier).state = 2; // Logs Tab
+                  }, isSelected: currentIndex == 2),
+                  _buildDrawerItem(Icons.settings_suggest_rounded, 'Config', () {
+                    Navigator.pop(context);
+                    ref.read(dashboardIndexProvider.notifier).state = 3; // Config Tab
                   }, isSelected: currentIndex == 3),
                 ],
 
@@ -884,6 +885,30 @@ int _parseInt(dynamic v, [int fallback = 0]) {
   return fallback;
 }
 
+/// Extracts a human-readable error message from a DioException or any other error.
+String _extractErrorMessage(Object e) {
+  // Try to get the server-side message from DioException
+  try {
+    // DioException stores the server message in .message (set by our interceptor)
+    // or in .response.data
+    final dynamic dio = e;
+    final msg = dio.message as String?;
+    if (msg != null && msg.isNotEmpty && !msg.startsWith('DioException')) return msg;
+    final data = dio.response?.data;
+    if (data is Map) {
+      final serverMsg = (data['error'] ?? data['message'] ?? data['msg'])?.toString();
+      if (serverMsg != null && serverMsg.isNotEmpty) return serverMsg;
+    }
+    final statusCode = dio.response?.statusCode;
+    if (statusCode != null) return 'Server error ($statusCode)';
+  } catch (_) {}
+  final str = e.toString();
+  // Strip the "Exception: " prefix if present
+  if (str.startsWith('Exception: ')) return str.substring(11);
+  if (str.contains('DioException')) return 'Network error — check your connection';
+  return str;
+}
+
 /// Safely converts any JSON boolean value (bool, int, String) to bool.
 bool _parseBool(dynamic v) {
   if (v == null) return false;
@@ -1090,6 +1115,235 @@ Widget _buildSectionHeader(ThemeData theme, String title) {
   );
 }
 
+// ── Reusable Review Components ────────────────────────────────────────────────
+
+/// Data class for a single info field in the review sheet
+class _ReviewField {
+  final String label;
+  final String value;
+  final IconData icon;
+  const _ReviewField(this.label, this.value, this.icon);
+}
+
+/// Data class for an attachment in the review sheet
+class _ReviewAttachment {
+  final String name;
+  final String url;
+  final String type; // 'pdf' | 'image' | 'file'
+  const _ReviewAttachment({required this.name, required this.url, required this.type});
+}
+
+/// Universal review details bottom sheet.
+/// Shows full context (fields, description, attachments) before approve/reject.
+class _ReviewDetailsSheet extends StatefulWidget {
+  const _ReviewDetailsSheet({
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+    required this.badgeColor,
+    required this.fields,
+    required this.attachments,
+    required this.onApprove,
+    required this.onReject,
+    this.description,
+    this.descriptionLabel,
+  });
+
+  final String title;
+  final String subtitle;
+  final String badge;
+  final Color badgeColor;
+  final List<_ReviewField> fields;
+  final String? description;
+  final String? descriptionLabel;
+  final List<_ReviewAttachment> attachments;
+  final VoidCallback onApprove;
+  final void Function(String reason) onReject;
+
+  @override
+  State<_ReviewDetailsSheet> createState() => _ReviewDetailsSheetState();
+}
+
+class _ReviewDetailsSheetState extends State<_ReviewDetailsSheet> {
+  bool _descExpanded = false;
+  bool _showRejectInput = false;
+  final _rejectCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _rejectCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1E293B) : Colors.white;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+      padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      decoration: BoxDecoration(color: bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Handle
+        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+        const SizedBox(height: 16),
+        // Header
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(widget.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 2),
+            Text(widget.subtitle, style: const TextStyle(color: Colors.grey, fontSize: 13), overflow: TextOverflow.ellipsis),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: widget.badgeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(widget.badge, style: TextStyle(color: widget.badgeColor, fontWeight: FontWeight.w900, fontSize: 11)),
+          ),
+        ]),
+        const SizedBox(height: 16),
+        Flexible(
+          child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Info fields
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(16)),
+              child: Column(children: widget.fields.map((f) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  Icon(f.icon, size: 15, color: Colors.grey.shade400),
+                  const SizedBox(width: 10),
+                  Text(f.label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  const Spacer(),
+                  Flexible(child: Text(f.value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12), textAlign: TextAlign.end, overflow: TextOverflow.ellipsis)),
+                ]),
+              )).toList()),
+            ),
+
+            // Description
+            if (widget.description != null && widget.description!.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(widget.descriptionLabel ?? 'Description', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () => setState(() => _descExpanded = !_descExpanded),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(widget.description!, maxLines: _descExpanded ? null : 3, overflow: _descExpanded ? TextOverflow.visible : TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, height: 1.5)),
+                    if (widget.description!.length > 120) ...[
+                      const SizedBox(height: 6),
+                      Text(_descExpanded ? 'Show less ▲' : 'Show more ▼', style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w700)),
+                    ],
+                  ]),
+                ),
+              ),
+            ],
+
+            // Attachments
+            const SizedBox(height: 14),
+            Row(children: [
+              const Text('Attachments', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              const SizedBox(width: 6),
+              if (widget.attachments.isEmpty)
+                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text('None', style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w700))),
+            ]),
+            if (widget.attachments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...widget.attachments.map((a) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.teal.withOpacity(0.2))),
+                child: Row(children: [
+                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(a.type == 'pdf' ? Icons.picture_as_pdf_rounded : a.type == 'image' ? Icons.image_rounded : Icons.attach_file_rounded, color: Colors.teal, size: 16)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(a.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12), overflow: TextOverflow.ellipsis),
+                    Text(a.type.toUpperCase(), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                  ])),
+                  IconButton(
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18, color: Colors.teal),
+                    tooltip: 'Open file',
+                    onPressed: () async {
+                      final uri = Uri.tryParse(a.url);
+                      if (uri != null) {
+                        try { await launchUrl(uri, mode: LaunchMode.externalApplication); } catch (_) {
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open file')));
+                        }
+                      }
+                    },
+                    padding: EdgeInsets.zero, constraints: const BoxConstraints(),
+                  ),
+                ]),
+              )),
+            ] else ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: Colors.grey.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.withOpacity(0.15))),
+                child: const Row(children: [Icon(Icons.folder_off_rounded, size: 16, color: Colors.grey), SizedBox(width: 8), Text('No files uploaded', style: TextStyle(color: Colors.grey, fontSize: 12))]),
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            // Reject reason input
+            if (_showRejectInput) ...[
+              TextField(
+                controller: _rejectCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Rejection reason (required)',
+                  hintText: 'Explain why this is being rejected…',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
+                ),
+                maxLines: 3,
+                autofocus: true,
+              ),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: OutlinedButton(onPressed: () => setState(() { _showRejectInput = false; _rejectCtrl.clear(); }), child: const Text('Cancel'))),
+                const SizedBox(width: 10),
+                Expanded(child: FilledButton(
+                  onPressed: () {
+                    if (_rejectCtrl.text.trim().length < 5) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please provide a reason (min 5 characters)')));
+                      return;
+                    }
+                    widget.onReject(_rejectCtrl.text.trim());
+                  },
+                  style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Confirm Reject'),
+                )),
+              ]),
+            ],
+          ])),
+        ),
+
+        // Action bar (only shown when not in reject input mode)
+        if (!_showRejectInput) ...[
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () => setState(() => _showRejectInput = true),
+              icon: const Icon(Icons.close_rounded, size: 16),
+              label: const Text('Reject'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: FilledButton.icon(
+              onPressed: widget.onApprove,
+              icon: const Icon(Icons.check_rounded, size: 16),
+              label: const Text('Approve'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            )),
+          ]),
+        ],
+      ]),
+    );
+  }
+}
 
 // ---------------------------------------------------------
 // STUDENT DASHBOARD
@@ -3327,30 +3581,23 @@ class _SupervisorWorkflowTabContentState extends ConsumerState<_SupervisorWorkfl
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(p.type, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.blue, fontSize: 12)),
+          if (p.durationWeeks != null) Text('Duration: ${p.durationWeeks} weeks', style: const TextStyle(fontSize: 11, color: Colors.grey)),
           const SizedBox(height: 12),
-          Text(p.type, style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.blue)),
-          if (p.durationWeeks != null) Text('Duration: ${p.durationWeeks} weeks', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          if (p.outcomes != null && p.outcomes!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(p.outcomes!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
-          const SizedBox(height: 8),
-          Text(timeago.format(p.submittedAt), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: OutlinedButton(
-                onPressed: () => _respond(p.id, false),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                child: const Text('Reject'),
-              )),
-              const SizedBox(width: 12),
-              Expanded(child: FilledButton(
-                onPressed: () => _respond(p.id, true),
-                style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('Approve'),
-              )),
-            ],
+          // View Details button — no inline approve/reject
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showProposalDetails(context, p),
+              icon: const Icon(Icons.visibility_rounded, size: 16),
+              label: const Text('View Details & Decide'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.blue,
+                side: const BorderSide(color: Colors.blue),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ),
         ],
       ),
@@ -3386,29 +3633,111 @@ class _SupervisorWorkflowTabContentState extends ConsumerState<_SupervisorWorkfl
               child: const Text('PENDING', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 9)),
             ),
           ]),
-          if (p.objectives.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(p.objectives, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          if (p.files.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              const Icon(Icons.attach_file_rounded, size: 13, color: Colors.teal),
+              const SizedBox(width: 4),
+              Text('${p.files.length} attachment${p.files.length == 1 ? '' : 's'}', style: const TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.w600)),
+            ]),
           ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: OutlinedButton(
-                onPressed: () => _reviewPlan(p.id, false),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                child: const Text('Reject'),
-              )),
-              const SizedBox(width: 12),
-              Expanded(child: FilledButton(
-                onPressed: () => _reviewPlan(p.id, true),
-                style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('Approve'),
-              )),
-            ],
+          const SizedBox(height: 12),
+          // View Details button — no inline approve/reject
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showPlanDetails(context, p),
+              icon: const Icon(Icons.visibility_rounded, size: 16),
+              label: const Text('View Details & Decide'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.purple,
+                side: const BorderSide(color: Colors.purple),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  void _showProposalDetails(BuildContext context, InternshipProposal p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ReviewDetailsSheet(
+        title: 'Placement Proposal',
+        subtitle: p.studentName,
+        badge: 'PENDING',
+        badgeColor: Colors.orange,
+        fields: [
+          _ReviewField('Student', p.studentName, Icons.person_rounded),
+          _ReviewField('University', p.universityName, Icons.school_rounded),
+          _ReviewField('Proposal Type', p.type, Icons.description_rounded),
+          if (p.durationWeeks != null) _ReviewField('Duration', '${p.durationWeeks} weeks', Icons.schedule_rounded),
+          _ReviewField('Submitted', timeago.format(p.submittedAt), Icons.calendar_today_rounded),
+        ],
+        description: p.outcomes,
+        descriptionLabel: 'Expected Outcomes',
+        attachments: const [], // proposals don't have file attachments
+        onApprove: () { Navigator.pop(ctx); _respond(p.id, true); },
+        onReject: (reason) { Navigator.pop(ctx); _respondWithReason(p.id, false, reason); },
+      ),
+    );
+  }
+
+  void _showPlanDetails(BuildContext context, WeeklyPlan p) {
+    final attachments = p.files.map((f) => _ReviewAttachment(
+      name: f.fileName,
+      url: f.fileUrl,
+      type: f.fileUrl.toLowerCase().endsWith('.pdf') ? 'pdf' : 'file',
+    )).toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ReviewDetailsSheet(
+        title: 'Week ${p.weekNumber} Plan',
+        subtitle: p.title,
+        badge: 'PENDING',
+        badgeColor: Colors.orange,
+        fields: [
+          _ReviewField('Week', 'Week ${p.weekNumber}', Icons.calendar_view_week_rounded),
+          _ReviewField('Submitted', timeago.format(p.createdAt), Icons.calendar_today_rounded),
+          if (p.hasFeedback) _ReviewField('Previous Feedback', p.feedback!, Icons.feedback_rounded),
+        ],
+        description: p.objectives.isNotEmpty ? p.objectives : null,
+        descriptionLabel: 'Plan Objectives',
+        attachments: attachments,
+        onApprove: () { Navigator.pop(ctx); _reviewPlan(p.id, true); },
+        onReject: (reason) { Navigator.pop(ctx); _reviewPlanWithReason(p.id, false, reason); },
+      ),
+    );
+  }
+
+  Future<void> _respondWithReason(int id, bool approve, String reason) async {
+    try {
+      await ref.read(supervisorRepositoryProvider).respondToProposal(id, approve: approve, reason: reason.isNotEmpty ? reason : null);
+      ref.invalidate(supervisorIncomingProposalsProvider);
+      ref.invalidate(supervisorStatsProvider);
+      ref.invalidate(supervisorStudentsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(approve ? 'Proposal approved — student placed ✓' : 'Proposal rejected')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _reviewPlanWithReason(int id, bool approve, String reason) async {
+    try {
+      await ref.read(supervisorRepositoryProvider).reviewPlan(id, approve: approve, feedback: reason.isNotEmpty ? reason : null);
+      ref.invalidate(supervisorPendingPlansProvider);
+      ref.invalidate(supervisorStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(approve ? 'Plan approved ✓' : 'Plan rejected — student notified')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   Future<void> _respond(int id, bool approve) async {
@@ -4007,6 +4336,7 @@ class _SupervisorTeamsTabState extends ConsumerState<_SupervisorTeamsTab>
   }
 }
 
+
 class _SupervisorSettingsTab extends ConsumerStatefulWidget {
   const _SupervisorSettingsTab();
   @override
@@ -4014,114 +4344,142 @@ class _SupervisorSettingsTab extends ConsumerStatefulWidget {
 }
 
 class _SupervisorSettingsTabState extends ConsumerState<_SupervisorSettingsTab> {
-  bool _notifyPlans = true;
-  bool _notifyProposals = true;
-  bool _notifyCheckins = true;
-  bool _notifyEvals = true;
+  Future<void> _changePassword() async {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool loading = false;
+    await showDialog<void>(context: context, builder: (d) => StatefulBuilder(builder: (d, setS) => AlertDialog(
+      title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.w900)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: currentCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Current Password', border: OutlineInputBorder())),
+        const SizedBox(height: 12),
+        TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'New Password', border: OutlineInputBorder())),
+        const SizedBox(height: 12),
+        TextField(controller: confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm New Password', border: OutlineInputBorder())),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: loading ? null : () async {
+            if (newCtrl.text != confirmCtrl.text) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match.'))); return; }
+            if (newCtrl.text.length < 8) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Min 8 characters.'))); return; }
+            setS(() => loading = true);
+            try {
+              await ref.read(apiClientProvider).dio.patch('/auth/change-password', data: {'currentPassword': currentCtrl.text, 'newPassword': newCtrl.text});
+              if (d.mounted) Navigator.pop(d);
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password changed successfully ✓')));
+            } catch (e) {
+              setS(() => loading = false);
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+            }
+          },
+          child: loading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Update'),
+        ),
+      ],
+    )));
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final meAsync = ref.watch(supervisorMeProvider);
-    final dashAsync = ref.watch(supervisorDashboardProvider);
+    final statsAsync = ref.watch(supervisorStatsProvider);
     final perfAsync = ref.watch(supervisorPerformanceProvider);
-
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
       child: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(supervisorMeProvider);
-          ref.invalidate(supervisorDashboardProvider);
-          ref.invalidate(supervisorPerformanceProvider);
-        },
+        onRefresh: () async { ref.invalidate(supervisorMeProvider); ref.invalidate(supervisorStatsProvider); ref.invalidate(supervisorPerformanceProvider); },
         child: meAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.error_outline_rounded, size: 48, color: Colors.red),
-            const SizedBox(height: 12), Text('$e'),
-            const SizedBox(height: 16),
-            FilledButton.icon(onPressed: () => ref.invalidate(supervisorMeProvider), icon: const Icon(Icons.refresh_rounded), label: const Text('Retry')),
-          ])),
+          error: (e, _) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.error_outline_rounded, size: 48, color: Colors.red), const SizedBox(height: 12), Text('$e'), const SizedBox(height: 16), FilledButton.icon(onPressed: () => ref.invalidate(supervisorMeProvider), icon: const Icon(Icons.refresh_rounded), label: const Text('Retry'))])),
           data: (me) => CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              ModernSliverAppBar(
-                title: 'Profile',
-                subtitle: 'Account & Settings',
-                profileName: me.fullName,
-                gradient: [const Color(0xFF8A2387), const Color(0xFFE94057)],
-                backgroundIcon: Icons.person_rounded,
-              ),
+              ModernSliverAppBar(title: 'Profile', subtitle: 'Account & Settings', profileName: me.fullName, gradient: [const Color(0xFF8A2387), const Color(0xFFE94057)], backgroundIcon: Icons.person_rounded),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
                 sliver: SliverList(delegate: SliverChildListDelegate([
-                  // 1. Profile card
-                  _buildProfileCard(me, isDark),
+                  // Identity
+                  _ProfileCard(isDark: isDark, child: Column(children: [
+                    Container(width: 72, height: 72, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057)], begin: Alignment.topLeft, end: Alignment.bottomRight), shape: BoxShape.circle, boxShadow: [BoxShadow(color: const Color(0xFF8A2387).withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 8))]), child: Center(child: Text(me.fullName.isNotEmpty ? me.fullName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)))),
+                    const SizedBox(height: 14),
+                    Text(me.fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.12), borderRadius: BorderRadius.circular(20)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.verified_rounded, size: 12, color: Colors.teal), SizedBox(width: 4), Text('Supervisor', style: TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.w800))])),
+                    const SizedBox(height: 16),
+                    _InfoRow(Icons.email_rounded, 'Email', me.email, isDark),
+                    if (me.phone.isNotEmpty) ...[const SizedBox(height: 8), _InfoRow(Icons.phone_rounded, 'Phone', me.phone, isDark)],
+                    _InfoRow(Icons.apartment_rounded, 'Company', me.companyName, isDark),
+                    const SizedBox(height: 16),
+                    SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: () => context.push(AppRoutes.accountSettings), icon: const Icon(Icons.edit_rounded, size: 16), label: const Text('Edit Profile'), style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+                  ])),
+                  // Work Info
                   const SizedBox(height: 20),
-                  // 2. Work info
-                  _profileSectionHeader('Work Information', Icons.business_rounded, Colors.blue),
+                  _SectionHeader(title: 'Work Information', icon: Icons.business_rounded, color: Colors.blue),
                   const SizedBox(height: 10),
-                  _profileInfoCard(isDark, [
-                    _profileInfoRow(context, Icons.business_rounded, 'Company', me.companyName),
-                    _profileInfoRow(context, Icons.badge_rounded, 'Role', 'Supervisor'),
-                    _profileInfoRow(context, Icons.phone_rounded, 'Phone', me.phone.isNotEmpty ? me.phone : 'Not set'),
-                    _profileInfoRow(context, Icons.email_rounded, 'Email', me.email),
-                    dashAsync.maybeWhen(
-                      data: (d) => _profileInfoRow(context, Icons.people_rounded, 'Active Students', '${d.stats.totalStudents}'),
-                      orElse: () => const SizedBox.shrink(),
-                    ),
-                    _profileInfoRow(context, Icons.groups_rounded, 'Teams', '${ref.watch(supervisorTeamsProvider).value?.length ?? 0}'),
-                  ]),
+                  _ProfileCard(isDark: isDark, child: statsAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (_, __) => const Text('Could not load', style: TextStyle(color: Colors.grey)),
+                    data: (stats) => Column(children: [
+                      _InfoRow(Icons.people_rounded, 'Active Interns', '${stats.totalStudents} student${stats.totalStudents == 1 ? '' : 's'}', isDark),
+                      const SizedBox(height: 8),
+                      _InfoRow(Icons.inbox_rounded, 'Pending Proposals', '${stats.pendingProposals}', isDark),
+                      const SizedBox(height: 8),
+                      _InfoRow(Icons.assignment_rounded, 'Plans to Review', '${stats.pendingPlans}', isDark),
+                      const SizedBox(height: 8),
+                      _InfoRow(Icons.event_busy_rounded, 'Missed Check-ins Today', '${stats.missedCheckins}', isDark),
+                    ]),
+                  )),
+                  // Performance
                   const SizedBox(height: 20),
-                  // 3. Performance
-                  _profileSectionHeader('Performance Summary', Icons.insights_rounded, Colors.teal),
+                  _SectionHeader(title: 'Performance Summary', icon: Icons.bar_chart_rounded, color: Colors.purple),
                   const SizedBox(height: 10),
                   perfAsync.when(
-                    loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())),
-                    error: (e, _) => _profileInfoCard(isDark, [_profileInfoRow(context, Icons.error_outline_rounded, 'Performance', 'Could not load')]),
-                    data: (perf) => _buildPerformanceSection(perf, isDark),
+                    loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
+                    error: (_, __) => _ProfileCard(isDark: isDark, child: Center(child: Text('No performance data', style: TextStyle(color: Colors.grey.shade500)))),
+                    data: (perf) {
+                      final total = (perf['totalStudentsSupervised'] as int?) ?? 0;
+                      final completed = (perf['completedInternships'] as int?) ?? 0;
+                      final avgScore = perf['averageStudentScore'];
+                      final proposalRate = perf['proposalApprovalRate'] as int?;
+                      final planRate = perf['planApprovalRate'] as int?;
+                      final evals = (perf['evaluationsSubmitted'] as int?) ?? 0;
+                      if (total == 0 && evals == 0) return _ProfileCard(isDark: isDark, child: const Center(child: Column(children: [Icon(Icons.bar_chart_rounded, size: 40, color: Colors.grey), SizedBox(height: 10), Text('No performance data yet', style: TextStyle(color: Colors.grey))])));
+                      return _ProfileCard(isDark: isDark, child: Column(children: [
+                        Row(children: [Expanded(child: _PerfStat('Total Supervised', '$total', Icons.people_rounded, Colors.blue)), Expanded(child: _PerfStat('Completed', '$completed', Icons.check_circle_rounded, Colors.green))]),
+                        const SizedBox(height: 12),
+                        Row(children: [Expanded(child: _PerfStat('Avg Score', avgScore != null ? '$avgScore/100' : '--', Icons.star_rounded, Colors.amber.shade700)), Expanded(child: _PerfStat('Evaluations', '$evals', Icons.assignment_turned_in_rounded, Colors.purple))]),
+                        if (proposalRate != null || planRate != null) ...[const SizedBox(height: 16), const Divider(height: 1), const SizedBox(height: 12), if (proposalRate != null) ...[_RateBar('Proposal Approval Rate', proposalRate, Colors.teal, isDark), const SizedBox(height: 10)], if (planRate != null) _RateBar('Plan Approval Rate', planRate, Colors.orange, isDark)],
+                      ]));
+                    },
                   ),
+                  // Security
                   const SizedBox(height: 20),
-                  // 4. Notifications
-                  _profileSectionHeader('Notifications', Icons.notifications_rounded, Colors.orange),
+                  _SectionHeader(title: 'Security', icon: Icons.security_rounded, color: Colors.red),
                   const SizedBox(height: 10),
-                  _profileInfoCard(isDark, [
-                    _toggleRow('Plan submissions', 'Notify when students submit plans', _notifyPlans, (v) => setState(() => _notifyPlans = v)),
-                    _toggleRow('Proposal requests', 'Notify on new placement proposals', _notifyProposals, (v) => setState(() => _notifyProposals = v)),
-                    _toggleRow('Missed check-ins', 'Alert when students miss daily check-in', _notifyCheckins, (v) => setState(() => _notifyCheckins = v)),
-                    _toggleRow('Evaluation reminders', 'Remind about pending evaluations', _notifyEvals, (v) => setState(() => _notifyEvals = v)),
-                  ]),
+                  _ProfileCard(isDark: isDark, child: Column(children: [
+                    _ActionTile(icon: Icons.lock_reset_rounded, label: 'Change Password', subtitle: 'Update your login password', color: Colors.red, isDark: isDark, onTap: _changePassword),
+                    const Divider(height: 24),
+                    _ActionTile(icon: Icons.manage_accounts_rounded, label: 'Account Settings', subtitle: 'Edit profile details', color: Colors.blue, isDark: isDark, onTap: () => context.push(AppRoutes.accountSettings)),
+                  ])),
+                  // Support
                   const SizedBox(height: 20),
-                  // 5. Security
-                  _profileSectionHeader('Security', Icons.security_rounded, Colors.red),
+                  _SectionHeader(title: 'Support', icon: Icons.help_rounded, color: Colors.grey),
                   const SizedBox(height: 10),
-                  _profileInfoCard(isDark, [
-                    _actionRow(context, Icons.lock_reset_rounded, 'Change Password', 'Update your login password', Colors.red, () => _showChangePasswordDialog(context)),
-                    _actionRow(context, Icons.account_circle_rounded, 'Account Settings', 'Edit profile details', Colors.blue, () => context.push(AppRoutes.accountSettings)),
-                  ]),
-                  const SizedBox(height: 20),
-                  // 6. Support
-                  _profileSectionHeader('Support', Icons.help_rounded, Colors.indigo),
-                  const SizedBox(height: 10),
-                  _profileInfoCard(isDark, [
-                    _actionRow(context, Icons.help_outline_rounded, 'Help Center', 'FAQs and guides', Colors.indigo, () => context.push(AppRoutes.helpSupport)),
-                    _actionRow(context, Icons.chat_bubble_outline_rounded, 'Contact Admin', 'Send a message to admin', Colors.teal, () => context.push(AppRoutes.chat)),
-                  ]),
-                  const SizedBox(height: 20),
-                  // 7. Sign out
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showLogoutConfirmation(context, ref),
-                      icon: const Icon(Icons.logout_rounded, color: Colors.red),
-                      label: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
-                  ),
+                  _ProfileCard(isDark: isDark, child: Column(children: [
+                    _ActionTile(icon: Icons.help_outline_rounded, label: 'Help & Support', subtitle: 'FAQs and contact admin', color: Colors.blue, isDark: isDark, onTap: () => context.push(AppRoutes.helpSupport)),
+                    const Divider(height: 24),
+                    _ActionTile(icon: Icons.chat_bubble_outline_rounded, label: 'Messages', subtitle: 'Chat with students and HoDs', color: Colors.teal, isDark: isDark, onTap: () => context.push(AppRoutes.chat)),
+                  ])),
+                  // Sign out
+                  const SizedBox(height: 24),
+                  SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                    onPressed: () => _showLogoutConfirmation(context, ref),
+                    icon: const Icon(Icons.logout_rounded, color: Colors.red),
+                    label: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), padding: const EdgeInsets.symmetric(vertical: 14)),
+                  )),
                 ])),
               ),
             ],
@@ -4130,173 +4488,80 @@ class _SupervisorSettingsTabState extends ConsumerState<_SupervisorSettingsTab> 
       ),
     );
   }
-
-  // ── Profile card ────────────────────────────────────────────────────────────
-  Widget _buildProfileCard(SupervisorMe me, bool isDark) => Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-      borderRadius: BorderRadius.circular(24),
-      boxShadow: [BoxShadow(color: const Color(0xFF8A2387).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
-    ),
-    child: Row(children: [
-      CircleAvatar(radius: 32, backgroundColor: Colors.white.withOpacity(0.2), child: Text(me.fullName.isNotEmpty ? me.fullName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900))),
-      const SizedBox(width: 16),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(me.fullName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-        const SizedBox(height: 2),
-        Text(me.email, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12), overflow: TextOverflow.ellipsis),
-        const SizedBox(height: 6),
-        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: const Text('Supervisor', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
-      ])),
-      IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.white, size: 20), onPressed: () => context.push(AppRoutes.accountSettings), tooltip: 'Edit Profile'),
-    ]),
-  );
-
-  // ── Performance section ─────────────────────────────────────────────────────
-  Widget _buildPerformanceSection(Map<String, dynamic> perf, bool isDark) {
-    int si(dynamic v) { if (v == null) return 0; if (v is int) return v; if (v is double) return v.toInt(); if (v is String) return int.tryParse(v) ?? 0; return 0; }
-    final total = si(perf['totalStudentsSupervised']);
-    final completed = si(perf['completedInternships']);
-    final avgScore = perf['averageStudentScore'];
-    final proposalRate = perf['proposalApprovalRate'] as int?;
-    final planRate = perf['planApprovalRate'] as int?;
-    final evals = si(perf['evaluationsSubmitted']);
-    if (total == 0 && evals == 0) {
-      return _profileInfoCard(isDark, [_profileInfoRow(context, Icons.hourglass_empty_rounded, 'No data yet', 'Appears once you supervise interns')]);
-    }
-    return Column(children: [
-      Row(children: [
-        Expanded(child: _statMini('Total Supervised', '$total', Icons.people_rounded, Colors.blue, isDark)),
-        const SizedBox(width: 10),
-        Expanded(child: _statMini('Completed', '$completed', Icons.check_circle_rounded, Colors.green, isDark)),
-      ]),
-      const SizedBox(height: 10),
-      Row(children: [
-        Expanded(child: _statMini('Avg Score', avgScore != null ? '$avgScore/100' : 'N/A', Icons.star_rounded, Colors.amber.shade700, isDark)),
-        const SizedBox(width: 10),
-        Expanded(child: _statMini('Evaluations', '$evals', Icons.assignment_turned_in_rounded, Colors.purple, isDark)),
-      ]),
-      if (proposalRate != null || planRate != null) ...[
-        const SizedBox(height: 10),
-        _profileInfoCard(isDark, [
-          if (proposalRate != null) _rateRow('Proposal Approval Rate', proposalRate, Colors.teal),
-          if (planRate != null) _rateRow('Plan Approval Rate', planRate, Colors.orange),
-        ]),
-      ],
-    ]);
-  }
-
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-  Widget _profileSectionHeader(String title, IconData icon, Color color) => Row(children: [
-    Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 16, color: color)),
-    const SizedBox(width: 8),
-    Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: color)),
-  ]);
-
-  Widget _profileInfoCard(bool isDark, List<Widget> children) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-    decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05))),
-    child: Column(children: children),
-  );
-
-  Widget _profileInfoRow(BuildContext context, IconData icon, String label, String value) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Row(children: [
-      Icon(icon, size: 16, color: Colors.grey.shade400), const SizedBox(width: 12),
-      Expanded(child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13), overflow: TextOverflow.ellipsis)),
-      const SizedBox(width: 8),
-      Flexible(child: Text(value, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: isDark ? Colors.white : Colors.black87), textAlign: TextAlign.end, overflow: TextOverflow.ellipsis)),
-    ]));
-  }
-
-  Widget _actionRow(BuildContext context, IconData icon, String title, String subtitle, Color color, VoidCallback onTap) => InkWell(
-    onTap: onTap, borderRadius: BorderRadius.circular(12),
-    child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [
-      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 16, color: color)),
-      const SizedBox(width: 12),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), overflow: TextOverflow.ellipsis),
-        Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11), overflow: TextOverflow.ellipsis),
-      ])),
-      Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey.shade400),
-    ])),
-  );
-
-  Widget _toggleRow(String title, String subtitle, bool value, ValueChanged<bool> onChanged) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(children: [
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), overflow: TextOverflow.ellipsis),
-        Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11), overflow: TextOverflow.ellipsis),
-      ])),
-      const SizedBox(width: 8),
-      Switch.adaptive(value: value, onChanged: onChanged, activeColor: const Color(0xFF0C8B83)),
-    ]),
-  );
-
-  Widget _statMini(String label, String value, IconData icon, Color color, bool isDark) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05))),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, size: 18, color: color), const SizedBox(height: 8),
-      Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color, letterSpacing: -0.5)),
-      Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w600)),
-    ]),
-  );
-
-  Widget _rateRow(String label, int rate, Color color) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
-        const SizedBox(width: 8),
-        Text('$rate%', style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13)),
-      ]),
-      const SizedBox(height: 6),
-      ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: rate / 100, minHeight: 6, backgroundColor: color.withOpacity(0.1), valueColor: AlwaysStoppedAnimation<Color>(color))),
-    ]),
-  );
-
-  void _showChangePasswordDialog(BuildContext context) {
-    final cur = TextEditingController();
-    final nw = TextEditingController();
-    final cf = TextEditingController();
-    bool loading = false;
-    showDialog(context: context, builder: (d) => StatefulBuilder(builder: (d, setS) => AlertDialog(
-      title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.w900)),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(controller: cur, obscureText: true, decoration: const InputDecoration(labelText: 'Current Password', border: OutlineInputBorder())),
-        const SizedBox(height: 12),
-        TextField(controller: nw, obscureText: true, decoration: const InputDecoration(labelText: 'New Password', border: OutlineInputBorder())),
-        const SizedBox(height: 12),
-        TextField(controller: cf, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm New Password', border: OutlineInputBorder())),
-      ]),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: loading ? null : () async {
-            if (nw.text != cf.text) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match'))); return; }
-            if (nw.text.length < 8) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Min 8 characters'))); return; }
-            setS(() => loading = true);
-            try {
-              // Use the supervisor repository's API client (same Dio instance)
-              final repo = ref.read(supervisorRepositoryProvider);
-              await repo.changePassword(currentPassword: cur.text, newPassword: nw.text);
-              if (d.mounted) Navigator.pop(d);
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password changed ✓')));
-            } catch (e) {
-              setS(() => loading = false);
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-            }
-          },
-          child: loading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Update'),
-        ),
-      ],
-    )));
-  }
 }
 
+// ── Profile Hub reusable components ──────────────────────────────────────────
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({required this.isDark, required this.child});
+  final bool isDark;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity, padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(color: isDark ? Colors.white.withOpacity(0.04) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05)), boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 4))]),
+    child: child,
+  );
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.icon, required this.color});
+  final String title; final IconData icon; final Color color;
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, size: 14, color: color)),
+    const SizedBox(width: 8),
+    Text(title, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: color, letterSpacing: 0.3)),
+  ]);
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow(this.icon, this.label, this.value, this.isDark);
+  final IconData icon; final String label; final String value; final bool isDark;
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Icon(icon, size: 16, color: Colors.grey.shade400), const SizedBox(width: 10),
+    Text('$label: ', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+    Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13), overflow: TextOverflow.ellipsis)),
+  ]);
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({required this.icon, required this.label, required this.subtitle, required this.color, required this.isDark, required this.onTap});
+  final IconData icon; final String label; final String subtitle; final Color color; final bool isDark; final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap, borderRadius: BorderRadius.circular(12),
+    child: Row(children: [
+      Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, size: 18, color: color)),
+      const SizedBox(width: 14),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)), Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11))])),
+      Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey.shade400),
+    ]),
+  );
+}
+
+class _PerfStat extends StatelessWidget {
+  const _PerfStat(this.label, this.value, this.icon, this.color);
+  final String label; final String value; final IconData icon; final Color color;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14), margin: const EdgeInsets.symmetric(horizontal: 4),
+    decoration: BoxDecoration(color: color.withOpacity(0.07), borderRadius: BorderRadius.circular(14)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, size: 18, color: color), const SizedBox(height: 8), Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color)), Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.w600))]),
+  );
+}
+
+class _RateBar extends StatelessWidget {
+  const _RateBar(this.label, this.rate, this.color, this.isDark);
+  final String label; final int rate; final Color color; final bool isDark;
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)), Text('$rate%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: color))]),
+    const SizedBox(height: 6),
+    ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: rate / 100, minHeight: 7, backgroundColor: color.withOpacity(0.1), valueColor: AlwaysStoppedAnimation<Color>(color))),
+  ]);
+}
 class SupervisorDashboardScreen extends StatelessWidget {
   const SupervisorDashboardScreen({super.key});
 
@@ -8537,15 +8802,20 @@ class AdminDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _ModernDashboardScaffold(
+    return _ModernDashboardScaffold(
       title: 'Admin Portal',
       roleLabel: 'ADMIN',
       tabs: [
-        _DashboardTab(label: 'Overview', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, view: _AdminOverviewTab()),
-        _DashboardTab(label: 'Orgs', icon: Icons.business_rounded, activeIcon: Icons.business_center_rounded, view: _AdminOrganizationsTab()),
-        _DashboardTab(label: 'Users', icon: Icons.group_outlined, activeIcon: Icons.group_rounded, view: _AdminUsersTab()),
-        _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
-        _DashboardTab(label: 'Config', icon: Icons.settings_suggest_outlined, activeIcon: Icons.settings_suggest_rounded, view: _AdminSettingsTab()),
+        const _DashboardTab(label: 'Overview', icon: Icons.analytics_outlined, activeIcon: Icons.analytics_rounded, view: _AdminOverviewTab()),
+        _DashboardTab(
+          label: 'Orgs',
+          icon: Icons.business_rounded,
+          activeIcon: Icons.business_center_rounded,
+          view: const _AdminOrganizationsTab(),
+          secondaryFab: const _CreateOrgFab(),
+        ),
+        const _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
+        const _DashboardTab(label: 'Config', icon: Icons.settings_suggest_outlined, activeIcon: Icons.settings_suggest_rounded, view: _AdminSettingsTab()),
       ],
     );
   }
@@ -8607,30 +8877,53 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                   padding: const EdgeInsets.all(24),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
+                      if (stats.pendingApprovals > 0) ...[
+                        _buildSectionHeader(theme, 'Priority Alerts'),
+                        const SizedBox(height: 16),
+                        _buildPriorityAlerts(context, stats, ref, isDark),
+                        const SizedBox(height: 32),
+                      ],
+
+                      _buildSectionHeader(theme, 'Overview Cards'),
+                      const SizedBox(height: 16),
                       _buildOverviewGrid(context, stats, isDark),
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Pending Approvals'),
-                      const SizedBox(height: 16),
-                      _buildPendingApprovalsPreview(context, ref, isDark),
 
+                      _buildSectionHeader(theme, 'Growth & Analytics'),
+                      const SizedBox(height: 16),
+                      _buildGrowthAnalytics(context, isDark, theme),
                       const SizedBox(height: 32),
+
+                      _buildSectionHeader(theme, 'Organization Breakdown'),
+                      const SizedBox(height: 16),
+                      _buildOrganizationBreakdown(context, stats, isDark),
+                      const SizedBox(height: 32),
+
+                      _buildSectionHeader(theme, 'Internship Overview'),
+                      const SizedBox(height: 16),
+                      _buildInternshipOverview(context, stats, isDark),
+                      const SizedBox(height: 32),
+
+                      _buildSectionHeader(theme, 'Reports Snapshot'),
+                      const SizedBox(height: 16),
+                      _buildReportsSnapshot(context, stats, isDark),
+                      const SizedBox(height: 32),
+
+                      _buildSectionHeader(theme, 'Recent Activity'),
+                      const SizedBox(height: 16),
                       _buildRecentActivitiesPreview(context, ref, isDark),
-
-                      FeedPreviewSection(),
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Broadcast Announcement'),
-                      const SizedBox(height: 16),
-                      _buildQuickBroadcastBox(context, theme, isDark),
 
-                      const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'System Health'),
+                      _buildSectionHeader(theme, 'Security / Health'),
                       const SizedBox(height: 16),
                       _buildSystemHealthWidget(context, isDark),
-
                       const SizedBox(height: 32),
-                      _buildSectionHeader(theme, 'Quick Navigation'),
+
+                      _buildSectionHeader(theme, 'Quick Actions'),
                       const SizedBox(height: 16),
                       _buildQuickNavigation(context, ref, isDark),
+                      const SizedBox(height: 16),
+                      _buildQuickBroadcastBox(context, theme, isDark),
 
                       const SizedBox(height: 120),
                     ]),
@@ -8651,7 +8944,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
       crossAxisCount: 2,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      childAspectRatio: 1.05,
+      childAspectRatio: 0.85,
       children: [
         _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
         _buildStatCard(context, 'Institutions', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.account_balance_rounded, Colors.orange, isDark),
@@ -8663,144 +8956,263 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
 
   Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05)),
-        boxShadow: [if (!isDark) BoxShadow(color: color.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))],
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 24, offset: const Offset(0, 12)),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.8), color]),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+          // Radial Mesh Glow
+          Positioned(
+            right: -20,
+            top: -20,
+            child: Container(
+              width: 100, height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0)],
+                ),
+              ),
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
           ),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1)),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color.withValues(alpha: 0.8), color],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 6))],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+                const Spacer(),
+                Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1, color: isDark ? Colors.white : const Color(0xFF1E293B))),
+                const SizedBox(height: 4),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600, fontSize: 13, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPendingApprovalsPreview(BuildContext context, WidgetRef ref, bool isDark) {
-    final unis = ref.watch(pendingUniversitiesProvider).asData?.value ?? [];
-    final comps = ref.watch(pendingCompaniesProvider).asData?.value ?? [];
-    final coords = ref.watch(pendingCoordinatorsProvider).asData?.value ?? [];
-    
-    final allPending = [
-      ...unis.map((u) => {'id': u['id'], 'title': u['name'], 'subtitle': 'University Reg.', 'type': 'UNI'}),
-      ...comps.map((c) => {'id': c['id'], 'title': c['name'], 'subtitle': 'Company Reg.', 'type': 'COMP'}),
-      ...coords.map((co) => {'id': co['userId'], 'title': co['user']['full_name'], 'subtitle': 'Coordinator Acc.', 'type': 'COORD'}),
-    ].take(3).toList();
+  Widget _buildPriorityAlerts(BuildContext context, dynamic stats, WidgetRef ref, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.red.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: 0.2), shape: BoxShape.circle),
+            child: const Icon(Icons.warning_rounded, color: Colors.redAccent),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Action Required', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.redAccent.shade700)),
+                const SizedBox(height: 4),
+                Text('There are ${stats.pendingApprovals} pending organizations/users waiting for approval.', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey.shade400 : Colors.grey.shade700)),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => ref.read(dashboardIndexProvider.notifier).state = 1,
+            child: const Text('Review', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (allPending.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-        ),
-        child: const Center(child: Text('All caught up! No pending approvals.', style: TextStyle(color: Colors.grey))),
-      );
-    }
+  Widget _buildGrowthAnalytics(BuildContext context, bool isDark, ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.show_chart_rounded, color: Colors.blue),
+              const SizedBox(width: 8),
+              Text('Monthly Growth', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                child: const Text('+12.4%', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: _buildGrowthStat('New Users', '+342', Colors.purple, isDark)),
+              Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.2)),
+              Expanded(child: _buildGrowthStat('Organizations', '+15', Colors.orange, isDark)),
+              Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.2)),
+              Expanded(child: _buildGrowthStat('Placements', '+89', Colors.blue, isDark)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildGrowthStat(String label, String value, Color color, bool isDark) {
     return Column(
       children: [
-        ...allPending.map((item) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
-          ),
-          child: Row(
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildOrganizationBreakdown(BuildContext context, dynamic stats, bool isDark) {
+    final total = stats.totalUniversities + stats.totalCompanies;
+    final uniPct = total == 0 ? 0.0 : stats.totalUniversities / total;
+    final compPct = total == 0 ? 0.0 : stats.totalCompanies / total;
+    
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (item['type'] == 'UNI' || item['type'] == 'COMP' ? Colors.blue : Colors.purple).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(item['type'] == 'UNI' ? Icons.school_rounded : (item['type'] == 'COMP' ? Icons.business_rounded : Icons.person_rounded), 
-                  color: item['type'] == 'UNI' || item['type'] == 'COMP' ? Colors.blue : Colors.purple, size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item['title']! as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text(item['subtitle']! as String, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () async {
-                      try {
-                        final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = _parseInt(item['id']);
-                        final type = item['type'] as String;
-                        if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'REJECTED');
-                        else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'REJECTED');
-                        else if (type == 'COORD') await adminRepo.rejectCoordinator(id);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rejected')));
-                        ref.invalidate(adminStatsProvider);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                      }
-                    },
-                    icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 20),
-                    style: IconButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.1)),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: () async {
-                      try {
-                        final adminRepo = ref.read(adminRepositoryProvider);
-                        final id = _parseInt(item['id']);
-                        final type = item['type'] as String;
-                        if (type == 'UNI') await adminRepo.updateUniversityStatus(id, 'APPROVED');
-                        else if (type == 'COMP') await adminRepo.updateCompanyStatus(id, 'APPROVED');
-                        else if (type == 'COORD') await adminRepo.approveCoordinator(id);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Approved!')));
-                        ref.invalidate(adminStatsProvider);
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                      }
-                    },
-                    icon: const Icon(Icons.check_rounded, color: Colors.green, size: 20),
-                    style: IconButton.styleFrom(backgroundColor: Colors.green.withOpacity(0.1)),
-                  ),
-                ],
-              ),
+              _buildBreakdownItem('Universities', stats.totalUniversities.toString(), Colors.blue),
+              _buildBreakdownItem('Companies', stats.totalCompanies.toString(), Colors.purple),
             ],
           ),
-        )),
-        TextButton(
-          onPressed: () {}, // Tab switching handled by user manually or through complex logic
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('View All Approvals'),
-              Icon(Icons.chevron_right_rounded, size: 16),
-            ],
+          const SizedBox(height: 20),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                Expanded(flex: (uniPct * 100).toInt() == 0 ? 1 : (uniPct * 100).toInt(), child: Container(height: 12, color: Colors.blue)),
+                Expanded(flex: (compPct * 100).toInt() == 0 ? 1 : (compPct * 100).toInt(), child: Container(height: 12, color: Colors.purple)),
+              ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreakdownItem(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
         ),
       ],
     );
   }
+
+  Widget _buildInternshipOverview(BuildContext context, dynamic stats, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.work_history_rounded, color: Colors.orange, size: 32),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Total Evaluations', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                Text('${stats.totalEvaluations}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReportsSnapshot(BuildContext context, dynamic stats, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.teal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.summarize_rounded, color: Colors.teal, size: 32),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Submitted Reports', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                Text('${stats.totalReports}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+        ],
+      ),
+    );
+  }
+
+
 
   Widget _buildRecentActivitiesPreview(BuildContext context, WidgetRef ref, bool isDark) {
     final logs = ref.watch(auditLogsProvider).asData?.value ?? [];
@@ -8809,9 +9221,10 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Column(
         children: [
@@ -8832,8 +9245,8 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(colors: [theme.colorScheme.primary, theme.colorScheme.secondary]),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))],
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 12))],
       ),
       child: Column(
         children: [
@@ -8892,9 +9305,10 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 24, offset: const Offset(0, 12))],
       ),
       child: Column(
         children: [
@@ -8932,9 +9346,8 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
       runSpacing: 12,
       children: [
         _buildNavChip(context, ref, 'Orgs', Icons.business_rounded, isDark, 1),
-        _buildNavChip(context, ref, 'Users', Icons.group_rounded, isDark, 2),
-        _buildNavChip(context, ref, 'Audit Logs', Icons.receipt_long_rounded, isDark, 3),
-        _buildNavChip(context, ref, 'Config', Icons.settings_rounded, isDark, 4),
+        _buildNavChip(context, ref, 'Audit Logs', Icons.receipt_long_rounded, isDark, 2),
+        _buildNavChip(context, ref, 'Config', Icons.settings_rounded, isDark, 3),
       ],
     );
   }
@@ -8970,6 +9383,324 @@ class _AdminOrganizationsTab extends ConsumerStatefulWidget {
   ConsumerState<_AdminOrganizationsTab> createState() => _AdminOrganizationsTabState();
 }
 
+final optimisticOrgsProvider = StateProvider<List<Map<String, dynamic>>>((ref) => []);
+
+// ── Standalone FAB — lives in the scaffold FAB slot, has its own ref ──────────
+class _CreateOrgFab extends ConsumerWidget {
+  const _CreateOrgFab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FloatingActionButton(
+      heroTag: 'create_org_fab',
+      onPressed: () => _showCreateOrgSheet(context, ref),
+      backgroundColor: const Color(0xFF4286F4),
+      foregroundColor: Colors.white,
+      tooltip: 'Create Organization',
+      child: const Icon(Icons.add_business_rounded),
+    );
+  }
+}
+
+String _getReadableError(dynamic e) {
+  if (e.runtimeType.toString() == 'DioException' || e.runtimeType.toString() == '_DioException') {
+    try {
+      final data = (e as dynamic).response?.data;
+      if (data is Map) {
+        return data['message'] ?? data['error'] ?? 'Server error';
+      }
+    } catch (_) {}
+    return 'Network connection failed.';
+  }
+  return e.toString().replaceAll('Exception: ', '');
+}
+
+/// Top-level function — no dependency on any State, works from any context.
+void _showCreateOrgSheet(BuildContext context, WidgetRef ref) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  String orgType = 'University';
+  final nameCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final addressCtrl = TextEditingController();
+  final contactNameCtrl = TextEditingController();
+  final contactEmailCtrl = TextEditingController();
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setModalState) {
+        bool isSaving = false;
+        final color = orgType == 'University' ? Colors.blue : Colors.purple;
+        final icon = orgType == 'University' ? Icons.account_balance_rounded : Icons.business_rounded;
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(child: Container(width: 40, height: 4,
+                    decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+                  const SizedBox(height: 20),
+                  // Header
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: const Color(0xFF4286F4).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.add_business_rounded, color: Color(0xFF4286F4), size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Create Organization', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      Text('Auto-approved · setup email sent', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    ]),
+                  ]),
+                  const SizedBox(height: 24),
+                  // Type selector
+                  Row(children: [
+                    Expanded(child: _OrgTypeChip(
+                      label: 'University', icon: Icons.account_balance_rounded,
+                      color: Colors.blue, selected: orgType == 'University',
+                      onTap: () => setModalState(() => orgType = 'University'),
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(child: _OrgTypeChip(
+                      label: 'Company', icon: Icons.business_rounded,
+                      color: Colors.purple, selected: orgType == 'Company',
+                      onTap: () => setModalState(() => orgType = 'Company'),
+                    )),
+                  ]),
+                  const SizedBox(height: 20),
+                  // Fields
+                  _OrgFormField(ctrl: nameCtrl, hint: 'e.g. Addis Ababa University', label: 'Organization Name *', icon: icon, isDark: isDark),
+                  const SizedBox(height: 14),
+                  _OrgFormField(ctrl: emailCtrl, hint: 'e.g. info@aau.edu.et', label: 'Official Email *', icon: Icons.email_rounded, isDark: isDark, keyboardType: TextInputType.emailAddress),
+                  const SizedBox(height: 14),
+                  _OrgFormField(ctrl: addressCtrl, hint: 'e.g. Addis Ababa, Ethiopia', label: 'Address (optional)', icon: Icons.location_on_rounded, isDark: isDark),
+                  const SizedBox(height: 20),
+                  // Contact person box
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.04) : color.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: color.withOpacity(0.2)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Icon(Icons.person_add_rounded, size: 15, color: color),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${orgType == 'University' ? 'Coordinator' : 'Supervisor'} Contact (optional)',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color),
+                        ),
+                      ]),
+                      const SizedBox(height: 4),
+                      const Text('Creates an account and sends a password setup email.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      const SizedBox(height: 12),
+                      _OrgFormField(ctrl: contactNameCtrl, hint: 'Full name', label: '', icon: Icons.person_rounded, isDark: isDark),
+                      const SizedBox(height: 8),
+                      _OrgFormField(ctrl: contactEmailCtrl, hint: 'Email address', label: '', icon: Icons.email_outlined, isDark: isDark, keyboardType: TextInputType.emailAddress),
+                    ]),
+                  ),
+                  const SizedBox(height: 28),
+                  // Submit button
+                  StatefulBuilder(
+                    builder: (_, setSaveState) => SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton.icon(
+                        onPressed: isSaving ? null : () async {
+                          final name = nameCtrl.text.trim();
+                          final email = emailCtrl.text.trim();
+                          if (name.isEmpty || email.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Name and email are required'), backgroundColor: Colors.red),
+                            );
+                            return;
+                          }
+                          setSaveState(() => isSaving = true);
+                          try {
+                            final repo = ref.read(adminRepositoryProvider);
+                            Map<String, dynamic> createdOrg;
+                            if (orgType == 'University') {
+                              createdOrg = await repo.createUniversity(
+                                name: name, officialEmail: email,
+                                address: addressCtrl.text.trim(),
+                                contactName: contactNameCtrl.text.trim(),
+                                contactEmail: contactEmailCtrl.text.trim(),
+                              );
+                              createdOrg['type'] = 'University';
+                            } else {
+                              createdOrg = await repo.createCompany(
+                                name: name, officialEmail: email,
+                                address: addressCtrl.text.trim(),
+                                contactName: contactNameCtrl.text.trim(),
+                                contactEmail: contactEmailCtrl.text.trim(),
+                              );
+                              createdOrg['type'] = 'Company';
+                            }
+                            
+                            // Optimistically add to UI immediately
+                            createdOrg['approval_status'] = 'APPROVED'; // Admin created orgs are auto-approved
+                            ref.read(optimisticOrgsProvider.notifier).update((state) => [createdOrg, ...state]);
+
+                            ref.invalidate(allUniversitiesProvider);
+                            ref.invalidate(allCompaniesProvider);
+                            ref.invalidate(adminStatsProvider);
+                            if (context.mounted) {
+                              Navigator.pop(ctx);
+                              showDialog(
+                                context: context,
+                                builder: (c) => AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  title: const Row(
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, color: Colors.green),
+                                      SizedBox(width: 10),
+                                      Text('Success'),
+                                    ],
+                                  ),
+                                  content: Text(
+                                    '$orgType "$name" has been successfully created.'
+                                    '${contactEmailCtrl.text.trim().isNotEmpty ? '\n\nA password setup email has been sent to the contact person.' : ''}'
+                                  ),
+                                  actions: [
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(c),
+                                      style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                                      child: const Text('Great'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setSaveState(() => isSaving = false);
+                            if (context.mounted) {
+                              showDialog(
+                                context: ctx, // using the modal's context so it appears over it
+                                builder: (c) => AlertDialog(
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  title: const Row(
+                                    children: [
+                                      Icon(Icons.error_outline_rounded, color: Colors.red),
+                                      SizedBox(width: 10),
+                                      Text('Creation Failed'),
+                                    ],
+                                  ),
+                                  content: Text(_getReadableError(e)),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(c),
+                                      child: const Text('OK', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        icon: isSaving
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.check_rounded),
+                        label: Text(isSaving ? 'Creating...' : 'Create $orgType',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: color,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+// ── Small reusable widgets for the create-org sheet ──────────────────────────
+
+class _OrgTypeChip extends StatelessWidget {
+  const _OrgTypeChip({required this.label, required this.icon, required this.color, required this.selected, required this.onTap});
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? color.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: selected ? color : Colors.grey.withOpacity(0.3), width: selected ? 2 : 1),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 16, color: selected ? color : Colors.grey),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: selected ? color : Colors.grey)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _OrgFormField extends StatelessWidget {
+  const _OrgFormField({required this.ctrl, required this.hint, required this.label, required this.icon, required this.isDark, this.keyboardType});
+  final TextEditingController ctrl;
+  final String hint;
+  final String label;
+  final IconData icon;
+  final bool isDark;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label.isNotEmpty) ...[
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 6),
+        ],
+        TextField(
+          controller: ctrl,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+            prefixIcon: Icon(icon, size: 18, color: Colors.grey),
+            filled: true,
+            fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> {
   String _searchQuery = '';
   String _orgTypeFilter = 'All'; // 'All', 'University', 'Company'
@@ -8986,17 +9717,20 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
 
     return Material(
       color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+      child: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), isDark ? const Color(0xFF0F172A) : Colors.white],
+            ),
           ),
-        ),
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
+          child: CustomScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const BouncingScrollPhysics(),
+            slivers: [
             ModernSliverAppBar(
               title: 'Organizations',
               subtitle: 'Manage Universities & Companies',
@@ -9005,9 +9739,9 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
               backgroundIcon: Icons.business_rounded,
               actions: [
                 IconButton(
-                  onPressed: () => _showInviteDialog(context),
-                  icon: const Icon(Icons.person_add_alt_1_rounded, color: Colors.white),
-                  tooltip: 'Invite Organization',
+                  onPressed: () => _showCreateOrgDialog(context, ref, isDark),
+                  icon: const Icon(Icons.add_business_rounded, color: Colors.white),
+                  tooltip: 'Create Organization',
                 ),
               ],
             ),
@@ -9028,6 +9762,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
+      ),
       ),
     );
   }
@@ -9133,15 +9868,39 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
         loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
         error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
         data: (comps) {
-          final all = [
-            ...unis.map((u) => {...Map<String, dynamic>.from(u), 'type': 'University'}),
-            ...comps.map((c) => {...Map<String, dynamic>.from(c), 'type': 'Company'}),
-          ].where((o) {
-            final matchesSearch = o['name'].toString().toLowerCase().contains(_searchQuery.toLowerCase());
-            final matchesType = _orgTypeFilter == 'All' || o['type'] == _orgTypeFilter;
-            final matchesStatus = o['approval_status'] == _orgStatusFilter;
-            return matchesSearch && matchesType && matchesStatus;
-          }).toList();
+          final sQuery = _searchQuery.toLowerCase();
+          
+          Iterable<Map<String, dynamic>> filteredUnis = [];
+          if (_orgTypeFilter != 'Company') {
+            filteredUnis = unis.where((u) {
+              if (u['approval_status'] != _orgStatusFilter) return false;
+              if (sQuery.isNotEmpty && !u['name'].toString().toLowerCase().contains(sQuery)) return false;
+              return true;
+            }).map((u) => {...Map<String, dynamic>.from(u as Map), 'type': 'University'});
+          }
+
+          Iterable<Map<String, dynamic>> filteredComps = [];
+          if (_orgTypeFilter != 'University') {
+            filteredComps = comps.where((c) {
+              if (c['approval_status'] != _orgStatusFilter) return false;
+              if (sQuery.isNotEmpty && !c['name'].toString().toLowerCase().contains(sQuery)) return false;
+              return true;
+            }).map((c) => {...Map<String, dynamic>.from(c as Map), 'type': 'Company'});
+          }
+
+          final optimistic = ref.watch(optimisticOrgsProvider).where((o) {
+              if (o['approval_status'] != _orgStatusFilter) return false;
+              if (sQuery.isNotEmpty && !o['name'].toString().toLowerCase().contains(sQuery)) return false;
+              if (_orgTypeFilter != 'All' && o['type'] != _orgTypeFilter) return false;
+              return true;
+          });
+
+          // Merge and remove duplicates by ID
+          final Map<String, dynamic> uniqueMap = {};
+          for (var org in [...optimistic, ...filteredUnis, ...filteredComps]) {
+            uniqueMap[org['id'].toString()] = org;
+          }
+          final all = uniqueMap.values.toList();
 
           if (all.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No organizations found'))));
 
@@ -9292,73 +10051,152 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
       'SUSPENDED' => Colors.red,
       _ => Colors.grey,
     };
+    final isUniversity = org['type'] == 'University';
+    final orgId = _parseInt(org['id']);
+    bool? studentRegEnabled; // null = inherit global
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        builder: (_, controller) => Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          child: ListView(
-            controller: controller,
-            padding: const EdgeInsets.all(24),
-            children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
-              const SizedBox(height: 24),
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
-                  child: Icon(org['type'] == 'University' ? Icons.account_balance_rounded : Icons.business_rounded, size: 28, color: Theme.of(context).colorScheme.primary),
-                ),
-                const SizedBox(width: 16),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-                  const SizedBox(height: 4),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => DraggableScrollableSheet(
+          initialChildSize: 0.65,
+          maxChildSize: 0.92,
+          minChildSize: 0.4,
+          builder: (_, controller) => Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: ListView(
+              controller: controller,
+              padding: const EdgeInsets.all(24),
+              children: [
+                Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+                const SizedBox(height: 24),
+                Row(children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                    child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+                    child: Icon(isUniversity ? Icons.account_balance_rounded : Icons.business_rounded, size: 28, color: Theme.of(context).colorScheme.primary),
                   ),
-                ])),
-              ]),
-              const SizedBox(height: 32),
-              _detailRow(Icons.category_rounded, 'Type', org['type']?.toString() ?? '-'),
-              _detailRow(Icons.email_rounded, 'Official Email', org['official_email']?.toString() ?? '-'),
-              if (org['phone'] != null) _detailRow(Icons.phone_rounded, 'Phone', org['phone'].toString()),
-              if (org['address'] != null) _detailRow(Icons.location_on_rounded, 'Address', org['address'].toString()),
-              if (org['website'] != null) _detailRow(Icons.language_rounded, 'Website', org['website'].toString()),
-              if (org['created_at'] != null) _detailRow(Icons.calendar_today_rounded, 'Registered', org['created_at'].toString().split('T')[0]),
-              if (org['rejection_reason'] != null && org['rejection_reason'].toString().isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.withOpacity(0.3))),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Icon(Icons.info_outline_rounded, color: Colors.red, size: 18),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text('Rejection Reason: ${org['rejection_reason']}', style: const TextStyle(color: Colors.red, fontSize: 13))),
-                  ]),
-                ),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(org['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
+                  ])),
+                ]),
+                const SizedBox(height: 32),
+                _detailRow(Icons.category_rounded, 'Type', org['type']?.toString() ?? '-'),
+                _detailRow(Icons.email_rounded, 'Official Email', org['official_email']?.toString() ?? '-'),
+                if (org['phone'] != null) _detailRow(Icons.phone_rounded, 'Phone', org['phone'].toString()),
+                if (org['address'] != null) _detailRow(Icons.location_on_rounded, 'Address', org['address'].toString()),
+                if (org['website'] != null) _detailRow(Icons.language_rounded, 'Website', org['website'].toString()),
+                if (org['created_at'] != null) _detailRow(Icons.calendar_today_rounded, 'Registered', org['created_at'].toString().split('T')[0]),
+                if (org['rejection_reason'] != null && org['rejection_reason'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: Colors.red.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.withOpacity(0.3))),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Icon(Icons.info_outline_rounded, color: Colors.red, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text('Rejection Reason: ${org['rejection_reason']}', style: const TextStyle(color: Colors.red, fontSize: 13))),
+                    ]),
+                  ),
+                ],
+                // Per-university student registration control (universities only)
+                if (isUniversity && status == 'APPROVED') ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.04) : Colors.indigo.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.indigo.withOpacity(0.15)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        const Icon(Icons.how_to_reg_rounded, size: 16, color: Colors.indigo),
+                        const SizedBox(width: 8),
+                        const Text('Student Registration', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.indigo)),
+                      ]),
+                      const SizedBox(height: 4),
+                      const Text('Override the global setting for this university only.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      const SizedBox(height: 14),
+                      Row(children: [
+                        Expanded(child: _regOverrideChip(setModalState, 'Global', null, studentRegEnabled, Colors.grey, (v) async {
+                          setModalState(() => studentRegEnabled = v);
+                          if (context.mounted) Navigator.pop(context);
+                          try {
+                            await ref.read(adminRepositoryProvider).setUniversityStudentReg(orgId, v);
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registration set to global'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)));
+                          } catch (e) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                          }
+                        })),
+                        const SizedBox(width: 8),
+                        Expanded(child: _regOverrideChip(setModalState, 'Open', true, studentRegEnabled, Colors.green, (v) async {
+                          setModalState(() => studentRegEnabled = v);
+                          if (context.mounted) Navigator.pop(context);
+                          try {
+                            await ref.read(adminRepositoryProvider).setUniversityStudentReg(orgId, v);
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registration opened'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)));
+                          } catch (e) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                          }
+                        })),
+                        const SizedBox(width: 8),
+                        Expanded(child: _regOverrideChip(setModalState, 'Closed', false, studentRegEnabled, Colors.red, (v) async {
+                          setModalState(() => studentRegEnabled = v);
+                          if (context.mounted) Navigator.pop(context);
+                          try {
+                            await ref.read(adminRepositoryProvider).setUniversityStudentReg(orgId, v);
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registration closed'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)));
+                          } catch (e) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                          }
+                        })),
+                      ]),
+                    ]),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                if (status == 'SUSPENDED')
+                  FilledButton.icon(
+                    onPressed: () { Navigator.pop(ctx); _updateStatus(ref, org, 'APPROVED'); },
+                    icon: const Icon(Icons.check_circle_rounded),
+                    label: const Text('Reactivate Organization'),
+                    style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                  ),
+                const SizedBox(height: 24),
               ],
-              const SizedBox(height: 24),
-              if (status == 'SUSPENDED')
-                FilledButton.icon(
-                  onPressed: () { Navigator.pop(ctx); _updateStatus(ref, org, 'APPROVED'); },
-                  icon: const Icon(Icons.check_circle_rounded),
-                  label: const Text('Reactivate Organization'),
-                  style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _regOverrideChip(StateSetter setModalState, String label, bool? value, bool? current, Color color, void Function(bool?) onSelect) {
+    final selected = current == value;
+    return GestureDetector(
+      onTap: () => onSelect(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? color.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? color : Colors.grey.withOpacity(0.3), width: selected ? 2 : 1),
+        ),
+        child: Center(child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: selected ? color : Colors.grey))),
       ),
     );
   }
@@ -9425,38 +10263,211 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
       ref.invalidate(allUniversitiesProvider);
       ref.invalidate(allCompaniesProvider);
       ref.invalidate(adminStatsProvider);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${org['name']} -> $status')));
+      ref.invalidate(pendingUniversitiesProvider);
+      ref.invalidate(pendingCompaniesProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${org['name']} → $status'), backgroundColor: status == 'APPROVED' ? Colors.green : status == 'REJECTED' ? Colors.red : Colors.orange),
+      );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      final msg = _extractErrorMessage(e);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $msg'), backgroundColor: Colors.red),
+      );
     }
   }
 
 
-  void _showInviteDialog(BuildContext context) {
-    showDialog(
+  void _showCreateOrgDialog(BuildContext context, WidgetRef ref, bool isDark) {
+    String orgType = 'University';
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    final contactNameCtrl = TextEditingController();
+    final contactEmailCtrl = TextEditingController();
+    bool isSaving = false;
+
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Invite Organization'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const TextField(decoration: InputDecoration(labelText: 'Official Email')),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              value: 'University',
-              items: ['University', 'Company'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-              onChanged: (v) {},
-              decoration: const InputDecoration(labelText: 'Type'),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             ),
-          ],
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: const Color(0xFF4286F4).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.add_business_rounded, color: Color(0xFF4286F4), size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Create Organization', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      Text('Admin-created, auto-approved', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    ]),
+                  ]),
+                  const SizedBox(height: 24),
+                  // Type selector
+                  Row(children: [
+                    Expanded(child: _orgTypeChip(ctx, setModalState, 'University', orgType, Icons.account_balance_rounded, Colors.blue, (v) => orgType = v)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _orgTypeChip(ctx, setModalState, 'Company', orgType, Icons.business_rounded, Colors.purple, (v) => orgType = v)),
+                  ]),
+                  const SizedBox(height: 20),
+                  _formLabel('Organization Name *'),
+                  const SizedBox(height: 6),
+                  _formField(nameCtrl, 'e.g. Addis Ababa University', Icons.business_rounded),
+                  const SizedBox(height: 16),
+                  _formLabel('Official Email *'),
+                  const SizedBox(height: 6),
+                  _formField(emailCtrl, 'e.g. info@aau.edu.et', Icons.email_rounded, keyboardType: TextInputType.emailAddress),
+                  const SizedBox(height: 16),
+                  _formLabel('Address (optional)'),
+                  const SizedBox(height: 6),
+                  _formField(addressCtrl, 'e.g. Addis Ababa, Ethiopia', Icons.location_on_rounded),
+                  const SizedBox(height: 24),
+                  // Contact user section
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.04) : Colors.blue.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        const Icon(Icons.person_add_rounded, size: 16, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Text('Contact Person (optional)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.blue.shade700)),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Creates a ${orgType == 'University' ? 'Coordinator' : 'Supervisor'} account and sends a password setup email.',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 14),
+                      _formField(contactNameCtrl, 'Full name', Icons.person_rounded),
+                      const SizedBox(height: 10),
+                      _formField(contactEmailCtrl, 'Email address', Icons.email_outlined, keyboardType: TextInputType.emailAddress),
+                    ]),
+                  ),
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton.icon(
+                      onPressed: isSaving ? null : () async {
+                        final name = nameCtrl.text.trim();
+                        final email = emailCtrl.text.trim();
+                        if (name.isEmpty || email.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name and email are required'), backgroundColor: Colors.red));
+                          return;
+                        }
+                        setModalState(() => isSaving = true);
+                        try {
+                          final repo = ref.read(adminRepositoryProvider);
+                          if (orgType == 'University') {
+                            await repo.createUniversity(
+                              name: name, officialEmail: email,
+                              address: addressCtrl.text.trim(),
+                              contactName: contactNameCtrl.text.trim(),
+                              contactEmail: contactEmailCtrl.text.trim(),
+                            );
+                          } else {
+                            await repo.createCompany(
+                              name: name, officialEmail: email,
+                              address: addressCtrl.text.trim(),
+                              contactName: contactNameCtrl.text.trim(),
+                              contactEmail: contactEmailCtrl.text.trim(),
+                            );
+                          }
+                          ref.invalidate(allUniversitiesProvider);
+                          ref.invalidate(allCompaniesProvider);
+                          ref.invalidate(adminStatsProvider);
+                          if (context.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('$orgType "$name" created successfully${contactEmailCtrl.text.trim().isNotEmpty ? ' — setup email sent' : ''}'),
+                              backgroundColor: Colors.green,
+                            ));
+                          }
+                        } catch (e) {
+                          setModalState(() => isSaving = false);
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                        }
+                      },
+                      icon: isSaving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_rounded),
+                      label: Text(isSaving ? 'Creating...' : 'Create $orgType', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF4286F4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Send Invitation')),
-        ],
       ),
     );
+  }
+
+  Widget _orgTypeChip(BuildContext ctx, StateSetter setModalState, String label, String current, IconData icon, Color color, void Function(String) onSelect) {
+    final selected = current == label;
+    return GestureDetector(
+      onTap: () => setModalState(() => onSelect(label)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? color.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: selected ? color : Colors.grey.withOpacity(0.3), width: selected ? 2 : 1),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 16, color: selected ? color : Colors.grey),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: selected ? color : Colors.grey)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _formLabel(String text) => Text(text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13));
+
+  Widget _formField(TextEditingController ctrl, String hint, IconData icon, {TextInputType? keyboardType}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextField(
+      controller: ctrl,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+        prefixIcon: Icon(icon, size: 18, color: Colors.grey),
+        filled: true,
+        fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+
+  void _showInviteDialog(BuildContext context) {
+    // Replaced by _showCreateOrgDialog — kept for backward compat
+    _showCreateOrgDialog(context, ref, Theme.of(context).brightness == Brightness.dark);
   }
 }
 
@@ -9789,13 +10800,21 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
                 Text(user['created_at'].toString().split('T')[0], style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
                 const Spacer(),
               ],
-              if (approval == 'APPROVED')
+              if (approval == 'APPROVED') ...[
+                TextButton.icon(
+                  onPressed: () => _sendSetupLink(user['email']?.toString() ?? ''),
+                  icon: const Icon(Icons.link_rounded, size: 14),
+                  label: const Text('Setup Link', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(foregroundColor: Colors.blue, visualDensity: VisualDensity.compact),
+                ),
+                const SizedBox(width: 4),
                 TextButton.icon(
                   onPressed: () => _rejectCoordinator(coord),
                   icon: const Icon(Icons.block_rounded, size: 14),
                   label: const Text('Revoke', style: TextStyle(fontSize: 12)),
                   style: TextButton.styleFrom(foregroundColor: Colors.redAccent, visualDensity: VisualDensity.compact),
                 ),
+              ],
             ]),
           ),
       ]),
@@ -9901,17 +10920,70 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
                 Text(user['created_at'].toString().split('T')[0], style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
                 const Spacer(),
               ],
-              if (approval == 'APPROVED')
+              if (approval == 'APPROVED') ...[
+                TextButton.icon(
+                  onPressed: () => _sendSetupLink(user['email']?.toString() ?? ''),
+                  icon: const Icon(Icons.link_rounded, size: 14),
+                  label: const Text('Setup Link', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(foregroundColor: Colors.blue, visualDensity: VisualDensity.compact),
+                ),
+                const SizedBox(width: 4),
                 TextButton.icon(
                   onPressed: () => _rejectSupervisor(sup),
                   icon: const Icon(Icons.block_rounded, size: 14),
                   label: const Text('Revoke', style: TextStyle(fontSize: 12)),
                   style: TextButton.styleFrom(foregroundColor: Colors.redAccent, visualDensity: VisualDensity.compact),
                 ),
+              ],
             ]),
           ),
       ]),
     );
+  }
+
+  Future<void> _sendSetupLink(String email) async {
+    if (email.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Send Setup Link', style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Send a password setup email to:'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.email_rounded, size: 16, color: Colors.blue),
+              const SizedBox(width: 8),
+              Expanded(child: Text(email, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          const Text('The link expires in 48 hours.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.send_rounded, size: 16),
+            label: const Text('Send'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.blue),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(adminRepositoryProvider).sendSetupLink(email);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Setup link sent to $email'),
+        backgroundColor: Colors.blue,
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
   }
 
   Widget _miniStat(String label, String value, IconData icon, Color color, bool isDark) {
@@ -10347,6 +11419,8 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
   final _broadcastTitleCtrl = TextEditingController();
   final _broadcastContentCtrl = TextEditingController();
   bool _isUpdating = false;
+  // Optimistic local overrides — applied immediately on toggle, cleared after server confirms
+  final Map<String, String> _localOverrides = {};
 
   @override
   void dispose() {
@@ -10356,17 +11430,40 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
   }
 
   Future<void> _updateConfig(String key, String value) async {
-    setState(() => _isUpdating = true);
+    // Apply optimistic update immediately so the switch doesn't flip back
+    setState(() {
+      _localOverrides[key] = value;
+      _isUpdating = true;
+    });
     try {
       await ref.read(adminRepositoryProvider).updateConfig({key: value});
+      // Invalidate to force a fresh fetch from server
       ref.invalidate(systemConfigProvider);
-    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update $key: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Updated: $key → $value'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      // Revert optimistic update on failure
+      if (mounted) {
+        setState(() => _localOverrides.remove(key));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update $key: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red),
+        );
       }
     } finally {
       if (mounted) setState(() => _isUpdating = false);
     }
+  }
+
+  /// Returns the effective value for a config key, preferring local optimistic overrides.
+  String _cfg(Map<String, String> serverConfig, String key, String fallback) {
+    return _localOverrides[key] ?? serverConfig[key] ?? fallback;
   }
 
   @override
@@ -10379,14 +11476,14 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error: $err')),
       data: (config) {
-        final regStudent = config['registration_student_open'] == 'true';
-        final regCoordinator = config['registration_coordinator_open'] == 'true';
-        final regHod = config['registration_hod_open'] == 'true';
-        final regSupervisor = config['registration_supervisor_open'] == 'true';
-        final regUni = config['registration_university_open'] == 'true';
-        final regComp = config['registration_company_open'] == 'true';
-        final maintenance = config['maintenance_mode'] == 'true';
-        final maintenanceMessage = config['maintenance_message'] ?? '';
+        final regStudent = _cfg(config, 'registration_student_open', 'true') == 'true';
+        final regCoordinator = _cfg(config, 'registration_coordinator_open', 'true') == 'true';
+        final regHod = _cfg(config, 'registration_hod_open', 'true') == 'true';
+        final regSupervisor = _cfg(config, 'registration_supervisor_open', 'true') == 'true';
+        final regUni = _cfg(config, 'registration_university_open', 'true') == 'true';
+        final regComp = _cfg(config, 'registration_company_open', 'true') == 'true';
+        final maintenance = _cfg(config, 'maintenance_mode', 'false') == 'true';
+        final maintenanceMessage = _cfg(config, 'maintenance_message', '');
         final passwordMinLength = config['password_min_length'] ?? '8';
         final sessionTimeoutMin = config['session_timeout_min'] ?? '30';
         final apiRateLimitPerMin = config['api_rate_limit_per_min'] ?? '60';
@@ -10445,6 +11542,41 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                             _buildSectionHeaderSmall('Institutional Controls'),
                             _buildSwitchTile('Registration: University', regUni, (v) => _updateConfig('registration_university_open', v.toString()), isDark),
                             _buildSwitchTile('Registration: Company', regComp, (v) => _updateConfig('registration_company_open', v.toString()), isDark),
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                              child: Text(
+                                'Per-university student registration overrides are managed in Organizations → Details.',
+                                style: TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                            ),
+                            
+                            const Divider(height: 32),
+                            _buildSectionHeaderSmall('Onboarding'),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              child: Text(
+                                'Manually create organizations and send secure password setup links.',
+                                style: TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                            ),
+                            _buildActionTile('Create University', Icons.account_balance_rounded, Colors.blue, isDark, () {
+                              final orgsTab = ref.read(dashboardIndexProvider.notifier);
+                              orgsTab.state = 1; // Navigate to Orgs tab
+                              Future.delayed(const Duration(milliseconds: 300), () {
+                                if (mounted) {
+                                  final isDarkNow = Theme.of(context).brightness == Brightness.dark;
+                                  // Show create dialog — we need to find the orgs tab state
+                                  // For now show a direct dialog
+                                  _showQuickCreateDialog(context, 'University', isDark);
+                                }
+                              });
+                            }),
+                            _buildActionTile('Create Company', Icons.business_rounded, Colors.purple, isDark, () {
+                              _showQuickCreateDialog(context, 'Company', isDark);
+                            }),
+                            _buildActionTile('Send Setup Link', Icons.link_rounded, Colors.teal, isDark, () {
+                              _showSendSetupLinkDialog(context, isDark);
+                            }),
                             
                             const Divider(height: 32),
                             _buildSectionHeaderSmall('Operational Rules'),
@@ -10864,6 +11996,224 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
             child: const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Quick Create Org (from Settings tab) ─────────────────────────────────
+
+  void _showQuickCreateDialog(BuildContext context, String orgType, bool isDark) {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    final contactNameCtrl = TextEditingController();
+    final contactEmailCtrl = TextEditingController();
+    bool isSaving = false;
+    final color = orgType == 'University' ? Colors.blue : Colors.purple;
+    final icon = orgType == 'University' ? Icons.account_balance_rounded : Icons.business_rounded;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                      child: Icon(icon, color: color, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Create $orgType', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      const Text('Auto-approved, setup email sent', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    ]),
+                  ]),
+                  const SizedBox(height: 24),
+                  const Text('Name *', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  _buildSettingsFormField(nameCtrl, 'Organization name', icon, isDark),
+                  const SizedBox(height: 14),
+                  const Text('Official Email *', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  _buildSettingsFormField(emailCtrl, 'official@org.com', Icons.email_rounded, isDark, keyboardType: TextInputType.emailAddress),
+                  const SizedBox(height: 14),
+                  const Text('Address (optional)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  _buildSettingsFormField(addressCtrl, 'City, Country', Icons.location_on_rounded, isDark),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.04) : color.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: color.withOpacity(0.15)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Icon(Icons.person_add_rounded, size: 15, color: color),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${orgType == 'University' ? 'Coordinator' : 'Supervisor'} Contact (optional)',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color),
+                        ),
+                      ]),
+                      const SizedBox(height: 4),
+                      const Text('Creates an account and sends a password setup email.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      const SizedBox(height: 12),
+                      _buildSettingsFormField(contactNameCtrl, 'Full name', Icons.person_rounded, isDark),
+                      const SizedBox(height: 8),
+                      _buildSettingsFormField(contactEmailCtrl, 'Email address', Icons.email_outlined, isDark, keyboardType: TextInputType.emailAddress),
+                    ]),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: FilledButton.icon(
+                      onPressed: isSaving ? null : () async {
+                        final name = nameCtrl.text.trim();
+                        final email = emailCtrl.text.trim();
+                        if (name.isEmpty || email.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name and email are required'), backgroundColor: Colors.red));
+                          return;
+                        }
+                        setModalState(() => isSaving = true);
+                        try {
+                          final repo = ref.read(adminRepositoryProvider);
+                          if (orgType == 'University') {
+                            await repo.createUniversity(name: name, officialEmail: email, address: addressCtrl.text.trim(), contactName: contactNameCtrl.text.trim(), contactEmail: contactEmailCtrl.text.trim());
+                          } else {
+                            await repo.createCompany(name: name, officialEmail: email, address: addressCtrl.text.trim(), contactName: contactNameCtrl.text.trim(), contactEmail: contactEmailCtrl.text.trim());
+                          }
+                          ref.invalidate(allUniversitiesProvider);
+                          ref.invalidate(allCompaniesProvider);
+                          ref.invalidate(adminStatsProvider);
+                          if (context.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('$orgType "$name" created${contactEmailCtrl.text.trim().isNotEmpty ? ' — setup email sent' : ''}'),
+                              backgroundColor: Colors.green,
+                            ));
+                          }
+                        } catch (e) {
+                          setModalState(() => isSaving = false);
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                        }
+                      },
+                      icon: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_rounded),
+                      label: Text(isSaving ? 'Creating...' : 'Create $orgType'),
+                      style: FilledButton.styleFrom(backgroundColor: color, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsFormField(TextEditingController ctrl, String hint, IconData icon, bool isDark, {TextInputType? keyboardType}) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: keyboardType,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+        prefixIcon: Icon(icon, size: 18, color: Colors.grey),
+        filled: true,
+        fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+
+  // ── Send Setup Link (from Settings tab) ──────────────────────────────────
+
+  void _showSendSetupLinkDialog(BuildContext context, bool isDark) {
+    final emailCtrl = TextEditingController();
+    bool isSending = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.link_rounded, color: Colors.teal, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('Send Setup Link', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enter the email of an existing user to send them a password setup link.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  hintText: 'user@example.com',
+                  prefixIcon: const Icon(Icons.email_rounded, size: 18),
+                  filled: true,
+                  fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text('The link expires in 48 hours. The user must set their password before logging in.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton.icon(
+              onPressed: isSending ? null : () async {
+                final email = emailCtrl.text.trim();
+                if (email.isEmpty) return;
+                setDialogState(() => isSending = true);
+                try {
+                  await ref.read(adminRepositoryProvider).sendSetupLink(email);
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Setup link sent to $email'),
+                      backgroundColor: Colors.teal,
+                    ));
+                  }
+                } catch (e) {
+                  setDialogState(() => isSending = false);
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                }
+              },
+              icon: isSending ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, size: 16),
+              label: Text(isSending ? 'Sending...' : 'Send Link'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+            ),
+          ],
+        ),
       ),
     );
   }

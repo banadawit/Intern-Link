@@ -25,6 +25,7 @@ import commonFeedRoutes from './routes/commonFeedRoutes';
 import { startReminderScheduler } from './services/reminderScheduler';
 import chatRoutes from './routes/chatRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 import { isMaintenanceMode } from './controllers/systemConfigController';
 
 import { errorHandler } from './middlewares/errorMiddleware';
@@ -53,6 +54,7 @@ app.use('/api/coordinator-portal', coordinatorPortalRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/hod', hodRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/common-feed', commonFeedRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
