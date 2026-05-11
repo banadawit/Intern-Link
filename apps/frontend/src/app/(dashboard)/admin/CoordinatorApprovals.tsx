@@ -3,13 +3,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { CheckCircle, XCircle, FileText, User, Building, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import Link from "next/link";
 import api from "@/lib/api/client";
 import { AxiosError } from "axios";
 import AdminPageHero from "./AdminPageHero";
-import { getViewerUrl } from "@/lib/utils";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import SuccessToast from "@/components/shared/SuccessToast";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 interface PendingCoordinator {
   id: number;
@@ -38,6 +37,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -153,13 +153,14 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                   </td>
                   <td className="px-6 py-4">
                     {c.user.verification_document ? (
-                      <Link
-                        href={getViewerUrl(c.user.verification_document)}
+                      <button
+                        type="button"
+                        onClick={() => setDocUrl(c.user.verification_document)}
                         className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                       >
                         <FileText className="w-4 h-4" />
                         View Doc
-                      </Link>
+                      </button>
                     ) : (
                       <span className="text-xs text-slate-400 italic">No document</span>
                     )}
@@ -252,6 +253,12 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
         show={toast.show}
         message={toast.message}
         onClose={() => setToast({ show: false, message: "" })}
+      />
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title="Verification Document"
+        onClose={() => setDocUrl(null)}
       />
     </div>
   );

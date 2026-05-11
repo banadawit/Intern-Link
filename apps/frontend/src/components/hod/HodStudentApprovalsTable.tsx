@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { LayoutGrid, Table2 } from "lucide-react";
+import { LayoutGrid, Table2, FileText, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HodStudentRow } from "./types";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 type ViewMode = "row" | "card";
 
@@ -79,14 +80,16 @@ function ActionButtons({
 
 export default function HodStudentApprovalsTable({ students, submitting, onApprove, onReject }: Props) {
   const [view, setView] = useState<ViewMode>("row");
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const toggleView = () => setView((v) => (v === "row" ? "card" : "row"));
 
   return (
-    <section
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900"
-      aria-label="Student approvals"
-    >
+    <>
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900"
+        aria-label="Student approvals"
+      >
       <div className="mb-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
         <button
           type="button"
@@ -130,14 +133,13 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                   <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{s.department ?? "—"}</td>
                   <td className="px-4 py-3">
                     {s.user.verification_document ? (
-                      <a
-                        href={s.user.verification_document}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setDocUrl(s.user.verification_document)}
                         className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors"
                       >
-                        View
-                      </a>
+                        <FileText className="h-3.5 w-3.5" /> View
+                      </button>
                     ) : (
                       <span className="text-xs text-slate-400">None</span>
                     )}
@@ -181,14 +183,13 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                   <span className="text-slate-500 dark:text-slate-400">Dept:</span> {s.department ?? "—"}
                 </p>
                 {s.user.verification_document && (
-                  <a
-                    href={s.user.verification_document}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setDocUrl(s.user.verification_document)}
                     className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors"
                   >
-                    View document
-                  </a>
+                    <FileText className="h-3.5 w-3.5" /> View document
+                  </button>
                 )}
               </div>
               <ActionButtons
@@ -206,5 +207,12 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
         </div>
       )}
     </section>
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title="Verification Document"
+        onClose={() => setDocUrl(null)}
+      />
+    </>
   );
 }

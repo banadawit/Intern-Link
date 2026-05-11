@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle, XCircle, User, Building, FileText, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, User, Building, FileText } from "lucide-react";
 import { format } from "date-fns";
-import Link from "next/link";
-import { cn, getViewerUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import api from "@/lib/api/client";
 import CoordinatorPageHero from "../CoordinatorPageHero";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 interface HodRecord {
   id: number;
@@ -31,6 +31,7 @@ export default function CoordinatorApprovalsPage() {
   const [rejected, setRejected] = useState<HodRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
 
   const load = useCallback(async () => {
@@ -56,7 +57,8 @@ export default function CoordinatorApprovalsPage() {
   const rows = activeTab === "approved" ? approved : rejected;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <>
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <CoordinatorPageHero
         badge="Approvals"
         title="HOD Approval History"
@@ -149,14 +151,14 @@ export default function CoordinatorApprovalsPage() {
                     </td>
                     <td className="px-6 py-4">
                       {h.user.verification_document ? (
-                        <Link
-                          href={getViewerUrl(h.user.verification_document)}
+                        <button
+                          type="button"
+                          onClick={() => setDocUrl(h.user.verification_document)}
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           <FileText className="w-4 h-4" />
                           View Doc
-                          <ExternalLink className="w-3 h-3" />
-                        </Link>
+                        </button>
                       ) : (
                         <span className="text-xs text-slate-400 italic">No document</span>
                       )}
@@ -183,5 +185,12 @@ export default function CoordinatorApprovalsPage() {
         )}
       </div>
     </div>
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title="Verification Document"
+        onClose={() => setDocUrl(null)}
+      />
+    </>
   );
 }

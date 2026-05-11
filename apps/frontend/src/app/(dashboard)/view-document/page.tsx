@@ -70,11 +70,13 @@ function ViewDocumentContent() {
           <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="shrink-0 rounded-lg p-2 hover:bg-slate-100 transition-colors"
+              className="shrink-0 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
               title="Go Back"
             >
-              <ArrowLeft className="h-5 w-5 text-slate-700" />
+              <ArrowLeft className="h-4 w-4" />
+              Cancel
             </button>
+            <div className="h-5 w-px bg-slate-300" />
             <span className="truncate text-sm font-semibold text-slate-900">{title}</span>
           </div>
 

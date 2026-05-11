@@ -88,6 +88,9 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
         }
 
         if (status === 'SUSPENDED' && existing.approval_status !== 'APPROVED') {
+            if (existing.approval_status === 'SUSPENDED') {
+                return sendSuccess(res, { updated: existing }, 'University is already suspended');
+            }
             return sendError(res, 'Only approved organizations can be suspended.', 400);
         }
 
@@ -101,6 +104,16 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             }
         }
 
+        // When approving, pull verification_doc from the linked coordinator if not already set
+        let coordVerificationDoc: string | null = null;
+        if (status === 'APPROVED' && existing.verification_doc == null) {
+            const coordinator = await prisma.coordinator.findFirst({
+                where: { universityId: uid },
+                include: { user: { select: { verification_document: true } } },
+            });
+            coordVerificationDoc = coordinator?.user?.verification_document ?? null;
+        }
+
         const updated = await prisma.university.update({
             where: { id: uid },
             data: {
@@ -109,7 +122,10 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
                     ? { rejection_reason: rejectionReason, verification_doc: null }
                     : status === 'SUSPENDED'
                       ? {}
-                      : { rejection_reason: null }),
+                      : {
+                            rejection_reason: null,
+                            ...(coordVerificationDoc ? { verification_doc: coordVerificationDoc } : {}),
+                        }),
             }
         });
 
@@ -129,4 +145,4 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }
-};
+};

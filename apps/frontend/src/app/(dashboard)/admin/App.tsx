@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "./Sidebar";
+import Dashboard, { type AdminDashboardStats } from "./Dashboard";
 import VerificationList from "./VerificationList";
 import VerificationDetail from "./VerificationDetail";
 import AuditLog from "./AuditLog";
@@ -12,7 +13,6 @@ import SupervisorApprovals from "./SupervisorApprovals";
 import ApprovalsView from "./ApprovalsView";
 import SystemSettings from "./SystemSettings";
 import OrganizationsView from "./OrganizationsView";
-import AnalyticsView from "./AnalyticsView";
 import api from "@/lib/api/client";
 import NotificationBell from "@/components/shared/NotificationBell";
 import ThemeToggle from "@/components/theme/ThemeToggle";
@@ -25,14 +25,14 @@ import {
 import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
 
 type ViewKey =
-  | "analytics"
+  | "dashboard"
   | "approvals"
   | "organizations"
   | "audit-log"
   | "settings";
 
 const VALID_VIEWS: ViewKey[] = [
-  "analytics",
+  "dashboard",
   "approvals",
   "organizations",
   "audit-log",
@@ -41,7 +41,7 @@ const VALID_VIEWS: ViewKey[] = [
 
 function parseViewParam(v: string | null): ViewKey {
   if (v && VALID_VIEWS.includes(v as ViewKey)) return v as ViewKey;
-  return "analytics";
+  return "dashboard";
 }
 
 export default function App() {
@@ -51,7 +51,8 @@ export default function App() {
 
   const [proposals, setProposals] = useState<VerificationProposal[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [stats, setStats] = useState<Record<string, number> | null>(null);
+  const [stats, setStats] = useState<AdminDashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [listsLoading, setListsLoading] = useState(true);
   const [selectedProposal, setSelectedProposal] = useState<VerificationProposal | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>(initialView);
@@ -65,8 +66,10 @@ export default function App() {
     setListsLoading(true);
     try {
       const [uniRes, compRes] = await Promise.all([api.get("/admin/universities"), api.get("/admin/companies")]);
-      const uniRows = Array.isArray(uniRes.data) ? uniRes.data as Record<string, unknown>[] : [];
-      const compRows = Array.isArray(compRes.data) ? compRes.data as Record<string, unknown>[] : [];
+      const uniRaw = (uniRes.data as { data?: unknown[] })?.data ?? uniRes.data;
+      const compRaw = (compRes.data as { data?: unknown[] })?.data ?? compRes.data;
+      const uniRows = Array.isArray(uniRaw) ? uniRaw as Record<string, unknown>[] : [];
+      const compRows = Array.isArray(compRaw) ? compRaw as Record<string, unknown>[] : [];
       const u = uniRows.map((row) => mapUniversityToProposal(row as never));
       const c = compRows.map((row) => mapCompanyToProposal(row as never));
       setProposals([...u, ...c]);
@@ -78,11 +81,12 @@ export default function App() {
   }, []);
 
   const loadStats = useCallback(async () => {
+    setStatsLoading(true);
     try {
-      const { data } = await api.get("/admin/stats");
-      setStats(data as Record<string, number>);
+      const { data } = await api.get<AdminDashboardStats>("/admin/stats");
+      setStats(data);
     } finally {
-      // stats loaded
+      setStatsLoading(false);
     }
   }, []);
 
@@ -144,8 +148,15 @@ export default function App() {
     try {
       await patchOrgStatus(id, "SUSPENDED");
       setSelectedProposal(null);
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+      // Already suspended — just close the modal and refresh
+      if (msg.toLowerCase().includes("only approved")) {
+        setSelectedProposal(null);
+        await loadProposals();
+      } else {
+        console.error(e);
+      }
     }
   };
 
@@ -160,7 +171,42 @@ export default function App() {
 
   const pendingVerificationCount = proposals.filter((p) => p.status === "Pending").length;
 
+  const handleReview = useCallback(async (p: VerificationProposal) => {
+    try {
+      const parsed = parseProposalId(p.id);
+      if (parsed) {
+        const endpoint = parsed.kind === "university"
+          ? `/admin/universities`
+          : `/admin/companies`;
+        const res = await api.get(endpoint);
+        const raw = (res.data as { data?: unknown[] })?.data ?? res.data;
+        const rows = Array.isArray(raw) ? raw as Record<string, unknown>[] : [];
+        const fresh = rows.find((r) => Number(r.id) === parsed.numericId);
+        if (fresh) {
+          const mapped = parsed.kind === "university"
+            ? mapUniversityToProposal(fresh as never)
+            : mapCompanyToProposal(fresh as never);
+          setSelectedProposal(mapped);
+          return;
+        }
+      }
+    } catch {
+      // fall through to use cached data
+    }
+    setSelectedProposal(p);
+  }, []);
+
+
+
   const mainContent = useMemo(() => {
+    if (activeView === "dashboard")
+      return (
+        <Dashboard
+          pendingVerificationCount={pendingVerificationCount}
+          stats={stats}
+          statsLoading={statsLoading}
+        />
+      );
     if (activeView === "approvals")
       return (
         <ApprovalsView
@@ -169,7 +215,7 @@ export default function App() {
           pendingCount={pendingVerificationCount}
           pendingCoordinatorCount={stats?.pendingCoordinators ?? 0}
           pendingSupervisorCount={stats?.pendingSupervisors ?? 0}
-          onReview={setSelectedProposal}
+          onReview={handleReview}
           onActionComplete={() => { loadStats(); loadAuditLogs(); loadProposals(); }}
         />
       );
@@ -178,14 +224,13 @@ export default function App() {
         <OrganizationsView
           proposals={proposals}
           loading={listsLoading}
-          onReview={setSelectedProposal}
+          onReview={handleReview}
           onActionComplete={() => { loadProposals(); loadStats(); }}
         />
       );
-    if (activeView === "analytics") return <AnalyticsView />;
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
     if (activeView === "settings") return <SystemSettings />;
-  }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, listsLoading]);
+  }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading, handleReview]);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row dark:bg-slate-950 dark:text-slate-300">
