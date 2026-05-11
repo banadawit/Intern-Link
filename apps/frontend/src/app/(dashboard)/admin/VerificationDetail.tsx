@@ -37,15 +37,15 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
         role="dialog"
         aria-modal="true"
         aria-labelledby="verification-detail-title"
-        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/60 bg-white shadow-[0_25px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/60 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-[0_25px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 dark:ring-slate-700"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="relative overflow-hidden border-b border-slate-200/80 bg-gradient-to-br from-teal-50/90 via-white to-slate-50 px-6 pb-5 pt-6 sm:px-8">
+        <header className="relative overflow-hidden border-b border-slate-200/80 dark:border-slate-700 bg-gradient-to-br from-teal-50/90 via-white to-slate-50 dark:from-teal-950/30 dark:via-slate-900 dark:to-slate-900 px-6 pb-5 pt-6 sm:px-8">
           <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-teal-200/35 blur-3xl" aria-hidden />
           <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-40 rounded-full bg-sky-100/40 blur-2xl" aria-hidden />
           <div className="relative flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-3">
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-teal-800 shadow-sm ring-1 ring-teal-100 sm:text-xs">
+              <p className="inline-flex items-center gap-2 rounded-full bg-white/90 dark:bg-slate-800/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-teal-800 dark:text-teal-300 shadow-sm ring-1 ring-teal-100 dark:ring-teal-800 sm:text-xs">
                 <Sparkles className="h-3.5 w-3.5 shrink-0" />
                 Verification review
               </p>
@@ -59,10 +59,10 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
                   <FileText className="h-6 w-6" />
                 </div>
                 <div className="min-w-0">
-                  <h2 id="verification-detail-title" className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                  <h2 id="verification-detail-title" className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
                     {proposal.organizationName}
                   </h2>
-                  <p className="text-sm text-slate-600">Proposal #{proposal.id}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Proposal #{proposal.id}</p>
                 </div>
               </div>
             </div>
