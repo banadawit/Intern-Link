@@ -8,6 +8,7 @@ import {
 } from '../utils/institutionVerification';
 import { attachVerificationSla } from '../utils/verificationSla';
 import { UploadResult } from '../services/cloudinary.service';
+import { sendNotification } from '../utils/notificationHelper';
 
 // --- INSTITUTION MANAGEMENT ---
 
@@ -188,6 +189,14 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
         });
         if (status === 'APPROVED' && existing.approval_status === 'PENDING') {
             await sendOrganizationApprovalEmail(updated.official_email, updated.name, 'University');
+            // Notify the coordinator linked to this university
+            const coordinator = await prisma.coordinator.findFirst({
+                where: { universityId: uid },
+                select: { userId: true },
+            });
+            if (coordinator) {
+                await sendNotification(coordinator.userId, `✅ Your university "${updated.name}" has been approved. You can now access the platform.`);
+            }
         }
         if (status === 'REJECTED') {
             await sendOrganizationRejectionEmail(
@@ -196,6 +205,13 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
                 'University',
                 updated.rejection_reason ?? rejectionReason
             );
+            const coordinator = await prisma.coordinator.findFirst({
+                where: { universityId: uid },
+                select: { userId: true },
+            });
+            if (coordinator) {
+                await sendNotification(coordinator.userId, `❌ Your university "${updated.name}" registration was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`);
+            }
         }
         await prisma.auditLog.create({
             data: {
@@ -258,6 +274,14 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
         });
         if (status === 'APPROVED' && existing.approval_status === 'PENDING') {
             await sendOrganizationApprovalEmail(updated.official_email, updated.name, 'Company');
+            // Notify supervisors linked to this company
+            const supervisors = await prisma.supervisor.findMany({
+                where: { companyId: cid },
+                select: { userId: true },
+            });
+            for (const sup of supervisors) {
+                await sendNotification(sup.userId, `✅ Your company "${updated.name}" has been approved. You can now access the platform.`);
+            }
         }
         if (status === 'REJECTED') {
             await sendOrganizationRejectionEmail(
@@ -266,6 +290,13 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
                 'Company',
                 updated.rejection_reason ?? rejectionReason
             );
+            const supervisors = await prisma.supervisor.findMany({
+                where: { companyId: cid },
+                select: { userId: true },
+            });
+            for (const sup of supervisors) {
+                await sendNotification(sup.userId, `❌ Your company "${updated.name}" registration was not approved.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`);
+            }
         }
         await prisma.auditLog.create({
             data: {
@@ -317,6 +348,14 @@ export const updateUserInstitutionAccess = async (req: AuthRequest, res: Respons
             where: { id: userId },
             data: { institution_access_approval: status as 'APPROVED' | 'REJECTED' },
         });
+
+        const roleLabel = user.role.charAt(0) + user.role.slice(1).toLowerCase();
+        if (status === 'APPROVED') {
+            await sendNotification(userId, `✅ Your ${roleLabel} account has been approved by the admin. You can now log in and access the platform.`);
+        } else {
+            await sendNotification(userId, `❌ Your ${roleLabel} account access was not approved by the admin. Please contact support for more information.`);
+        }
+
         res.json({ message: `Institution access ${status}`, user: updated });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
