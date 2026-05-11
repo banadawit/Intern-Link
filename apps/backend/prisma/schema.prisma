@@ -508,7 +508,7 @@ model Notification {
   message     String
   is_read     Boolean  @default(false)
   created_at  DateTime @default(now())
-  recipient   User     @relation(fields: [recipientId], references: [id])
+  recipient   User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 }
 
 model File {
