@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  LayoutDashboard,
   CheckCircle,
   Clock,
   XCircle,
@@ -21,10 +20,9 @@ import LogoutModal from "@/components/common/LogoutModal";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 
 type ViewKey =
-  | "dashboard"
+  | "analytics"
   | "approvals"
   | "organizations"
-  | "analytics"
   | "approved"
   | "rejected"
   | "suspended"
@@ -56,10 +54,9 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
     .toUpperCase()
     .slice(0, 2) ?? 'AD';
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
-    { icon: LayoutDashboard, label: "Dashboard", view: "dashboard" },
+    { icon: BarChart3, label: "Analytics", view: "analytics" },
     { icon: Clock, label: "Approvals", view: "approvals" },
     { icon: Building2, label: "Organizations", view: "organizations" },
-    { icon: BarChart3, label: "Analytics", view: "analytics" },
     { icon: CheckCircle, label: "Approved History", view: "approved" },
     { icon: Ban, label: "Suspended", view: "suspended" },
     { icon: XCircle, label: "Rejected History", view: "rejected" },
