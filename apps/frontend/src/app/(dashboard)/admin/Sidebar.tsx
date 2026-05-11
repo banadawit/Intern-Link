@@ -141,16 +141,14 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
           </div>
           <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.fullName ?? "Admin"}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowLogout(true)}
-            className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-            aria-label="Logout"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowLogout(true)}
+          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+          aria-label="Logout"
+        >
+          <LogOut className="h-5 w-5" />
+        </button>
       </div>
     </aside>
   );
