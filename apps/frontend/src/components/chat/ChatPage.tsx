@@ -90,14 +90,18 @@ export default function ChatPage() {
   const loadSidebar = useCallback(async () => {
     try {
       const [convRes, contactRes] = await Promise.all([
-        api.get<Conversation[]>("/chat/conversations"),
+        api.get<{ success: boolean; data: Conversation[] }>("/chat/conversations"),
         api.get<Contact[]>("/chat/contacts"),
       ]);
-      setConversations(convRes.data);
+      const convs = Array.isArray(convRes.data.data) ? convRes.data.data : [];
+      const conts = Array.isArray(contactRes.data) ? contactRes.data as Contact[] : [];
+      setConversations(convs);
       // Merge contacts not yet in conversations
-      const existingIds = new Set(convRes.data.map((c) => c.partner.id));
-      const newContacts = contactRes.data.filter((c) => !existingIds.has(c.id));
+      const existingIds = new Set(convs.map((c) => c.partner.id));
+      const newContacts = conts.filter((c) => !existingIds.has(c.id));
       setContacts(newContacts);
+    } catch {
+      // ignore sidebar load errors silently
     } finally {
       setLoading(false);
     }
