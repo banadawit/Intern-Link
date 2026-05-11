@@ -102,6 +102,8 @@ export default function ChatPage() {
       const existingIds = new Set(convData.map((c) => c.partner.id));
       const newContacts = contactData.filter((c) => !existingIds.has(c.id));
       setContacts(newContacts);
+    } catch {
+      // ignore sidebar load errors silently
     } finally {
       setLoading(false);
     }

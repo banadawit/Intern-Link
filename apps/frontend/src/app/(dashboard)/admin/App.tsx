@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "./Sidebar";
-import Dashboard, { type AdminDashboardStats } from "./Dashboard";
 import VerificationList from "./VerificationList";
 import VerificationDetail from "./VerificationDetail";
 import AuditLog from "./AuditLog";
@@ -28,10 +27,9 @@ import {
 import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
 
 type ViewKey =
-  | "dashboard"
+  | "analytics"
   | "approvals"
   | "organizations"
-  | "analytics"
   | "approved"
   | "rejected"
   | "suspended"
@@ -39,10 +37,9 @@ type ViewKey =
   | "settings";
 
 const VALID_VIEWS: ViewKey[] = [
-  "dashboard",
+  "analytics",
   "approvals",
   "organizations",
-  "analytics",
   "approved",
   "rejected",
   "suspended",
@@ -52,7 +49,7 @@ const VALID_VIEWS: ViewKey[] = [
 
 function parseViewParam(v: string | null): ViewKey {
   if (v && VALID_VIEWS.includes(v as ViewKey)) return v as ViewKey;
-  return "dashboard";
+  return "analytics";
 }
 
 export default function App() {
@@ -62,8 +59,7 @@ export default function App() {
 
   const [proposals, setProposals] = useState<VerificationProposal[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [stats, setStats] = useState<AdminDashboardStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
+  const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [listsLoading, setListsLoading] = useState(true);
   const [selectedProposal, setSelectedProposal] = useState<VerificationProposal | null>(null);
   const [activeView, setActiveView] = useState<ViewKey>(initialView);
@@ -90,12 +86,11 @@ export default function App() {
   }, []);
 
   const loadStats = useCallback(async () => {
-    setStatsLoading(true);
     try {
-      const { data } = await api.get<AdminDashboardStats>("/admin/stats");
-      setStats(data);
+      const { data } = await api.get("/admin/stats");
+      setStats(data as Record<string, number>);
     } finally {
-      setStatsLoading(false);
+      // stats loaded
     }
   }, []);
 
@@ -174,14 +169,6 @@ export default function App() {
   const pendingVerificationCount = proposals.filter((p) => p.status === "Pending").length;
 
   const mainContent = useMemo(() => {
-    if (activeView === "dashboard")
-      return (
-        <Dashboard
-          pendingVerificationCount={pendingVerificationCount}
-          stats={stats}
-          statsLoading={statsLoading}
-        />
-      );
     if (activeView === "approvals")
       return (
         <ApprovalsView
@@ -234,7 +221,7 @@ export default function App() {
       );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
     if (activeView === "settings") return <SystemSettings />;
-  }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading]);
+  }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, listsLoading]);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row dark:bg-slate-950 dark:text-slate-300">
