@@ -60,6 +60,100 @@ export const register = async (req: Request, res: Response) => {
             return sendError(res, regCheck.reason ?? `Registration for ${roleUpper} accounts is currently closed.`, 403, 'REGISTRATION_CLOSED');
         }
 
+        const supervisorCompanyName =
+            roleUpper === 'SUPERVISOR' && typeof company_name === 'string' ? company_name.trim() : '';
+
+        if (roleUpper === 'SUPERVISOR' && !supervisorCompanyName) {
+            return sendError(res, 'Company name is required for supervisor registration.', 400);
+        }
+
+        const { university_id: bodyUniversityId, hod_id: bodyHodId, employee_id } = req.body as {
+            university_id?: unknown;
+            hod_id?: unknown;
+            employee_id?: unknown;
+        };
+
+        let hodEnrollment:
+            | {
+                  universityId: number;
+                  department: string;
+                  employeePhone: string | null;
+                  coordinatorEmails: string[];
+                  universityName: string;
+              }
+            | undefined;
+
+        if (roleUpper === 'HOD') {
+            const universityId = parseInt(String(bodyUniversityId ?? ''), 10);
+            if (!universityId || !department) {
+                return sendError(res, 'University and department are required for HoD registration.', 400);
+            }
+            const university = await prisma.university.findUnique({ where: { id: universityId } });
+            if (!university || university.approval_status !== 'APPROVED') {
+                return sendError(res, 'Selected university is not approved or does not exist.', 400);
+            }
+            const universityCoordinator = await prisma.coordinator.findFirst({
+                where: { universityId },
+            });
+            if (!universityCoordinator) {
+                return sendError(
+                    res,
+                    `Your university "${university.name}" does not have a coordinator yet. Please make sure your coordinator registers and gets approved first before you register as Head of Department.`,
+                    400
+                );
+            }
+            const coordinators = await prisma.coordinator.findMany({
+                where: { universityId },
+                include: { user: { select: { email: true } } },
+            });
+            hodEnrollment = {
+                universityId,
+                department,
+                employeePhone:
+                    typeof employee_id === 'string' && employee_id.trim() ? employee_id.trim() : null,
+                coordinatorEmails: coordinators.map((c) => c.user.email),
+                universityName: university.name,
+            };
+        }
+
+        let studentEnrollment:
+            | {
+                  universityId: number;
+                  hodId: number | null;
+                  hodDepartment: string | null;
+                  hodUserId: number | null;
+              }
+            | undefined;
+
+        if (roleUpper === 'STUDENT') {
+            const universityId = parseInt(String(bodyUniversityId ?? ''), 10);
+            const hodId = bodyHodId ? parseInt(String(bodyHodId), 10) : null;
+
+            if (!universityId) {
+                return sendError(res, 'University is required for student registration.', 400);
+            }
+
+            const university = await prisma.university.findUnique({ where: { id: universityId } });
+            if (!university || university.approval_status !== 'APPROVED') {
+                return sendError(res, 'Selected university is not approved.', 400);
+            }
+
+            let hodProfile: { department: string; userId: number } | null = null;
+            if (hodId) {
+                const hp = await prisma.hodProfile.findUnique({ where: { id: hodId } });
+                if (!hp || hp.universityId !== universityId) {
+                    return sendError(res, 'Selected department is not valid for this university.', 400);
+                }
+                hodProfile = { department: hp.department, userId: hp.userId };
+            }
+
+            studentEnrollment = {
+                universityId,
+                hodId,
+                hodDepartment: hodProfile?.department ?? (department || null),
+                hodUserId: hodProfile?.userId ?? null,
+            };
+        }
 
         // Check if user exists
         const userExists = await prisma.user.findUnique({ where: { email } });
@@ -77,35 +171,126 @@ export const register = async (req: Request, res: Response) => {
         // The URL is already provided by the frontend after Cloudinary upload
         const verificationDocUrl = verification_document || null;
 
-        // Create user with verification token
         const needsIndividualAdminApproval =
             roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR' || roleUpper === 'HOD';
 
-        const newUser = await prisma.user.create({
-            data: {
-                full_name,
-                email,
-                password_hash: hashedPassword,
-                role: roleUpper, // Ensure uppercase for enum
-                verification_status: 'PENDING',
-                verification_token: verificationToken,
-                verification_token_expiry: verificationTokenExpiry,
-                verification_document: verificationDocUrl,
-                institution_access_approval: needsIndividualAdminApproval ? 'PENDING' : 'APPROVED',
+        const registrationResult = await prisma.$transaction(async (tx) => {
+            let supervisorNewCompanyMeta: { companyId: number; companyName: string } | null = null;
+
+            const user = await tx.user.create({
+                data: {
+                    full_name,
+                    email,
+                    password_hash: hashedPassword,
+                    role: roleUpper as Role,
+                    verification_status: 'PENDING',
+                    verification_token: verificationToken,
+                    verification_token_expiry: verificationTokenExpiry,
+                    verification_document: verificationDocUrl,
+                    institution_access_approval: needsIndividualAdminApproval ? 'PENDING' : 'APPROVED',
+                },
+            });
+
+            if (roleUpper === 'COORDINATOR') {
+                const selectedUniversityId = req.body.university_id
+                    ? parseInt(String(req.body.university_id), 10) || null
+                    : null;
+
+                let linkedUniversityId: number | null = null;
+
+                if (selectedUniversityId) {
+                    const existingUni = await tx.university.findUnique({
+                        where: { id: selectedUniversityId },
+                    });
+                    if (existingUni && existingUni.approval_status === 'APPROVED') {
+                        linkedUniversityId = existingUni.id;
+                    }
+                }
+
+                await tx.coordinator.create({
+                    data: {
+                        userId: user.id,
+                        universityId: null,
+                        pending_university_name: linkedUniversityId
+                            ? null
+                            : (university_name || null),
+                        ...(linkedUniversityId
+                            ? {
+                                  pending_university_name: `__EXISTING__:${linkedUniversityId}:${university_name || ''}`,
+                              }
+                            : {}),
+                    },
+                });
+            } else if (roleUpper === 'SUPERVISOR') {
+                let company = await tx.company.findFirst({
+                    where: { name: supervisorCompanyName },
+                });
+                let createdNewCompany = false;
+
+                if (!company) {
+                    const emailTaken = await tx.company.findUnique({
+                        where: { official_email: email },
+                    });
+                    if (emailTaken) {
+                        company = emailTaken;
+                    } else {
+                        company = await tx.company.create({
+                            data: {
+                                name: supervisorCompanyName,
+                                official_email: email,
+                                approval_status: 'PENDING',
+                                verification_doc: verificationDocUrl,
+                            },
+                        });
+                        createdNewCompany = true;
+                    }
+                }
+
+                if (createdNewCompany) {
+                    supervisorNewCompanyMeta = { companyId: company.id, companyName: company.name };
+                }
+
+                await tx.supervisor.create({
+                    data: {
+                        userId: user.id,
+                        companyId: company.id,
+                        phone_number: position || null,
+                    },
+                });
+            } else if (roleUpper === 'HOD' && hodEnrollment) {
+                await tx.hodProfile.create({
+                    data: {
+                        userId: user.id,
+                        universityId: hodEnrollment.universityId,
+                        department: hodEnrollment.department,
+                        phone_number: hodEnrollment.employeePhone,
+                    },
+                });
+            } else if (roleUpper === 'STUDENT' && studentEnrollment) {
+                await tx.student.create({
+                    data: {
+                        userId: user.id,
+                        universityId: studentEnrollment.universityId,
+                        hodId: studentEnrollment.hodId,
+                        registration_type: email.includes('.edu.et') ? 'Official' : 'Personal',
+                        studentId: student_id || null,
+                        department: studentEnrollment.hodDepartment,
+                        hod_approval_status: 'PENDING',
+                    },
+                });
             }
+
+            return { user, supervisorNewCompanyMeta };
         });
 
-        // ✅ Create role-specific profile
+        const newUser = registrationResult.user;
+
         if (roleUpper === 'COORDINATOR') {
-            // Check if coordinator selected an existing approved university
             const selectedUniversityId = req.body.university_id
                 ? parseInt(String(req.body.university_id), 10) || null
                 : null;
-
             let linkedUniversityId: number | null = null;
-
             if (selectedUniversityId) {
-                // Validate the selected university exists and is approved
                 const existingUni = await prisma.university.findUnique({
                     where: { id: selectedUniversityId },
                 });
@@ -113,23 +298,6 @@ export const register = async (req: Request, res: Response) => {
                     linkedUniversityId = existingUni.id;
                 }
             }
-
-            await prisma.coordinator.create({
-                data: {
-                    userId: newUser.id,
-                    // If they selected an existing university, store the ID but still require admin approval
-                    // universityId stays null until admin approves — this is the gate
-                    universityId: null,
-                    pending_university_name: linkedUniversityId
-                        ? null  // Will be resolved from university_id on approval
-                        : (university_name || null),
-                    // Store selected university ID in phone_number field temporarily
-                    // We use a dedicated approach: store as JSON in pending_university_name
-                    ...(linkedUniversityId
-                        ? { pending_university_name: `__EXISTING__:${linkedUniversityId}:${university_name || ''}` }
-                        : {}),
-                }
-            });
 
             await notifyAdminsNewVerificationProposal({
                 organizationName: university_name || 'Unknown University',
@@ -142,158 +310,57 @@ export const register = async (req: Request, res: Response) => {
                 `New Coordinator registration pending: ${full_name} (${email}) for ${university_name || 'Unknown University'}${linkedUniversityId ? ' (existing university selected)' : ' (new university request)'}`,
                 NotificationType.ADMIN_ALERT
             );
-        } 
-        else if (roleUpper === 'SUPERVISOR') {
-            // First, find or create company
-            let company = await prisma.company.findFirst({
-                where: { name: company_name }
-            });
-            let createdNewCompany = false;
 
-            if (!company && company_name) {
-                // Check if email is already used as a company official_email
-                const emailTaken = await prisma.company.findUnique({
-                    where: { official_email: email }
-                });
-                if (emailTaken) {
-                    // Link to the existing company with this email
-                    company = emailTaken;
-                } else {
-                    company = await prisma.company.create({
-                        data: {
-                            name: company_name,
-                            official_email: email,
-                            approval_status: 'PENDING',
-                            verification_doc: verificationDocUrl
-                        }
-                    });
-                    createdNewCompany = true;
-                }
-            }
-
-            if (company && createdNewCompany) {
+            await sendNotification(
+                newUser.id,
+                'Your coordinator registration was received and is pending review by an administrator.'
+            );
+        } else if (roleUpper === 'SUPERVISOR') {
+            const supervisorNewCompanyMeta = registrationResult.supervisorNewCompanyMeta;
+            if (supervisorNewCompanyMeta) {
                 await notifyAdminsNewVerificationProposal({
-                    organizationName: company.name,
+                    organizationName: supervisorNewCompanyMeta.companyName,
                     institutionType: 'Company',
-                    organizationId: company.id,
+                    organizationId: supervisorNewCompanyMeta.companyId,
                     submitterEmail: email,
                 });
 
                 await notifyAllAdmins(
-                    `New Company registration pending: ${company_name} (Submitted by ${full_name})`,
+                    `New Company registration pending: ${supervisorCompanyName} (Submitted by ${full_name})`,
                     NotificationType.ADMIN_ALERT
                 );
             }
-            
+
             await notifyAllAdmins(
-                `New Supervisor registration pending: ${full_name} (${email}) for ${company_name || 'Existing Company'}`,
+                `New Supervisor registration pending: ${full_name} (${email}) for ${supervisorCompanyName}`,
                 NotificationType.ADMIN_ALERT
             );
-            
-            if (company) {
-                await prisma.supervisor.create({
-                    data: {
-                        userId: newUser.id,
-                        companyId: company.id,
-                        phone_number: position || null,
-                    }
-                });
-            }
-        } else if (roleUpper === 'HOD') {
-            const { university_id, employee_id } = req.body;
-            const universityId = parseInt(university_id, 10);
 
-            if (!universityId || !department) {
-                await prisma.user.delete({ where: { id: newUser.id } });
-                return sendError(res, 'University and department are required for HoD registration.', 400);
-            }
-
-            const university = await prisma.university.findUnique({ where: { id: universityId } });
-            if (!university || university.approval_status !== 'APPROVED') {
-                await prisma.user.delete({ where: { id: newUser.id } });
-                return sendError(res, 'Selected university is not approved or does not exist.', 400);
-            }
-
-            // Block HOD registration if the university has no approved coordinator yet
-            const universityCoordinator = await prisma.coordinator.findFirst({
-                where: { universityId },
-            });
-            if (!universityCoordinator) {
-                await prisma.user.delete({ where: { id: newUser.id } });
-                return sendError(res, `Your university "${university.name}" does not have a coordinator yet. Please make sure your coordinator registers and gets approved first before you register as Head of Department.`, 400);
-            }
-
-            await prisma.hodProfile.create({
-                data: {
-                    userId: newUser.id,
-                    universityId,
-                    department,
-                    phone_number: typeof employee_id === 'string' && employee_id.trim() ? employee_id.trim() : null,
-                },
-            });
-
-            // Notify all coordinators of this university
-            const coordinators = await prisma.coordinator.findMany({
-                where: { universityId },
-                include: { user: { select: { email: true } } },
-            });
-            const coordinatorEmails = coordinators.map((c: any) => c.user.email);
-
-            if (coordinatorEmails.length > 0) {
-                await sendCoordinatorHodReviewEmail(coordinatorEmails, {
+            await sendNotification(
+                newUser.id,
+                'Your supervisor registration was received and is pending review by an administrator.'
+            );
+        } else if (roleUpper === 'HOD' && hodEnrollment) {
+            if (hodEnrollment.coordinatorEmails.length > 0) {
+                await sendCoordinatorHodReviewEmail(hodEnrollment.coordinatorEmails, {
                     hodName: full_name,
                     hodEmail: email,
-                    department,
-                    universityName: university.name,
+                    department: hodEnrollment.department,
+                    universityName: hodEnrollment.universityName,
                 });
             } else {
-                console.log(`ℹ️ No coordinators found for university ${universityId} to notify about new HoD.`);
+                console.log(`ℹ️ No coordinators found for university ${hodEnrollment.universityId} to notify about new HoD.`);
             }
-        } else if (roleUpper === 'STUDENT') {
-            const { university_id, hod_id } = req.body;
-            const universityId = parseInt(university_id, 10);
-            const hodId = hod_id ? parseInt(hod_id, 10) : null;
-
-            if (!universityId) {
-                await prisma.user.delete({ where: { id: newUser.id } });
-                return sendError(res, 'University is required for student registration.', 400);
-            }
-
-            const university = await prisma.university.findUnique({ where: { id: universityId } });
-            if (!university || university.approval_status !== 'APPROVED') {
-                await prisma.user.delete({ where: { id: newUser.id } });
-                return sendError(res, 'Selected university is not approved.', 400);
-            }
-
-            // Validate HoD if provided
-            let hodProfile = null;
-            if (hodId) {
-                hodProfile = await prisma.hodProfile.findUnique({ where: { id: hodId } });
-                if (!hodProfile || hodProfile.universityId !== universityId) {
-                    await prisma.user.delete({ where: { id: newUser.id } });
-                    return sendError(res, 'Selected department is not valid for this university.', 400);
-                }
-            }
-
-            const student = await prisma.student.create({
-                data: {
-                    userId: newUser.id,
-                    universityId,
-                    hodId: hodId || null,
-                    registration_type: email.includes('.edu.et') ? 'Official' : 'Personal',
-                    studentId: student_id || null,
-                    department: hodProfile?.department || department || null,
-                    hod_approval_status: 'PENDING',
-                },
-            });
-
-            // Notify the HoD about the new pending student
-            if (hodProfile) {
-                await sendNotification(
-                    hodProfile.userId,
-                    `New student ${full_name} (${email}) has registered for your department "${hodProfile.department}" and is awaiting your approval.`
-                );
-            }
+        } else if (roleUpper === 'STUDENT' && studentEnrollment && studentEnrollment.hodUserId) {
+            const dept =
+                (await prisma.hodProfile.findUnique({
+                    where: { userId: studentEnrollment.hodUserId },
+                    select: { department: true },
+                }))?.department ?? 'your department';
+            await sendNotification(
+                studentEnrollment.hodUserId,
+                `New student ${full_name} (${email}) has registered for your department "${dept}" and is awaiting your approval.`
+            );
         }
         let emailSendError = null;
         try {
@@ -325,18 +392,21 @@ export const register = async (req: Request, res: Response) => {
             }, "Registration successful, but verification email could not be sent. Please request a new verification link or contact support.", 201);
         }
 
-        const successMessage = roleUpper === 'COORDINATOR'
-            ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
-            : roleUpper === 'HOD'
-            ? "Registration submitted. Your University Coordinator will review your department credentials. You will be notified via email upon approval."
-            : roleUpper === 'STUDENT'
-            ? "Registration submitted. Your Head of Department will review your academic status. You will be notified via email once approved."
-            : "Registration successful. Please check your email to verify your account.";
+        const successMessage =
+            roleUpper === 'COORDINATOR'
+                ? "Registration submitted. An administrator will review your university credentials. You will receive an email once approved."
+                : roleUpper === 'SUPERVISOR'
+                  ? "Registration submitted. An administrator will review your company credentials. You will receive an email once approved."
+                  : roleUpper === 'HOD'
+                    ? "Registration submitted. Your University Coordinator will review your department credentials. You will be notified via email upon approval."
+                    : roleUpper === 'STUDENT'
+                      ? "Registration submitted. Your Head of Department will review your academic status. You will be notified via email once approved."
+                      : "Registration successful. Please check your email to verify your account.";
 
         return sendSuccess(res, {
             ...baseResponse,
             emailSent: true,
-            pendingAdminReview: roleUpper === 'COORDINATOR',
+            pendingAdminReview: roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR',
             pendingCoordinatorReview: roleUpper === 'HOD',
         }, successMessage, 201);
         

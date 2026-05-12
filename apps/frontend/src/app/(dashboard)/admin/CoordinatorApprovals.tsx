@@ -38,6 +38,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
   const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [documentViewedUserIds, setDocumentViewedUserIds] = useState<Set<number>>(() => new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -155,7 +156,10 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                     {c.user.verification_document ? (
                       <button
                         type="button"
-                        onClick={() => setDocUrl(c.user.verification_document)}
+                        onClick={() => {
+                          setDocumentViewedUserIds((prev) => new Set(prev).add(c.userId));
+                          setDocUrl(c.user.verification_document);
+                        }}
                         className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                       >
                         <FileText className="w-4 h-4" />
@@ -172,7 +176,18 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => setConfirmApprove(c.userId)}
-                        disabled={actionLoading === c.userId}
+                        disabled={
+                          actionLoading === c.userId ||
+                          !c.user.verification_document ||
+                          !documentViewedUserIds.has(c.userId)
+                        }
+                        title={
+                          !c.user.verification_document
+                            ? "Cannot approve without a verification document"
+                            : !documentViewedUserIds.has(c.userId)
+                              ? "Open the verification document before approving"
+                              : undefined
+                        }
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                       >
                         {actionLoading === c.userId ? (
@@ -184,7 +199,15 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                       </button>
                       <button
                         onClick={() => setRejectReason({ userId: c.userId, reason: '' })}
-                        disabled={actionLoading === c.userId}
+                        disabled={
+                          actionLoading === c.userId ||
+                          (!!c.user.verification_document && !documentViewedUserIds.has(c.userId))
+                        }
+                        title={
+                          c.user.verification_document && !documentViewedUserIds.has(c.userId)
+                            ? "Open the verification document before rejecting"
+                            : undefined
+                        }
                         className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors"
                       >
                         <XCircle className="w-3.5 h-3.5" />

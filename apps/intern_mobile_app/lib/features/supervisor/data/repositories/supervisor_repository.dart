@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -326,12 +325,4 @@ class SupervisorRepository {
 
 final supervisorRepositoryProvider = Provider<SupervisorRepository>((ref) {
   return SupervisorRepository(ref.watch(apiClientProvider));
-});
-
-final supervisorDashboardProvider = FutureProvider<SupervisorDashboardData>((ref) {
-  return ref.watch(supervisorRepositoryProvider).getDashboard();
-});
-
-final supervisorPerformanceProvider = FutureProvider<Map<String, dynamic>>((ref) {
-  return ref.watch(supervisorRepositoryProvider).getPerformance();
 });

@@ -35,8 +35,15 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             prisma.company.count({ where: { approval_status: 'APPROVED' } }),
             prisma.student.count(),
             prisma.internshipAssignment.count({ where: { status: 'ACTIVE' } }),
-            prisma.coordinator.count({ where: { universityId: { equals: null } } }),
-            prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'PENDING' } }),
+            prisma.coordinator.count({
+                where: {
+                    universityId: { equals: null },
+                    user: { institution_access_approval: 'PENDING' },
+                },
+            }),
+            prisma.supervisor.count({
+                where: { user: { institution_access_approval: 'PENDING' } },
+            }),
             prisma.finalEvaluation.count(),
             prisma.report.count(),
         ]);
@@ -750,7 +757,10 @@ export const getSuspendedCoordinators = async (req: AuthRequest, res: Response) 
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
     try {
         const coordinators = await prisma.coordinator.findMany({
-            where: { universityId: { equals: null } },
+            where: {
+                universityId: { equals: null },
+                user: { institution_access_approval: 'PENDING' },
+            },
             include: {
                 user: {
                     select: {
@@ -1166,8 +1176,15 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         const [pendingUnis, pendingComps, pendingCoords, pendingSupervs] = await Promise.all([
             prisma.university.count({ where: { approval_status: 'PENDING' } }),
             prisma.company.count({ where: { approval_status: 'PENDING' } }),
-            prisma.coordinator.count({ where: { universityId: null } }),
-            prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'PENDING' } }),
+            prisma.coordinator.count({
+                where: {
+                    universityId: null,
+                    user: { institution_access_approval: 'PENDING' },
+                },
+            }),
+            prisma.supervisor.count({
+                where: { user: { institution_access_approval: 'PENDING' } },
+            }),
         ]);
         const pendingApprovals = {
             universities: pendingUnis,
