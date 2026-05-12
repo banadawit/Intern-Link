@@ -115,7 +115,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
       )}
 
       {!loading && errorMessage && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
           {errorMessage}
         </div>
       )}
@@ -124,7 +124,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-100 text-slate-500 text-xs uppercase tracking-wider">
+              <tr className="bg-slate-100 text-slate-500 text-xs uppercase tracking-wider dark:bg-slate-800 dark:text-slate-400">
                 <th className="px-6 py-4 font-semibold">Coordinator</th>
                 <th className="px-6 py-4 font-semibold">University</th>
                 <th className="px-6 py-4 font-semibold">Document</th>
@@ -132,22 +132,22 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
               {coordinators.map((c) => (
-                <tr key={c.userId} className="hover:bg-slate-50 transition-colors">
+                <tr key={c.userId} className="hover:bg-slate-50 transition-colors dark:hover:bg-slate-800/50">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary-50 text-primary-600">
+                      <div className="p-2 rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400">
                         <User className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="font-semibold text-slate-900">{c.user.full_name}</p>
-                        <p className="text-xs text-slate-500">{c.user.email}</p>
+                        <p className="font-semibold text-slate-900 dark:text-slate-100">{c.user.full_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{c.user.email}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 text-sm text-slate-700">
+                    <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                       <Building className="w-4 h-4 text-slate-400" />
                       {c.pending_university_name || <span className="text-slate-400 italic">Not provided</span>}
                     </div>
@@ -169,7 +169,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                       <span className="text-xs text-slate-400 italic">No document</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
                     {format(new Date(c.user.created_at), "MMM d, yyyy")}
                   </td>
                   <td className="px-6 py-4">
@@ -219,7 +219,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
               ))}
               {!loading && coordinators.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                     No pending coordinator approvals.
                   </td>
                 </tr>
@@ -232,20 +232,20 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
       {/* Reject Modal */}
       {rejectReason && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Reject Coordinator</h3>
-            <p className="text-sm text-slate-500">Provide a reason for rejection. This will be sent to the coordinator by email.</p>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Reject Coordinator</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Provide a reason for rejection. This will be sent to the coordinator by email.</p>
             <textarea
               value={rejectReason.reason}
               onChange={(e) => setRejectReason({ ...rejectReason, reason: e.target.value })}
               placeholder="e.g., Verification document is unclear or invalid..."
               rows={3}
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
             />
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => setRejectReason(null)}
-                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancel
               </button>

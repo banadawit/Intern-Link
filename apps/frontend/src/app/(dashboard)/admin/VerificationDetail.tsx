@@ -87,20 +87,20 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
           <section>
-            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Organization Overview</h3>
+            <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Organization Overview</h3>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-1">
-                <p className="text-xs text-slate-500">Type</p>
-                <p className="font-medium text-slate-900">{proposal.organizationType}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Type</p>
+                <p className="font-medium text-slate-900 dark:text-slate-100">{proposal.organizationType}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-slate-500">Submitted On</p>
-                <p className="font-medium text-slate-900">{new Date(proposal.submittedAt).toLocaleString()}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Submitted On</p>
+                <p className="font-medium text-slate-900 dark:text-slate-100">{new Date(proposal.submittedAt).toLocaleString()}</p>
               </div>
             </div>
             <div className="mt-6 space-y-1">
-              <p className="text-xs text-slate-500">Description</p>
-              <p className="text-sm leading-relaxed text-slate-600">{proposal.description}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Description</p>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{proposal.description}</p>
             </div>
             {sla && (
               <div
@@ -122,7 +122,7 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
           </section>
 
           <section>
-            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Verification Documents</h3>
+            <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Verification Documents</h3>
             <div className="space-y-3">
               {proposal.documents.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800/50">
@@ -156,35 +156,35 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
             <section
               className={cn(
                 "p-4 rounded-xl border",
-                proposal.status === "Approved" && "bg-green-50 border-green-100",
-                proposal.status === "Rejected" && "bg-red-50 border-red-100",
-                proposal.status === "Suspended" && "bg-slate-100 border-slate-200"
+                proposal.status === "Approved" && "bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800",
+                proposal.status === "Rejected" && "bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800",
+                proposal.status === "Suspended" && "bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700"
               )}
             >
               <div className="flex items-start gap-3">
                 {proposal.status === "Approved" && <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />}
                 {proposal.status === "Rejected" && <XCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />}
-                {proposal.status === "Suspended" && <Ban className="w-5 h-5 text-slate-600 mt-0.5 shrink-0" />}
+                {proposal.status === "Suspended" && <Ban className="w-5 h-5 text-slate-600 dark:text-slate-400 mt-0.5 shrink-0" />}
                 <div>
                   <p
                     className={cn(
                       "font-bold",
-                      proposal.status === "Approved" && "text-green-900",
-                      proposal.status === "Rejected" && "text-red-900",
-                      proposal.status === "Suspended" && "text-slate-900"
+                      proposal.status === "Approved" && "text-green-900 dark:text-green-300",
+                      proposal.status === "Rejected" && "text-red-900 dark:text-red-300",
+                      proposal.status === "Suspended" && "text-slate-900 dark:text-slate-100"
                     )}
                   >
                     Decision: {proposal.status}
                   </p>
                   {proposal.status === "Suspended" && (
-                    <p className="text-sm text-slate-600 mt-1">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                       Organization access is deactivated. Coordinators, supervisors, and students linked to this org cannot
                       sign in until reactivated.
                     </p>
                   )}
-                  {proposal.rejectionReason && <p className="text-sm text-red-700 mt-1">Reason: {proposal.rejectionReason}</p>}
+                  {proposal.rejectionReason && <p className="text-sm text-red-700 dark:text-red-400 mt-1">Reason: {proposal.rejectionReason}</p>}
                   {proposal.reviewedAt && (
-                    <p className="text-xs text-slate-500 mt-2">Reviewed on {new Date(proposal.reviewedAt).toLocaleString()}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Reviewed on {new Date(proposal.reviewedAt).toLocaleString()}</p>
                   )}
                 </div>
               </div>
@@ -193,16 +193,16 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
         </div>
 
         {proposal.status === "Pending" && (
-          <footer className="p-6 border-t border-slate-200 bg-slate-50 space-y-4">
+          <footer className="p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-4">
             {showRejectionInput ? (
               <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <label className="text-sm font-bold text-slate-500">Reason for Rejection</label>
-                <textarea className="w-full min-h-[100px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Provide a clear explanation for the rejection..." value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
+                <label className="text-sm font-bold text-slate-500 dark:text-slate-400">Reason for Rejection</label>
+                <textarea className="w-full min-h-[100px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-sm text-slate-600 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Provide a clear explanation for the rejection..." value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
                 <div className="flex gap-3">
                   <button onClick={() => onReject(proposal.id, rejectionReason)} disabled={!rejectionReason.trim()} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium disabled:opacity-50 transition-colors">
                     Confirm Rejection
                   </button>
-                  <button onClick={() => { setShowRejectionInput(false); setRejectionReason(""); }} className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+                  <button onClick={() => { setShowRejectionInput(false); setRejectionReason(""); }} className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors">
                     Cancel
                   </button>
                 </div>

@@ -40,7 +40,7 @@ export default function RejectedHistoryView({ proposals, listsLoading, onReview,
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <AdminPageHero badge="Rejected" title={active.title} description={active.description} />
 
-      <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+      <div className="flex gap-1 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-1">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const count = countFor(tab.id);
@@ -51,7 +51,7 @@ export default function RejectedHistoryView({ proposals, listsLoading, onReview,
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-                isActive ? "bg-white text-teal-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-700"
+                isActive ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               )}
             >
               <tab.icon className="h-4 w-4 shrink-0" />
