@@ -101,6 +101,12 @@ export const register = async (req: Request, res: Response) => {
                 if (!university || university.approval_status !== 'APPROVED') {
                     return sendError(res, 'Selected university is not approved or does not exist.', 400);
                 }
+                const existingCoordinator = await prisma.coordinator.findFirst({
+                    where: { universityId }
+                });
+                if (existingCoordinator) {
+                    return sendError(res, `A coordinator is already registered for "${university.name}". Each university can only have one primary coordinator.`, 400);
+                }
                 coordinatorEnrollment = { universityId, universityName: university.name };
             } else if (requestId && !isNaN(requestId)) {
                 const request = await prisma.organizationRequest.findUnique({ where: { id: requestId } });
