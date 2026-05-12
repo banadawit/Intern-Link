@@ -8,7 +8,15 @@ import { ContributionHeatmap } from "@/components/attendance/ContributionHeatmap
 type HeatmapResponse = {
   rangeStart: string;
   rangeEnd: string;
-  students: { studentId: number; fullName: string; email: string; submittedDates: string[] }[];
+  students: {
+    studentId: number;
+    fullName: string;
+    email: string;
+    submittedDates: string[];
+    dailyCheckInDates?: string[];
+    planSubmissionDates?: string[];
+    approvedPlanDates?: string[];
+  }[];
 };
 
 export default function SupervisorAttendanceStudentsPage() {
@@ -51,9 +59,8 @@ export default function SupervisorAttendanceStudentsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Student check-ins</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Daily task activity after each weekly plan is approved. Darker squares mean the intern logged work that calendar
-          day.
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Activity heatmap for each intern. 🟢 Dark green = plan approved · 🟩 Medium = plan submitted · 🌿 Light = daily check-in.
         </p>
       </div>
 
@@ -94,6 +101,9 @@ export default function SupervisorAttendanceStudentsPage() {
               rangeStart={heatmap.rangeStart}
               rangeEnd={heatmap.rangeEnd}
               submittedDates={selectedHeatmap.submittedDates}
+              dailyCheckInDates={selectedHeatmap.dailyCheckInDates}
+              planSubmissionDates={selectedHeatmap.planSubmissionDates}
+              approvedPlanDates={selectedHeatmap.approvedPlanDates}
               className="w-full min-w-0"
             />
           )}
