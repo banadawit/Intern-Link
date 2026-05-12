@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminEmail = 'cursorbana@gmail.com';
+  const adminEmail = 'admin@internlink.com';
   const adminPassword = 'Admin@1234';
 
   let admin = await prisma.user.findUnique({ where: { email: adminEmail } });
@@ -62,7 +62,30 @@ async function main() {
     console.log(`   Email:    ${supEmail}`);
     console.log('   Password: Super123!');
   } else {
-    console.log(`Supervisor already exists: ${supEmail}`);
+    // Ensure company and supervisor profile exist and are linked
+    let demoCompanyForSup = await prisma.company.findFirst({ where: { official_email: 'company@demo.com' } });
+    if (!demoCompanyForSup) {
+      demoCompanyForSup = await prisma.company.create({
+        data: { name: 'Demo Company', official_email: 'company@demo.com', approval_status: 'APPROVED' },
+      });
+      console.log('✅ Demo Company created');
+    } else if (demoCompanyForSup.approval_status !== 'APPROVED') {
+      await prisma.company.update({ where: { id: demoCompanyForSup.id }, data: { approval_status: 'APPROVED' } });
+    }
+    const supProfile = await prisma.supervisor.findUnique({ where: { userId: existingSup.id } });
+    if (!supProfile) {
+      await prisma.supervisor.create({ data: { userId: existingSup.id, companyId: demoCompanyForSup.id } });
+      console.log('✅ Supervisor profile repaired (company linked)');
+    } else if (!supProfile.companyId) {
+      await prisma.supervisor.update({ where: { userId: existingSup.id }, data: { companyId: demoCompanyForSup.id } });
+      console.log('✅ Supervisor profile repaired (company linked)');
+    } else {
+      console.log(`Supervisor already exists: ${supEmail}`);
+    }
+    await prisma.user.update({
+      where: { email: supEmail },
+      data: { verification_status: 'APPROVED', institution_access_approval: 'APPROVED' },
+    });
   }
 
   // Shared demo university for coordinator + student (matches login demo emails @haramaya.edu)
@@ -105,7 +128,21 @@ async function main() {
     console.log(`   Email:    ${coordEmail}`);
     console.log('   Password: Coord123!');
   } else {
-    console.log(`Coordinator already exists: ${coordEmail}`);
+    // Ensure coordinator profile is linked to the university
+    const coordProfile = await prisma.coordinator.findUnique({ where: { userId: coordExists.id } });
+    if (!coordProfile) {
+      await prisma.coordinator.create({ data: { userId: coordExists.id, universityId: demoUniversity.id } });
+      console.log('✅ Coordinator profile repaired (university linked)');
+    } else if (!coordProfile.universityId) {
+      await prisma.coordinator.update({ where: { userId: coordExists.id }, data: { universityId: demoUniversity.id } });
+      console.log('✅ Coordinator profile repaired (university linked)');
+    } else {
+      console.log(`Coordinator already exists: ${coordEmail}`);
+    }
+    await prisma.user.update({
+      where: { email: coordEmail },
+      data: { verification_status: 'APPROVED', institution_access_approval: 'APPROVED' },
+    });
   }
 
   const hodEmail = 'hod@haramaya.edu';
@@ -167,6 +204,97 @@ async function main() {
     console.log('   Password: Student123!');
   } else {
     console.log(`Student already exists: ${studentEmail}`);
+  }
+
+  // ── 10 extra demo students under the demo HOD ──────────────────────────────
+  const hodProfile = await prisma.hodProfile.findUnique({ where: { userId: (await prisma.user.findUnique({ where: { email: hodEmail } }))!.id } });
+  const demoCompany = await prisma.company.findFirst({ where: { official_email: 'company@demo.com' } });
+
+  const demoStudents = [
+    { n: 1,  name: 'Abebe Kebede',    email: 'student1@haramaya.edu',  placed: true  },
+    { n: 2,  name: 'Tigist Alemu',    email: 'student2@haramaya.edu',  placed: true  },
+    { n: 3,  name: 'Yonas Tadesse',   email: 'student3@haramaya.edu',  placed: true  },
+    { n: 4,  name: 'Meron Haile',     email: 'student4@haramaya.edu',  placed: true  },
+    { n: 5,  name: 'Dawit Girma',     email: 'student5@haramaya.edu',  placed: true  },
+    { n: 6,  name: 'Selam Bekele',    email: 'student6@haramaya.edu',  placed: false },
+    { n: 7,  name: 'Biruk Tesfaye',   email: 'student7@haramaya.edu',  placed: false },
+    { n: 8,  name: 'Hana Worku',      email: 'student8@haramaya.edu',  placed: false },
+    { n: 9,  name: 'Natnael Assefa',  email: 'student9@haramaya.edu',  placed: false },
+    { n: 10, name: 'Lidya Solomon',   email: 'student10@haramaya.edu', placed: false },
+  ];
+
+  for (const s of demoStudents) {
+    const existing = await prisma.user.findUnique({ where: { email: s.email } });
+    if (existing) {
+      console.log(`Student already exists: ${s.email}`);
+      continue;
+    }
+
+    const newUser = await prisma.user.create({
+      data: {
+        full_name: s.name,
+        email: s.email,
+        password_hash: await bcrypt.hash('Student123!', 10),
+        role: 'STUDENT',
+        verification_status: 'APPROVED',
+        institution_access_approval: 'APPROVED',
+        studentProfile: {
+          create: {
+            universityId: demoUniversity.id,
+            hodId: hodProfile?.id ?? null,
+            registration_type: 'Official',
+            department: 'Computer Science',
+            studentId: `CS/2021/0${s.n.toString().padStart(2, '0')}`,
+            hod_approval_status: 'APPROVED',
+            internship_status: s.placed ? 'PLACED' : 'PENDING',
+          },
+        },
+      },
+      include: { studentProfile: true },
+    });
+
+    // For placed students, create an approved proposal + active assignment
+    if (s.placed && demoCompany && hodProfile && newUser.studentProfile) {
+      const proposal = await prisma.internshipProposal.create({
+        data: {
+          studentId: newUser.studentProfile.id,
+          companyId: demoCompany.id,
+          universityId: demoUniversity.id,
+          status: 'APPROVED',
+          proposal_type: 'University_Initiated',
+          expected_duration_weeks: 12,
+          responded_at: new Date(),
+        },
+      });
+
+      await prisma.internshipAssignment.create({
+        data: {
+          studentId: newUser.studentProfile.id,
+          companyId: demoCompany.id,
+          status: 'ACTIVE',
+          start_date: new Date(),
+        },
+      });
+
+      // Seed one weekly plan so the student has something to work with
+      await prisma.weeklyPlan.create({
+        data: {
+          studentId: newUser.studentProfile.id,
+          week_number: 1,
+          plan_description: 'Orientation week — getting familiar with the company environment, tools, and team members.',
+          status: 'PENDING',
+        },
+      });
+
+      console.log(`✅ Student ${s.name} created, placed at Demo Company, week 1 plan seeded`);
+    } else {
+      console.log(`✅ Student ${s.name} created (pending placement)`);
+    }
+  }
+
+  console.log('\n📌 Demo student logins (all use password: Student123!):');
+  for (const s of demoStudents) {
+    console.log(`   ${s.name.padEnd(20)} ${s.email}  ${s.placed ? '(placed)' : '(pending)'}`);
   }
 
   console.log('\n📌 Demo logins (frontend "Demo Login" menu):');
