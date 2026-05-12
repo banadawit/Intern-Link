@@ -99,6 +99,16 @@ class CoordinatorRepository {
     return _deepList(res.data);
   }
 
+  Future<List<dynamic>> getSuspendedHods() async {
+    final res = await apiClient.dio.get('/coordinator/suspended-hods');
+    return _deepList(res.data);
+  }
+
+  Future<List<dynamic>> getAllHods() async {
+    final res = await apiClient.dio.get('/coordinator/all-hods');
+    return _deepList(res.data);
+  }
+
   Future<void> verifyHod(int userId, String status, {String? reason}) async {
     await apiClient.dio.patch('/coordinator/verify-hod', data: {
       'userId': userId,
@@ -176,6 +186,14 @@ final approvedHodsProvider = FutureProvider<List<dynamic>>((ref) {
 
 final rejectedHodsProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(coordinatorRepositoryProvider).getRejectedHods();
+});
+
+final suspendedHodsProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(coordinatorRepositoryProvider).getSuspendedHods();
+});
+
+final allHodsProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(coordinatorRepositoryProvider).getAllHods();
 });
 
 final coordinatorProposalsProvider = FutureProvider<List<dynamic>>((ref) {

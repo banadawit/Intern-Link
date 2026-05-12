@@ -35,8 +35,15 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             prisma.company.count({ where: { approval_status: 'APPROVED' } }),
             prisma.student.count(),
             prisma.internshipAssignment.count({ where: { status: 'ACTIVE' } }),
-            prisma.coordinator.count({ where: { universityId: { equals: null } } }),
-            prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'PENDING' } }),
+            prisma.coordinator.count({
+                where: {
+                    universityId: { equals: null },
+                    user: { institution_access_approval: 'PENDING' },
+                },
+            }),
+            prisma.supervisor.count({
+                where: { user: { institution_access_approval: 'PENDING' } },
+            }),
             prisma.finalEvaluation.count(),
             prisma.report.count(),
         ]);
@@ -750,7 +757,10 @@ export const getSuspendedCoordinators = async (req: AuthRequest, res: Response) 
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
     try {
         const coordinators = await prisma.coordinator.findMany({
-            where: { universityId: { equals: null } },
+            where: {
+                universityId: { equals: null },
+                user: { institution_access_approval: 'PENDING' },
+            },
             include: {
                 user: {
                     select: {
@@ -774,10 +784,11 @@ export const getPendingCoordinators = async (req: AuthRequest, res: Response) =>
 
 /**
  * Approve a pending coordinator:
- * 1. Create (or reuse) the University record from pending_university_name
- * 2. Link the CoordinatorProfile to the new University
- * 3. Set user.institution_access_approval = APPROVED
- * 4. Send approval email
+ * 1. If pending_university_name starts with __EXISTING__:id: → link to that university
+ * 2. Otherwise create (or reuse) the University record from pending_university_name
+ * 3. Link the CoordinatorProfile to the University
+ * 4. Set user.institution_access_approval = APPROVED
+ * 5. Send approval email
  */
 export const approveCoordinator = async (req: AuthRequest, res: Response) => {
     try {
@@ -796,40 +807,67 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ error: 'Coordinator is already linked to a university' });
         }
 
-        const universityName = coordinator.pending_university_name;
-        if (!universityName) {
+        const pendingName = coordinator.pending_university_name;
+        if (!pendingName) {
             return res.status(400).json({ error: 'No pending university name on this coordinator profile' });
         }
 
-        // Find or create the University — use upsert to handle unique email conflicts
-        let university = await prisma.university.findFirst({ where: { name: universityName } });
-        if (!university) {
-            // Check if email is already taken by another university
-            const emailTaken = await prisma.university.findUnique({
-                where: { official_email: coordinator.user.email }
-            });
-            university = await prisma.university.create({
-                data: {
-                    name: universityName,
-                    official_email: emailTaken
-                        ? `coord-${coordinator.user.id}@${coordinator.user.email.split('@')[1]}`
-                        : coordinator.user.email,
-                    approval_status: 'APPROVED',
-                    verification_doc: coordinator.user.verification_document ?? null,
-                },
-            });
-        } else if (university.approval_status !== 'APPROVED') {
-            await prisma.university.update({
-                where: { id: university.id },
-                data: {
-                    approval_status: 'APPROVED',
-                    // Only set verification_doc if not already present
-                    ...(university.verification_doc == null && coordinator.user.verification_document
-                        ? { verification_doc: coordinator.user.verification_document }
-                        : {}),
-                },
-            });
+        // Resolve the university to link to
+        type UniversityRecord = { id: number; name: string; official_email: string; approval_status: string; verification_doc: string | null };
+        let resolvedUniversity: UniversityRecord | null = null;
+
+        // Check if coordinator selected an existing university (__EXISTING__:id:name)
+        if (pendingName.startsWith('__EXISTING__:')) {
+            const parts = pendingName.split(':');
+            const existingId = parseInt(parts[1], 10);
+            if (!isNaN(existingId)) {
+                resolvedUniversity = await prisma.university.findUnique({ where: { id: existingId } });
+            }
+            if (!resolvedUniversity && parts.length > 2) {
+                const fallbackName = parts.slice(2).join(':');
+                resolvedUniversity = await prisma.university.findFirst({ where: { name: fallbackName } });
+            }
         }
+
+        // New university request — find or create
+        if (!resolvedUniversity) {
+            const universityName = pendingName.startsWith('__EXISTING__:')
+                ? pendingName.split(':').slice(2).join(':')
+                : pendingName;
+
+            resolvedUniversity = await prisma.university.findFirst({ where: { name: universityName } });
+            if (!resolvedUniversity) {
+                const emailTaken = await prisma.university.findUnique({
+                    where: { official_email: coordinator.user.email }
+                });
+                resolvedUniversity = await prisma.university.create({
+                    data: {
+                        name: universityName,
+                        official_email: emailTaken
+                            ? `coord-${coordinator.user.id}@${coordinator.user.email.split('@')[1]}`
+                            : coordinator.user.email,
+                        approval_status: 'APPROVED',
+                        verification_doc: coordinator.user.verification_document ?? null,
+                    },
+                });
+            } else if (resolvedUniversity.approval_status !== 'APPROVED') {
+                await prisma.university.update({
+                    where: { id: resolvedUniversity.id },
+                    data: {
+                        approval_status: 'APPROVED',
+                        ...(resolvedUniversity.verification_doc == null && coordinator.user.verification_document
+                            ? { verification_doc: coordinator.user.verification_document }
+                            : {}),
+                    },
+                });
+            }
+        }
+
+        if (!resolvedUniversity) {
+            return res.status(500).json({ error: 'Could not resolve university for this coordinator.' });
+        }
+
+        const university = resolvedUniversity;
 
         // Enforce one coordinator per university
         const existingCoordinator = await prisma.coordinator.findFirst({
@@ -1138,8 +1176,15 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         const [pendingUnis, pendingComps, pendingCoords, pendingSupervs] = await Promise.all([
             prisma.university.count({ where: { approval_status: 'PENDING' } }),
             prisma.company.count({ where: { approval_status: 'PENDING' } }),
-            prisma.coordinator.count({ where: { universityId: null } }),
-            prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'PENDING' } }),
+            prisma.coordinator.count({
+                where: {
+                    universityId: null,
+                    user: { institution_access_approval: 'PENDING' },
+                },
+            }),
+            prisma.supervisor.count({
+                where: { user: { institution_access_approval: 'PENDING' } },
+            }),
         ]);
         const pendingApprovals = {
             universities: pendingUnis,

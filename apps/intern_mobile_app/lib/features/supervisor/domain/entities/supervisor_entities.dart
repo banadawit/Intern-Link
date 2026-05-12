@@ -1,5 +1,4 @@
 import '../../../plans/domain/entities/plan_enums.dart';
-import '../../../plans/domain/entities/weekly_plan.dart';
 
 int _si(dynamic v, [int fb = 0]) {
   if (v == null) return fb;

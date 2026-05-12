@@ -93,7 +93,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           password: _loginPasswordController.text,
         );
 
-    if (!mounted || !ok) {
+    if (!mounted || ok != true) {
       return;
     }
 
@@ -125,7 +125,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         .read(authControllerProvider.notifier)
         .register(payload);
 
-    if (!ok || !mounted) {
+    if (ok != true || !mounted) {
       return;
     }
 
