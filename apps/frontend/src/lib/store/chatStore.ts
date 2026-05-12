@@ -12,8 +12,8 @@ export const useChatStore = create<ChatStore>((set) => ({
   unreadCount: 0,
   fetchUnread: async () => {
     try {
-      const { data } = await api.get<{ count: number }>("/chat/unread-count");
-      set({ unreadCount: data.count });
+      const { data } = await api.get<{ data: { count: number } }>("/chat/unread-count");
+      set({ unreadCount: data?.data?.count ?? 0 });
     } catch {
       // ignore
     }
