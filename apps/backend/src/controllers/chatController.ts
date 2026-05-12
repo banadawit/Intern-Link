@@ -17,87 +17,78 @@ async function canMessage(senderId: number, receiverId: number): Promise<boolean
     const s = sender.role;
     const r = receiver.role;
 
-    // Admin can message anyone
-    if (s === 'ADMIN') return true;
-    // Anyone can message Admin
-    if (r === 'ADMIN') return true;
+    // Admin can message anyone; anyone can message Admin
+    if (s === 'ADMIN' || r === 'ADMIN') return true;
 
-    if (s === 'COORDINATOR') {
-        // Coordinator ↔ HOD (same university)
-        if (r === 'HOD') {
-            const coord = await prisma.coordinator.findUnique({ where: { userId: senderId } });
-            const hod = await prisma.hodProfile.findUnique({ where: { userId: receiverId } });
-            return !!coord?.universityId && coord.universityId === hod?.universityId;
-        }
-        // Coordinator ↔ Supervisor (any, for coordination)
-        if (r === 'SUPERVISOR') return true;
-        return false;
+    // COORDINATOR → HOD only (same university)
+    if (s === 'COORDINATOR' && r === 'HOD') {
+        const coord = await prisma.coordinator.findUnique({ where: { userId: senderId } });
+        const hod = await prisma.hodProfile.findUnique({ where: { userId: receiverId } });
+        return !!coord?.universityId && coord.universityId === hod?.universityId;
     }
 
-    if (s === 'HOD') {
-        // HOD ↔ Coordinator (same university)
-        if (r === 'COORDINATOR') {
-            const hod = await prisma.hodProfile.findUnique({ where: { userId: senderId } });
-            const coord = await prisma.coordinator.findUnique({ where: { userId: receiverId } });
-            return !!hod?.universityId && hod.universityId === coord?.universityId;
-        }
-        // HOD ↔ Student (in their department)
-        if (r === 'STUDENT') {
-            const hod = await prisma.hodProfile.findUnique({ where: { userId: senderId } });
-            if (!hod) return false;
-            const student = await prisma.student.findUnique({ where: { userId: receiverId } });
-            return student?.hodId === hod.id;
-        }
-        // HOD ↔ Supervisor (related to their students)
-        if (r === 'SUPERVISOR') {
-            const hod = await prisma.hodProfile.findUnique({ where: { userId: senderId } });
-            if (!hod) return false;
-            const students = await prisma.student.findMany({ where: { hodId: hod.id }, select: { id: true } });
-            const studentIds = students.map((s) => s.id);
-            const assignment = await prisma.internshipAssignment.findFirst({
-                where: { studentId: { in: studentIds }, status: 'ACTIVE' },
-                include: { company: { include: { supervisors: { where: { userId: receiverId } } } } },
-            });
-            return !!assignment?.company.supervisors.length;
-        }
-        return false;
+    // HOD → Coordinator (same university)
+    if (s === 'HOD' && r === 'COORDINATOR') {
+        const hod = await prisma.hodProfile.findUnique({ where: { userId: senderId } });
+        const coord = await prisma.coordinator.findUnique({ where: { userId: receiverId } });
+        return !!hod?.universityId && hod.universityId === coord?.universityId;
     }
 
-    if (s === 'SUPERVISOR') {
-        // Supervisor ↔ HOD
-        if (r === 'HOD') return canMessage(receiverId, senderId); // symmetric
-        // Supervisor ↔ assigned Student
-        if (r === 'STUDENT') {
-            const sup = await prisma.supervisor.findUnique({ where: { userId: senderId } });
-            if (!sup) return false;
-            const student = await prisma.student.findUnique({ where: { userId: receiverId } });
-            if (!student) return false;
-            const assignment = await prisma.internshipAssignment.findFirst({
-                where: { studentId: student.id, companyId: sup.companyId, status: 'ACTIVE' },
-            });
-            return !!assignment;
-        }
-        return false;
+    // HOD → Student (student must be in HOD's department)
+    if (s === 'HOD' && r === 'STUDENT') {
+        const hod = await prisma.hodProfile.findUnique({ where: { userId: senderId } });
+        if (!hod) return false;
+        const student = await prisma.student.findUnique({ where: { userId: receiverId } });
+        return student?.hodId === hod.id;
     }
 
-    if (s === 'STUDENT') {
-        // Student ↔ assigned Supervisor
-        if (r === 'SUPERVISOR') {
-            const student = await prisma.student.findUnique({ where: { userId: senderId } });
-            if (!student) return false;
-            const sup = await prisma.supervisor.findUnique({ where: { userId: receiverId } });
-            if (!sup) return false;
-            const assignment = await prisma.internshipAssignment.findFirst({
-                where: { studentId: student.id, companyId: sup.companyId, status: 'ACTIVE' },
-            });
-            return !!assignment;
-        }
-        // Student ↔ their HOD
-        if (r === 'HOD') {
-            const student = await prisma.student.findUnique({ where: { userId: senderId }, include: { hod: true } });
-            return student?.hod?.userId === receiverId;
-        }
-        return false;
+    // HOD → Supervisor (supervisor must have at least one of HOD's students actively assigned)
+    if (s === 'HOD' && r === 'SUPERVISOR') {
+        const hod = await prisma.hodProfile.findUnique({ where: { userId: senderId } });
+        if (!hod) return false;
+        const students = await prisma.student.findMany({ where: { hodId: hod.id }, select: { id: true } });
+        if (students.length === 0) return false;
+        const studentIds = students.map((st) => st.id);
+        const assignment = await prisma.internshipAssignment.findFirst({
+            where: { studentId: { in: studentIds }, status: 'ACTIVE' },
+            include: { company: { include: { supervisors: { where: { userId: receiverId } } } } },
+        });
+        return !!assignment?.company.supervisors.length;
+    }
+
+    // SUPERVISOR → HOD (symmetric — HOD must have students assigned to supervisor's company)
+    if (s === 'SUPERVISOR' && r === 'HOD') {
+        return canMessage(receiverId, senderId);
+    }
+
+    // SUPERVISOR → Student (student must be actively assigned to supervisor's company)
+    if (s === 'SUPERVISOR' && r === 'STUDENT') {
+        const sup = await prisma.supervisor.findUnique({ where: { userId: senderId } });
+        if (!sup) return false;
+        const student = await prisma.student.findUnique({ where: { userId: receiverId } });
+        if (!student) return false;
+        const assignment = await prisma.internshipAssignment.findFirst({
+            where: { studentId: student.id, companyId: sup.companyId, status: 'ACTIVE' },
+        });
+        return !!assignment;
+    }
+
+    // STUDENT → Supervisor (must be actively assigned)
+    if (s === 'STUDENT' && r === 'SUPERVISOR') {
+        const student = await prisma.student.findUnique({ where: { userId: senderId } });
+        if (!student) return false;
+        const sup = await prisma.supervisor.findUnique({ where: { userId: receiverId } });
+        if (!sup) return false;
+        const assignment = await prisma.internshipAssignment.findFirst({
+            where: { studentId: student.id, companyId: sup.companyId, status: 'ACTIVE' },
+        });
+        return !!assignment;
+    }
+
+    // STUDENT → HOD (must be their assigned HOD)
+    if (s === 'STUDENT' && r === 'HOD') {
+        const student = await prisma.student.findUnique({ where: { userId: senderId }, include: { hod: true } });
+        return student?.hod?.userId === receiverId;
     }
 
     return false;
@@ -246,20 +237,15 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
         let contacts: { id: number; full_name: string; role: string }[] = [];
 
         if (user.role === 'ADMIN') {
-            // Admin sees all coordinators, HODs, supervisors
+            // Admin sees all coordinators, HODs, supervisors, students
             contacts = await prisma.user.findMany({
-                where: { role: { in: ['COORDINATOR', 'HOD', 'SUPERVISOR'] }, id: { not: me } },
+                where: { role: { in: ['COORDINATOR', 'HOD', 'SUPERVISOR', 'STUDENT'] }, id: { not: me } },
                 select: { id: true, full_name: true, role: true },
             });
 
         } else if (user.role === 'COORDINATOR') {
-            // Coordinator sees: Admin + HODs of their university + Supervisors
+            // Coordinator sees: HODs of their university ONLY
             const coord = await prisma.coordinator.findUnique({ where: { userId: me } });
-            const admins = await prisma.user.findMany({
-                where: { role: 'ADMIN' },
-                select: { id: true, full_name: true, role: true },
-            });
-            contacts.push(...admins);
             if (coord?.universityId) {
                 const hods = await prisma.hodProfile.findMany({
                     where: { universityId: coord.universityId },
@@ -267,20 +253,10 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                 });
                 contacts.push(...hods.map((h) => ({ ...h.user, role: 'HOD' })));
             }
-            const supervisors = await prisma.user.findMany({
-                where: { role: 'SUPERVISOR', id: { not: me } },
-                select: { id: true, full_name: true, role: true },
-            });
-            contacts.push(...supervisors);
 
         } else if (user.role === 'HOD') {
-            // HOD sees: Admin + Coordinator of their university + their students + related supervisors
+            // HOD sees: Coordinator (same university) + their approved students + supervisors with active assignments to their students
             const hod = await prisma.hodProfile.findUnique({ where: { userId: me } });
-            const admins = await prisma.user.findMany({
-                where: { role: 'ADMIN' },
-                select: { id: true, full_name: true, role: true },
-            });
-            contacts.push(...admins);
             if (hod?.universityId) {
                 const coord = await prisma.coordinator.findFirst({
                     where: { universityId: hod.universityId },
@@ -288,14 +264,12 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                 });
                 if (coord) contacts.push({ ...coord.user, role: 'COORDINATOR' });
 
-                // Students in their department
                 const students = await prisma.student.findMany({
                     where: { hodId: hod.id, hod_approval_status: 'APPROVED' },
                     include: { user: { select: { id: true, full_name: true } } },
                 });
                 contacts.push(...students.map((s) => ({ ...s.user, role: 'STUDENT' })));
 
-                // Supervisors related to their students
                 const studentIds = students.map((s) => s.id);
                 if (studentIds.length > 0) {
                     const assignments = await prisma.internshipAssignment.findMany({
@@ -303,19 +277,14 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                         include: { company: { include: { supervisors: { include: { user: { select: { id: true, full_name: true } } } } } } },
                     });
                     assignments.forEach((a) =>
-                        a.company.supervisors.forEach((s) => contacts.push({ ...s.user, role: 'SUPERVISOR' }))
+                        a.company.supervisors.forEach((sup) => contacts.push({ ...sup.user, role: 'SUPERVISOR' }))
                     );
                 }
             }
 
         } else if (user.role === 'SUPERVISOR') {
-            // Supervisor sees: Admin + HOD of their students + assigned students
+            // Supervisor sees: HODs of their assigned students + assigned students
             const sup = await prisma.supervisor.findUnique({ where: { userId: me } });
-            const admins = await prisma.user.findMany({
-                where: { role: 'ADMIN' },
-                select: { id: true, full_name: true, role: true },
-            });
-            contacts.push(...admins);
             if (sup) {
                 const assignments = await prisma.internshipAssignment.findMany({
                     where: { companyId: sup.companyId, status: 'ACTIVE' },
@@ -335,7 +304,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
             }
 
         } else if (user.role === 'STUDENT') {
-            // Student sees: assigned Supervisor + their HOD
+            // Student sees: their HOD + supervisors of their active assignments
             const student = await prisma.student.findUnique({
                 where: { userId: me },
                 include: {
@@ -348,7 +317,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
             });
             if (student?.hod) contacts.push({ ...student.hod.user, role: 'HOD' });
             student?.assignments.forEach((a) =>
-                a.company.supervisors.forEach((s) => contacts.push({ ...s.user, role: 'SUPERVISOR' }))
+                a.company.supervisors.forEach((sup) => contacts.push({ ...sup.user, role: 'SUPERVISOR' }))
             );
         }
 
