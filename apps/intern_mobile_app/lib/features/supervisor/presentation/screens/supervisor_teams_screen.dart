@@ -11,6 +11,7 @@ class SupervisorTeamsTab extends ConsumerWidget {
     final teamsAsync = ref.watch(supervisorTeamsProvider);
     final theme = Theme.of(context);
 
+    final bool wide = isWideScreen(context);
     return CustomScrollView(
       slivers: [
         const ModernSliverAppBar(
@@ -21,28 +22,47 @@ class SupervisorTeamsTab extends ConsumerWidget {
           backgroundIcon: Icons.group_work_rounded,
         ),
         SliverPadding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              _buildCreateTeamButton(context, ref),
-              const SizedBox(height: 32),
-              teamsAsync.when(
-                data: (teams) {
-                  if (teams.isEmpty) return const Center(child: Text('No teams created yet.'));
-                  return Column(
-                    children: teams.map((team) => _TeamCard(team: team)).toList(),
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Center(child: Text('Error: $err')),
+                delegate: SliverChildListDelegate([
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: wide ? 400 : double.infinity),
+                      child: _buildCreateTeamButton(context, ref),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  teamsAsync.when(
+                    data: (teams) {
+                      if (teams.isEmpty) return const Center(child: Text('No teams created yet.'));
+                      if (wide) {
+                        return GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: 1.5,
+                          ),
+                          itemCount: teams.length,
+                          itemBuilder: (ctx, i) => _TeamCard(team: teams[i]),
+                        );
+                      }
+                      return Column(
+                        children: teams.map((team) => _TeamCard(team: team)).toList(),
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Center(child: Text('Error: $err')),
+                  ),
+                  const SizedBox(height: 120),
+                ]),
               ),
-              const SizedBox(height: 120),
-            ]),
-          ),
-        ),
-      ],
-    );
-  }
+            ),
+          ],
+        );
+      }
 
   Widget _buildCreateTeamButton(BuildContext context, WidgetRef ref) {
     return Container(

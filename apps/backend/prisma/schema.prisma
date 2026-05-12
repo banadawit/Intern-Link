@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -86,6 +85,7 @@ model User {
   verification_document       String?
   /// COORDINATOR/SUPERVISOR/HOD: Pending until admin (coord./sup.) or coordinator (HOD) approves. STUDENT/ADMIN default APPROVED.
   institution_access_approval ApprovalStatus  @default(APPROVED)
+  /// Set to true when account is created by a coordinator/admin with a temp password.
   must_change_password        Boolean         @default(false)
   aiChatMessages              AiChatMessage[]
   announcements               Announcement[]
@@ -123,7 +123,7 @@ model AiChatMessage {
   id        Int      @id @default(autoincrement())
   userId    Int
   speaker   String
-  content   String
+  content   String   @db.Text
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -215,7 +215,7 @@ model Student {
   hodId               Int?
   /// Optional flag set by HoD: 'LOW_PERFORMANCE' | 'INACTIVE'
   flag_type           String?
-  flag_note           String?
+  flag_note           String?                @db.Text
   finalEvaluation     FinalEvaluation?
   assignments         InternshipAssignment[]
   proposals           InternshipProposal[]
@@ -239,13 +239,18 @@ model InternshipProposal {
   proposal_type           String
   submitted_at            DateTime             @default(now())
   expected_duration_weeks Int?
-  expected_outcomes       String?
+  expected_outcomes       String?              @db.Text
   responded_at            DateTime?
-  /// Additional team members (empty for INDIVIDUAL proposals)
-  teamMembers             ProposalTeamMember[]
-  university              University           @relation(fields: [universityId], references: [id])
+  /// "INDIVIDUAL" (default) or "TEAM"
+  proposal_kind           String               @default("INDIVIDUAL")
+  /// Optional team name for TEAM proposals
+  team_name               String?
+  /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
+  attachments             Json                 @default("[]")
   company                 Company              @relation(fields: [companyId], references: [id])
   student                 Student              @relation(fields: [studentId], references: [id])
+  university              University           @relation(fields: [universityId], references: [id])
+  teamMembers             ProposalTeamMember[]
 
   @@index([studentId, companyId, status])
 }
@@ -279,16 +284,18 @@ model WeeklyPlan {
   id               Int                       @id @default(autoincrement())
   studentId        Int
   week_number      Int
-  plan_description String
+  plan_description String                    @db.Text
   status           ApprovalStatus            @default(PENDING)
   submitted_at     DateTime                  @default(now())
-  feedback         String?
+  feedback         String?                   @db.Text
   reviewed_at      DateTime?
   version          Int                       @default(1)
+  /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
+  attachments      Json                      @default("[]")
+  student          Student                   @relation(fields: [studentId], references: [id])
+  daySubmissions   WeeklyPlanDaySubmission[]
   presentation     WeeklyPresentation?
   weeklyReport     WeeklyReport?
-  daySubmissions   WeeklyPlanDaySubmission[]
-  student          Student                   @relation(fields: [studentId], references: [id])
 }
 
 /// One row per calendar day the student marked as submitted for that approved weekly plan (daily check-in).
@@ -296,7 +303,7 @@ model WeeklyPlanDaySubmission {
   id           Int        @id @default(autoincrement())
   weeklyPlanId Int
   workDate     DateTime   @db.Date
-  notes        String?
+  notes        String?    @db.Text
   submittedAt  DateTime   @default(now())
   weeklyPlan   WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
 
@@ -316,11 +323,11 @@ model WeeklyReport {
   id               Int              @id @default(autoincrement())
   studentId        Int
   supervisorId     Int
-  remarks          String?
+  remarks          String?          @db.Text
   submitted_at     DateTime         @default(now())
   weeklyPlanId     Int?             @unique
   attendanceStatus AttendanceStatus @default(PRESENT)
-  execution_status String?
+  execution_status String?          @db.Text
   student          Student          @relation(fields: [studentId], references: [id])
   supervisor       Supervisor       @relation(fields: [supervisorId], references: [id])
   weeklyPlan       WeeklyPlan?      @relation(fields: [weeklyPlanId], references: [id])
@@ -332,7 +339,7 @@ model FinalEvaluation {
   supervisorId     Int
   technical_score  Decimal    @db.Decimal(5, 2)
   soft_skill_score Decimal    @db.Decimal(5, 2)
-  comments         String?
+  comments         String?    @db.Text
   evaluated_at     DateTime   @default(now())
   student          Student    @relation(fields: [studentId], references: [id])
   supervisor       Supervisor @relation(fields: [supervisorId], references: [id])
@@ -378,7 +385,7 @@ model Project {
   name           String
   companyId      Int
   supervisorId   Int?
-  description    String?
+  description    String?          @db.Text
   capacity       Int              @default(0)
   requiredSkills String[]         @default([])
   created_at     DateTime         @default(now())
@@ -486,7 +493,7 @@ model PostReport {
   postId      Int
   reporterId  Int
   reason      String
-  description String?
+  description String?    @db.Text
   status      String     @default("PENDING")
   createdAt   DateTime   @default(now())
   reviewedAt  DateTime?
@@ -543,7 +550,7 @@ model AuditLog {
 /// Key-value store for platform-wide configuration set by admins.
 model SystemConfig {
   key       String   @id
-  value     String
+  value     String   @db.Text
   updatedAt DateTime @updatedAt
 }
 
@@ -562,7 +569,7 @@ model ChatMessage {
   id         Int      @id @default(autoincrement())
   senderId   Int
   receiverId Int
-  content    String
+  content    String   @db.Text
   is_read    Boolean  @default(false)
   created_at DateTime @default(now())
   receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
