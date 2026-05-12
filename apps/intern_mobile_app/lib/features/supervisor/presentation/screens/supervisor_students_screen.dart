@@ -21,7 +21,7 @@ class SupervisorStudentsTab extends ConsumerWidget {
           backgroundIcon: Icons.people_rounded,
         ),
         SliverPadding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           sliver: studentsAsync.when(
             data: (students) {
               final bool wide = isWideScreen(context);
@@ -31,7 +31,7 @@ class SupervisorStudentsTab extends ConsumerWidget {
                     crossAxisCount: 2,
                     mainAxisSpacing: 16,
                     crossAxisSpacing: 16,
-                    childAspectRatio: 1.6,
+                    childAspectRatio: 2.0,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => _StudentCard(student: students[index]),
@@ -138,41 +138,49 @@ class _StudentCard extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
-        decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Final Evaluation', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            Text('Evaluating ${student.fullName}', style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 24),
-            _scoreInput('Technical Score (0-100)', techController),
-            const SizedBox(height: 16),
-            _scoreInput('Soft Skills Score (0-100)', softController),
-            const SizedBox(height: 16),
-            TextField(
-              controller: commentsController,
-              maxLines: 4,
-              decoration: const InputDecoration(labelText: 'General Comments', border: OutlineInputBorder()),
+      builder: (ctx) => Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: isWideScreen(context) ? 500 : double.infinity),
+          child: Container(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 40),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: FilledButton(
-                onPressed: () {
-                  final t = double.tryParse(techController.text) ?? 0;
-                  final s = double.tryParse(softController.text) ?? 0;
-                  ref.read(supervisorActionsProvider.notifier).submitEvaluation(student.id, t, s, commentsController.text);
-                  Navigator.pop(ctx);
-                },
-                child: const Text('Submit Evaluation'),
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Final Evaluation', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 8),
+                Text('Evaluating ${student.fullName}', style: const TextStyle(color: Colors.grey)),
+                const SizedBox(height: 24),
+                _scoreInput('Technical Score (0-100)', techController),
+                const SizedBox(height: 16),
+                _scoreInput('Soft Skills Score (0-100)', softController),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: commentsController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: 'General Comments', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: () {
+                      final t = double.tryParse(techController.text) ?? 0;
+                      final s = double.tryParse(softController.text) ?? 0;
+                      ref.read(supervisorActionsProvider.notifier).submitEvaluation(student.id, t, s, commentsController.text);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Submit Evaluation'),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

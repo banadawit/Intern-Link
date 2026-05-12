@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../app/desktop_layout.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/network/api_client.dart';
 import '../../data/models/auth_models.dart';
@@ -224,10 +225,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               child: SlideTransition(
                 position: _slide,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+                  padding: EdgeInsets.symmetric(
+                    horizontal: responsiveValue(context, mobile: 24.0, tablet: 48.0, desktop: 64.0),
+                    vertical: 16,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: responsiveValue(context, mobile: double.infinity, tablet: 560.0, desktop: 640.0),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                       // Back to Home
                       TextButton.icon(
                         onPressed: () => context.go(AppRoutes.onboarding),
@@ -278,7 +287,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         ],
                       ),
                     ],
-                  ),
+                      ),   // Column
+                    ),     // ConstrainedBox
+                  ),       // Center
                 ),
               ),
             ),

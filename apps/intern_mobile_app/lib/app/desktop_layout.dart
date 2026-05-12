@@ -51,9 +51,9 @@ T responsiveValue<T>(BuildContext context, {
 double sidebarWidth(BuildContext context) {
   final w = MediaQuery.of(context).size.width;
   if (w < 600)  return 0;    // mobile (bottom nav)
-  if (w < 900)  return 72;   // icon-only rail on small tablets
-  if (w < 1200) return 200;  // compact sidebar on large tablets
-  return isWindows ? 240.0 : isMacOS ? 220.0 : 230.0; // full sidebar
+  if (w < 950)  return 88;   // wider rail on small tablets
+  if (w < 1250) return 220;  // fuller sidebar on large tablets
+  return isWindows ? 260.0 : isMacOS ? 240.0 : 250.0; // full sidebar
 }
 
 // ── Desktop scaffold ──────────────────────────────────────────────────────────
@@ -85,9 +85,7 @@ class DesktopScaffold extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final sw = sidebarWidth(context);
-    final iconOnly = sw <= 64;
-
-    // Platform-specific sidebar style
+    final iconOnly = sw <= 88;
     final sidebarBg = _sidebarColor(isDark);
 
     return Scaffold(
@@ -97,6 +95,7 @@ class DesktopScaffold extends StatelessWidget {
           // ── Sidebar ────────────────────────────────────────────────────────
           iconOnly
               ? _IconRail(
+                  width: sw,
                   backgroundColor: sidebarBg,
                   isDark: isDark,
                   selectedIndex: selectedIndex,
@@ -114,45 +113,11 @@ class DesktopScaffold extends StatelessWidget {
                 ),
           // Divider
           Container(width: 1, color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06)),
-          // ── Main content ───────────────────────────────────────────────────
+          // ── Main content — no extra padding, let each tab manage its own ──
           Expanded(
             child: Stack(
               children: [
-                // On tablets, center content with a max width so it doesn't stretch
-                LayoutBuilder(builder: (ctx, constraints) {
-                  final width = MediaQuery.of(context).size.width;
-                  // On tablets, we want a comfortable max width that isn't too stretched.
-                  // For small tablets (600-900), 800 is a good max.
-                  // For large tablets/desktop (>900), 1100 is a good max.
-                  double maxW;
-                  if (width < 900) {
-                    maxW = 800.0;
-                  } else if (width < 1400) {
-                    maxW = 1000.0;
-                  } else {
-                    maxW = 1200.0;
-                  }
-
-                  // If the constraint is already smaller than our target max, use full width
-                  if (constraints.maxWidth <= maxW) {
-                    return Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: responsiveValue(context, mobile: 16.0, tablet: 24.0, desktop: 32.0),
-                      ),
-                      child: body,
-                    );
-                  }
-
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: maxW),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: body,
-                      ),
-                    ),
-                  );
-                }),
+                body,
                 if (floatingActionButton != null)
                   Positioned(
                     bottom: 32,
@@ -185,6 +150,7 @@ class DesktopScaffold extends StatelessWidget {
 
 class _IconRail extends StatelessWidget {
   const _IconRail({
+    required this.width,
     required this.backgroundColor,
     required this.isDark,
     required this.selectedIndex,
@@ -192,6 +158,7 @@ class _IconRail extends StatelessWidget {
     required this.onDestinationSelected,
   });
 
+  final double width;
   final Color backgroundColor;
   final bool isDark;
   final int selectedIndex;
@@ -204,7 +171,7 @@ class _IconRail extends StatelessWidget {
     final accent = theme.colorScheme.primary;
 
     return Container(
-      width: 64,
+      width: width,
       color: backgroundColor,
       child: Column(children: [
         const SizedBox(height: 20),

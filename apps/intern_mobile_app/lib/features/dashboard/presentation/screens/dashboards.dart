@@ -603,7 +603,7 @@ class ModernSliverAppBar extends ConsumerWidget {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: responsiveValue(context, mobile: 32.0, tablet: 38.0, desktop: 44.0),
                           fontWeight: FontWeight.w900,
@@ -637,9 +637,8 @@ class ModernSliverAppBar extends ConsumerWidget {
   }
 
   void _showNotificationCenter(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => Consumer(
         builder: (context, ref, child) {
@@ -651,7 +650,7 @@ class ModernSliverAppBar extends ConsumerWidget {
 
           return Container(
             height: MediaQuery.of(context).size.height * 0.7,
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
@@ -922,6 +921,32 @@ bool _parseBool(dynamic v) {
   return false;
 }
 
+/// Shows a modal bottom sheet that is constrained to a sensible max width
+/// on tablet/desktop so it doesn't stretch edge-to-edge.
+Future<T?> showResponsiveSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool isScrollControlled = true,
+  bool isDismissible = true,
+  bool enableDrag = true,
+  Color? backgroundColor,
+}) {
+  final w = MediaQuery.of(context).size.width;
+  // On tablet/desktop, cap the sheet width and center it
+  final maxW = w >= 1200 ? 640.0 : (w >= 600 ? 560.0 : double.infinity);
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: isScrollControlled,
+    isDismissible: isDismissible,
+    enableDrag: enableDrag,
+    backgroundColor: backgroundColor ?? Colors.transparent,
+    constraints: maxW < double.infinity
+        ? BoxConstraints(maxWidth: maxW)
+        : null,
+    builder: builder,
+  );
+}
+
 /// Top-level reusable verification document row.
 /// Shows a tappable "Open" button when a URL exists, or a muted "No document" label.
 Widget _buildDocumentRow(BuildContext context, String docUrl, bool hasDoc, bool isDark) {
@@ -1092,7 +1117,10 @@ Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
   String submissionTitle = 'Report Submissions',
   String submissionSub = '95% Weekly Target'
 }) {
-  final bool wide = isWideScreen(context);
+  final double width = MediaQuery.of(context).size.width;
+  final bool wide = width >= 900;
+  final bool mid = width >= 600 && width < 900;
+
   return Column(
     children: [
       if (wide)
@@ -1103,9 +1131,23 @@ Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
             Expanded(child: _buildChartCard(placementTitle, placementSub, _buildBarChart(isDark), isDark)),
             const SizedBox(width: 16),
             Expanded(child: _buildChartCard(successTitle, '${(successRate * 100).toInt()}% Rate', _buildCircularProgress(successRate, Colors.blue), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard(submissionTitle, submissionSub, _buildBarChart(isDark, color: Colors.orange), isDark)),
           ],
         )
-      else ...[
+      else if (mid) ...[
+        Row(
+          children: [
+            Expanded(child: _buildChartCard(growthTitle, growthTrend, _buildLineChart(isDark), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard(placementTitle, placementSub, _buildBarChart(isDark), isDark)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildChartCard(successTitle, '${(successRate * 100).toInt()}% Rate', _buildCircularProgress(successRate, Colors.blue), isDark)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildChartCard(submissionTitle, submissionSub, _buildBarChart(isDark, color: Colors.orange), isDark),
+      ] else ...[
         Row(
           children: [
             Expanded(child: _buildChartCard(growthTitle, growthTrend, _buildLineChart(isDark), isDark)),
@@ -1121,10 +1163,6 @@ Widget _buildPlatformAnalytics(BuildContext context, bool isDark, {
             Expanded(child: _buildChartCard(submissionTitle, submissionSub, _buildBarChart(isDark, color: Colors.orange), isDark)),
           ],
         ),
-      ],
-      if (wide) ...[
-        const SizedBox(height: 16),
-        _buildChartCard(submissionTitle, submissionSub, _buildBarChart(isDark, color: Colors.orange), isDark),
       ],
     ],
   );
@@ -1526,7 +1564,7 @@ class _StudentHomeTab extends ConsumerWidget {
                     backgroundIcon: Icons.rocket_launch_rounded,
                   ),
                   SliverPadding(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         _buildInternshipStatusHeader(context, profile),
@@ -1591,7 +1629,7 @@ class _StudentHomeTab extends ConsumerWidget {
         }
 
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           decoration: BoxDecoration(
             gradient: alreadyCheckedIn 
               ? LinearGradient(colors: [Colors.green.shade400, Colors.green.shade600])
@@ -1773,13 +1811,18 @@ class _StudentHomeTab extends ConsumerWidget {
     required String internshipProgressValue,
     required String latestFeedbackValue,
   }) {
+    final double width = MediaQuery.of(context).size.width;
+    int crossCount = 2;
+    if (width >= 1200) crossCount = 4;
+    else if (width >= 600) crossCount = 3;
+
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: isWideScreen(context) ? 3 : 2,
+      crossAxisCount: crossCount,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      childAspectRatio: 1.1,
+      childAspectRatio: responsiveValue(context, mobile: 1.1, tablet: 1.3, desktop: 1.5),
       children: [
         _buildStatCard(context, 'Check-ins', attendanceOrCheckinsValue, Icons.calendar_today_rounded, Colors.blue),
         _buildStatCard(context, 'Plans Progress', weeklyPlansProgressValue, Icons.assignment_turned_in_rounded, Colors.orange),
@@ -2183,7 +2226,7 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
                   backgroundIcon: Icons.work_rounded,
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       if ((profile.internshipStatus).toUpperCase() == 'PLACED' || profile.companyName != null) ...[
@@ -2399,10 +2442,9 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
     final letterController = TextEditingController();
     bool isSubmitting = false;
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => Container(
           padding: EdgeInsets.fromLTRB(32, 32, 32, MediaQuery.of(ctx).viewInsets.bottom + 40),
@@ -2499,7 +2541,7 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(32),
@@ -2558,9 +2600,8 @@ class _StudentJobsTabState extends ConsumerState<_StudentJobsTab> {
                 ? Colors.grey
                 : Colors.orange;
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(32),
@@ -2662,7 +2703,7 @@ class _StudentProfileTab extends ConsumerWidget {
                 backgroundIcon: Icons.account_circle_rounded,
               ),
               SliverPadding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     const SizedBox(height: 20),
@@ -3073,7 +3114,7 @@ class _SupervisorOverviewTabState extends ConsumerState<_SupervisorOverviewTab> 
 
   Widget _buildAllClearCard(BuildContext context, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
       decoration: BoxDecoration(color: Colors.green.withOpacity(0.06), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.green.withOpacity(0.2))),
       child: const Row(children: [
         Icon(Icons.check_circle_rounded, color: Colors.green, size: 28),
@@ -3335,7 +3376,7 @@ class _SupervisorStudentsTab extends ConsumerWidget {
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) => _buildStudentCard(context, students[index], isDark, theme, ref),
@@ -3426,10 +3467,9 @@ class _SupervisorStudentsTab extends ConsumerWidget {
 
   void _showStudentManagement(BuildContext context, SupervisorStudent student, WidgetRef ref) {
     final theme = Theme.of(context);
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(color: theme.scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(32))),
@@ -3617,7 +3657,7 @@ class _SupervisorWorkflowTabContentState extends ConsumerState<_SupervisorWorkfl
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               _buildSectionHeader(theme, 'Placement Proposals'),
@@ -3755,10 +3795,9 @@ class _SupervisorWorkflowTabContentState extends ConsumerState<_SupervisorWorkfl
   }
 
   void _showProposalDetails(BuildContext context, InternshipProposal p) {
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => _ReviewDetailsSheet(
         title: 'Placement Proposal',
         subtitle: p.studentName,
@@ -3787,10 +3826,9 @@ class _SupervisorWorkflowTabContentState extends ConsumerState<_SupervisorWorkfl
       type: f.fileUrl.toLowerCase().endsWith('.pdf') ? 'pdf' : 'file',
     )).toList();
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => _ReviewDetailsSheet(
         title: 'Week ${p.weekNumber} Plan',
         subtitle: p.title,
@@ -3935,7 +3973,7 @@ class _SupervisorTrackingTabContent extends ConsumerWidget {
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               _buildSectionHeader(theme, 'Daily Check-ins'),
@@ -4196,10 +4234,9 @@ class _SupervisorTeamsTabState extends ConsumerState<_SupervisorTeamsTab>
     String teamName = '';
     bool createNewTeam = true;
     bool loading = false;
-    await showModalBottomSheet<void>(
+    await showResponsiveSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Container(
@@ -4763,7 +4800,7 @@ class _CoordinatorHomeTab extends ConsumerWidget {
                     backgroundIcon: Icons.assessment_rounded,
                   ),
                   SliverPadding(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         Text('Quick Stats', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -5032,10 +5069,9 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     bool loading = false;
     String? tempPassword;
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -7061,7 +7097,7 @@ class _HodOverviewTab extends ConsumerWidget {
                   backgroundIcon: Icons.analytics_rounded,
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       _buildStatGrid(context, stats, isDark),
@@ -7326,14 +7362,13 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
 
   void _showFlagSheet(int studentId, String? currentFlag) {
     final noteCtrl = TextEditingController();
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Flag Student', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
@@ -7375,16 +7410,15 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
   }
 
   void _showTimeline(int studentId, String studentName) {
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => Consumer(
         builder: (context, ref, _) {
           final timelineAsync = ref.watch(hodStudentTimelineProvider(studentId));
           return Container(
             height: MediaQuery.of(context).size.height * 0.6,
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
             decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Timeline: $studentName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
@@ -7642,10 +7676,9 @@ class _HodStudentsTabState extends ConsumerState<_HodStudentsTab> {
   }
 
   void _showSendProposalSheet(BuildContext context, int studentId, String studentName) {
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => _SendProposalSheet(studentId: studentId, studentName: studentName),
     ).then((_) {
       ref.invalidate(hodStudentsProvider(_filter));
@@ -7802,13 +7835,12 @@ class _SendProposalSheetState extends ConsumerState<_SendProposalSheet> {
   void _showStudentPicker({required bool isLead}) {
     final studentsAsync = ref.read(hodStudentsProvider('approved'));
     studentsAsync.whenData((students) {
-      showModalBottomSheet(
+      showResponsiveSheet(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
         builder: (ctx) => Container(
           height: MediaQuery.of(context).size.height * 0.65,
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -8140,13 +8172,12 @@ class _HodProposalsTabState extends ConsumerState<_HodProposalsTab>
     final status = (p['status'] ?? 'PENDING').toString();
     final isOpenLetter = (p['proposal_type'] ?? '').toString() == 'Open_Letter';
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         height: MediaQuery.of(context).size.height * 0.55,
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
         decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.3), borderRadius: BorderRadius.circular(2)))),
@@ -8321,10 +8352,9 @@ class _HodProposalsTabState extends ConsumerState<_HodProposalsTab>
             builder: (_, __) => _tabCtrl.index == 0
                 ? FloatingActionButton.extended(
                     heroTag: 'hod_proposals_fab',
-                    onPressed: () => showModalBottomSheet(
+                    onPressed: () => showResponsiveSheet(
                       context: context,
                       isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
                       builder: (ctx) => _SendProposalSheet(studentId: 0, studentName: 'Select Student'),
                     ).then((_) => ref.invalidate(hodProposalsFilteredProvider(_statusFilter))),
                     backgroundColor: const Color(0xFFf857a6),
@@ -8959,7 +8989,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
                   backgroundIcon: Icons.shield_rounded,
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 24.0, desktop: 32.0)),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       if (stats.pendingApprovals > 0) ...[
@@ -8976,22 +9006,38 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
 
                       _buildSectionHeader(theme, 'Growth & Analytics'),
                       const SizedBox(height: 16),
-                      _buildGrowthAnalytics(context, ref, isDark, theme),
-                      const SizedBox(height: 32),
-
-                      _buildSectionHeader(theme, 'Organization Breakdown'),
-                      const SizedBox(height: 16),
-                      _buildOrganizationBreakdown(context, ref, stats, isDark),
-                      const SizedBox(height: 32),
-
-                      _buildSectionHeader(theme, 'Internship Overview'),
-                      const SizedBox(height: 16),
-                      _buildInternshipOverview(context, ref, stats, isDark),
-                      const SizedBox(height: 32),
-
-                      _buildSectionHeader(theme, 'Reports Snapshot'),
-                      const SizedBox(height: 16),
-                      _buildReportsSnapshot(context, ref, stats, isDark),
+                      // On tablet: show analytics in 2-col grid
+                      if (isTablet(context)) ...[
+                        IntrinsicHeight(
+                          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            Expanded(child: _buildGrowthAnalytics(context, ref, isDark, theme)),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildOrganizationBreakdown(context, ref, stats, isDark)),
+                          ]),
+                        ),
+                        const SizedBox(height: 12),
+                        IntrinsicHeight(
+                          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            Expanded(child: _buildInternshipOverview(context, ref, stats, isDark)),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildReportsSnapshot(context, ref, stats, isDark)),
+                          ]),
+                        ),
+                      ] else ...[
+                        _buildGrowthAnalytics(context, ref, isDark, theme),
+                        const SizedBox(height: 32),
+                        _buildSectionHeader(theme, 'Organization Breakdown'),
+                        const SizedBox(height: 16),
+                        _buildOrganizationBreakdown(context, ref, stats, isDark),
+                        const SizedBox(height: 32),
+                        _buildSectionHeader(theme, 'Internship Overview'),
+                        const SizedBox(height: 16),
+                        _buildInternshipOverview(context, ref, stats, isDark),
+                        const SizedBox(height: 32),
+                        _buildSectionHeader(theme, 'Reports Snapshot'),
+                        const SizedBox(height: 16),
+                        _buildReportsSnapshot(context, ref, stats, isDark),
+                      ],
                       const SizedBox(height: 32),
 
                       _buildSectionHeader(theme, 'Recent Activity'),
@@ -9021,13 +9067,17 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
   }
 
   Widget _buildOverviewGrid(BuildContext context, dynamic stats, bool isDark) {
+    final w = MediaQuery.of(context).size.width;
+    // 4 cards — always use 4 cols on tablet/desktop, 2 on mobile
+    final cols = w >= 600 ? 4 : 2;
+    final ratio = w >= 1200 ? 1.3 : (w >= 600 ? 1.1 : 0.85);
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 0.85,
+      crossAxisCount: cols,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: ratio,
       children: [
         _buildStatCard(context, 'Total Users', stats.totalUsers.toString(), Icons.people_rounded, Colors.blue, isDark),
         _buildStatCard(context, 'Institutions', (stats.totalUniversities + stats.totalCompanies).toString(), Icons.account_balance_rounded, Colors.orange, isDark),
@@ -9159,7 +9209,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
           }
         }
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           decoration: _cardDecor(isDark),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -9193,49 +9243,47 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
   Widget _buildBarChart(List<dynamic> months, bool isDark) {
     final maxVal = months.map((m) => _parseInt(m['total'])).fold(0, (a, b) => a > b ? a : b);
     if (maxVal == 0) return const SizedBox.shrink();
-    return ClipRect(
-      child: SizedBox(
-        height: 72,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: months.map((m) {
-            final val = _parseInt(m['total']);
-            final frac = maxVal == 0 ? 0.0 : val / maxVal;
-            final isLast = m == months.last;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (val > 0)
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text('$val', style: TextStyle(fontSize: 8, color: Colors.grey.shade500)),
-                      ),
-                    const SizedBox(height: 1),
-                    Container(
-                      height: (frac * 36).clamp(3.0, 36.0),
-                      decoration: BoxDecoration(
-                        color: isLast ? Colors.blue : Colors.blue.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
+    return SizedBox(
+      height: 80,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: months.map((m) {
+          final val = _parseInt(m['total']);
+          final frac = maxVal == 0 ? 0.0 : val / maxVal;
+          final isLast = m == months.last;
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (val > 0)
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(
-                        m['label']?.toString() ?? '',
-                        style: const TextStyle(fontSize: 8, color: Colors.grey),
-                      ),
+                      child: Text('$val', style: TextStyle(fontSize: 8, color: Colors.grey.shade500)),
                     ),
-                  ],
-                ),
+                  const SizedBox(height: 1),
+                  Container(
+                    height: (frac * 40).clamp(3.0, 40.0),
+                    decoration: BoxDecoration(
+                      color: isLast ? Colors.blue : Colors.blue.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      m['label']?.toString() ?? '',
+                      style: const TextStyle(fontSize: 8, color: Colors.grey),
+                    ),
+                  ),
+                ],
               ),
-            );
+            ),
+          );
         }).toList(),
-        ),
       ),
     );
   }
@@ -9269,7 +9317,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
 
   Widget _orgBreakdownCard(bool isDark, int totalUnis, int totalComps, int approvedUnis, int approvedComps, double uniPct, double compPct) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
       decoration: _cardDecor(isDark),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -9312,7 +9360,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
         final pending = _parseInt(placement['pending']);
         final placedPct = total == 0 ? 0.0 : placed / total;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           decoration: _cardDecor(isDark),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -9367,7 +9415,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
 
   Widget _buildInternshipFallback(dynamic stats, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
       decoration: _cardDecor(isDark),
       child: Row(children: [
         Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
@@ -9394,7 +9442,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
     return analyticsAsync.when(
       loading: () => _analyticsShimmer(isDark),
       error: (_, __) => Container(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
         decoration: _cardDecor(isDark),
         child: Row(children: [
           Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
@@ -9415,7 +9463,7 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
         }
         final approvalRate = totalPlans == 0 ? 0.0 : approvedPlans / totalPlans;
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           decoration: _cardDecor(isDark),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -9676,12 +9724,8 @@ void _showCreateOrgSheet(BuildContext context, WidgetRef ref) {
   final contactEmailCtrl = TextEditingController();
   bool isSaving = false;
 
-  showModalBottomSheet(
+  showResponsiveSheet(
     context: context,
-    isScrollControlled: true,
-    isDismissible: true,
-    enableDrag: true,
-    backgroundColor: Colors.transparent,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setModalState) {
         final color = orgType == 'University' ? const Color(0xFF3B82F6) : const Color(0xFF8B5CF6);
@@ -10063,7 +10107,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
               ],
             ),
             SliverPadding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _buildOrgStatsRow(statsAsync, isDark),
@@ -10244,8 +10288,28 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
 
           if (all.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No organizations found'))));
 
+          final hPad = responsiveValue(context, mobile: 16.0, tablet: 24.0, desktop: 32.0);
+          // On tablet use a 2-column grid so cards don't stretch too wide
+          if (isTablet(context)) {
+            return SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: hPad),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.1,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildOrgCard(context, ref, all[index], isDark),
+                  childCount: all.length,
+                ),
+              ),
+            );
+          }
+
           return SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: hPad),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) => _buildOrgCard(context, ref, all[index], isDark),
@@ -10395,10 +10459,9 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
     final orgId = _parseInt(org['id']);
     bool? studentRegEnabled; // null = inherit global
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       isDismissible: true,
       enableDrag: true,
       builder: (ctx) => StatefulBuilder(
@@ -10415,7 +10478,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             ),
             child: ListView(
               controller: controller,
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
               children: [
                 // Drag handle + close button row
                 Row(children: [
@@ -10744,10 +10807,9 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
     final contactEmailCtrl = TextEditingController();
     bool isSaving = false;
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -11107,11 +11169,27 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
-            itemCount: filtered.length,
-            itemBuilder: (context, i) => _buildCoordinatorCard(context, filtered[i], isDark),
-          );
+          return LayoutBuilder(builder: (ctx, constraints) {
+            final hPad = responsiveValue(context, mobile: 16.0, tablet: 20.0, desktop: 24.0);
+            if (isTablet(context)) {
+              return GridView.builder(
+                padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.4,
+                ),
+                itemCount: filtered.length,
+                itemBuilder: (context, i) => _buildCoordinatorCard(context, filtered[i], isDark),
+              );
+            }
+            return ListView.builder(
+              padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+              itemCount: filtered.length,
+              itemBuilder: (context, i) => _buildCoordinatorCard(context, filtered[i], isDark),
+            );
+          });
         },
       ),
     );
@@ -11150,11 +11228,27 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
-            itemCount: filtered.length,
-            itemBuilder: (context, i) => _buildSupervisorCard(context, filtered[i], isDark),
-          );
+          return LayoutBuilder(builder: (ctx, constraints) {
+            final hPad = responsiveValue(context, mobile: 16.0, tablet: 20.0, desktop: 24.0);
+            if (isTablet(context)) {
+              return GridView.builder(
+                padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.4,
+                ),
+                itemCount: filtered.length,
+                itemBuilder: (context, i) => _buildSupervisorCard(context, filtered[i], isDark),
+              );
+            }
+            return ListView.builder(
+              padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+              itemCount: filtered.length,
+              itemBuilder: (context, i) => _buildSupervisorCard(context, filtered[i], isDark),
+            );
+          });
         },
       ),
     );
@@ -11786,7 +11880,12 @@ class _AdminLogsTabState extends ConsumerState<_AdminLogsTab> {
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                    padding: EdgeInsets.fromLTRB(
+                      responsiveValue(context, mobile: 20.0, tablet: 28.0, desktop: 40.0),
+                      0,
+                      responsiveValue(context, mobile: 20.0, tablet: 28.0, desktop: 40.0),
+                      0,
+                    ),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (ctx, i) => _logCard(filtered[i], isDark, i, filtered.length),
@@ -12096,7 +12195,12 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
                     backgroundIcon: Icons.settings_suggest_rounded,
                   ),
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+                    padding: EdgeInsets.fromLTRB(
+                      responsiveValue(context, mobile: 20.0, tablet: 32.0, desktop: 48.0),
+                      20,
+                      responsiveValue(context, mobile: 20.0, tablet: 32.0, desktop: 48.0),
+                      120,
+                    ),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
 
@@ -12587,10 +12691,9 @@ class _AdminSettingsTabState extends ConsumerState<_AdminSettingsTab> {
     final color = orgType == 'University' ? Colors.blue : Colors.purple;
     final icon = orgType == 'University' ? Icons.account_balance_rounded : Icons.business_rounded;
 
-    showModalBottomSheet(
+    showResponsiveSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) => Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -13380,8 +13483,8 @@ class _SupervisorAssignmentScreenState extends ConsumerState<_SupervisorAssignme
     _reset();
     final students = ref.read(supervisorStudentsProvider).value ?? [];
     if (students.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No placed students available.'))); return; }
-    await showModalBottomSheet<void>(
-      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+    await showResponsiveSheet<void>(
+      context: context, isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final stepTitles = ['Select Project', 'Create / Select Team', 'Add Students', 'Confirm & Assign'];

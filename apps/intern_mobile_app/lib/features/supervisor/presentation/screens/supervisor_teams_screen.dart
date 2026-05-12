@@ -22,7 +22,7 @@ class SupervisorTeamsTab extends ConsumerWidget {
           backgroundIcon: Icons.group_work_rounded,
         ),
         SliverPadding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(responsiveValue(context, mobile: 16.0, tablet: 32.0, desktop: 48.0)),
           sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   Center(
@@ -58,11 +58,11 @@ class SupervisorTeamsTab extends ConsumerWidget {
                   ),
                   const SizedBox(height: 120),
                 ]),
-              );
-        ),
-      ],
-    );
-  }
+              ),
+            ),
+          ],
+        );
+      }
 
   Widget _buildCreateTeamButton(BuildContext context, WidgetRef ref) {
     return Container(
