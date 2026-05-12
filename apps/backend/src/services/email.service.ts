@@ -81,10 +81,9 @@ export const getTransporter = async (): Promise<Transporter> => {
  */
 export const sendVerificationEmail = async (email: string, token: string, role?: string): Promise<void> => {
   try {
-    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:60068').replace(/\/$/, '');
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const roleParam = role ? `&role=${role.toLowerCase()}` : '';
-    // Link goes directly to the Flutter web app's verify-email route
-    const verificationUrl = `${frontendUrl}/#/verify-email?token=${token}${roleParam}`;
+    const verificationUrl = `${frontendUrl}/verify-email?token=${token}${roleParam}`;
     
     const transporter = await getTransporter();
     
