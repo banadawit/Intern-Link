@@ -157,6 +157,9 @@ model Company {
   approval_status   ApprovalStatus         @default(PENDING)
   created_at        DateTime               @default(now())
   rejection_reason  String?
+  /// HOD who sent the invitation (null if company registered on their own)
+  invited_by_hod_id Int?
+  invitedByHod      HodProfile?            @relation("HodInvitedCompanies", fields: [invited_by_hod_id], references: [id])
   assignments       InternshipAssignment[]
   proposalsReceived InternshipProposal[]
   projects          Project[]
@@ -185,6 +188,7 @@ model HodProfile {
   university   University @relation(fields: [universityId], references: [id])
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   students     Student[]
+  invitedCompanies Company[] @relation("HodInvitedCompanies")
 
   @@index([universityId, department])
   @@map("Hod")

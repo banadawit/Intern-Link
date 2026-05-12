@@ -44,13 +44,13 @@ const VerificationList = ({ title, proposals, onReview, loading, hideHero = fals
       )}
 
       <div className="card overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row gap-4">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input type="text" placeholder="Search organizations..." className="w-full rounded-lg border border-slate-200 bg-white pl-10 py-2 text-sm text-slate-600 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Search organizations..." className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 py-2 text-sm text-slate-600 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <div className="flex gap-2">
-            <select className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "All" | "University" | "Company")}>
+            <select className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "All" | "University" | "Company")}>
               <option value="All">All Types</option>
               <option value="University">Universities</option>
               <option value="Company">Companies</option>
@@ -65,7 +65,7 @@ const VerificationList = ({ title, proposals, onReview, loading, hideHero = fals
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-100 text-slate-500 text-xs uppercase tracking-wider">
+              <tr className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Organization</th>
                 <th className="px-6 py-4 font-semibold">Type</th>
                 <th className="px-6 py-4 font-semibold">Submitted</th>
@@ -74,21 +74,21 @@ const VerificationList = ({ title, proposals, onReview, loading, hideHero = fals
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
               {filteredProposals.map((p) => {
                 const sla = p.status === "Pending" ? getPendingVerificationSla(p.submittedAt) : null;
                 return (
-                <tr key={p.id} className={cn("hover:bg-slate-50 transition-colors group", sla?.isOverdue && "bg-red-50/40")}>
+                <tr key={p.id} className={cn("hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group", sla?.isOverdue && "bg-red-50/40 dark:bg-red-900/10")}>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className={cn("p-2 rounded-lg", p.organizationType === "University" ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600")}>
+                      <div className={cn("p-2 rounded-lg", p.organizationType === "University" ? "bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400" : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400")}>
                         {p.organizationType === "University" ? <GraduationCap className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
                       </div>
-                      <span className="font-semibold text-slate-900">{p.organizationName}</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">{p.organizationName}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{p.organizationType}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500">
+                  <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{p.organizationType}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
                       {format(new Date(p.submittedAt), "MMM d, yyyy HH:mm")}
@@ -129,8 +129,8 @@ const VerificationList = ({ title, proposals, onReview, loading, hideHero = fals
                       {p.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={() => onReview(p)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-teal-600" title="Review Proposal">
+                  <td className="px-6 py-4">
+                    <button onClick={() => onReview(p)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-teal-600" title="Review Proposal">
                       <Eye className="w-5 h-5" />
                     </button>
                   </td>
@@ -139,7 +139,7 @@ const VerificationList = ({ title, proposals, onReview, loading, hideHero = fals
               })}
               {filteredProposals.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                     No proposals found matching your criteria.
                   </td>
                 </tr>

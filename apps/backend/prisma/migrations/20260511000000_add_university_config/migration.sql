@@ -1,15 +1,3 @@
--- CreateTable
-CREATE TABLE "UniversityConfig" (
-    "id" SERIAL NOT NULL,
-    "universityId" INTEGER NOT NULL,
-    "studentRegistrationEnabled" BOOLEAN,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "UniversityConfig_pkey" PRIMARY KEY ("id")
-);
-
--- CreateIndex
-CREATE UNIQUE INDEX "UniversityConfig_universityId_key" ON "UniversityConfig"("universityId");
-
--- AddForeignKey
-ALTER TABLE "UniversityConfig" ADD CONSTRAINT "UniversityConfig_universityId_fkey" FOREIGN KEY ("universityId") REFERENCES "University"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- UniversityConfig was already created in 20260509000000_add_university_config_and_missing_columns
+-- This migration is intentionally a no-op to avoid duplicate table error.
+SELECT 1;

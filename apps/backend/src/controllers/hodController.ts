@@ -579,7 +579,7 @@ export const inviteCompany = async (req: AuthRequest, res: Response) => {
         if (existing) return sendError(res, 'A company with this email already exists.', 400);
 
         const company = await prisma.company.create({
-            data: { name: company_name, official_email: email, approval_status: 'PENDING' },
+            data: { name: company_name, official_email: email, approval_status: 'PENDING', invited_by_hod_id: hod.id },
         });
 
         const hodUser = await prisma.user.findUnique({ where: { id: uid } });
@@ -591,6 +591,30 @@ export const inviteCompany = async (req: AuthRequest, res: Response) => {
         });
 
         return sendSuccess(res, { companyId: company.id }, 'Invitation sent.', 201);
+    } catch (e: any) {
+        return sendError(res, e.message);
+    }
+};
+
+export const getInvitedCompanies = async (req: AuthRequest, res: Response) => {
+    try {
+        const uid = req.user?.userId;
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
+
+        const companies = await prisma.company.findMany({
+            where: { invited_by_hod_id: hod.id },
+            orderBy: { created_at: 'desc' },
+            select: {
+                id: true,
+                name: true,
+                official_email: true,
+                approval_status: true,
+                created_at: true,
+            },
+        });
+
+        return sendSuccess(res, companies);
     } catch (e: any) {
         return sendError(res, e.message);
     }

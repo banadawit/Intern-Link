@@ -40,7 +40,7 @@ export default function SuspendedView({ proposals, listsLoading, onReview, suspe
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <AdminPageHero badge="Suspended" title={active.title} description={active.description} />
 
-      <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+      <div className="flex gap-1 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-1">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const count = countFor(tab.id);
@@ -51,14 +51,14 @@ export default function SuspendedView({ proposals, listsLoading, onReview, suspe
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-                isActive ? "bg-white text-teal-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-700"
+                isActive ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               )}
             >
               <tab.icon className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">{tab.label}</span>
               {count > 0 && (
                 <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                  isActive ? "bg-teal-100 text-teal-800 ring-1 ring-teal-200/80" : "bg-slate-200 text-slate-700 ring-1 ring-slate-300/80"
+                  isActive ? "bg-teal-100 text-teal-800 ring-1 ring-teal-200/80" : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 ring-1 ring-slate-300/80"
                 )}>
                   {count > 99 ? "99+" : count}
                 </span>
