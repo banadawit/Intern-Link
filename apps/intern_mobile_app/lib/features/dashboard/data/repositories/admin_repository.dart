@@ -191,6 +191,26 @@ class AdminRepository {
     });
   }
 
+  // --- MERGE DUPLICATES ---
+
+  Future<List<dynamic>> findDuplicateUniversities() async {
+    final response = await apiClient.dio.get('/admin/merge/duplicates/universities');
+    return _deepList(response.data);
+  }
+
+  Future<List<dynamic>> findDuplicateCompanies() async {
+    final response = await apiClient.dio.get('/admin/merge/duplicates/companies');
+    return _deepList(response.data);
+  }
+
+  Future<void> mergeUniversities(int sourceId, int targetId) async {
+    await apiClient.dio.post('/admin/merge/universities', data: {'sourceId': sourceId, 'targetId': targetId});
+  }
+
+  Future<void> mergeCompanies(int sourceId, int targetId) async {
+    await apiClient.dio.post('/admin/merge/companies', data: {'sourceId': sourceId, 'targetId': targetId});
+  }
+
   // --- SYSTEM CONFIGURATION ---
 
   Future<Map<String, String>> getConfig() async {
@@ -414,4 +434,12 @@ final systemConfigProvider = FutureProvider<Map<String, String>>((ref) {
 
 final adminAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getAnalytics();
+});
+
+final duplicateUniversitiesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).findDuplicateUniversities();
+});
+
+final duplicateCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).findDuplicateCompanies();
 });

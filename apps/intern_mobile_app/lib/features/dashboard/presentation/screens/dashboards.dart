@@ -10485,6 +10485,11 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
               backgroundIcon: Icons.business_rounded,
               actions: [
                 IconButton(
+                  onPressed: () => _showMergeDuplicatesDialog(context, ref, isDark),
+                  icon: const Icon(Icons.call_merge_rounded, color: Colors.white),
+                  tooltip: 'Merge Duplicates',
+                ),
+                IconButton(
                   onPressed: () => _showCreateOrgDialog(context, ref, isDark),
                   icon: const Icon(Icons.add_business_rounded, color: Colors.white),
                   tooltip: 'Create Organization',
@@ -14415,4 +14420,329 @@ class _OrgRequestActionsState extends ConsumerState<_OrgRequestActions> {
       ),
     );
   }
-}
+}
+
+// ── Merge Duplicates Dialog ─────────────────────────────────────────────────────
+
+void _showMergeDuplicatesDialog(BuildContext context, WidgetRef ref, bool isDark) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => _MergeDuplicatesDialog(isDark: isDark),
+  );
+}
+
+class _MergeDuplicatesDialog extends ConsumerStatefulWidget {
+  const _MergeDuplicatesDialog({required this.isDark});
+  final bool isDark;
+
+  @override
+  ConsumerState<_MergeDuplicatesDialog> createState() => _MergeDuplicatesDialogState();
+}
+
+class _MergeDuplicatesDialogState extends ConsumerState<_MergeDuplicatesDialog> {
+  int _tabIndex = 0; // 0: Universities, 1: Companies
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = const Color(0xFF4286F4);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, controller) {
+        return Container(
+          decoration: BoxDecoration(
+            color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: widget.isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                      child: Icon(Icons.call_merge_rounded, color: primary),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Merge Duplicates', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                          Text('Combine duplicate organizations into one', style: theme.textTheme.bodySmall),
+                        ],
+                      ),
+                    ),
+                    IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+                  ],
+                ),
+              ),
+              
+              // Tabs
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTab(0, 'Universities', Icons.account_balance_rounded, primary),
+                  ),
+                  Expanded(
+                    child: _buildTab(1, 'Companies', Icons.business_rounded, primary),
+                  ),
+                ],
+              ),
+              const Divider(height: 1),
+
+              // Content
+              Expanded(
+                child: _tabIndex == 0 
+                  ? _buildDuplicatesList(ref.watch(duplicateUniversitiesProvider), 'Universities', primary)
+                  : _buildDuplicatesList(ref.watch(duplicateCompaniesProvider), 'Companies', primary),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTab(int index, String label, IconData icon, Color primary) {
+    final isSelected = _tabIndex == index;
+    return InkWell(
+      onTap: () => setState(() => _tabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: isSelected ? primary : Colors.transparent, width: 3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: isSelected ? primary : Colors.grey, size: 18),
+            const SizedBox(width: 8),
+            Text(label, style: TextStyle(color: isSelected ? primary : Colors.grey, fontWeight: isSelected ? FontWeight.bold : FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDuplicatesList(AsyncValue<List<dynamic>> asyncValue, String type, Color primary) {
+    return asyncValue.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+      data: (groups) {
+        if (groups.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline_rounded, size: 64, color: Colors.green.withOpacity(0.5)),
+                const SizedBox(height: 16),
+                const Text('No duplicates found!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('The system looks clean.', style: TextStyle(color: Colors.grey.shade600)),
+              ],
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(20),
+          itemCount: groups.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 20),
+          itemBuilder: (context, index) {
+            final group = groups[index] as Map<String, dynamic>;
+            final records = (group['records'] as List).cast<Map<String, dynamic>>();
+
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: widget.isDark ? Colors.white.withOpacity(0.02) : Colors.grey.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Potential Duplicates (${records.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ...records.map((record) => _buildRecordCard(record, records, type, primary)).toList(),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRecordCard(Map<String, dynamic> record, List<Map<String, dynamic>> allRecords, String type, Color primary) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: widget.isDark ? Colors.black26 : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(record['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('ID: ${record['id']}', style: TextStyle(color: primary, fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
+          ),
+          if (record['address'] != null && record['address'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(record['address'], style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showMergeDialog(context, record, allRecords, type, primary),
+              icon: const Icon(Icons.call_merge_rounded, size: 16),
+              label: const Text('Keep this & Merge others into it'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primary,
+                side: BorderSide(color: primary.withOpacity(0.5)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMergeDialog(BuildContext context, Map<String, dynamic> targetRecord, List<Map<String, dynamic>> allRecords, String type, Color primary) {
+    final sourceRecords = allRecords.where((r) => r['id'] != targetRecord['id']).toList();
+    if (sourceRecords.isEmpty) return;
+
+    int? selectedSourceId = sourceRecords.first['id'] as int?;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            bool isMerging = false;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  Icon(Icons.call_merge_rounded, color: primary),
+                  const SizedBox(width: 10),
+                  const Text('Merge Confirm'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Target (Will be kept):', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  Text(targetRecord['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 16),
+                  Text('Source (Will be deleted, contents moved to target):', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: selectedSourceId,
+                        isExpanded: true,
+                        items: sourceRecords.map((r) => DropdownMenuItem<int>(
+                          value: r['id'] as int,
+                          child: Text(r['name']),
+                        )).toList(),
+                        onChanged: (v) => setDialogState(() => selectedSourceId = v),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        const Expanded(child: Text('This action cannot be undone. All users and data will be migrated.', style: TextStyle(color: Colors.red, fontSize: 12))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isMerging ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: isMerging ? null : () async {
+                    setDialogState(() => isMerging = true);
+                    try {
+                      if (type == 'Universities') {
+                        await ref.read(adminRepositoryProvider).mergeUniversities(selectedSourceId!, targetRecord['id']);
+                        ref.invalidate(duplicateUniversitiesProvider);
+                        ref.invalidate(allUniversitiesProvider);
+                      } else {
+                        await ref.read(adminRepositoryProvider).mergeCompanies(selectedSourceId!, targetRecord['id']);
+                        ref.invalidate(duplicateCompaniesProvider);
+                        ref.invalidate(allCompaniesProvider);
+                      }
+                      if (mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Merge successful!')));
+                      }
+                    } catch (e) {
+                      setDialogState(() => isMerging = false);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Merge failed: $e')));
+                    }
+                  },
+                  style: FilledButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: isMerging 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                    : const Text('Merge & Delete Source'),
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
+}
+
