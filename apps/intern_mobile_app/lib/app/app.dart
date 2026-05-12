@@ -23,6 +23,7 @@ class InternLinkApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       title: 'InternLink',
       useInheritedMediaQuery: true,
