@@ -286,48 +286,73 @@ export default function AIChat({ variant, role, className, title = "InternLink A
                           m.role === "assistant" && liveTyping && liveTyping.index === i
                             ? liveTyping.full.slice(0, liveTyping.pos)
                             : m.content;
+
+                        // Render inline bold: **text** → <strong>
+                        function renderInline(text: string, key: string) {
+                          const parts = text.split(/(\*\*[^*]+\*\*)/g);
+                          return (
+                            <span key={key}>
+                              {parts.map((part, pi) =>
+                                part.startsWith("**") && part.endsWith("**") ? (
+                                  <strong key={pi} className="font-bold text-slate-900 dark:text-slate-100">
+                                    {part.slice(2, -2)}
+                                  </strong>
+                                ) : (
+                                  <span key={pi}>{part}</span>
+                                )
+                              )}
+                            </span>
+                          );
+                        }
+
                         const lines = visible.split("\n");
-                        const headingPattern =
-                          /^(?:[•*-]\s*)?(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday):\s*(.+)?$/i;
-                        const sectionHeadingPattern =
-                          /^(Key Deliverables|Suggested Daily\/Focus Areas|Important Notes):?\s*$/i;
-                        const bulletPattern = /^•\s+/;
 
                         return (
-                          <div className="space-y-1 whitespace-pre-wrap">
+                          <div className="space-y-1.5">
                             {lines.map((line, idx) => {
-                              const headingMatch = line.trim().match(headingPattern);
-                              if (headingMatch) {
-                                const day = headingMatch[1];
-                                const rest = headingMatch[2]?.trim();
+                              const t = line.trim();
+
+                              // Empty line → spacer
+                              if (!t) return <div key={`${idx}-empty`} className="h-1" />;
+
+                              // Bold heading line: **Title**
+                              if (/^\*\*[^*]+\*\*$/.test(t)) {
                                 return (
-                                  <p key={`${idx}-${line}`} className="pt-1 text-[15px] font-extrabold text-slate-950 dark:text-slate-100">
-                                    {rest ? `${day}: ${rest}` : `${day}:`}
-                                  </p>
-                                );
-                              }
-                              if (sectionHeadingPattern.test(line.trim())) {
-                                const normalized = line.trim().replace(/:?\s*$/, ":");
-                                return (
-                                  <p key={`${idx}-${line}`} className="pt-1 text-[15px] font-extrabold text-slate-950 dark:text-slate-100">
-                                    {normalized}
+                                  <p key={`${idx}-h`} className="pt-2 pb-0.5 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
+                                    {t.slice(2, -2)}
                                   </p>
                                 );
                               }
 
-                              if (!line.trim()) {
-                                return <p key={`${idx}-empty`} className="h-1" />;
+                              // Bullet point
+                              if (t.startsWith("• ")) {
+                                return (
+                                  <div key={`${idx}-b`} className="flex items-start gap-2 ml-2">
+                                    <span className="mt-1 shrink-0 text-primary-500">•</span>
+                                    <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+                                      {renderInline(t.slice(2), `${idx}-bi`)}
+                                    </p>
+                                  </div>
+                                );
                               }
 
+                              // Numbered list
+                              const numMatch = t.match(/^(\d+)\.\s+(.+)$/);
+                              if (numMatch) {
+                                return (
+                                  <div key={`${idx}-n`} className="flex items-start gap-2 ml-2">
+                                    <span className="mt-0.5 shrink-0 text-xs font-bold text-primary-600 dark:text-primary-400 min-w-[18px]">{numMatch[1]}.</span>
+                                    <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+                                      {renderInline(numMatch[2], `${idx}-ni`)}
+                                    </p>
+                                  </div>
+                                );
+                              }
+
+                              // Normal line (may contain inline bold)
                               return (
-                                <p
-                                  key={`${idx}-${line}`}
-                                  className={cn(
-                                    "text-slate-800 dark:text-slate-200",
-                                    bulletPattern.test(line.trim()) ? "ml-5" : "ml-4"
-                                  )}
-                                >
-                                  {line}
+                                <p key={`${idx}-p`} className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+                                  {renderInline(line, `${idx}-pi`)}
                                 </p>
                               );
                             })}
