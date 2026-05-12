@@ -30,17 +30,35 @@ function mondayOfWeekContaining(utcDayMs: number): number {
 }
 
 const emptyCell = "bg-slate-100 border border-slate-200/90 dark:bg-slate-800/80 dark:border-slate-700";
-const filledCell = "bg-emerald-500 border border-emerald-600/90 dark:bg-emerald-600 dark:border-emerald-500/80";
+const lightGreenCell = "bg-emerald-200 border border-emerald-300/90 dark:bg-emerald-800/50 dark:border-emerald-700/80";
+const mediumGreenCell = "bg-emerald-400 border border-emerald-500/90 dark:bg-emerald-600/80 dark:border-emerald-500/80";
+const darkGreenCell = "bg-emerald-600 border border-emerald-700/90 dark:bg-emerald-500 dark:border-emerald-400/80";
 
 export type ContributionHeatmapProps = {
   rangeStart: string;
   rangeEnd: string;
+  /** Legacy: all activity dates (light green) */
   submittedDates: string[];
+  /** Daily check-in dates (light green) */
+  dailyCheckInDates?: string[];
+  /** Plan submission dates (medium green) */
+  planSubmissionDates?: string[];
+  /** Supervisor-approved plan dates (dark green) */
+  approvedPlanDates?: string[];
   className?: string;
 };
 
-export function ContributionHeatmap({ rangeStart, rangeEnd, submittedDates, className }: ContributionHeatmapProps) {
-  const submitted = useMemo(() => new Set(submittedDates), [submittedDates]);
+export function ContributionHeatmap({ rangeStart, rangeEnd, submittedDates, dailyCheckInDates, planSubmissionDates, approvedPlanDates, className }: ContributionHeatmapProps) {
+  const approved = useMemo(() => new Set(approvedPlanDates ?? []), [approvedPlanDates]);
+  const planSub = useMemo(() => new Set(planSubmissionDates ?? []), [planSubmissionDates]);
+  const daily = useMemo(() => new Set(dailyCheckInDates ?? submittedDates), [dailyCheckInDates, submittedDates]);
+
+  function cellClass(ymd: string): string {
+    if (approved.has(ymd)) return darkGreenCell;
+    if (planSub.has(ymd)) return mediumGreenCell;
+    if (daily.has(ymd)) return lightGreenCell;
+    return emptyCell;
+  }
 
   const { weeks, gridStart } = useMemo(() => {
     let startMs = parseYmdUtc(rangeStart);
@@ -58,34 +76,23 @@ export function ContributionHeatmap({ rangeStart, rangeEnd, submittedDates, clas
 
     const gridStartMs = mondayOfWeekContaining(startMs);
     const lastMonday = mondayOfWeekContaining(endMs);
-    const weekFlags: boolean[][] = [];
+    const weekFlags: null[][] = [];
     let colStart = gridStartMs;
     let guard = 0;
     while (colStart <= lastMonday && guard < 56) {
-      const col: boolean[] = [];
+      const col: null[] = [];
       for (let r = 0; r < 7; r++) {
-        const cellMs = colStart + r * 86400000;
-        const inRange = cellMs >= startMs && cellMs <= endMs;
-        const y = ymdUtc(cellMs);
-        col.push(inRange && submitted.has(y));
+        col.push(null);
       }
       weekFlags.push(col);
       colStart += 7 * 86400000;
       guard++;
     }
-    // Fallback: invalid range produced no columns (should be rare)
     if (weekFlags.length === 0) {
-      const col: boolean[] = [];
-      const mono = mondayOfWeekContaining(endMs);
-      for (let r = 0; r < 7; r++) {
-        const cellMs = mono + r * 86400000;
-        const inRange = cellMs >= startMs && cellMs <= endMs;
-        col.push(inRange && submitted.has(ymdUtc(cellMs)));
-      }
-      return { weeks: [col], gridStart: mono };
+      return { weeks: [[null, null, null, null, null, null, null]], gridStart: mondayOfWeekContaining(endMs) };
     }
     return { weeks: weekFlags, gridStart: gridStartMs };
-  }, [rangeStart, rangeEnd, submitted]);
+  }, [rangeStart, rangeEnd]);
 
   return (
     <div className={cn("rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/40", className)}>
@@ -127,13 +134,15 @@ export function ContributionHeatmap({ rangeStart, rangeEnd, submittedDates, clas
           <div className="flex min-h-[7.25rem] gap-1">
             {weeks.map((col, ci) => (
               <div key={ci} className="flex flex-col gap-1">
-                {col.map((on, ri) => {
+                {col.map((_, ri) => {
                   const cellMs = gridStart + ci * 7 * 86400000 + ri * 86400000;
+                  const inRange = cellMs >= parseYmdUtc(rangeStart) && cellMs <= parseYmdUtc(rangeEnd);
+                  const ymd = ymdUtc(cellMs);
                   return (
                     <div
                       key={ri}
-                      title={ymdUtc(cellMs)}
-                      className={cn("h-[11px] w-[11px] rounded-[2px]", on ? filledCell : emptyCell)}
+                      title={ymd}
+                      className={cn("h-[11px] w-[11px] rounded-[2px]", inRange ? cellClass(ymd) : emptyCell)}
                     />
                   );
                 })}
@@ -143,8 +152,15 @@ export function ContributionHeatmap({ rangeStart, rangeEnd, submittedDates, clas
           <div className="mt-3 flex items-center justify-end gap-2 text-[10px] text-slate-500 dark:text-slate-400">
             <span>Less</span>
             <div className={cn("h-3 w-3 rounded-[3px]", emptyCell)} />
-            <div className={cn("h-3 w-3 rounded-[3px]", filledCell)} />
+            <div className={cn("h-3 w-3 rounded-[3px]", lightGreenCell)} />
+            <div className={cn("h-3 w-3 rounded-[3px]", mediumGreenCell)} />
+            <div className={cn("h-3 w-3 rounded-[3px]", darkGreenCell)} />
             <span>More</span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[10px] text-slate-400 dark:text-slate-500">
+            <span className="flex items-center gap-1"><span className={cn("inline-block h-2.5 w-2.5 rounded-[2px]", lightGreenCell)} />Daily check-in</span>
+            <span className="flex items-center gap-1"><span className={cn("inline-block h-2.5 w-2.5 rounded-[2px]", mediumGreenCell)} />Plan submitted</span>
+            <span className="flex items-center gap-1"><span className={cn("inline-block h-2.5 w-2.5 rounded-[2px]", darkGreenCell)} />Plan approved</span>
           </div>
         </div>
       </div>

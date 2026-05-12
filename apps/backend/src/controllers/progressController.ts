@@ -332,6 +332,48 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
                     remarks: typeof remarks === 'string' ? remarks : 'Plan approved.',
                 },
             });
+
+            // Auto-create daily check-ins for all weekdays of this internship week
+            // that have already passed (up to today), if not already submitted.
+            try {
+                const assignment = existing.student.assignments[0];
+                if (assignment?.start_date) {
+                    const { internshipWeekBoundsUtcDayMs, ymdFromUtcMs } = await import('../utils/internshipWeekDates');
+                    const { start, endExclusive } = internshipWeekBoundsUtcDayMs(assignment.start_date, existing.week_number);
+                    const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+                    const weekEnd = Math.min(endExclusive - 86400000, todayMs); // don't go past today
+
+                    const existingCheckins = await prisma.weeklyPlanDaySubmission.findMany({
+                        where: { weeklyPlanId: planId },
+                        select: { workDate: true },
+                    });
+                    const existingDates = new Set(existingCheckins.map((c) =>
+                        c.workDate instanceof Date ? c.workDate.toISOString().slice(0, 10) : String(c.workDate).slice(0, 10)
+                    ));
+
+                    const toCreate: { weeklyPlanId: number; workDate: Date }[] = [];
+                    for (let dayMs = start; dayMs <= weekEnd; dayMs += 86400000) {
+                        const dow = new Date(dayMs).getUTCDay();
+                        if (dow === 0 || dow === 6) continue; // skip weekends
+                        const ymd = ymdFromUtcMs(dayMs);
+                        if (!existingDates.has(ymd)) {
+                            toCreate.push({ weeklyPlanId: planId, workDate: new Date(`${ymd}T12:00:00.000Z`) });
+                        }
+                    }
+
+                    if (toCreate.length > 0) {
+                        await prisma.weeklyPlanDaySubmission.createMany({
+                            data: toCreate,
+                            skipDuplicates: true,
+                        });
+                        // Increment activity log for each auto-checked day
+                        void incrementActivityForUser(existing.student.userId, toCreate.length);
+                    }
+                }
+            } catch (autoCheckErr: any) {
+                // Non-fatal — log but don't fail the approval
+                console.error('[reviewWeeklyPlan] Auto daily check-in error:', autoCheckErr?.message);
+            }
         }
 
         void notifyStudentPlanReview(existing.student.userId, existing.week_number, status);

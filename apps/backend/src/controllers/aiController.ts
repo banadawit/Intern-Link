@@ -186,6 +186,8 @@ export const postChat = async (req: AuthRequest, res: Response) => {
 
         let userDisplayName = 'Visitor';
         let studentContext: import('../services/ai.service').StudentContext | undefined;
+        let supervisorContext: import('../services/ai.service').SupervisorContext | undefined;
+        let hodContext: import('../services/ai.service').HodContext | undefined;
 
         if (uid && !skipHistory) {
             const userRow = await prisma.user.findUnique({
@@ -194,7 +196,7 @@ export const postChat = async (req: AuthRequest, res: Response) => {
             });
             userDisplayName = (userRow?.full_name ?? '').trim() || 'there';
 
-            // Fetch rich context for STUDENT role
+            // ── STUDENT context ───────────────────────────────────────────────
             if (effectiveAppRole === Role.STUDENT) {
                 const student = await prisma.student.findUnique({
                     where: { userId: uid },
@@ -221,8 +223,6 @@ export const postChat = async (req: AuthRequest, res: Response) => {
                 if (student) {
                     const assignment = student.assignments[0];
                     const project = student.studentProjects[0]?.project ?? null;
-
-                    // Find supervisor at the company
                     let supervisorName: string | undefined;
                     if (assignment?.companyId) {
                         const sup = await prisma.supervisor.findFirst({
@@ -231,7 +231,6 @@ export const postChat = async (req: AuthRequest, res: Response) => {
                         });
                         supervisorName = sup?.user.full_name;
                     }
-
                     studentContext = {
                         companyName: assignment?.company?.name,
                         supervisorName,
@@ -252,6 +251,105 @@ export const postChat = async (req: AuthRequest, res: Response) => {
                     };
                 }
             }
+
+            // ── SUPERVISOR context ────────────────────────────────────────────
+            if (effectiveAppRole === Role.SUPERVISOR) {
+                const sup = await prisma.supervisor.findUnique({
+                    where: { userId: uid },
+                    include: { company: { select: { name: true } } },
+                });
+                if (sup) {
+                    // Get placed students with their plans
+                    const assignments = await prisma.internshipAssignment.findMany({
+                        where: { companyId: sup.companyId, status: 'ACTIVE' },
+                        include: {
+                            student: {
+                                include: {
+                                    user: { select: { full_name: true, email: true } },
+                                    studentProjects: {
+                                        include: { project: { select: { name: true } } },
+                                        take: 1,
+                                    },
+                                    weeklyPlans: {
+                                        orderBy: { week_number: 'desc' },
+                                        take: 1,
+                                    },
+                                },
+                            },
+                        },
+                        take: 10,
+                    });
+
+                    const pendingProposals = await prisma.internshipProposal.count({
+                        where: { companyId: sup.companyId, status: 'PENDING' },
+                    });
+
+                    const pendingPlans = await prisma.weeklyPlan.count({
+                        where: {
+                            status: { in: ['PENDING', 'RESUBMITTED'] },
+                            student: { assignments: { some: { companyId: sup.companyId, status: 'ACTIVE' } } },
+                        },
+                    });
+
+                    supervisorContext = {
+                        companyName: sup.company.name,
+                        pendingProposalsCount: pendingProposals,
+                        pendingPlansCount: pendingPlans,
+                        placedStudents: assignments.map((a) => {
+                            const plans = a.student.weeklyPlans;
+                            const lastPlan = plans[0];
+                            return {
+                                name: a.student.user.full_name,
+                                email: a.student.user.email,
+                                projectName: a.student.studentProjects[0]?.project?.name,
+                                pendingPlans: plans.filter((p) => p.status === 'PENDING' || p.status === 'RESUBMITTED').length,
+                                approvedPlans: plans.filter((p) => p.status === 'APPROVED').length,
+                                rejectedPlans: plans.filter((p) => p.status === 'REJECTED').length,
+                                lastPlanDescription: lastPlan?.plan_description,
+                            };
+                        }),
+                    };
+                }
+            }
+
+            // ── HOD context ───────────────────────────────────────────────────
+            if (effectiveAppRole === Role.HOD) {
+                const hod = await prisma.hodProfile.findUnique({
+                    where: { userId: uid },
+                    include: { university: { select: { name: true } } },
+                });
+                if (hod) {
+                    const students = await prisma.student.findMany({
+                        where: { universityId: hod.universityId },
+                        select: {
+                            id: true,
+                            department: true,
+                            hodId: true,
+                            hod_approval_status: true,
+                            internship_status: true,
+                            user: { select: { full_name: true, email: true } },
+                        },
+                    });
+                    const inDept = students.filter((s) =>
+                        s.hodId === hod.id ||
+                        (s.department ?? '').trim().toLowerCase() === hod.department.trim().toLowerCase()
+                    );
+                    const pending = inDept.filter((s) => s.hod_approval_status === 'PENDING');
+
+                    hodContext = {
+                        universityName: hod.university.name,
+                        department: hod.department,
+                        totalStudents: inDept.length,
+                        pendingApprovals: pending.length,
+                        approvedStudents: inDept.filter((s) => s.hod_approval_status === 'APPROVED').length,
+                        placedStudents: inDept.filter((s) => s.internship_status === 'PLACED').length,
+                        recentPendingStudents: pending.slice(0, 5).map((s) => ({
+                            name: s.user.full_name,
+                            email: s.user.email,
+                        })),
+                    };
+                }
+            }
         }
 
         const result = await ai.chatAssistant({
@@ -261,6 +359,8 @@ export const postChat = async (req: AuthRequest, res: Response) => {
             userId: uid ?? 0,
             userDisplayName,
             studentContext,
+            supervisorContext,
+            hodContext,
         });
 
         if (uid && !skipHistory) {
