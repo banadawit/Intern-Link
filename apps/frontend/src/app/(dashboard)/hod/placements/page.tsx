@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api/client";
-import { Loader2, RefreshCw, RotateCcw } from "lucide-react";
+import { Loader2, RefreshCw, RotateCcw, CheckCircle2 } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodSendProposalForm from "@/components/hod/HodSendProposalForm";
 import HodProposalTrackerTable from "@/components/hod/HodProposalTrackerTable";
@@ -50,6 +50,16 @@ export default function HodPlacementsPage() {
   const approvedStudents = students.filter(
     (s) => s.hod_approval_status === "APPROVED" && s.internship_status !== "PLACED"
   );
+
+  // Placed students with their company (from approved proposals)
+  const placedStudents = students
+    .filter((s) => s.internship_status === "PLACED")
+    .map((s) => {
+      const proposal = proposals.find(
+        (p) => p.status === "APPROVED" && p.student.user.email === s.user.email
+      );
+      return { ...s, companyName: proposal?.company.name ?? null, placedAt: proposal?.submitted_at ?? null };
+    });
 
   // Exclude students who already have a pending or approved proposal
   const assignedStudentIds = new Set(
@@ -200,6 +210,36 @@ export default function HodPlacementsPage() {
             onSubmit={sendProposal}
           />
           <HodProposalTrackerTable proposals={proposals} />
+
+          {/* Placed students */}
+          {placedStudents.length > 0 && (
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm sm:p-6 dark:border-emerald-900/50 dark:bg-emerald-900/10">
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <h2 className="text-base font-bold text-emerald-900 dark:text-emerald-200">
+                  Placed students ({placedStudents.length})
+                </h2>
+              </div>
+              <div className="space-y-2">
+                {placedStudents.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white px-4 py-3 dark:border-emerald-900/50 dark:bg-slate-900">
+                    <div>
+                      <p className="font-semibold text-slate-900 text-sm dark:text-slate-100">{s.user.full_name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{s.user.email}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {s.companyName && (
+                        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{s.companyName}</p>
+                      )}
+                      <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        Placed
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
 

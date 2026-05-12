@@ -335,17 +335,24 @@ export const login = async (req: Request, res: Response) => {
             return sendError(res, 'Email and password are required', 400);
         }
 
-        const user = await prisma.user.findFirst({
-            where: {
-                email: { equals: email, mode: 'insensitive' },
-            },
-            include: {
-                coordinatorProfile: { include: { university: true } },
-                hodProfile: { include: { university: true } },
-                supervisorProfile: { include: { company: true } },
-                studentProfile: { include: { university: true } },
-            },
-        });
+        let user;
+        try {
+            user = await prisma.user.findFirst({
+                where: {
+                    email: { equals: email, mode: 'insensitive' },
+                },
+                include: {
+                    coordinatorProfile: { include: { university: true } },
+                    hodProfile: { include: { university: true } },
+                    supervisorProfile: { include: { company: true } },
+                    studentProfile: { include: { university: true } },
+                },
+            });
+        } catch (dbError: any) {
+            console.error('[Database Error] Login query failed:', dbError.message);
+            return sendError(res, 'Unable to connect to the database. Please try again later or contact support.', 503, 'DATABASE_CONNECTION_ERROR');
+        }
+
         if (!user) {
             // Log security alert for unknown user login attempt
             console.warn(`[Security] Login attempt for non-existent email: ${email}`);
@@ -492,10 +499,8 @@ export const login = async (req: Request, res: Response) => {
         }, "Login successful");
         
     } catch (error: any) {
-        res.status(500).json({ 
-            success: false,
-            error: error.message 
-        });
+        console.error('[Login Error]', error.message);
+        return sendError(res, 'Something went wrong. Please try again later.', 500);
     }
 };
 

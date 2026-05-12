@@ -74,6 +74,10 @@ export default function CommonFeedPage() {
   const [selectedSendPost, setSelectedSendPost] = useState<Post | null>(null);
   const [sharePostId, setSharePostId] = useState<number | null>(null);
   const [copyDone, setCopyDone] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -859,59 +863,81 @@ export default function CommonFeedPage() {
 
       {/* Create Post Modal */}
       {showCreatePost && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Create a post</h2>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 w-full sm:max-w-xl sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[85vh] overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/40">
+                  <Send className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                </div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Create a post</h2>
+              </div>
               <button
                 onClick={() => setShowCreatePost(false)}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors"
               >
-                <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Author + type */}
+              <div className="flex items-center gap-3 px-5 pt-4 pb-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-400 to-teal-600 text-sm font-bold text-white shadow-sm">
                   {currentUser ? getInitials(currentUser.fullName || 'User') : 'U'}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">{currentUser?.fullName || 'User'}</h3>
-                  <select
-                    value={newPostType}
-                    onChange={(e) => setNewPostType(e.target.value as any)}
-                    className="text-sm border border-slate-300 rounded px-2 py-1 mt-1"
-                  >
-                    <option value="GENERAL_UPDATE">📝 General Update</option>
-                    <option value="ANNOUNCEMENT">📢 Announcement</option>
-                    <option value="OPPORTUNITY">💼 Opportunity</option>
-                    <option value="EXPERIENCE">✨ Experience</option>
-                  </select>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{currentUser?.fullName || 'User'}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {([
+                      { value: 'GENERAL_UPDATE', label: 'General', emoji: '📝' },
+                      { value: 'ANNOUNCEMENT', label: 'Announcement', emoji: '📢' },
+                      { value: 'OPPORTUNITY', label: 'Opportunity', emoji: '💼' },
+                      { value: 'EXPERIENCE', label: 'Experience', emoji: '✨' },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setNewPostType(opt.value)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
+                          newPostType === opt.value
+                            ? 'bg-teal-600 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <span>{opt.emoji}</span>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
+              {/* Textarea */}
               <textarea
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="What do you want to talk about?"
-                rows={8}
-                className="w-full px-4 py-3 border-0 focus:outline-none text-slate-900 resize-none"
+                placeholder="What do you want to share?"
+                rows={6}
+                className="w-full px-5 py-2 border-0 bg-transparent focus:outline-none text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 resize-none"
               />
 
               {/* Image previews */}
               {imagePreviews.length > 0 && (
-                <div className="flex flex-wrap gap-2 px-4 pb-2">
+                <div className="flex flex-wrap gap-2 px-5 pb-3">
                   {imagePreviews.map((src, i) => (
                     <div key={i} className="relative">
-                      <img src={src} alt="" className="h-20 w-20 rounded-lg object-cover border border-slate-200" />
+                      <img src={src} alt="" className="h-20 w-20 rounded-xl object-cover border border-slate-200 dark:border-slate-700" />
                       <button
                         type="button"
                         onClick={() => {
                           setSelectedImages((prev) => prev.filter((_, idx) => idx !== i));
                           setImagePreviews((prev) => prev.filter((_, idx) => idx !== i));
                         }}
-                        className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-xs hover:bg-red-600"
+                        className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-xs hover:bg-red-500 transition-colors"
                       >×</button>
                     </div>
                   ))}
@@ -920,52 +946,38 @@ export default function CommonFeedPage() {
 
               {/* Document list */}
               {selectedDocuments.length > 0 && (
-                <div className="px-4 pb-2 space-y-1">
+                <div className="px-5 pb-3 space-y-1.5">
                   {selectedDocuments.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                      <span className="truncate">📄 {f.name}</span>
+                    <div key={i} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <span className="truncate text-xs">📄 {f.name}</span>
                       <button
                         type="button"
                         onClick={() => setSelectedDocuments((prev) => prev.filter((_, idx) => idx !== i))}
-                        className="ml-2 text-slate-400 hover:text-red-600"
+                        className="ml-2 shrink-0 text-slate-400 hover:text-red-500 transition-colors"
                       >×</button>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-200">
-                {/* Photo */}
-                <label className="cursor-pointer p-2 hover:bg-slate-100 rounded transition-colors" title="Add photo">
-                  <ImageIcon className="w-5 h-5 text-teal-500" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
+              {/* Toolbar */}
+              <div className="flex items-center gap-1 px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                <label className="flex items-center gap-1.5 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium text-teal-600 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-900/30 transition-colors" title="Add photo">
+                  <ImageIcon className="w-4 h-4" />
+                  <span>Photo</span>
+                  <input type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => {
                       const files = Array.from(e.target.files ?? []);
                       setSelectedImages((prev) => [...prev, ...files].slice(0, 5));
-                      setImagePreviews((prev) => [
-                        ...prev,
-                        ...files.map((f) => URL.createObjectURL(f)),
-                      ].slice(0, 5));
+                      setImagePreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))].slice(0, 5));
                       e.target.value = '';
                     }}
                   />
                 </label>
-                {/* Video (link only — no upload) */}
-                <button type="button" className="p-2 hover:bg-slate-100 rounded transition-colors" title="Add video link">
-                  <Video className="w-5 h-5 text-emerald-500" />
-                </button>
-                {/* Document */}
-                <label className="cursor-pointer p-2 hover:bg-slate-100 rounded transition-colors" title="Add document">
-                  <FileText className="w-5 h-5 text-rose-500" />
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
-                    multiple
-                    className="hidden"
+                <label className="flex items-center gap-1.5 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/30 transition-colors" title="Add document">
+                  <FileText className="w-4 h-4" />
+                  <span>Document</span>
+                  <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" multiple className="hidden"
                     onChange={(e) => {
                       const files = Array.from(e.target.files ?? []);
                       setSelectedDocuments((prev) => [...prev, ...files].slice(0, 3));
@@ -973,15 +985,16 @@ export default function CommonFeedPage() {
                     }}
                   />
                 </label>
-                <span className="ml-auto text-xs text-slate-400">Max 5 photos · 3 docs</span>
+                <span className="ml-auto text-[11px] text-slate-400">Max 5 photos · 3 docs</span>
               </div>
             </div>
 
-            <div className="p-4 border-t border-slate-200">
+            {/* Footer */}
+            <div className="shrink-0 px-5 py-4 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={createPost}
                 disabled={!newPostContent.trim() || uploading}
-                className="w-full py-3 bg-teal-600 text-white rounded-full hover:bg-teal-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed font-semibold"
+                className="w-full rounded-xl bg-teal-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading ? 'Posting…' : 'Post'}
               </button>
