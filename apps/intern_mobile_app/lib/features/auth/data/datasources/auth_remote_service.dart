@@ -50,9 +50,13 @@ class AuthRemoteService {
         'position': payload.position!.trim(),
       if (payload.universityId != null)
         'university_id': payload.universityId.toString(),
+      if (payload.companyId != null)
+        'company_id': payload.companyId.toString(),
       if (payload.hodId != null) 'hod_id': payload.hodId.toString(),
       if (payload.employeeId?.trim().isNotEmpty ?? false)
         'employee_id': payload.employeeId!.trim(),
+      if (payload.organizationRequestId != null)
+        'organization_request_id': payload.organizationRequestId.toString(),
     };
 
     // Attach file separately using bytes (works on all platforms, no dart:io needed)

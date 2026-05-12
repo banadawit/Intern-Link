@@ -5237,7 +5237,7 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
   Future<void> _verify(int userId, String status, {String? reason}) async {
     try {
       await ref.read(coordinatorRepositoryProvider).verifyHod(userId, status, reason: reason);
-      ref.invalidate(pendingHodsProvider);
+      ref.invalidate(coordPendingHodsProvider);
       ref.invalidate(approvedHodsProvider);
       ref.invalidate(rejectedHodsProvider);
       ref.invalidate(allHodsProvider);
@@ -5630,7 +5630,7 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pendingAsync = ref.watch(pendingHodsProvider);
+    final pendingAsync = ref.watch(coordPendingHodsProvider);
     final approvedAsync = ref.watch(approvedHodsProvider);
     final rejectedAsync = ref.watch(rejectedHodsProvider);
     final suspendedAsync = ref.watch(suspendedHodsProvider);
@@ -5973,7 +5973,7 @@ class _HodDetailScreenState extends ConsumerState<HodDetailScreen> {
   Future<void> _verify(String status, {String? reason}) async {
     try {
       await ref.read(coordinatorRepositoryProvider).verifyHod(widget.userId, status, reason: reason);
-      ref.invalidate(pendingHodsProvider);
+      ref.invalidate(coordPendingHodsProvider);
       ref.invalidate(approvedHodsProvider);
       ref.invalidate(rejectedHodsProvider);
       ref.invalidate(coordinatorStatsProvider);
@@ -9312,6 +9312,12 @@ class AdminDashboardScreen extends StatelessWidget {
           view: const _AdminOrganizationsTab(),
           secondaryFab: const _CreateOrgFab(),
         ),
+        const _DashboardTab(
+          label: 'Users',
+          icon: Icons.manage_accounts_outlined,
+          activeIcon: Icons.manage_accounts_rounded,
+          view: _AdminUsersTab(),
+        ),
         const _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
         const _DashboardTab(label: 'Config', icon: Icons.settings_suggest_outlined, activeIcon: Icons.settings_suggest_rounded, view: _AdminSettingsTab()),
       ],
@@ -9540,7 +9546,10 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
               children: [
                 Text('Action Required', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.redAccent.shade700)),
                 const SizedBox(height: 4),
-                Text('There are ${stats.pendingApprovals} pending organizations/users waiting for approval.', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey.shade400 : Colors.grey.shade700)),
+                Text(
+                  'Pending: ${stats.pendingOrganizationRequests} Orgs, ${stats.pendingCoordinators} Coords, ${stats.pendingSupervisors} Sups, ${stats.pendingHods} HODs.',
+                  style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+                ),
               ],
             ),
           ),
@@ -10440,7 +10449,7 @@ class _OrgFormField extends StatelessWidget {
 class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> {
   String _searchQuery = '';
   String _orgTypeFilter = 'All'; // 'All', 'University', 'Company'
-  String _orgStatusFilter = 'All'; // 'All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'
+  String _orgStatusFilter = 'All'; // 'All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'REQUESTS'
 
   @override
   Widget build(BuildContext context) {
@@ -10519,6 +10528,9 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
       else if (s == 'SUSPENDED') suspended++;
     }
 
+    final requestsAsync = ref.watch(organizationRequestsProvider);
+    final pendingRequests = requestsAsync.asData?.value.where((r) => r['status'] == 'PENDING').length ?? 0;
+
     final isLoading = unisAsync.isLoading || compsAsync.isLoading;
 
     if (isLoading) return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
@@ -10526,8 +10538,8 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(children: [
-        _buildMiniStat('Pending', '$pending', Icons.pending_actions_rounded, Colors.orange, isDark,
-            onTap: () => setState(() => _orgStatusFilter = 'PENDING')),
+        _buildMiniStat('Pending', '${pending + pendingRequests}', Icons.pending_actions_rounded, Colors.orange, isDark,
+            onTap: () => setState(() => _orgStatusFilter = pendingRequests > 0 ? 'REQUESTS' : 'PENDING')),
         const SizedBox(width: 12),
         _buildMiniStat('Approved', '$approved', Icons.verified_rounded, Colors.green, isDark,
             onTap: () => setState(() => _orgStatusFilter = 'APPROVED')),
@@ -10537,6 +10549,9 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
         const SizedBox(width: 12),
         _buildMiniStat('Suspended', '$suspended', Icons.block_rounded, Colors.grey, isDark,
             onTap: () => setState(() => _orgStatusFilter = 'SUSPENDED')),
+        const SizedBox(width: 12),
+        _buildMiniStat('Requests', '$pendingRequests', Icons.notification_important_rounded, Colors.purple, isDark,
+            onTap: () => setState(() => _orgStatusFilter = 'REQUESTS')),
       ]),
     );
   }
@@ -10589,7 +10604,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildDropdownFilter('Status: $_orgStatusFilter', ['All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'], (v) => setState(() => _orgStatusFilter = v!)),
+              child: _buildDropdownFilter('Status: $_orgStatusFilter', ['All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'REQUESTS'], (v) => setState(() => _orgStatusFilter = v!)),
             ),
           ],
         ),
@@ -10619,6 +10634,35 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
   }
 
   Widget _buildOrgList(WidgetRef ref, AsyncValue<List<dynamic>> unisAsync, AsyncValue<List<dynamic>> compsAsync, bool isDark) {
+    if (_orgStatusFilter == 'REQUESTS') {
+      final requestsAsync = ref.watch(organizationRequestsProvider);
+      return requestsAsync.when(
+        loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+        error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
+        data: (requests) {
+          final sQuery = _searchQuery.toLowerCase();
+          final filtered = requests.where((r) {
+            if (sQuery.isNotEmpty && !r['name'].toString().toLowerCase().contains(sQuery)) return false;
+            if (_orgTypeFilter != 'All' && r['type'] != _orgTypeFilter.toUpperCase()) return false;
+            return true;
+          }).toList();
+
+          if (filtered.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No organization requests found'))));
+
+          final hPad = responsiveValue(context, mobile: 16.0, tablet: 24.0, desktop: 32.0);
+          return SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: hPad),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildRequestCard(context, ref, filtered[index], isDark),
+                childCount: filtered.length,
+              ),
+            ),
+          );
+        },
+      );
+    }
+
     return unisAsync.when(
       loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
       error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
@@ -10693,6 +10737,189 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildRequestCard(BuildContext context, WidgetRef ref, Map<String, dynamic> req, bool isDark) {
+    final theme = Theme.of(context);
+    final status = req['status'] as String? ?? 'PENDING';
+    final isPending = status == 'PENDING';
+    final isViewed = req['document_viewed'] == true;
+    final statusColor = status == 'APPROVED' ? Colors.green : (status == 'REJECTED' ? Colors.red : Colors.orange);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isPending ? Colors.purple.withOpacity(0.3) : isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        ),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(req['type'] == 'UNIVERSITY' ? Icons.account_balance_rounded : Icons.business_rounded, color: Colors.purple, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(req['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15), overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text('Requested by: ${req['requester_email']}', style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                  child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.black.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.description_rounded, size: 16, color: isViewed ? Colors.green : Colors.grey),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isViewed ? 'Verification Document (Viewed)' : 'Verification Document (New)',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isViewed ? Colors.green : null),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => _viewRequestDoc(context, ref, req),
+                          child: const Text('View File'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isPending)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showRejectRequestDialog(context, ref, req),
+                      icon: const Icon(Icons.close_rounded, size: 16),
+                      label: const Text('Reject'),
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: !isViewed ? null : () => _approveRequest(context, ref, req),
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('Approve'),
+                      style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (status == 'REJECTED' && req['rejection_reason'] != null)
+             Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Text('Reason: ${req['rejection_reason']}', style: const TextStyle(fontSize: 11, color: Colors.redAccent, fontStyle: FontStyle.italic)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _viewRequestDoc(BuildContext context, WidgetRef ref, Map<String, dynamic> req) async {
+    final url = req['verification_doc'];
+    if (url == null) return;
+
+    // Mark as viewed in backend
+    try {
+      await ref.read(adminRepositoryProvider).markRequestAsViewed(req['id']);
+      ref.invalidate(organizationRequestsProvider);
+    } catch (_) {}
+
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open document link.')));
+      }
+    }
+  }
+
+  void _approveRequest(BuildContext context, WidgetRef ref, Map<String, dynamic> req) async {
+    try {
+      await ref.read(adminRepositoryProvider).approveOrganizationRequest(req['id']);
+      ref.invalidate(organizationRequestsProvider);
+      ref.invalidate(allUniversitiesProvider);
+      ref.invalidate(allCompaniesProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Organization approved and created!'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Approval failed: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  void _showRejectRequestDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> req) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject Request'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(hintText: 'Reason for rejection...'),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              try {
+                await ref.read(adminRepositoryProvider).rejectOrganizationRequest(req['id'], reason: ctrl.text);
+                ref.invalidate(organizationRequestsProvider);
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request rejected.')));
+                }
+              } catch (e) {
+                 if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rejection failed: $e'), backgroundColor: Colors.red));
+                }
+              }
+            },
+            child: const Text('Reject', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
@@ -11380,7 +11607,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -11428,11 +11655,13 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
                     return SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(children: [
-                        _miniStat('Pending Coords', stats.pendingApprovals.toString(), Icons.pending_rounded, Colors.orange, isDark),
+                        _miniStat('Pending Coords', stats.pendingCoordinators.toString(), Icons.pending_rounded, Colors.orange, isDark),
                         const SizedBox(width: 12),
-                        _miniStat('Pending Sups', pendingSupsCount.toString(), Icons.pending_actions_rounded, Colors.purple, isDark),
+                        _miniStat('Pending Sups', stats.pendingSupervisors.toString(), Icons.pending_actions_rounded, Colors.purple, isDark),
                         const SizedBox(width: 12),
-                        _miniStat('Total Users', stats.totalUsers.toString(), Icons.group_rounded, Colors.blue, isDark),
+                        _miniStat('Pending HODs', stats.pendingHods.toString(), Icons.verified_user_rounded, Colors.blue, isDark),
+                        const SizedBox(width: 12),
+                        _miniStat('Total Users', stats.totalUsers.toString(), Icons.group_rounded, Colors.grey, isDark),
                       ]),
                     );
                   },
@@ -11451,6 +11680,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
                   tabs: const [
                     Tab(icon: Icon(Icons.school_rounded, size: 18), text: 'Coordinators'),
                     Tab(icon: Icon(Icons.work_rounded, size: 18), text: 'Supervisors'),
+                    Tab(icon: Icon(Icons.verified_user_rounded, size: 18), text: 'HODs'),
                   ],
                 ),
               ),
@@ -11503,6 +11733,7 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
             children: [
               _buildCoordinatorsTab(isDark),
               _buildSupervisorsTab(isDark),
+              _buildHodsTab(isDark),
             ],
           ),
         ),
@@ -12079,9 +12310,240 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
+
+  Future<void> _rejectHod(dynamic hod) async {
+    final userId = _parseInt(hod['user']?['id']);
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject HOD Registration'),
+        content: TextField(controller: reasonCtrl, decoration: const InputDecoration(hintText: 'Enter rejection reason...')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Reject', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(adminRepositoryProvider).rejectHod(userId, reason: reasonCtrl.text.trim());
+      ref.invalidate(adminPendingHodsProvider);
+      ref.invalidate(adminStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('HOD Rejected'), backgroundColor: Colors.red));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _approveHod(dynamic hod) async {
+    final userId = _parseInt(hod['user']?['id']);
+    try {
+      await ref.read(adminRepositoryProvider).approveHod(userId);
+      ref.invalidate(adminPendingHodsProvider);
+      ref.invalidate(adminStatsProvider);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('HOD Approved ✓'), backgroundColor: Colors.green));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Widget _buildHodsTab(bool isDark) {
+    final pendingAsync = ref.watch(adminPendingHodsProvider);
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(adminPendingHodsProvider);
+        ref.invalidate(adminStatsProvider);
+      },
+      child: pendingAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (hods) {
+          final filtered = hods.where((h) {
+            final name = (h['user']?['full_name'] ?? '').toString().toLowerCase();
+            final email = (h['user']?['email'] ?? '').toString().toLowerCase();
+            final status = (h['user']?['institution_access_approval'] ?? 'PENDING').toString();
+            final matchesSearch = name.contains(_searchQuery.toLowerCase()) || email.contains(_searchQuery.toLowerCase());
+            final matchesStatus = _statusFilter == 'ALL' || status == _statusFilter;
+            return matchesSearch && matchesStatus;
+          }).toList();
+
+          if (filtered.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.verified_user_rounded, size: 48, color: Colors.grey.shade300),
+                  const SizedBox(height: 12),
+                  Text('No HODs found', style: TextStyle(color: Colors.grey.shade500)),
+                ]),
+              ),
+            );
+          }
+
+          final hPad = responsiveValue(context, mobile: 16.0, tablet: 20.0, desktop: 24.0);
+          return ListView.builder(
+            padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+            itemCount: filtered.length,
+            itemBuilder: (context, i) => _buildHodCard(context, filtered[i], isDark),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHodCard(BuildContext context, dynamic hod, bool isDark) {
+    final user = hod['user'] as Map<String, dynamic>? ?? {};
+    final uni = hod['university'] as Map<String, dynamic>? ?? {};
+    final approval = (user['institution_access_approval'] ?? 'PENDING') as String;
+    final isPending = approval == 'PENDING';
+    final docUrl = user['verification_document']?.toString() ?? '';
+    final hasDoc = docUrl.isNotEmpty;
+
+    final statusColor = switch (approval) {
+      'APPROVED' => Colors.green,
+      'PENDING' => Colors.orange,
+      'REJECTED' => Colors.red,
+      'SUSPENDED' => Colors.grey,
+      _ => Colors.grey,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isPending ? Colors.blue.withOpacity(0.35) : isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        ),
+      ),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Row(children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: Colors.blue.withOpacity(0.12),
+              child: Text(
+                (user['full_name'] ?? '?').toString().isNotEmpty ? user['full_name'].toString()[0].toUpperCase() : '?',
+                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(user['full_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15), overflow: TextOverflow.ellipsis)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(approval, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900)),
+                ),
+              ]),
+              const SizedBox(height: 3),
+              Text(user['email'] ?? '', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              if (uni['name'] != null)
+                Row(children: [
+                  Icon(Icons.account_balance_rounded, size: 11, color: Colors.grey.shade400),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text('${uni['name']} • ${hod['department'] ?? 'No Dept'}', style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic), overflow: TextOverflow.ellipsis)),
+                ]),
+            ])),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: _buildDocumentRow(context, docUrl, hasDoc, isDark),
+        ),
+        if (isPending)
+          _HodApprovalActions(
+            hod: hod,
+            hasDoc: hasDoc,
+            docUrl: docUrl,
+            isDark: isDark,
+            onApprove: () => _approveHod(hod),
+            onReject: () => _rejectHod(hod),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+            child: Row(children: [
+              if (user['created_at'] != null) ...[
+                Icon(Icons.calendar_today_rounded, size: 11, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+                Text(user['created_at'].toString().split('T')[0], style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+              ],
+            ]),
+          ),
+      ]),
+    );
+  }
 }
 
+class _HodApprovalActions extends StatefulWidget {
+  final dynamic hod;
+  final bool hasDoc;
+  final String docUrl;
+  final bool isDark;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
+  const _HodApprovalActions({
+    required this.hod,
+    required this.hasDoc,
+    required this.docUrl,
+    required this.isDark,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  State<_HodApprovalActions> createState() => _HodApprovalActionsState();
+}
+
+class _HodApprovalActionsState extends State<_HodApprovalActions> {
+  bool _docViewed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: widget.onReject,
+            icon: const Icon(Icons.close_rounded, size: 14),
+            label: const Text('Reject', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: const BorderSide(color: Colors.redAccent),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: (!widget.hasDoc || _docViewed) ? widget.onApprove : () async {
+              final uri = Uri.parse(widget.docUrl);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                setState(() => _docViewed = true);
+              }
+            },
+            icon: Icon((!widget.hasDoc || _docViewed) ? Icons.check_rounded : Icons.visibility_rounded, size: 14),
+            label: Text((!widget.hasDoc || _docViewed) ? 'Approve' : 'View Doc', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            style: FilledButton.styleFrom(
+              backgroundColor: (!widget.hasDoc || _docViewed) ? Colors.green : Colors.blue,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
 
 class _AdminLogsTab extends ConsumerStatefulWidget {
   const _AdminLogsTab();

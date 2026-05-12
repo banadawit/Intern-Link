@@ -75,11 +75,10 @@ export const getPendingUniversities = async (req: AuthRequest, res: Response) =>
 // 3. Admin: Approve, Reject, Suspend, or reactivate a university
 export const updateUniversityStatus = async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const idStr = req.params.id as string;
         const { status, reason } = req.body;
 
-        const universityId = Array.isArray(id) ? id[0] : id;
-        const uid = parseInt(universityId);
+        const uid = parseInt(idStr);
         const rejectionReason = typeof reason === 'string' ? reason : '';
 
         const existing = await prisma.university.findUnique({ where: { id: uid } });

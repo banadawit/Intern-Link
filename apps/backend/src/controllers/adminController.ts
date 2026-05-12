@@ -27,6 +27,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             pendingSupervisors,
             totalEvaluations,
             totalReports,
+            pendingOrganizationRequests,
         ] = await Promise.all([
             prisma.university.count({ where: { approval_status: 'PENDING' } }),
             prisma.company.count({ where: { approval_status: 'PENDING' } }),
@@ -45,6 +46,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             }),
             prisma.finalEvaluation.count(),
             prisma.report.count(),
+            prisma.organizationRequest.count({ where: { status: 'PENDING' } }),
         ]);
 
         res.json({
@@ -57,12 +59,16 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             activeInternships,
             pendingCoordinators,
             pendingSupervisors,
+            pendingHods: await prisma.hodProfile.count({ where: { user: { institution_access_approval: 'PENDING' } } }),
             totalEvaluations,
             totalReports,
+            pendingOrganizationRequests,
             rejectedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'REJECTED' } }),
             rejectedSupervisors: await prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'REJECTED' } }),
+            rejectedHods: await prisma.user.count({ where: { role: 'HOD', institution_access_approval: 'REJECTED' } }),
             suspendedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'SUSPENDED' } }),
             suspendedSupervisors: await prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'SUSPENDED' } }),
+            suspendedHods: await prisma.user.count({ where: { role: 'HOD', institution_access_approval: 'SUSPENDED' } }),
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -753,6 +759,95 @@ export const getSuspendedCoordinators = async (req: AuthRequest, res: Response) 
 };
 
 /** List all coordinators pending admin approval */
+/** List all pending HODs */
+export const getPendingHods = async (req: AuthRequest, res: Response) => {
+    try {
+        const hods = await prisma.hodProfile.findMany({
+            where: { user: { institution_access_approval: 'PENDING' } },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                        verification_status: true,
+                        institution_access_approval: true,
+                        verification_document: true,
+                        created_at: true,
+                    },
+                },
+                university: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(hods);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
+/** Approve a pending HOD */
+export const approveHod = async (req: AuthRequest, res: Response) => {
+    try {
+        const rawId = req.params.userId;
+        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+
+        const hod = await prisma.hodProfile.findUnique({
+            where: { userId },
+            include: { user: true, university: true },
+        });
+        if (!hod) return res.status(404).json({ error: 'HOD not found' });
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'APPROVED', verification_status: 'APPROVED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'APPROVED_HOD',
+                targetId: userId,
+                details: `Approved HOD ${hod.user.full_name} for university "${hod.university.name}" - department "${hod.department}"`,
+            },
+        });
+
+        await sendNotification(userId, `✅ Your Head of Department account has been approved. You can now access the coordinator portal.`);
+        res.json({ message: 'HOD approved', userId });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
+/** Reject a pending HOD */
+export const rejectHod = async (req: AuthRequest, res: Response) => {
+    try {
+        const rawId = req.params.userId;
+        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+        const { reason } = req.body as { reason?: string };
+        const rejectionReason = reason?.trim() || 'Your credentials could not be verified.';
+
+        const hod = await prisma.hodProfile.findUnique({
+            where: { userId },
+            include: { user: true, university: true },
+        });
+        if (!hod) return res.status(404).json({ error: 'HOD not found' });
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'REJECTED', verification_status: 'REJECTED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'REJECTED_HOD',
+                targetId: userId,
+                details: `Rejected HOD ${hod.user.full_name} for university "${hod.university.name}". Reason: ${rejectionReason}`,
+            },
+        });
+
+        await sendNotification(userId, `❌ Your HOD registration was rejected. Reason: ${rejectionReason}`);
+        res.json({ message: 'HOD rejected', userId });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
     try {
         const coordinators = await prisma.coordinator.findMany({
