@@ -30,12 +30,16 @@ const StudentDashboard = () => {
     (async () => {
       try {
         const [meRes, plansRes] = await Promise.all([
-          api.get<StudentMeResponse>('/students/me'),
+          api.get('/students/me'),
           api.get('/progress/my-plans'),
         ]);
         if (cancelled) return;
-        setStudent(mapStudentProfileFromMe(meRes.data));
-        const rows = (plansRes.data as Record<string, unknown>[]) ?? [];
+        const meRaw = meRes.data as { success?: boolean; data?: StudentMeResponse } | StudentMeResponse;
+        const meData: StudentMeResponse = (meRaw as { success?: boolean; data?: StudentMeResponse })?.data ?? meRaw as StudentMeResponse;
+        setStudent(mapStudentProfileFromMe(meData));
+        const plansRaw = plansRes.data as { success?: boolean; data?: unknown[] } | unknown[];
+        const plansData = (plansRaw as { success?: boolean; data?: unknown[] })?.data ?? plansRaw as Record<string, unknown>[];
+        const rows = Array.isArray(plansData) ? plansData as Record<string, unknown>[] : [];
         setPlans(rows.map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0])));
       } catch {
         if (!cancelled) setStudent(null);

@@ -16,8 +16,9 @@ export default function StudentSettingsProfilePage() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.get<StudentMeResponse>("/students/me");
-        if (!cancelled) setStudent(mapStudentProfileFromMe(data));
+        const { data } = await api.get("/students/me");
+        const meData = (data as { success?: boolean; data?: StudentMeResponse })?.data ?? data as StudentMeResponse;
+        if (!cancelled) setStudent(mapStudentProfileFromMe(meData));
       } catch {
         if (!cancelled) setStudent(null);
       } finally {

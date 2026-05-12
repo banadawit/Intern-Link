@@ -30,8 +30,11 @@ const StudentSidebar = () => {
   const { unreadCount, fetchUnread } = useChatStore();
 
   useEffect(() => {
-    api.get<{ university?: { name: string } }>("/students/me")
-      .then(({ data }) => { if (data?.university?.name) setUniversityName(data.university.name); })
+    api.get("/students/me")
+      .then(({ data }) => {
+        const profile = (data as { success?: boolean; data?: { university?: { name: string } } })?.data ?? data as { university?: { name: string } };
+        if (profile?.university?.name) setUniversityName(profile.university.name);
+      })
       .catch(() => {});
     void fetchUnread();
     const interval = setInterval(() => void fetchUnread(), 10000);

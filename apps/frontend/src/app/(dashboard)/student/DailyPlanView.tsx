@@ -45,8 +45,9 @@ export default function DailyPlanView() {
     setError(null);
     try {
       const res = await api.get("/progress/my-plans");
-      const rows = (res.data as Record<string, unknown>[]) ?? [];
-      const mapped = rows.map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0]));
+      const raw = res.data as { success?: boolean; data?: unknown[] } | unknown[];
+      const rows = ((raw as { success?: boolean; data?: unknown[] })?.data ?? raw) as Record<string, unknown>[];
+      const mapped = (Array.isArray(rows) ? rows : []).map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0]));
       setPlans(mapped);
     } catch {
       setError("Could not load plans. Make sure you have an active internship placement.");

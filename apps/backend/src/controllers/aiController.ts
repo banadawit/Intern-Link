@@ -185,12 +185,73 @@ export const postChat = async (req: AuthRequest, res: Response) => {
             histFromConv && histFromConv.length > 0 ? histFromConv : histFromHistory;
 
         let userDisplayName = 'Visitor';
+        let studentContext: import('../services/ai.service').StudentContext | undefined;
+
         if (uid && !skipHistory) {
             const userRow = await prisma.user.findUnique({
                 where: { id: uid },
-                select: { full_name: true },
+                select: { full_name: true, role: true },
             });
             userDisplayName = (userRow?.full_name ?? '').trim() || 'there';
+
+            // Fetch rich context for STUDENT role
+            if (effectiveAppRole === Role.STUDENT) {
+                const student = await prisma.student.findUnique({
+                    where: { userId: uid },
+                    include: {
+                        assignments: {
+                            where: { status: 'ACTIVE' },
+                            take: 1,
+                            include: { company: { select: { name: true } } },
+                        },
+                        studentProjects: {
+                            include: { project: { select: { id: true, name: true, description: true } } },
+                            take: 1,
+                        },
+                        weeklyPlans: {
+                            orderBy: { week_number: 'desc' },
+                            take: 5,
+                            include: {
+                                daySubmissions: { orderBy: { workDate: 'desc' }, take: 7 },
+                            },
+                        },
+                    },
+                });
+
+                if (student) {
+                    const assignment = student.assignments[0];
+                    const project = student.studentProjects[0]?.project ?? null;
+
+                    // Find supervisor at the company
+                    let supervisorName: string | undefined;
+                    if (assignment?.companyId) {
+                        const sup = await prisma.supervisor.findFirst({
+                            where: { companyId: assignment.companyId },
+                            include: { user: { select: { full_name: true } } },
+                        });
+                        supervisorName = sup?.user.full_name;
+                    }
+
+                    studentContext = {
+                        companyName: assignment?.company?.name,
+                        supervisorName,
+                        projectName: project?.name,
+                        projectDescription: project?.description ?? undefined,
+                        weeklyPlans: student.weeklyPlans.map((p) => ({
+                            weekNumber: p.week_number,
+                            description: p.plan_description,
+                            status: p.status,
+                            feedback: p.feedback ?? undefined,
+                            dailySubmissions: p.daySubmissions.map((d) => ({
+                                date: d.workDate instanceof Date
+                                    ? d.workDate.toISOString().slice(0, 10)
+                                    : String(d.workDate).slice(0, 10),
+                                notes: d.notes ?? undefined,
+                            })),
+                        })),
+                    };
+                }
+            }
         }
 
         const result = await ai.chatAssistant({
@@ -199,6 +260,7 @@ export const postChat = async (req: AuthRequest, res: Response) => {
             appRole: effectiveAppRole,
             userId: uid ?? 0,
             userDisplayName,
+            studentContext,
         });
 
         if (uid && !skipHistory) {
