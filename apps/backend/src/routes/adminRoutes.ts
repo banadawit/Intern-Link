@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as adminCtrl from '../controllers/adminController';
 import * as configCtrl from '../controllers/systemConfigController';
 import * as onboardCtrl from '../controllers/adminOnboardingController';
+import * as mergeCtrl from '../controllers/adminMergeController';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
 import { uploadVerification } from '../config/multer.config';
@@ -68,5 +69,11 @@ router.post('/config/broadcast', configCtrl.broadcastAnnouncement);
 
 // Analytics
 router.get('/analytics', adminCtrl.getAnalytics);
+
+// ── Merge Tools (duplicate organization management) ───────────────────────────
+router.get('/merge/duplicates/universities', mergeCtrl.findDuplicateUniversities);
+router.get('/merge/duplicates/companies', mergeCtrl.findDuplicateCompanies);
+router.post('/merge/universities', mergeCtrl.mergeUniversities);
+router.post('/merge/companies', mergeCtrl.mergeCompanies);
 
 export default router;

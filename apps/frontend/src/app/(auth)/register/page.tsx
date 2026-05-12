@@ -38,8 +38,7 @@ interface FormData {
   password: string;
   confirmPassword: string;
   // Role-specific fields
-  universityName?: string;
-  universityId?: number;       // HoD & Student: selected approved university
+  universityId?: number;       // Coordinator, HoD & Student: selected approved university
   universitySearch?: string;   // search input text
   hodId?: number;              // Student: selected HoD/department
   companyName?: string;
@@ -85,7 +84,7 @@ const RegisterPage = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    universityName: '',
+    universityId: undefined,
     universitySearch: '',
     companyName: '',
     department: '',
@@ -213,7 +212,10 @@ const RegisterPage = () => {
 
   const validateRoleSpecific = () => {
     if (role === 'coordinator') {
-      if (!formData.universityName) return 'University name is required';
+      if (!formData.universityId) return 'University selection is required. Please select an existing institution from the dropdown list. You cannot proceed with a manually typed organization name.';
+      // Verify the selected ID actually exists in approved universities
+      const selectedUni = approvedUniversities.find(u => u.id === formData.universityId);
+      if (!selectedUni) return 'Selected university is not valid or no longer approved. Please select from the list again.';
     }
     if (role === 'hod') {
       if (!formData.universityId) return 'Please select a university';
@@ -323,12 +325,14 @@ const RegisterPage = () => {
 
   const validateStep3 = () => {
     const roleError = validateRoleSpecific();
-    const fileError = validateVerificationFile(formData.verificationFile);
     
     if (roleError) {
       setErrors(prev => ({ ...prev, general: roleError }));
       return false;
     }
+    
+    // File upload is optional for coordinators, required for others
+    const fileError = role === 'coordinator' ? '' : validateVerificationFile(formData.verificationFile);
     
     if (fileError) {
       setErrors(prev => ({ ...prev, verificationFile: fileError }));
@@ -383,8 +387,9 @@ const RegisterPage = () => {
         email: formData.email,
         password: formData.password,
         role: role!,
-        universityName: formData.universityName,
-        ...(role === 'coordinator' && { position: formData.position }),
+        ...(role === 'coordinator' && {
+          universityId: formData.universityId,
+        }),
         ...(role === 'hod' && {
           universityId: formData.universityId,
           department: formData.department,
@@ -417,6 +422,8 @@ const RegisterPage = () => {
       setIsLoading(false);
     }
   };
+
+  const coordinatorUploadLocked = role === 'coordinator' && !formData.universityId;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -744,7 +751,7 @@ const RegisterPage = () => {
               {role === 'student' 
                 ? 'Enter your academic details and upload student ID'
                 : role === 'coordinator'
-                ? 'Enter your university details and upload official verification letter'
+                ? 'Select your institution from the approved universities'
                 : role === 'hod'
                 ? 'Select your university, enter your department, and upload your staff ID'
                 : 'Enter your company details and upload official verification document'}
@@ -763,22 +770,127 @@ const RegisterPage = () => {
           <div className="space-y-4">
             {role === 'coordinator' && (
               <>
+                {/* Searchable University Dropdown - REQUIRED FROM DATABASE ONLY */}
                 <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    University Name <span className="text-red-500">*</span>
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    University <span className="text-red-500">* (select from list only)</span>
                   </label>
                   <div className="relative">
-                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <input
-                      type="text"
-                      name="universityName"
-                      value={formData.universityName}
-                      onChange={handleInputChange}
-                      placeholder="Enter your university name"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setUniDropdownOpen((o) => !o)}
+                      className={`w-full flex items-center justify-between pl-10 pr-4 py-3 rounded-xl border bg-white text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:bg-slate-900 dark:text-slate-100 ${
+                        errors.universityId 
+                          ? 'border-red-300' 
+                          : formData.universityId 
+                          ? 'border-emerald-300 dark:border-emerald-700' 
+                          : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                      <span className={formData.universityId ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>
+                        {formData.universityId
+                          ? approvedUniversities.find((u) => u.id === formData.universityId)?.name
+                          : 'Select your university'}
+                      </span>
+                      <ChevronDown className={`h-4 w-4 text-slate-400 dark:text-slate-500 transition-transform ${uniDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {uniDropdownOpen && (
+                      <div className="absolute z-20 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
+                        <div className="p-2 border-b border-slate-100 dark:border-slate-700">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                            <input
+                              type="text"
+                              name="universitySearch"
+                              value={formData.universitySearch}
+                              onChange={handleInputChange}
+                              placeholder="Search universities..."
+                              className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:bg-slate-950 dark:text-slate-100"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <ul className="max-h-48 overflow-y-auto">
+                          {approvedUniversities
+                            .filter((u) =>
+                              u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
+                            )
+                            .map((u) => (
+                              <li key={u.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData((prev) => ({ ...prev, universityId: u.id, universitySearch: '' }));
+                                    setUniDropdownOpen(false);
+                                    setErrors((prev) => ({ ...prev, universityId: '' }));
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-700 dark:hover:text-primary-400 transition-colors ${formData.universityId === u.id ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium' : 'text-slate-700 dark:text-slate-300'}`}
+                                >
+                                  {u.name}
+                                </button>
+                              </li>
+                            ))}
+                          {approvedUniversities.filter((u) =>
+                            u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
+                          ).length === 0 && (
+                            <li className="px-4 py-3 text-sm text-slate-400 text-center">No universities found</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
                   </div>
+                  {errors.universityId && (
+                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.universityId}
+                    </p>
+                  )}
                 </div>
+
+                {/* Selection Required Warning */}
+                {!formData.universityId && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-red-800 dark:text-red-300">University selection required</p>
+                        <p className="text-xs text-red-700 dark:text-red-400 mt-1">
+                          You must select an existing university from the dropdown. You cannot proceed without selecting a valid institution. Typing text alone is not a valid selection.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Can't find your institution? */}
+                {formData.universitySearch && approvedUniversities.filter((u) =>
+                  u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
+                ).length === 0 && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Can't find your institution?</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                          If your university is not listed, you can request to have it added to the system.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // This would navigate to an institution request form
+                            // For now, we'll keep it simple and just alert
+                            alert('Institution request feature coming soon. Please contact support.');
+                          }}
+                          className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 underline underline-offset-2"
+                        >
+                          Request New Institution
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -1058,42 +1170,77 @@ const RegisterPage = () => {
             )}
           </div>
 
-          {/* File Upload */}
+          {/* File Upload - Optional for coordinators, but disabled until they select university */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">
+            <label className={`text-sm font-semibold ${
+              role === 'coordinator' && !formData.universityId 
+                ? 'text-slate-400 dark:text-slate-500' 
+                : 'text-slate-700 dark:text-slate-200'
+            }`}>
               {role === 'student' ? 'Student ID / Verification' : 
-               role === 'coordinator' ? 'Official University Letter with Stamp' :
+               role === 'coordinator' ? 'Official University Letter with Stamp (Optional)' :
                role === 'hod' ? 'Staff ID / Verification Document' :
-               'Official Company Letter with Stamp'} <span className="text-red-500">*</span>
+               'Official Company Letter with Stamp'} {role !== 'coordinator' && <span className="text-red-500">*</span>}
             </label>
             
+            {/* Disabled state message for coordinators without selection */}
+            {role === 'coordinator' && !formData.universityId && (
+              <div className="rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/50 p-4 text-center">
+                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                  ℹ️ File upload is disabled until you select a valid university
+                </p>
+              </div>
+            )}
+            
             {!formData.verificationFile ? (
-              <label className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 hover:border-primary-300 transition-all cursor-pointer group dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">
+              <label
+                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-all ${
+                  coordinatorUploadLocked
+                    ? 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed opacity-50 pointer-events-none'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/50 dark:hover:bg-slate-800/50 hover:border-primary-300 dark:hover:border-primary-700 cursor-pointer group'
+                }`}
+                aria-disabled={coordinatorUploadLocked}
+              >
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleFileChange}
+                  disabled={coordinatorUploadLocked}
                   className="hidden"
                 />
-                <div className="h-14 w-14 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400 group-hover:text-primary-600 transition-colors mb-4 dark:bg-slate-950 dark:text-slate-500">
+                <div className={`h-14 w-14 rounded-full shadow-sm flex items-center justify-center transition-colors mb-4 ${
+                  coordinatorUploadLocked
+                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+                    : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 group-hover:text-primary-600 dark:group-hover:text-primary-400'
+                }`}>
                   <Upload className="h-7 w-7" />
                 </div>
-                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Click to upload or drag and drop</p>
-                <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">PDF, JPG or PNG (max. 5MB)</p>
-                <p className="text-xs text-slate-400 mt-2 dark:text-slate-500">Official document with institutional stamp required</p>
+                <p className={`text-sm font-bold ${
+                  coordinatorUploadLocked
+                    ? 'text-slate-600 dark:text-slate-400'
+                    : 'text-slate-900 dark:text-slate-100'
+                }`}>Click to upload or drag and drop</p>
+                <p className={`text-xs mt-1 ${
+                  coordinatorUploadLocked
+                    ? 'text-slate-500 dark:text-slate-500'
+                    : 'text-slate-500 dark:text-slate-400'
+                }`}>PDF, JPG or PNG (max. 5MB)</p>
+                {role !== 'coordinator' && (
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Official document with institutional stamp required</p>
+                )}
               </label>
             ) : (
-              <div className="border-2 border-primary-200 rounded-2xl p-4 bg-primary-50/30">
+              <div className="border-2 border-primary-200 dark:border-primary-800 rounded-2xl p-4 bg-primary-50/30 dark:bg-primary-900/20">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary-100 rounded-lg">
-                      <FileText className="h-6 w-6 text-primary-600" />
+                    <div className="p-2 bg-primary-100 dark:bg-primary-900/50 rounded-lg">
+                      <FileText className="h-6 w-6 text-primary-600 dark:text-primary-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         {formData.verificationFile.name}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         {(formData.verificationFile.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
@@ -1101,9 +1248,9 @@ const RegisterPage = () => {
                   <button
                     type="button"
                     onClick={removeFile}
-                    className="p-1 hover:bg-slate-200 rounded-lg transition-colors"
+                    className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
                   >
-                    <X className="h-5 w-5 text-slate-500" />
+                    <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                   </button>
                 </div>
                 {formData.verificationFilePreview && formData.verificationFile.type.startsWith('image/') && (
@@ -1120,7 +1267,7 @@ const RegisterPage = () => {
             )}
             
             {errors.verificationFile && (
-              <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
                 <AlertCircle className="h-3 w-3" />
                 {errors.verificationFile}
               </p>
@@ -1158,13 +1305,19 @@ const RegisterPage = () => {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isLoading || authLoading}
+              disabled={isLoading || authLoading || (role === 'coordinator' && !formData.universityId)}
               className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700 disabled:opacity-70 disabled:cursor-not-allowed"
+              title={role === 'coordinator' && !formData.universityId ? 'Please select a valid university from the dropdown first' : ''}
             >
               {isLoading || authLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Creating Account...
+                </>
+              ) : role === 'coordinator' && !formData.universityId ? (
+                <>
+                  <AlertCircle className="h-4 w-4" />
+                  Select University to Continue
                 </>
               ) : (
                 <>

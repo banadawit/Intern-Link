@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import LogoutModal from "@/components/common/LogoutModal";
 
-type ViewKey =
+export type ViewKey =
   | "dashboard"
   | "approvals"
   | "organizations"

@@ -47,12 +47,27 @@ export type FeedbackResult = {
     suggestions: string;
 };
 
+export type StudentContext = {
+    companyName?: string;
+    supervisorName?: string;
+    projectName?: string;
+    projectDescription?: string;
+    weeklyPlans?: {
+        weekNumber: number;
+        description: string;
+        status: string;
+        feedback?: string;
+        dailySubmissions?: { date: string; notes?: string }[];
+    }[];
+};
+
 export type ChatInput = {
     message: string;
     history?: { role: 'user' | 'assistant'; content: string }[];
     appRole: Role | 'VISITOR';
     userId: number;
     userDisplayName: string;
+    studentContext?: StudentContext;
 };
 
 export type ChatResult = {
@@ -82,19 +97,28 @@ export function isChatAiConfigured(): boolean {
 
 const CHAT_SYSTEM_MESSAGE = `You are a smart AI assistant for the Intern-Link platform, which manages internships for students, supervisors, coordinators, and admins.
 
-1. Student role: weekly plan generation, task suggestions, improving writing, generating presentation content, explaining supervisor feedback.
-2. Supervisor role: reviewing student plans, generating feedback, summarizing performance, writing evaluations.
-3. Coordinator role: analyzing student performance, detecting low-performing students, generating reports, recommending placements.
-4. Admin role: monitoring system usage, detecting unusual activity, generating analytics.
+**Your roles:**
+1. 🎓 **Student role**: weekly plan generation, task suggestions, improving writing, generating presentation content, explaining supervisor feedback, tracking daily progress.
+2. 👔 **Supervisor role**: reviewing student plans, generating feedback, summarizing performance, writing evaluations.
+3. 🏫 **Coordinator role**: analyzing student performance, detecting low-performing students, generating reports, recommending placements.
+4. 🏛️ **Admin role**: monitoring system usage, detecting unusual activity, generating analytics.
 
-General guidelines:
+**Formatting guidelines (always follow these):**
+- Use **bold** for section titles, key terms, and important information
+- Use bullet points (•) for lists of tasks, tips, or items
+- Use numbered lists for step-by-step instructions or ordered plans
+- Add relevant emojis to section headings and key points to make responses visually engaging
+- Leave blank lines between sections for readability
+- Keep responses concise but complete
+- Use friendly, encouraging language
+
+**General guidelines:**
 - Respond naturally in conversational chat form
 - Tailor answers to the user role
 - Give actionable advice and suggestions
-- Use friendly greetings and maintain context across conversation
 - Ask clarifying questions if needed
 - Never auto-submit plans; always let users review and edit
-- You do not have live access to Intern-Link data. Do not invent specific names, counts, or events.`;
+- You do not have live access to Intern-Link data unless it is provided in the context below`;
 
 function sanitizeChatDisplayName(name: string): string {
     return name.replace(/[\r\n\u0000]/g, ' ').trim().slice(0, 120) || 'there';
@@ -139,8 +163,47 @@ Help only with ${r.focus}
 Do not ask them to choose a role. Stay in this role unless they explicitly ask about another.`;
 }
 
+function buildStudentContextBlock(ctx: StudentContext): string {
+    const lines: string[] = ['--- Student Internship Context (live data) ---'];
+
+    if (ctx.companyName) lines.push(`🏢 Company: ${ctx.companyName}`);
+    if (ctx.supervisorName) lines.push(`👔 Supervisor: ${ctx.supervisorName}`);
+    if (ctx.projectName) lines.push(`📁 Assigned project: ${ctx.projectName}`);
+    if (ctx.projectDescription) lines.push(`📝 Project description: ${ctx.projectDescription}`);
+
+    if (ctx.weeklyPlans && ctx.weeklyPlans.length > 0) {
+        lines.push('\n📅 Recent weekly plans (most recent first):');
+        for (const p of ctx.weeklyPlans) {
+            const statusEmoji = p.status === 'APPROVED' ? '✅' : p.status === 'REJECTED' ? '❌' : '⏳';
+            lines.push(`  ${statusEmoji} Week ${p.weekNumber} [${p.status}]: ${p.description.slice(0, 300)}${p.description.length > 300 ? '…' : ''}`);
+            if (p.feedback) lines.push(`    💬 Supervisor feedback: ${p.feedback}`);
+            if (p.dailySubmissions && p.dailySubmissions.length > 0) {
+                lines.push(`    📆 Daily check-ins:`);
+                for (const d of p.dailySubmissions) {
+                    lines.push(`      • ${d.date}${d.notes ? ': ' + d.notes.slice(0, 150) : ' (checked in)'}`);
+                }
+            }
+        }
+    } else {
+        lines.push('📭 No weekly plans submitted yet.');
+    }
+
+    lines.push('--- End of context ---');
+    return lines.join('\n');
+}
+
 function buildFullChatSystemMessage(input: ChatInput): string {
-    return `${CHAT_SYSTEM_MESSAGE}\n\n${buildChatSessionInstruction(input.userDisplayName, input.appRole)}`;
+    let base = `${CHAT_SYSTEM_MESSAGE}\n\n${buildChatSessionInstruction(input.userDisplayName, input.appRole)}`;
+    if (input.appRole === 'STUDENT' && input.studentContext) {
+        base += `\n\n${buildStudentContextBlock(input.studentContext)}`;
+        base += `\n\n**When responding to this student, always:**
+- Reference their actual project ("${input.studentContext.projectName ?? 'your project'}") by name
+- Reference their supervisor ("${input.studentContext.supervisorName ?? 'your supervisor'}") by name when relevant
+- Use their weekly plan history to give personalised suggestions
+- Format responses with **bold headings**, bullet points, and emojis
+- Be proactive: suggest next steps, ask about blockers, celebrate progress`;
+    }
+    return base;
 }
 
 function mockWeeklyPlan(input: WeeklyPlanInput): WeeklyPlanResult {

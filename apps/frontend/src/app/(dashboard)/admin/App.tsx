@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Sidebar from "./Sidebar";
+import Sidebar, { ViewKey } from "./Sidebar";
 import Dashboard, { type AdminDashboardStats } from "./Dashboard";
 import VerificationList from "./VerificationList";
 import VerificationDetail from "./VerificationDetail";
@@ -24,12 +24,6 @@ import {
 } from "@/lib/api/mappers";
 import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
 
-type ViewKey =
-  | "dashboard"
-  | "approvals"
-  | "organizations"
-  | "audit-log"
-  | "settings";
 
 const VALID_VIEWS: ViewKey[] = [
   "dashboard",

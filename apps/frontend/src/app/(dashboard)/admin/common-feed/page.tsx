@@ -1,17 +1,9 @@
 "use client";
 
 import CommonFeedPage from "@/app/(dashboard)/common-feed/page";
-import Sidebar from "@/app/(dashboard)/admin/Sidebar";
+import Sidebar, { ViewKey } from "@/app/(dashboard)/admin/Sidebar";
 import { useState } from "react";
 
-type ViewKey =
-  | "dashboard"
-  | "approvals"
-  | "approved"
-  | "rejected"
-  | "suspended"
-  | "audit-log"
-  | "settings";
 
 export default function AdminCommonFeedPage() {
   const [activeView] = useState<ViewKey>("dashboard");

@@ -18,6 +18,7 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/settings/presentation/screens/account_settings_screen.dart';
 import '../../features/support/presentation/screens/support_screen.dart';
 import '../../features/universal/presentation/screens/universal_screens.dart' hide CommonFeedScreen;
+import '../../core/utils/keys.dart';
 import 'app_routes.dart';
 
 const Set<String> _protectedRoutes = {
@@ -36,6 +37,34 @@ const Set<String> _protectedRoutes = {
   AppRoutes.evaluations,
 };
 
+// Centralized Role-Route Access Map (Security Fix: Broken Access Control)
+const Map<String, String> _routePrefixToRole = {
+  AppRoutes.adminDashboard: 'ADMIN',
+  AppRoutes.hodDashboard: 'HEAD_OF_DEPARTMENT',
+  AppRoutes.coordinatorDashboard: 'COORDINATOR',
+  AppRoutes.supervisorDashboard: 'SUPERVISOR',
+  AppRoutes.studentDashboard: 'STUDENT',
+};
+
+String _getDashboardForRole(String role) {
+  switch (role.toUpperCase()) {
+    case 'ADMIN':
+      return AppRoutes.adminDashboard;
+    case 'HEAD_OF_DEPARTMENT':
+    case 'HEAD OF DEPARTMENT':
+    case 'HOD':
+      return AppRoutes.hodDashboard;
+    case 'COORDINATOR':
+      return AppRoutes.coordinatorDashboard;
+    case 'SUPERVISOR':
+      return AppRoutes.supervisorDashboard;
+    case 'STUDENT':
+      return AppRoutes.studentDashboard;
+    default:
+      return AppRoutes.auth;
+  }
+}
+
 final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   redirect: (context, state) async {
@@ -45,10 +74,44 @@ final GoRouter appRouter = GoRouter(
     }
 
     try {
-      final token = await AppSessionService().getToken();
-      if (token == null) {
+      final session = AppSessionService();
+      final token = await session.getToken();
+      if (token == null || token.isEmpty) {
         return AppRoutes.auth;
       }
+
+      final role = await session.getRole();
+
+      // Handle Invalid State: Token exists but role is missing or unknown
+      if (role == null || role.isEmpty) {
+        await session.clearSession();
+        return AppRoutes.auth;
+      }
+
+      final normalizedRole = role.toUpperCase() == 'HOD' ? 'HEAD_OF_DEPARTMENT' : role.toUpperCase();
+
+      // Enforce Access Control: Validate requested route against user role
+      String? targetRole;
+      for (final prefix in _routePrefixToRole.keys) {
+        if (location.startsWith(prefix)) {
+          targetRole = _routePrefixToRole[prefix];
+          break;
+        }
+      }
+
+      if (targetRole != null && targetRole != normalizedRole) {
+        // Access Denied: Cross-role navigation attempt detected
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('You do not have permission to access this page.'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // Redirect safely to the user's correct dashboard
+        return _getDashboardForRole(normalizedRole);
+      }
+
       return null;
     } catch (_) {
       return AppRoutes.auth;

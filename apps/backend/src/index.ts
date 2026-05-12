@@ -24,6 +24,7 @@ import commonFeedRoutes from './routes/commonFeedRoutes';
 import fileRoutes from './routes/fileRoutes';
 import supportRoutes from './routes/supportRoutes';
 
+import organizationRoutes from './routes/organizationRoutes';
 import { startReminderScheduler } from './services/reminderScheduler';
 import chatRoutes from './routes/chatRoutes';
 import notificationRoutes from './routes/notificationRoutes';
