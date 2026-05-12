@@ -667,7 +667,7 @@ export const resendVerification = async (req: Request, res: Response) => {
 
         // Send new verification email
         try {
-            await sendVerificationEmail(email, verificationToken);
+            await sendVerificationEmail(email, verificationToken, user.role);
         } catch (err: any) {
             console.error('Email resend error:', err);
             return sendError(res, "Failed to resend verification email. Please check your email settings or contact support.", 500);
