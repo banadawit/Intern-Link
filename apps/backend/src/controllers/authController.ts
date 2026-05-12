@@ -12,6 +12,7 @@ import { sendNotification } from '../utils/notificationHelper';
 import { isRegistrationOpen, isMaintenanceMode } from './systemConfigController';
 import { sendSuccess, sendError } from '../utils/responseHelper';
 import { notifyAllAdmins, NotificationType } from '../services/notification.service';
+import { CloudinaryService } from '../services/cloudinary.service';
 
 const getJwtSecret = (): string => {
     const secret = (process.env.JWT_SECRET || '').trim();
@@ -42,6 +43,21 @@ export const register = async (req: Request, res: Response) => {
         
         // Get uploaded file if exists
         const file = (req as any).file;
+        let verificationDocUrl = (verification_document && String(verification_document).startsWith('http')) ? verification_document : null;
+
+        const roleUpper = (role ?? '').toUpperCase();
+        
+        if (file) {
+            const upload = await CloudinaryService.uploadVerificationDoc(file, {
+                fileType: 'VERIFICATION_DOC',
+                folder: `internlink/users/verification/${roleUpper.toLowerCase()}`,
+            });
+            if (upload.success && upload.url) {
+                verificationDocUrl = upload.url;
+            } else {
+                return sendError(res, upload.error || 'Failed to upload verification document', 500);
+            }
+        }
 
         // Maintenance mode check
         const maintenance = await isMaintenanceMode();
@@ -49,8 +65,6 @@ export const register = async (req: Request, res: Response) => {
             return sendError(res, maintenance.message, 503, 'MAINTENANCE_MODE');
         }
 
-        // Check if registration is open for this role
-        const roleUpper = (role ?? '').toUpperCase();
         // For students, pass universityId so per-university override is checked
         const universityIdForCheck = roleUpper === 'STUDENT'
             ? parseInt(String(req.body.university_id ?? '0'), 10) || undefined
@@ -74,26 +88,39 @@ export const register = async (req: Request, res: Response) => {
         };
 
         // ────────────────────────────────────────────────────────────────────
-        // COORDINATOR Registration: Must select existing APPROVED university
+        // COORDINATOR Registration: Must select existing APPROVED university OR have a pending request
         // ────────────────────────────────────────────────────────────────────
-        let coordinatorEnrollment: { universityId: number; universityName: string } | undefined;
+        let coordinatorEnrollment: { universityId?: number; requestId?: number; universityName: string } | undefined;
 
         if (roleUpper === 'COORDINATOR') {
             const universityId = parseInt(String(bodyUniversityId ?? ''), 10);
-            if (!universityId) {
-                return sendError(res, 'University ID is required for coordinator registration.', 400);
-            }
+            const requestId = parseInt(String(req.body.organization_request_id ?? ''), 10);
 
-            const university = await prisma.university.findUnique({ where: { id: universityId } });
-            if (!university || university.approval_status !== 'APPROVED') {
-                return sendError(
-                    res,
-                    'Selected university is not approved or does not exist. Please select from the list of approved institutions.',
-                    400
-                );
+            if (universityId && !isNaN(universityId)) {
+                const university = await prisma.university.findUnique({ where: { id: universityId } });
+                if (!university || university.approval_status !== 'APPROVED') {
+                    return sendError(res, 'Selected university is not approved or does not exist.', 400);
+                }
+                const existingCoordinator = await prisma.coordinator.findFirst({
+                    where: { universityId }
+                });
+                if (existingCoordinator) {
+                    return sendError(res, `A coordinator is already registered for "${university.name}". Each university can only have one primary coordinator.`, 400);
+                }
+                coordinatorEnrollment = { universityId, universityName: university.name };
+            } else if (requestId && !isNaN(requestId)) {
+                const request = await prisma.organizationRequest.findUnique({ where: { id: requestId } });
+                if (!request || request.type !== 'UNIVERSITY') {
+                    return sendError(res, 'Organization request not found or invalid type.', 400);
+                }
+                coordinatorEnrollment = { requestId, universityName: request.name };
+                // Fallback: If no document was uploaded during registration, use the one from the request
+                if (!verificationDocUrl && request.verification_doc) {
+                    verificationDocUrl = request.verification_doc;
+                }
+            } else {
+                return sendError(res, 'Please select a university or submit a new institution request.', 400);
             }
-
-            coordinatorEnrollment = { universityId, universityName: university.name };
         }
 
         let hodEnrollment:
@@ -192,7 +219,8 @@ export const register = async (req: Request, res: Response) => {
         const verificationTokenExpiry = getVerificationTokenExpiry();
 
         // The URL is already provided by the frontend after Cloudinary upload
-        const verificationDocUrl = verification_document || null;
+        // OR we just uploaded it above if it was a direct file upload
+        // const verificationDocUrl = verification_document || null; // Handled above now
 
         const needsIndividualAdminApproval =
             roleUpper === 'COORDINATOR' || roleUpper === 'SUPERVISOR' || roleUpper === 'HOD';
@@ -215,49 +243,58 @@ export const register = async (req: Request, res: Response) => {
             });
 
             if (roleUpper === 'COORDINATOR') {
-                if (coordinatorEnrollment) {
-                    await tx.coordinator.create({
-                        data: {
-                            userId: user.id,
-                            universityId: coordinatorEnrollment.universityId,
-                            pending_university_name: null,
-                            phone_number: null,
-                        },
-                    });
-                }
-            } else if (roleUpper === 'SUPERVISOR') {
-                let company = await tx.company.findFirst({
-                    where: { name: supervisorCompanyName },
+                await tx.coordinator.create({
+                    data: {
+                        userId: user.id,
+                        universityId: coordinatorEnrollment?.universityId ?? null,
+                        pending_university_name: coordinatorEnrollment?.universityId ? null : coordinatorEnrollment?.universityName,
+                        phone_number: null,
+                    },
                 });
-                let createdNewCompany = false;
+            } else if (roleUpper === 'SUPERVISOR') {
+                const companyId = parseInt(String(req.body.company_id ?? ''), 10);
+                const requestId = parseInt(String(req.body.organization_request_id ?? ''), 10);
+                let linkedCompanyId: number;
 
-                if (!company) {
-                    const emailTaken = await tx.company.findUnique({
-                        where: { official_email: email },
-                    });
-                    if (emailTaken) {
-                        company = emailTaken;
+                if (companyId && !isNaN(companyId)) {
+                    const company = await tx.company.findUnique({ where: { id: companyId } });
+                    if (!company || company.approval_status !== 'APPROVED') {
+                        throw new Error('Selected company is not approved or does not exist.');
+                    }
+                    linkedCompanyId = company.id;
+                } else if (requestId && !isNaN(requestId)) {
+                    const request = await tx.organizationRequest.findUnique({ where: { id: requestId } });
+                    if (!request || request.type !== 'COMPANY') {
+                        throw new Error('Organization request not found or invalid type.');
+                    }
+                    // Fallback: If no document was uploaded during registration, use the one from the request
+                    if (!verificationDocUrl && request.verification_doc) {
+                        verificationDocUrl = request.verification_doc;
+                    }
+
+                    const existingCompany = await tx.company.findFirst({ where: { name: request.name } });
+                    if (existingCompany) {
+                        linkedCompanyId = existingCompany.id;
                     } else {
-                        company = await tx.company.create({
+                        const newCompany = await tx.company.create({
                             data: {
-                                name: supervisorCompanyName,
-                                official_email: email,
+                                name: request.name,
+                                official_email: request.requester_email,
                                 approval_status: 'PENDING',
-                                verification_doc: verificationDocUrl,
+                                verification_doc: request.verification_doc,
                             },
                         });
-                        createdNewCompany = true;
+                        linkedCompanyId = newCompany.id;
+                        supervisorNewCompanyMeta = { companyId: newCompany.id, companyName: newCompany.name };
                     }
-                }
-
-                if (createdNewCompany) {
-                    supervisorNewCompanyMeta = { companyId: company.id, companyName: company.name };
+                } else {
+                    throw new Error('Please select a company or submit a new organization request.');
                 }
 
                 await tx.supervisor.create({
                     data: {
                         userId: user.id,
-                        companyId: company.id,
+                        companyId: linkedCompanyId,
                         phone_number: position || null,
                     },
                 });

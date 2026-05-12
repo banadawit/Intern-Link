@@ -1052,55 +1052,55 @@ class _CoordApprovalActionsState extends State<_CoordApprovalActions> {
 
   @override
   Widget build(BuildContext context) {
-    // If no document uploaded, allow approval without gate (but show warning)
-    final canApprove = !widget.hasDoc || _docViewed;
+    final canApprove = widget.hasDoc && _docViewed;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         // Document gate notice
-        if (widget.hasDoc && !_docViewed)
+        if (widget.hasDoc)
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.1),
+              color: _docViewed ? Colors.green.withOpacity(0.08) : Colors.amber.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.amber.withOpacity(0.4)),
+              border: Border.all(color: _docViewed ? Colors.green.withOpacity(0.3) : Colors.amber.withOpacity(0.4)),
             ),
             child: Row(children: [
-              const Icon(Icons.info_outline_rounded, size: 15, color: Colors.amber),
+              Icon(_docViewed ? Icons.check_circle_rounded : Icons.info_outline_rounded, size: 15, color: _docViewed ? Colors.green : Colors.amber),
               const SizedBox(width: 8),
-              const Expanded(child: Text(
-                'Open the verification document before approving.',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber),
+              Expanded(child: Text(
+                _docViewed ? 'Document verified.' : 'Open the verification document before approving.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _docViewed ? Colors.green : Colors.amber),
               )),
-              TextButton(
-                onPressed: _openDoc,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.amber.shade800,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+              if (!_docViewed)
+                TextButton(
+                  onPressed: _openDoc,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.amber.shade800,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: const Text('Open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
                 ),
-                child: const Text('Open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-              ),
             ]),
-          ),
-        if (!widget.hasDoc)
+          )
+        else
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.08),
+              color: Colors.red.withOpacity(0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
             ),
             child: const Row(children: [
-              Icon(Icons.warning_amber_rounded, size: 15, color: Colors.orange),
+              Icon(Icons.error_outline_rounded, size: 15, color: Colors.redAccent),
               SizedBox(width: 8),
               Expanded(child: Text(
-                'No verification document uploaded.',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange),
+                'Missing verification document. Approval disabled.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.redAccent),
               )),
             ]),
           ),
@@ -1121,7 +1121,7 @@ class _CoordApprovalActionsState extends State<_CoordApprovalActions> {
           const SizedBox(width: 12),
           Expanded(
             child: Tooltip(
-              message: canApprove ? '' : 'Open the document first',
+              message: canApprove ? '' : (widget.hasDoc ? 'Open the document first' : 'Document missing'),
               child: FilledButton.icon(
                 onPressed: canApprove ? widget.onApprove : null,
                 icon: const Icon(Icons.check_rounded, size: 16),
@@ -1178,52 +1178,53 @@ class _SupApprovalActionsState extends State<_SupApprovalActions> {
 
   @override
   Widget build(BuildContext context) {
-    final canApprove = !widget.hasDoc || _docViewed;
+    final canApprove = widget.hasDoc && _docViewed;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (widget.hasDoc && !_docViewed)
+        if (widget.hasDoc)
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.1),
+              color: _docViewed ? Colors.green.withOpacity(0.08) : Colors.amber.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.amber.withOpacity(0.4)),
+              border: Border.all(color: _docViewed ? Colors.green.withOpacity(0.3) : Colors.amber.withOpacity(0.4)),
             ),
             child: Row(children: [
-              const Icon(Icons.info_outline_rounded, size: 15, color: Colors.amber),
+              Icon(_docViewed ? Icons.check_circle_rounded : Icons.info_outline_rounded, size: 15, color: _docViewed ? Colors.green : Colors.amber),
               const SizedBox(width: 8),
-              const Expanded(child: Text(
-                'Open the verification document before approving.',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber),
+              Expanded(child: Text(
+                _docViewed ? 'Document verified.' : 'Open the verification document before approving.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _docViewed ? Colors.green : Colors.amber),
               )),
-              TextButton(
-                onPressed: _openDoc,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.amber.shade800,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+              if (!_docViewed)
+                TextButton(
+                  onPressed: _openDoc,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.amber.shade800,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: const Text('Open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
                 ),
-                child: const Text('Open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-              ),
             ]),
-          ),
-        if (!widget.hasDoc)
+          )
+        else
           Container(
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.08),
+              color: Colors.red.withOpacity(0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
             ),
             child: const Row(children: [
-              Icon(Icons.warning_amber_rounded, size: 15, color: Colors.orange),
+              Icon(Icons.error_outline_rounded, size: 15, color: Colors.redAccent),
               SizedBox(width: 8),
               Expanded(child: Text(
-                'No verification document uploaded.',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange),
+                'Missing verification document. Approval disabled.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.redAccent),
               )),
             ]),
           ),
@@ -5237,7 +5238,7 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
   Future<void> _verify(int userId, String status, {String? reason}) async {
     try {
       await ref.read(coordinatorRepositoryProvider).verifyHod(userId, status, reason: reason);
-      ref.invalidate(pendingHodsProvider);
+      ref.invalidate(coordPendingHodsProvider);
       ref.invalidate(approvedHodsProvider);
       ref.invalidate(rejectedHodsProvider);
       ref.invalidate(allHodsProvider);
@@ -5630,7 +5631,7 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pendingAsync = ref.watch(pendingHodsProvider);
+    final pendingAsync = ref.watch(coordPendingHodsProvider);
     final approvedAsync = ref.watch(approvedHodsProvider);
     final rejectedAsync = ref.watch(rejectedHodsProvider);
     final suspendedAsync = ref.watch(suspendedHodsProvider);
@@ -5973,7 +5974,7 @@ class _HodDetailScreenState extends ConsumerState<HodDetailScreen> {
   Future<void> _verify(String status, {String? reason}) async {
     try {
       await ref.read(coordinatorRepositoryProvider).verifyHod(widget.userId, status, reason: reason);
-      ref.invalidate(pendingHodsProvider);
+      ref.invalidate(coordPendingHodsProvider);
       ref.invalidate(approvedHodsProvider);
       ref.invalidate(rejectedHodsProvider);
       ref.invalidate(coordinatorStatsProvider);
@@ -9312,6 +9313,12 @@ class AdminDashboardScreen extends StatelessWidget {
           view: const _AdminOrganizationsTab(),
           secondaryFab: const _CreateOrgFab(),
         ),
+        const _DashboardTab(
+          label: 'Users',
+          icon: Icons.manage_accounts_outlined,
+          activeIcon: Icons.manage_accounts_rounded,
+          view: _AdminUsersTab(),
+        ),
         const _DashboardTab(label: 'Logs', icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, view: _AdminLogsTab()),
         const _DashboardTab(label: 'Config', icon: Icons.settings_suggest_outlined, activeIcon: Icons.settings_suggest_rounded, view: _AdminSettingsTab()),
       ],
@@ -9540,7 +9547,10 @@ class _AdminOverviewTabState extends ConsumerState<_AdminOverviewTab> {
               children: [
                 Text('Action Required', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.redAccent.shade700)),
                 const SizedBox(height: 4),
-                Text('There are ${stats.pendingApprovals} pending organizations/users waiting for approval.', style: TextStyle(fontSize: 13, color: isDark ? Colors.grey.shade400 : Colors.grey.shade700)),
+                Text(
+                  'Pending: ${stats.pendingOrganizationRequests} Orgs, ${stats.pendingCoordinators} Coords, ${stats.pendingSupervisors} Sups, ${stats.pendingHods} HODs.',
+                  style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+                ),
               ],
             ),
           ),
@@ -10440,7 +10450,7 @@ class _OrgFormField extends StatelessWidget {
 class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> {
   String _searchQuery = '';
   String _orgTypeFilter = 'All'; // 'All', 'University', 'Company'
-  String _orgStatusFilter = 'All'; // 'All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'
+  String _orgStatusFilter = 'All'; // 'All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'REQUESTS'
 
   @override
   Widget build(BuildContext context) {
@@ -10519,6 +10529,9 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
       else if (s == 'SUSPENDED') suspended++;
     }
 
+    final requestsAsync = ref.watch(organizationRequestsProvider);
+    final pendingRequests = requestsAsync.asData?.value.where((r) => r['status'] == 'PENDING').length ?? 0;
+
     final isLoading = unisAsync.isLoading || compsAsync.isLoading;
 
     if (isLoading) return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
@@ -10526,8 +10539,8 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(children: [
-        _buildMiniStat('Pending', '$pending', Icons.pending_actions_rounded, Colors.orange, isDark,
-            onTap: () => setState(() => _orgStatusFilter = 'PENDING')),
+        _buildMiniStat('Pending', '${pending + pendingRequests}', Icons.pending_actions_rounded, Colors.orange, isDark,
+            onTap: () => setState(() => _orgStatusFilter = pendingRequests > 0 ? 'REQUESTS' : 'PENDING')),
         const SizedBox(width: 12),
         _buildMiniStat('Approved', '$approved', Icons.verified_rounded, Colors.green, isDark,
             onTap: () => setState(() => _orgStatusFilter = 'APPROVED')),
@@ -10537,6 +10550,9 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
         const SizedBox(width: 12),
         _buildMiniStat('Suspended', '$suspended', Icons.block_rounded, Colors.grey, isDark,
             onTap: () => setState(() => _orgStatusFilter = 'SUSPENDED')),
+        const SizedBox(width: 12),
+        _buildMiniStat('Requests', '$pendingRequests', Icons.notification_important_rounded, Colors.purple, isDark,
+            onTap: () => setState(() => _orgStatusFilter = 'REQUESTS')),
       ]),
     );
   }
@@ -10589,7 +10605,7 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildDropdownFilter('Status: $_orgStatusFilter', ['All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'], (v) => setState(() => _orgStatusFilter = v!)),
+              child: _buildDropdownFilter('Status: $_orgStatusFilter', ['All', 'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'REQUESTS'], (v) => setState(() => _orgStatusFilter = v!)),
             ),
           ],
         ),
@@ -10619,6 +10635,35 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
   }
 
   Widget _buildOrgList(WidgetRef ref, AsyncValue<List<dynamic>> unisAsync, AsyncValue<List<dynamic>> compsAsync, bool isDark) {
+    if (_orgStatusFilter == 'REQUESTS') {
+      final requestsAsync = ref.watch(organizationRequestsProvider);
+      return requestsAsync.when(
+        loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+        error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
+        data: (requests) {
+          final sQuery = _searchQuery.toLowerCase();
+          final filtered = requests.where((r) {
+            if (sQuery.isNotEmpty && !r['name'].toString().toLowerCase().contains(sQuery)) return false;
+            if (_orgTypeFilter != 'All' && r['type'] != _orgTypeFilter.toUpperCase()) return false;
+            return true;
+          }).toList();
+
+          if (filtered.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No organization requests found'))));
+
+          final hPad = responsiveValue(context, mobile: 16.0, tablet: 24.0, desktop: 32.0);
+          return SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: hPad),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildRequestCard(context, ref, filtered[index], isDark),
+                childCount: filtered.length,
+              ),
+            ),
+          );
+        },
+      );
+    }
+
     return unisAsync.when(
       loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
       error: (e, _) => SliverToBoxAdapter(child: Text('Error: $e')),
@@ -10696,6 +10741,154 @@ class _AdminOrganizationsTabState extends ConsumerState<_AdminOrganizationsTab> 
       ),
     );
   }
+
+  Widget _buildRequestCard(BuildContext context, WidgetRef ref, Map<String, dynamic> req, bool isDark) {
+    final theme = Theme.of(context);
+    final status = req['status'] as String? ?? 'PENDING';
+    final isPending = status == 'PENDING';
+    final isViewed = req['document_viewed'] == true;
+    final statusColor = status == 'APPROVED' ? Colors.green : (status == 'REJECTED' ? Colors.red : Colors.orange);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isPending ? Colors.purple.withOpacity(0.3) : isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+        ),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(req['type'] == 'UNIVERSITY' ? Icons.account_balance_rounded : Icons.business_rounded, color: Colors.purple, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(req['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15), overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text('Requested by: ${req['requester_email']}', style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                  child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w900)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.black.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.description_rounded, size: 16, color: isViewed ? Colors.green : Colors.grey),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isViewed ? 'Verification Document (Viewed)' : 'Verification Document (New)',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isViewed ? Colors.green : null),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => _viewRequestDoc(context, ref, req),
+                          child: const Text('View File'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isPending)
+            _OrgRequestActions(
+              req: req,
+              isDark: isDark,
+              onApprove: () => _approveRequest(context, ref, req),
+              onReject: () => _showRejectRequestDialog(context, ref, req),
+            )
+          else if (status == 'REJECTED' && req['rejection_reason'] != null)
+             Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Text('Reason: ${req['rejection_reason']}', style: const TextStyle(fontSize: 11, color: Colors.redAccent, fontStyle: FontStyle.italic)),
+            ),
+        ],
+      ),
+    );
+  }
+
+
+  void _approveRequest(BuildContext context, WidgetRef ref, Map<String, dynamic> req) async {
+    try {
+      await ref.read(adminRepositoryProvider).approveOrganizationRequest(req['id']);
+      ref.invalidate(organizationRequestsProvider);
+      ref.invalidate(allUniversitiesProvider);
+      ref.invalidate(allCompaniesProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Organization approved and created!'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Approval failed: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  void _showRejectRequestDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> req) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject Request'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(hintText: 'Reason for rejection...'),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              try {
+                await ref.read(adminRepositoryProvider).rejectOrganizationRequest(req['id'], reason: ctrl.text);
+                ref.invalidate(organizationRequestsProvider);
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request rejected.')));
+                }
+              } catch (e) {
+                 if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rejection failed: $e'), backgroundColor: Colors.red));
+                }
+              }
+            },
+            child: const Text('Reject', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildOrgCard(BuildContext context, WidgetRef ref, Map<String, dynamic> org, bool isDark) {
     final theme = Theme.of(context);
@@ -11428,11 +11621,11 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
                     return SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(children: [
-                        _miniStat('Pending Coords', stats.pendingApprovals.toString(), Icons.pending_rounded, Colors.orange, isDark),
+                        _miniStat('Pending Coords', stats.pendingCoordinators.toString(), Icons.pending_rounded, Colors.orange, isDark),
                         const SizedBox(width: 12),
-                        _miniStat('Pending Sups', pendingSupsCount.toString(), Icons.pending_actions_rounded, Colors.purple, isDark),
+                        _miniStat('Pending Sups', stats.pendingSupervisors.toString(), Icons.pending_actions_rounded, Colors.purple, isDark),
                         const SizedBox(width: 12),
-                        _miniStat('Total Users', stats.totalUsers.toString(), Icons.group_rounded, Colors.blue, isDark),
+                        _miniStat('Total Users', stats.totalUsers.toString(), Icons.group_rounded, Colors.grey, isDark),
                       ]),
                     );
                   },
@@ -11636,10 +11829,12 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
     final isPending = approval == 'PENDING';
     final rawUniName = coord['pending_university_name'] as String? ?? '';
     // Detect if coordinator selected an existing university
-    final isExistingUni = rawUniName.startsWith('__EXISTING__:');
-    final uniName = isExistingUni
-        ? rawUniName.split(':').skip(2).join(':').trim()
-        : (rawUniName.isNotEmpty ? rawUniName : 'University not linked');
+    final isExistingUni = coord['university'] != null || rawUniName.startsWith('__EXISTING__:');
+    final uniName = coord['university']?['name']?.toString().isNotEmpty == true
+        ? coord['university']['name'].toString()
+        : rawUniName.startsWith('__EXISTING__:')
+            ? rawUniName.split(':').skip(2).join(':').trim()
+            : (rawUniName.isNotEmpty ? rawUniName : 'University not linked');
     final docUrl = user['verification_document']?.toString() ?? '';
     final hasDoc = docUrl.isNotEmpty;
     final statusColor = switch (approval) {
@@ -11945,15 +12140,63 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   Future<void> _approveCoordinator(dynamic coord) async {
     final userId = _parseInt(coord['user']?['id'] ?? coord['userId']);
     if (userId == 0) return;
+
+    final rawPendingName = coord['pending_university_name']?.toString() ?? '';
+    final hasExistingUni = coord['university'] != null;
+    final isNewUniRequest = !hasExistingUni && rawPendingName.isNotEmpty && !rawPendingName.startsWith('__EXISTING__:');
+
+    // For new university requests, show a dialog so admin can correct the name
+    String? universityNameOverride;
+    if (isNewUniRequest) {
+      final nameCtrl = TextEditingController(text: rawPendingName);
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(children: [
+            Icon(Icons.account_balance_rounded, color: Colors.blue),
+            SizedBox(width: 10),
+            Text('Confirm University Name', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('The coordinator requested a new university. Verify or correct the name before approving.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: nameCtrl,
+              decoration: InputDecoration(
+                labelText: 'University Name',
+                hintText: 'e.g. Haramaya University',
+                prefixIcon: const Icon(Icons.account_balance_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.check_rounded, size: 16),
+              label: const Text('Approve'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      universityNameOverride = nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim();
+    }
+
     try {
-      await ref.read(adminRepositoryProvider).approveCoordinator(userId);
+      await ref.read(adminRepositoryProvider).approveCoordinator(userId, universityNameOverride: universityNameOverride);
       ref.invalidate(pendingCoordinatorsProvider);
+      ref.invalidate(allUniversitiesProvider);
       ref.invalidate(adminStatsProvider);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${coord['user']?['full_name']} approved as Coordinator'), backgroundColor: Colors.green),
       );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
     }
   }
 
@@ -12029,9 +12272,8 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
+
 }
-
-
 
 class _AdminLogsTab extends ConsumerStatefulWidget {
   const _AdminLogsTab();
@@ -14047,3 +14289,130 @@ class _SupervisorAssignmentScreenState extends ConsumerState<_SupervisorAssignme
     Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13), overflow: TextOverflow.ellipsis)),
   ]);
 }
+
+void _viewRequestDoc(BuildContext context, WidgetRef ref, Map<String, dynamic> req, {VoidCallback? onOpened}) async {
+  final url = req['verification_doc'];
+  if (url == null) return;
+
+  try {
+    await ref.read(adminRepositoryProvider).markRequestAsViewed(req['id']);
+  } catch (_) {}
+
+  if (await canLaunchUrl(Uri.parse(url))) {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (onOpened != null) onOpened();
+  } else {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open document link.')));
+    }
+  }
+}
+
+class _OrgRequestActions extends ConsumerStatefulWidget {
+  final Map<String, dynamic> req;
+  final bool isDark;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _OrgRequestActions({
+    required this.req,
+    required this.isDark,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  ConsumerState<_OrgRequestActions> createState() => _OrgRequestActionsState();
+}
+
+class _OrgRequestActionsState extends ConsumerState<_OrgRequestActions> {
+  bool _docViewed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _docViewed = widget.req['document_viewed'] == true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _docViewed ? Colors.green.withOpacity(0.05) : Colors.orange.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _docViewed ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(_docViewed ? Icons.fact_check_rounded : Icons.rule_rounded, size: 16, color: _docViewed ? Colors.green : Colors.orange),
+                    const SizedBox(width: 8),
+                    const Text('Verification Checklist', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => _viewRequestDoc(context, ref, widget.req, onOpened: () => setState(() => _docViewed = true)),
+                      child: const Text('View Document', style: TextStyle(fontSize: 11)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                _buildCheckItem('Review organization name: "${widget.req['name']}"', true, widget.isDark),
+                _buildCheckItem('Review uploaded document', _docViewed, widget.isDark),
+                _buildCheckItem('Confirm name matches document', _docViewed, widget.isDark),
+                if (!_docViewed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('⚠ Open document to enable approval', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade700)),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: widget.onReject,
+                  icon: const Icon(Icons.close_rounded, size: 16),
+                  label: const Text('Reject'),
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: !_docViewed ? null : widget.onApprove,
+                  icon: const Icon(Icons.check_rounded, size: 16),
+                  label: const Text('Approve'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCheckItem(String label, bool checked, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(checked ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 12, color: checked ? Colors.green : Colors.grey),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade300 : Colors.grey.shade700))),
+        ],
+      ),
+    );
+  }
+}
