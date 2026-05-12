@@ -141,8 +141,14 @@ export default function SupervisorPlansPage() {
                       <p className="text-xs text-slate-500 dark:text-slate-400">{p.student.university.name}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                        {p.status}
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                        p.status === 'APPROVED'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          : p.status === 'REJECTED'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                      }`}>
+                        {p.status === 'RESUBMITTED' ? 'PENDING (Resubmitted)' : p.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -201,7 +207,7 @@ export default function SupervisorPlansPage() {
                 </a>
               )}
             </div>
-            {selected.status === "PENDING" && (
+            {(selected.status === "PENDING" || selected.status === "RESUBMITTED") && (
               <>
                 <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                   <p className="font-medium text-slate-800 dark:text-slate-100">AI feedback</p>
@@ -254,7 +260,7 @@ export default function SupervisorPlansPage() {
                 </div>
               </>
             )}
-            {selected.status !== "PENDING" && selected.feedback && (
+            {selected.status !== "PENDING" && selected.status !== "RESUBMITTED" && selected.feedback && (
               <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
                 <span className="font-semibold">Previous feedback: </span>
                 {selected.feedback}
