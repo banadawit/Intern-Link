@@ -168,6 +168,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   Future<void> _submit() async {
     setState(() => _step3Touched = true);
+    if (_role == RegistrationRole.coordinator && _coordinatorUniversityId == null) {
+      _showSnack('Please select a university from the dropdown before uploading or continuing.');
+      return;
+    }
     if (!_step3Key.currentState!.validate()) return;
     if (!_agreedToTerms) {
       _showSnack('You must agree to the Terms of Service to continue.');
@@ -505,6 +509,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   Widget _buildStep3(ThemeData theme, bool isDark, Color primary) {
     final isLoading = ref.watch(authControllerProvider).isLoading;
+    final coordinatorUploadLocked = _role == RegistrationRole.coordinator && _coordinatorUniversityId == null;
 
     final stepTitle = switch (_role) {
       RegistrationRole.student => 'Student Information',
@@ -580,7 +585,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               child: _PrimaryButton(
                 label: 'Complete Registration',
                 isLoading: isLoading,
-                enabled: !isLoading,
+                enabled: !isLoading && !coordinatorUploadLocked,
                 primary: primary,
                 onPressed: _submit,
                 leadingIcon: Icons.check_rounded,
@@ -605,7 +610,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   };
 
   List<Widget> _buildRoleFields(bool isDark, Color primary, bool isLoading) {
-    final filePicker = _buildFilePicker(isDark, primary);
+    final filePicker = _buildFilePicker(isDark, primary,
+      enabled: !(_role == RegistrationRole.coordinator && _coordinatorUniversityId == null),
+    );
 
     switch (_role) {
       case RegistrationRole.coordinator:
@@ -768,10 +775,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     }
   }
 
-  Widget _buildFilePicker(bool isDark, Color primary) {
+  Widget _buildFilePicker(bool isDark, Color primary, {required bool enabled}) {
     return _FilePicker(
       isDark: isDark,
       primary: primary,
+      enabled: enabled,
       fileName: _verificationFileName,
       onPicked: (bytes, name) => setState(() {
         _verificationFileBytes = bytes;
@@ -791,6 +799,7 @@ class _FilePicker extends StatelessWidget {
   const _FilePicker({
     required this.isDark,
     required this.primary,
+    required this.enabled,
     required this.fileName,
     required this.onPicked,
     required this.onRemoved,
@@ -798,6 +807,7 @@ class _FilePicker extends StatelessWidget {
 
   final bool isDark;
   final Color primary;
+  final bool enabled;
   final String? fileName;
   final void Function(List<int> bytes, String name) onPicked;
   final VoidCallback onRemoved;
@@ -896,33 +906,45 @@ class _FilePicker extends StatelessWidget {
     }
 
     // No file — show upload zone
-    return GestureDetector(
-      onTap: () => _pick(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFD1D5DB),
-            style: BorderStyle.solid,
-            width: 1.5,
+    return AbsorbPointer(
+      absorbing: !enabled,
+      child: GestureDetector(
+        onTap: enabled ? () => _pick(context) : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+          decoration: BoxDecoration(
+            color: enabled
+                ? (isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF9FAFB))
+                : (isDark ? Colors.white.withOpacity(0.02) : const Color(0xFFF3F4F6)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: enabled
+                  ? (isDark ? Colors.white.withOpacity(0.12) : const Color(0xFFD1D5DB))
+                  : (isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFD1D5DB)),
+              style: BorderStyle.solid,
+              width: 1.5,
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.upload_rounded, size: 32, color: Colors.grey.shade400),
-            const SizedBox(height: 10),
-            Text('Click to upload or take a photo',
-                style: TextStyle(fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white70 : const Color(0xFF374151))),
-            const SizedBox(height: 4),
-            Text('PDF, JPG or PNG (max. 5MB)',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-            const SizedBox(height: 2),
-            Text('Official document with institutional stamp required',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
-          ],
+          child: Column(
+            children: [
+              Icon(Icons.upload_rounded, size: 32, color: enabled ? Colors.grey.shade400 : Colors.grey.shade300),
+              const SizedBox(height: 10),
+              Text(
+                enabled ? 'Click to upload or take a photo' : 'Select a university first to enable upload',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: enabled ? (isDark ? Colors.white70 : const Color(0xFF374151)) : Colors.grey.shade500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text('PDF, JPG or PNG (max. 5MB)',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+              const SizedBox(height: 2),
+              Text('Official document with institutional stamp required',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+            ],
+          ),
         ),
       ),
     );

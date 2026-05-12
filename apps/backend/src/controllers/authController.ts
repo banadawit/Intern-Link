@@ -73,6 +73,29 @@ export const register = async (req: Request, res: Response) => {
             employee_id?: unknown;
         };
 
+        // ────────────────────────────────────────────────────────────────────
+        // COORDINATOR Registration: Must select existing APPROVED university
+        // ────────────────────────────────────────────────────────────────────
+        let coordinatorEnrollment: { universityId: number; universityName: string } | undefined;
+
+        if (roleUpper === 'COORDINATOR') {
+            const universityId = parseInt(String(bodyUniversityId ?? ''), 10);
+            if (!universityId) {
+                return sendError(res, 'University ID is required for coordinator registration.', 400);
+            }
+
+            const university = await prisma.university.findUnique({ where: { id: universityId } });
+            if (!university || university.approval_status !== 'APPROVED') {
+                return sendError(
+                    res,
+                    'Selected university is not approved or does not exist. Please select from the list of approved institutions.',
+                    400
+                );
+            }
+
+            coordinatorEnrollment = { universityId, universityName: university.name };
+        }
+
         let hodEnrollment:
             | {
                   universityId: number;
@@ -192,35 +215,16 @@ export const register = async (req: Request, res: Response) => {
             });
 
             if (roleUpper === 'COORDINATOR') {
-                const selectedUniversityId = req.body.university_id
-                    ? parseInt(String(req.body.university_id), 10) || null
-                    : null;
-
-                let linkedUniversityId: number | null = null;
-
-                if (selectedUniversityId) {
-                    const existingUni = await tx.university.findUnique({
-                        where: { id: selectedUniversityId },
+                if (coordinatorEnrollment) {
+                    await tx.coordinator.create({
+                        data: {
+                            userId: user.id,
+                            universityId: coordinatorEnrollment.universityId,
+                            pending_university_name: null,
+                            phone_number: null,
+                        },
                     });
-                    if (existingUni && existingUni.approval_status === 'APPROVED') {
-                        linkedUniversityId = existingUni.id;
-                    }
                 }
-
-                await tx.coordinator.create({
-                    data: {
-                        userId: user.id,
-                        universityId: null,
-                        pending_university_name: linkedUniversityId
-                            ? null
-                            : (university_name || null),
-                        ...(linkedUniversityId
-                            ? {
-                                  pending_university_name: `__EXISTING__:${linkedUniversityId}:${university_name || ''}`,
-                              }
-                            : {}),
-                    },
-                });
             } else if (roleUpper === 'SUPERVISOR') {
                 let company = await tx.company.findFirst({
                     where: { name: supervisorCompanyName },
@@ -286,30 +290,12 @@ export const register = async (req: Request, res: Response) => {
         const newUser = registrationResult.user;
 
         if (roleUpper === 'COORDINATOR') {
-            const selectedUniversityId = req.body.university_id
-                ? parseInt(String(req.body.university_id), 10) || null
-                : null;
-            let linkedUniversityId: number | null = null;
-            if (selectedUniversityId) {
-                const existingUni = await prisma.university.findUnique({
-                    where: { id: selectedUniversityId },
-                });
-                if (existingUni && existingUni.approval_status === 'APPROVED') {
-                    linkedUniversityId = existingUni.id;
-                }
+            if (coordinatorEnrollment) {
+                await notifyAllAdmins(
+                    `New Coordinator registration pending: ${full_name} (${email}) for ${coordinatorEnrollment.universityName}`,
+                    NotificationType.ADMIN_ALERT
+                );
             }
-
-            await notifyAdminsNewVerificationProposal({
-                organizationName: university_name || 'Unknown University',
-                institutionType: 'University',
-                organizationId: newUser.id,
-                submitterEmail: email,
-            });
-
-            await notifyAllAdmins(
-                `New Coordinator registration pending: ${full_name} (${email}) for ${university_name || 'Unknown University'}${linkedUniversityId ? ' (existing university selected)' : ' (new university request)'}`,
-                NotificationType.ADMIN_ALERT
-            );
 
             await sendNotification(
                 newUser.id,
