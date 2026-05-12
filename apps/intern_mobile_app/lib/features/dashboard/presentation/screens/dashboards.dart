@@ -1011,6 +1011,256 @@ Widget _buildDocumentRow(BuildContext context, String docUrl, bool hasDoc, bool 
   );
 }
 
+/// Coordinator approval action bar with document-viewed gate.
+/// The Approve button is disabled until the admin opens the verification document.
+class _CoordApprovalActions extends StatefulWidget {
+  const _CoordApprovalActions({
+    required this.coord,
+    required this.hasDoc,
+    required this.docUrl,
+    required this.isDark,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final dynamic coord;
+  final bool hasDoc;
+  final String docUrl;
+  final bool isDark;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  @override
+  State<_CoordApprovalActions> createState() => _CoordApprovalActionsState();
+}
+
+class _CoordApprovalActionsState extends State<_CoordApprovalActions> {
+  bool _docViewed = false;
+
+  Future<void> _openDoc() async {
+    final uri = Uri.tryParse(widget.docUrl);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      setState(() => _docViewed = true);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open document')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // If no document uploaded, allow approval without gate (but show warning)
+    final canApprove = !widget.hasDoc || _docViewed;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // Document gate notice
+        if (widget.hasDoc && !_docViewed)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.withOpacity(0.4)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 15, color: Colors.amber),
+              const SizedBox(width: 8),
+              const Expanded(child: Text(
+                'Open the verification document before approving.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber),
+              )),
+              TextButton(
+                onPressed: _openDoc,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.amber.shade800,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('Open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+              ),
+            ]),
+          ),
+        if (!widget.hasDoc)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.warning_amber_rounded, size: 15, color: Colors.orange),
+              SizedBox(width: 8),
+              Expanded(child: Text(
+                'No verification document uploaded.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange),
+              )),
+            ]),
+          ),
+        // Action buttons
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: widget.onReject,
+              icon: const Icon(Icons.close_rounded, size: 16),
+              label: const Text('Reject'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: const BorderSide(color: Colors.redAccent),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Tooltip(
+              message: canApprove ? '' : 'Open the document first',
+              child: FilledButton.icon(
+                onPressed: canApprove ? widget.onApprove : null,
+                icon: const Icon(Icons.check_rounded, size: 16),
+                label: const Text('Approve'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: canApprove ? Colors.green : Colors.grey.shade400,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
+/// Supervisor approval action bar — same document-viewed gate, purple approve button.
+class _SupApprovalActions extends StatefulWidget {
+  const _SupApprovalActions({
+    required this.sup,
+    required this.hasDoc,
+    required this.docUrl,
+    required this.isDark,
+    required this.onApprove,
+    required this.onReject,
+  });
+  final dynamic sup;
+  final bool hasDoc;
+  final String docUrl;
+  final bool isDark;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  @override
+  State<_SupApprovalActions> createState() => _SupApprovalActionsState();
+}
+
+class _SupApprovalActionsState extends State<_SupApprovalActions> {
+  bool _docViewed = false;
+
+  Future<void> _openDoc() async {
+    final uri = Uri.tryParse(widget.docUrl);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      setState(() => _docViewed = true);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open document')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canApprove = !widget.hasDoc || _docViewed;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (widget.hasDoc && !_docViewed)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.withOpacity(0.4)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 15, color: Colors.amber),
+              const SizedBox(width: 8),
+              const Expanded(child: Text(
+                'Open the verification document before approving.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber),
+              )),
+              TextButton(
+                onPressed: _openDoc,
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.amber.shade800,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('Open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+              ),
+            ]),
+          ),
+        if (!widget.hasDoc)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.warning_amber_rounded, size: 15, color: Colors.orange),
+              SizedBox(width: 8),
+              Expanded(child: Text(
+                'No verification document uploaded.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange),
+              )),
+            ]),
+          ),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: widget.onReject,
+              icon: const Icon(Icons.close_rounded, size: 16),
+              label: const Text('Reject'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: const BorderSide(color: Colors.redAccent),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Tooltip(
+              message: canApprove ? '' : 'Open the document first',
+              child: FilledButton.icon(
+                onPressed: canApprove ? widget.onApprove : null,
+                icon: const Icon(Icons.check_rounded, size: 16),
+                label: const Text('Approve'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: canApprove ? Colors.purple : Colors.grey.shade400,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
 /// Simple data holder for analytics stat cells.
 class _StatItem {
   const _StatItem(this.label, this.value, this.color);
@@ -4749,7 +4999,6 @@ class CoordinatorDashboardScreen extends StatelessWidget {
         _DashboardTab(label: 'Students', icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, view: _CoordinatorStudentsTab()),
         _DashboardTab(label: 'Placements', icon: Icons.business_center_outlined, activeIcon: Icons.business_center_rounded, view: _CoordinatorPlacementsTab()),
         _DashboardTab(label: 'Companies', icon: Icons.business_outlined, activeIcon: Icons.business_rounded, view: _CoordinatorCompaniesTab()),
-        _DashboardTab(label: 'Tools', icon: Icons.apps_rounded, activeIcon: Icons.apps_rounded, view: _CoordinatorToolsTab()),
       ],
     );
   }
@@ -4975,7 +5224,7 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 5, vsync: this); // All, Pending, Approved, Rejected, Suspended
   }
 
   @override
@@ -4991,14 +5240,13 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
       ref.invalidate(pendingHodsProvider);
       ref.invalidate(approvedHodsProvider);
       ref.invalidate(rejectedHodsProvider);
+      ref.invalidate(allHodsProvider);
       ref.invalidate(coordinatorStatsProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('HOD ${status.toLowerCase()} successfully.')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('HOD ${status.toLowerCase()} successfully.'), backgroundColor: status == 'APPROVED' ? Colors.green : Colors.red),
+      );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
     }
   }
 
@@ -5007,14 +5255,14 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     try {
       await ref.read(coordinatorRepositoryProvider).suspendHod(userId);
       ref.invalidate(approvedHodsProvider);
+      ref.invalidate(suspendedHodsProvider);
+      ref.invalidate(allHodsProvider);
       ref.invalidate(coordinatorStatsProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('HOD account suspended.')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('HOD account suspended.'), backgroundColor: Colors.orange),
+      );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
     }
   }
 
@@ -5022,37 +5270,130 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     try {
       await ref.read(coordinatorRepositoryProvider).activateHod(userId);
       ref.invalidate(approvedHodsProvider);
+      ref.invalidate(suspendedHodsProvider);
+      ref.invalidate(allHodsProvider);
       ref.invalidate(coordinatorStatsProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('HOD account activated.')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('HOD account activated.'), backgroundColor: Colors.green),
+      );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
     }
   }
 
-  void _showRejectDialog(int userId) {
+  void _showRejectDialog(int userId, String name) {
     final ctrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reject HOD'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(labelText: 'Reason (optional)'),
-          maxLines: 3,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.cancel_rounded, color: Colors.red, size: 20)),
+          const SizedBox(width: 12),
+          const Text('Reject HOD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Colors.red.withOpacity(0.06), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.withOpacity(0.2))),
+            child: Row(children: [
+              const Icon(Icons.person_rounded, size: 15, color: Colors.red),
+              const SizedBox(width: 8),
+              Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          const Text('Reason for rejection', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: ctrl,
+            maxLines: 3,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'e.g. Invalid credentials, wrong department...',
+              hintStyle: const TextStyle(fontSize: 12),
+              filled: true,
+              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.red.withOpacity(0.5))),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text('This reason will be shared with the HOD.', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () {
+              final reason = ctrl.text.trim();
+              Navigator.pop(ctx);
+              _verify(userId, 'REJECTED', reason: reason.isEmpty ? null : reason);
+            },
+            icon: const Icon(Icons.cancel_rounded, size: 16),
+            label: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuspendDialog(int userId, String name) {
+    final ctrl = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.block_rounded, color: Colors.orange, size: 20)),
+          const SizedBox(width: 12),
+          const Text('Suspend HOD', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: Colors.orange.withOpacity(0.06), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.withOpacity(0.2))),
+            child: Row(children: [
+              const Icon(Icons.person_rounded, size: 15, color: Colors.orange),
+              const SizedBox(width: 8),
+              Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis)),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          const Text('Reason for suspension', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: ctrl,
+            maxLines: 3,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'e.g. Policy violation, under review...',
+              hintStyle: const TextStyle(fontSize: 12),
+              filled: true,
+              fillColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.orange.withOpacity(0.5))),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text('The HOD will lose access until reactivated.', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () {
               Navigator.pop(ctx);
-              _verify(userId, 'REJECTED', reason: ctrl.text.trim().isEmpty ? null : ctrl.text.trim());
+              _suspend(userId);
             },
-            child: const Text('Reject'),
+            icon: const Icon(Icons.block_rounded, size: 16),
+            label: const Text('Suspend'),
           ),
         ],
       ),
@@ -5292,8 +5633,9 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
     final pendingAsync = ref.watch(pendingHodsProvider);
     final approvedAsync = ref.watch(approvedHodsProvider);
     final rejectedAsync = ref.watch(rejectedHodsProvider);
+    final suspendedAsync = ref.watch(suspendedHodsProvider);
+    final allAsync = ref.watch(allHodsProvider);
 
-    // Badge count on Pending tab
     final pendingCount = pendingAsync.value?.length ?? 0;
 
     return Material(
@@ -5314,25 +5656,26 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
                 delegate: SliverTabBarDelegate(
                   TabBar(
                     controller: _tabCtrl,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
                     tabs: [
+                      const Tab(text: 'All'),
                       Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('Pending'),
-                            if (pendingCount > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(10)),
-                                child: Text('$pendingCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-                              ),
-                            ],
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Text('Pending'),
+                          if (pendingCount > 0) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(10)),
+                              child: Text('$pendingCount', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                            ),
                           ],
-                        ),
+                        ]),
                       ),
                       const Tab(text: 'Approved'),
                       const Tab(text: 'Rejected'),
+                      const Tab(text: 'Suspended'),
                     ],
                     labelColor: const Color(0xFF0575E6),
                     indicatorColor: const Color(0xFF0575E6),
@@ -5345,13 +5688,15 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
             body: TabBarView(
               controller: _tabCtrl,
               children: [
+                _buildHodList(allAsync, isDark),
                 _buildHodList(pendingAsync, isDark, showActions: true),
-                _buildHodList(approvedAsync, isDark, statusColor: Colors.green, statusLabel: 'Approved'),
+                _buildHodList(approvedAsync, isDark, statusColor: Colors.green, statusLabel: 'Approved', showSuspend: true),
                 _buildHodList(rejectedAsync, isDark, statusColor: Colors.red, statusLabel: 'Rejected'),
+                _buildHodList(suspendedAsync, isDark, statusColor: Colors.orange, statusLabel: 'Suspended', showActivate: true),
               ],
             ),
           ),
-          // FAB — Add HOD (positioned above bottom nav)
+          // FAB — Add HOD
           Positioned(
             bottom: MediaQuery.of(context).padding.bottom + 100,
             right: 24,
@@ -5367,11 +5712,12 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
       ),
     );
   }
-
   Widget _buildHodList(
     AsyncValue<List<dynamic>> async,
     bool isDark, {
     bool showActions = false,
+    bool showSuspend = false,
+    bool showActivate = false,
     Color? statusColor,
     String? statusLabel,
   }) {
@@ -5525,45 +5871,47 @@ class _CoordinatorHodsTabState extends ConsumerState<_CoordinatorHodsTab>
                   ),
                   if (showActions) ...[
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => _showRejectDialog(userId),
-                            style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                            child: const Text('Reject'),
-                          ),
+                    Row(children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showRejectDialog(userId, name),
+                          icon: const Icon(Icons.cancel_rounded, size: 16),
+                          label: const Text('Reject'),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () => _verify(userId, 'APPROVED'),
-                            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0575E6)),
-                            child: const Text('Approve'),
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => _verify(userId, 'APPROVED'),
+                          icon: const Icon(Icons.check_rounded, size: 16),
+                          label: const Text('Approve'),
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0575E6), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         ),
-                      ],
-                    ),
+                      ),
+                    ]),
                   ],
-                  if (!showActions && approvalStatus == 'APPROVED') ...[
-                    const SizedBox(height: 16),
+                  if (showSuspend) ...[
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () => _suspend(userId),
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-                        child: const Text('Suspend'),
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showSuspendDialog(userId, name),
+                        icon: const Icon(Icons.block_rounded, size: 16),
+                        label: const Text('Suspend'),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.orange, side: const BorderSide(color: Colors.orange), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       ),
                     ),
                   ],
-                  if (!showActions && approvalStatus == 'SUSPENDED') ...[
-                    const SizedBox(height: 16),
+                  if (showActivate) ...[
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
-                      child: FilledButton(
+                      child: FilledButton.icon(
                         onPressed: () => _activate(userId),
-                        style: FilledButton.styleFrom(backgroundColor: Colors.green),
-                        child: const Text('Activate'),
+                        icon: const Icon(Icons.check_circle_rounded, size: 16),
+                        label: const Text('Reactivate'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                       ),
                     ),
                   ],
@@ -6136,22 +6484,25 @@ class _StudentList extends ConsumerWidget {
                     ],
                   ),
                 ),
-                // Status badges
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                      child: Text(status, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w800)),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(color: hodColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                      child: Text('HOD: $hodStatus', style: TextStyle(color: hodColor, fontSize: 9, fontWeight: FontWeight.w700)),
-                    ),
-                  ],
+                // Status badges — constrained so they never overflow
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 80),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                        child: Text(status, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(color: hodColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                        child: Text('HOD: $hodStatus', style: TextStyle(color: hodColor, fontSize: 9, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -6319,50 +6670,74 @@ class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacement
 
     return Material(
       color: isDark ? const Color(0xFF0A1628) : const Color(0xFFF8FAFC),
-      child: NestedScrollView(
-        headerSliverBuilder: (ctx, _) => [
-          ModernSliverAppBar(
-            title: 'Placements',
-            subtitle: 'Assignments & Proposals',
-            profileName: ref.watch(userProfileProvider).value?.fullName ?? 'Coordinator',
-            gradient: const [Color(0xFFFC466B), Color(0xFF3F5EFB)],
-            backgroundIcon: Icons.business_center_rounded,
+      child: Column(children: [
+        // ── App bar ──────────────────────────────────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFFFC466B), Color(0xFF3F5EFB)]),
           ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: SliverTabBarDelegate(
+          child: SafeArea(
+            bottom: false,
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(children: [
+                  if (!isWideScreen(context))
+                    Builder(builder: (ctx) => IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.menu_rounded, color: Colors.white, size: 20),
+                      ),
+                      onPressed: () => Scaffold.of(ctx).openDrawer(),
+                    )),
+                  const SizedBox(width: 4),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Placements', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                    Text('Welcome back, ${ref.watch(userProfileProvider).value?.fullName.split(' ').first ?? ''}',
+                        style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13)),
+                  ])),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              // Top-level tabs
               TabBar(
                 controller: _tabCtrl,
                 tabs: const [Tab(text: 'Active'), Tab(text: 'Proposals'), Tab(text: 'Analytics')],
-                labelColor: const Color(0xFFFC466B),
-                indicatorColor: const Color(0xFFFC466B),
-                unselectedLabelColor: Colors.grey,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white60,
+                indicatorColor: Colors.white,
+                indicatorWeight: 3,
               ),
-              isDark,
-            ),
+            ]),
           ),
-        ],
-        body: TabBarView(
-          controller: _tabCtrl,
-          children: [
-            // Active assignments — nested sub-tabs
-            NestedScrollView(
-              headerSliverBuilder: (ctx, _) => [
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: SliverTabBarDelegate(
-                    TabBar(
-                      controller: _assignmentTabCtrl,
-                      tabs: const [Tab(text: 'Active'), Tab(text: 'Completed'), Tab(text: 'Terminated')],
-                      labelColor: const Color(0xFFFC466B),
-                      indicatorColor: const Color(0xFFFC466B),
-                      unselectedLabelColor: Colors.grey,
-                    ),
-                    isDark,
+        ),
+
+        // ── Active sub-tabs (only shown when Active tab selected) ────────────
+        AnimatedBuilder(
+          animation: _tabCtrl,
+          builder: (_, __) => _tabCtrl.index == 0
+              ? Container(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  child: TabBar(
+                    controller: _assignmentTabCtrl,
+                    tabs: const [Tab(text: 'Active'), Tab(text: 'Completed'), Tab(text: 'Terminated')],
+                    labelColor: const Color(0xFFFC466B),
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: const Color(0xFFFC466B),
+                    indicatorWeight: 2,
                   ),
-                ),
-              ],
-              body: TabBarView(
+                )
+              : const SizedBox.shrink(),
+        ),
+
+        // ── Body ─────────────────────────────────────────────────────────────
+        Expanded(
+          child: TabBarView(
+            controller: _tabCtrl,
+            children: [
+              // Active — sub-tabbed
+              TabBarView(
                 controller: _assignmentTabCtrl,
                 children: [
                   _buildAssignmentsList(assignmentsAsync, isDark, 'ACTIVE'),
@@ -6370,14 +6745,14 @@ class _CoordinatorPlacementsTabState extends ConsumerState<_CoordinatorPlacement
                   _buildAssignmentsList(assignmentsAsync, isDark, 'TERMINATED'),
                 ],
               ),
-            ),
-            // Proposals
-            _buildProposalsList(proposalsAsync, isDark),
-            // Analytics
-            _buildAnalytics(assignmentsAsync, proposalsAsync, isDark),
-          ],
+              // Proposals
+              _buildProposalsList(proposalsAsync, isDark),
+              // Analytics
+              _buildAnalytics(assignmentsAsync, proposalsAsync, isDark),
+            ],
+          ),
         ),
-      ),
+      ]),
     );
   }
 
@@ -11259,7 +11634,12 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
     final user = coord['user'] as Map<String, dynamic>? ?? {};
     final approval = (user['institution_access_approval'] ?? 'PENDING') as String;
     final isPending = approval == 'PENDING';
-    final uniName = coord['pending_university_name'] as String? ?? 'University not linked';
+    final rawUniName = coord['pending_university_name'] as String? ?? '';
+    // Detect if coordinator selected an existing university
+    final isExistingUni = rawUniName.startsWith('__EXISTING__:');
+    final uniName = isExistingUni
+        ? rawUniName.split(':').skip(2).join(':').trim()
+        : (rawUniName.isNotEmpty ? rawUniName : 'University not linked');
     final docUrl = user['verification_document']?.toString() ?? '';
     final hasDoc = docUrl.isNotEmpty;
     final statusColor = switch (approval) {
@@ -11319,35 +11699,46 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
           child: _buildDocumentRow(context, docUrl, hasDoc, isDark),
         ),
-        if (isPending)
+        // University type indicator
+        if (isPending && uniName.isNotEmpty && uniName != 'University not linked')
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-            child: Row(children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _rejectCoordinator(coord),
-                  icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text('Reject'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isExistingUni ? Colors.green.withOpacity(0.08) : Colors.blue.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isExistingUni ? Colors.green.withOpacity(0.25) : Colors.blue.withOpacity(0.25)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _approveCoordinator(coord),
-                  icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('Approve'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+              child: Row(children: [
+                Icon(
+                  isExistingUni ? Icons.check_circle_outline_rounded : Icons.add_business_rounded,
+                  size: 13,
+                  color: isExistingUni ? Colors.green.shade700 : Colors.blue.shade700,
                 ),
-              ),
-            ]),
+                const SizedBox(width: 6),
+                Expanded(child: Text(
+                  isExistingUni
+                      ? 'Existing university: $uniName'
+                      : 'New university request: $uniName',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isExistingUni ? Colors.green.shade700 : Colors.blue.shade700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                )),
+              ]),
+            ),
+          ),
+        if (isPending)
+          _CoordApprovalActions(
+            coord: coord,
+            hasDoc: hasDoc,
+            docUrl: docUrl,
+            isDark: isDark,
+            onApprove: () => _approveCoordinator(coord),
+            onReject: () => _rejectCoordinator(coord),
           )
         else
           Padding(
@@ -11447,34 +11838,13 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
           child: _buildDocumentRow(context, docUrl, hasDoc, isDark),
         ),
         if (isPending)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-            child: Row(children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _rejectSupervisor(sup),
-                  icon: const Icon(Icons.close_rounded, size: 16),
-                  label: const Text('Reject'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _approveSupervisor(sup),
-                  icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('Approve'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ]),
+          _SupApprovalActions(
+            sup: sup,
+            hasDoc: hasDoc,
+            docUrl: docUrl,
+            isDark: isDark,
+            onApprove: () => _approveSupervisor(sup),
+            onReject: () => _rejectSupervisor(sup),
           )
         else
           Padding(

@@ -97,16 +97,40 @@ export const register = async (req: Request, res: Response) => {
 
         // ✅ Create role-specific profile
         if (roleUpper === 'COORDINATOR') {
-            // Late-creation workflow: do NOT create University yet.
-            // Store the university name in the profile; admin will create it upon approval.
+            // Check if coordinator selected an existing approved university
+            const selectedUniversityId = req.body.university_id
+                ? parseInt(String(req.body.university_id), 10) || null
+                : null;
+
+            let linkedUniversityId: number | null = null;
+
+            if (selectedUniversityId) {
+                // Validate the selected university exists and is approved
+                const existingUni = await prisma.university.findUnique({
+                    where: { id: selectedUniversityId },
+                });
+                if (existingUni && existingUni.approval_status === 'APPROVED') {
+                    linkedUniversityId = existingUni.id;
+                }
+            }
+
             await prisma.coordinator.create({
                 data: {
                     userId: newUser.id,
-                    pending_university_name: university_name || null,
+                    // If they selected an existing university, store the ID but still require admin approval
+                    // universityId stays null until admin approves — this is the gate
+                    universityId: null,
+                    pending_university_name: linkedUniversityId
+                        ? null  // Will be resolved from university_id on approval
+                        : (university_name || null),
+                    // Store selected university ID in phone_number field temporarily
+                    // We use a dedicated approach: store as JSON in pending_university_name
+                    ...(linkedUniversityId
+                        ? { pending_university_name: `__EXISTING__:${linkedUniversityId}:${university_name || ''}` }
+                        : {}),
                 }
             });
 
-            // Notify admins to review this coordinator's credentials
             await notifyAdminsNewVerificationProposal({
                 organizationName: university_name || 'Unknown University',
                 institutionType: 'University',
@@ -115,7 +139,7 @@ export const register = async (req: Request, res: Response) => {
             });
 
             await notifyAllAdmins(
-                `New Coordinator registration pending: ${full_name} (${email}) for ${university_name || 'Unknown University'}`,
+                `New Coordinator registration pending: ${full_name} (${email}) for ${university_name || 'Unknown University'}${linkedUniversityId ? ' (existing university selected)' : ' (new university request)'}`,
                 NotificationType.ADMIN_ALERT
             );
         } 

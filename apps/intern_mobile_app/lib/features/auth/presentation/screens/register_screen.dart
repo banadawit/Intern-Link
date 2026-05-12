@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../app/desktop_layout.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/session_service.dart';
 import '../../data/models/auth_models.dart';
 import '../providers/auth_controller.dart';
 
@@ -92,8 +93,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   final _departmentCtrl = TextEditingController(); // hod
   final _employeeIdCtrl = TextEditingController(); // hod
   final _studentIdCtrl = TextEditingController(); // student
-  int? _selectedUniversityId;
-  String? _selectedUniversityName;
+  int? _selectedUniversityId;       // HOD/Student university picker
+  String? _selectedUniversityName;  // HOD/Student university picker
+  int? _coordinatorUniversityId;    // Coordinator: ID of selected existing university (null = new request)
   int? _selectedHodId;
   bool _agreedToTerms = false;
   bool _uniSearchOpen = false;
@@ -182,7 +184,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       department: _departmentCtrl.text.trim().isEmpty ? null : _departmentCtrl.text.trim(),
       studentId: _studentIdCtrl.text.trim().isEmpty ? null : _studentIdCtrl.text.trim(),
       position: _positionCtrl.text.trim().isEmpty ? null : _positionCtrl.text.trim(),
-      universityId: _selectedUniversityId,
+      // For coordinator: use the selected existing university ID if available
+      // For HOD/Student: use the university picker selection
+      universityId: _role == RegistrationRole.coordinator
+          ? _coordinatorUniversityId
+          : _selectedUniversityId,
       hodId: _selectedHodId,
       employeeId: _employeeIdCtrl.text.trim().isEmpty ? null : _employeeIdCtrl.text.trim(),
       verificationFileBytes: _verificationFileBytes,
@@ -604,16 +610,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     switch (_role) {
       case RegistrationRole.coordinator:
         return [
-          _FieldLabel('University Name *'),
+          _FieldLabel('University *'),
           const SizedBox(height: 8),
-          _InputField(
-            controller: _uniNameCtrl,
-            hint: 'e.g., Haramaya University',
-            icon: Icons.account_balance_rounded,
+          // Searchable university picker with autocomplete
+          _CoordinatorUniversityPicker(
+            nameCtrl: _uniNameCtrl,
             isDark: isDark,
             primary: primary,
             enabled: !isLoading,
-            validator: (v) => (v ?? '').trim().isEmpty ? 'University name is required' : null,
+            onUniversitySelected: (id) => setState(() => _coordinatorUniversityId = id),
           ),
           const SizedBox(height: 20),
           _FieldLabel('Official University Letter with Stamp *'),
@@ -625,14 +630,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         return [
           _FieldLabel('Company Name *'),
           const SizedBox(height: 8),
-          _InputField(
-            controller: _companyCtrl,
-            hint: 'e.g., Ethio Telecom',
-            icon: Icons.business_rounded,
+          _CompanySearchPicker(
+            nameCtrl: _companyCtrl,
             isDark: isDark,
             primary: primary,
             enabled: !isLoading,
-            validator: (v) => (v ?? '').trim().isEmpty ? 'Company name is required' : null,
           ),
           const SizedBox(height: 16),
           _FieldLabel('Position *'),
@@ -1568,5 +1570,363 @@ class _Orb extends StatelessWidget {
         child: Container(color: Colors.transparent),
       ),
     );
+  }
+}
+
+// ── Coordinator University Picker ─────────────────────────────────────────────
+/// Searchable university picker for coordinator registration.
+/// Fetches suggestions from /universities/search as the user types.
+/// Shows duplicate warning if a very similar name already exists.
+class _CoordinatorUniversityPicker extends StatefulWidget {
+  const _CoordinatorUniversityPicker({
+    required this.nameCtrl,
+    required this.isDark,
+    required this.primary,
+    required this.enabled,
+    this.onUniversitySelected,
+  });
+
+  final TextEditingController nameCtrl;
+  final bool isDark;
+  final Color primary;
+  final bool enabled;
+  final ValueChanged<int?>? onUniversitySelected; // null = new request, int = existing ID
+
+  @override
+  State<_CoordinatorUniversityPicker> createState() => _CoordinatorUniversityPickerState();
+}
+
+class _CoordinatorUniversityPickerState extends State<_CoordinatorUniversityPicker> {
+  List<Map<String, dynamic>> _suggestions = [];
+  bool _loading = false;
+  bool _showDropdown = false;
+  String? _duplicateWarning;
+  String? _selectedName;
+
+  Future<void> _search(String q) async {
+    if (q.trim().length < 2) {
+      setState(() { _suggestions = []; _showDropdown = false; _duplicateWarning = null; });
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final dio = ApiClient(sessionService: AppSessionService()).dio;
+      final res = await dio.get('/universities/search', queryParameters: {'q': q, 'limit': '8'});
+      final raw = res.data;
+      List<dynamic> list = [];
+      if (raw is Map && raw['data'] is List) list = raw['data'] as List;
+      else if (raw is List) list = raw;
+      setState(() {
+        _suggestions = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _showDropdown = _suggestions.isNotEmpty;
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() { _loading = false; _showDropdown = false; });
+    }
+  }
+
+  Future<void> _checkDuplicate(String name) async {
+    if (name.trim().length < 3) return;
+    try {
+      final dio = ApiClient(sessionService: AppSessionService()).dio;
+      final res = await dio.post('/universities/check-duplicate', data: {'name': name.trim()});
+      final raw = res.data;
+      final data = raw is Map ? (raw['data'] ?? raw) : raw;
+      if (data is Map) {
+        final isDup = data['isDuplicate'] == true;
+        final suggestions = (data['suggestions'] as List?) ?? [];
+        if (isDup) {
+          setState(() => _duplicateWarning = '⚠️ "${data['exactMatch']?['name']}" already exists. Select it from the list or contact admin.');
+        } else if (suggestions.isNotEmpty) {
+          final topName = suggestions.first['name'] as String? ?? '';
+          setState(() => _duplicateWarning = '💡 Did you mean "$topName"?');
+        } else {
+          setState(() => _duplicateWarning = null);
+        }
+      }
+    } catch (_) {
+      setState(() => _duplicateWarning = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Search field
+      TextFormField(
+        controller: widget.nameCtrl,
+        enabled: widget.enabled,
+        onChanged: (v) {
+          setState(() { _selectedName = null; _duplicateWarning = null; });
+          // Clear selected ID when user types manually (new org request)
+          widget.onUniversitySelected?.call(null);
+          _search(v);
+        },
+        onEditingComplete: () => _checkDuplicate(widget.nameCtrl.text),
+        validator: (v) => (v ?? '').trim().isEmpty ? 'University name is required' : null,
+        decoration: InputDecoration(
+          hintText: 'Search or type university name...',
+          prefixIcon: Icon(Icons.account_balance_rounded, color: widget.primary, size: 20),
+          suffixIcon: _loading
+              ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)))
+              : (_selectedName != null ? Icon(Icons.check_circle_rounded, color: Colors.green, size: 20) : null),
+          filled: true,
+          fillColor: widget.isDark ? Colors.white.withOpacity(0.06) : Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: widget.primary, width: 1.5)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        ),
+      ),
+
+      // Suggestions dropdown
+      if (_showDropdown && _suggestions.isNotEmpty)
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          decoration: BoxDecoration(
+            color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Column(
+            children: _suggestions.map((u) {
+              final name = u['name']?.toString() ?? '';
+              final address = u['address']?.toString() ?? '';
+              final id = u['id'] is int ? u['id'] as int : int.tryParse(u['id']?.toString() ?? '');
+              return InkWell(
+                onTap: () {
+                  widget.nameCtrl.text = name;
+                  setState(() { _selectedName = name; _showDropdown = false; _duplicateWarning = null; });
+                  // Notify parent of selected university ID
+                  widget.onUniversitySelected?.call(id);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(children: [
+                    Icon(Icons.account_balance_rounded, size: 16, color: widget.primary),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      if (address.isNotEmpty)
+                        Text(address, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                    ])),
+                    if (_selectedName == name)
+                      Icon(Icons.check_rounded, size: 16, color: widget.primary),
+                  ]),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+
+      // "Not found" option
+      if (_showDropdown && _suggestions.isEmpty && widget.nameCtrl.text.trim().length >= 2)
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2)),
+          ),
+          child: Row(children: [
+            Icon(Icons.info_outline_rounded, size: 16, color: Colors.orange.shade600),
+            const SizedBox(width: 8),
+            Expanded(child: Text(
+              'University not found. You can type the full name and submit — admin will review.',
+              style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+            )),
+          ]),
+        ),
+
+      // Duplicate warning
+      if (_duplicateWarning != null)
+        Container(
+          margin: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.amber.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.amber.withOpacity(0.4)),
+          ),
+          child: Text(_duplicateWarning!, style: TextStyle(fontSize: 12, color: Colors.amber.shade800, fontWeight: FontWeight.w600)),
+        ),
+    ]);
+  }
+}
+
+// ── Company Search Picker ─────────────────────────────────────────────────────
+/// Searchable company picker for supervisor registration.
+/// Fetches suggestions from /companies/search as the user types.
+class _CompanySearchPicker extends StatefulWidget {
+  const _CompanySearchPicker({
+    required this.nameCtrl,
+    required this.isDark,
+    required this.primary,
+    required this.enabled,
+  });
+
+  final TextEditingController nameCtrl;
+  final bool isDark;
+  final Color primary;
+  final bool enabled;
+
+  @override
+  State<_CompanySearchPicker> createState() => _CompanySearchPickerState();
+}
+
+class _CompanySearchPickerState extends State<_CompanySearchPicker> {
+  List<Map<String, dynamic>> _suggestions = [];
+  bool _loading = false;
+  bool _showDropdown = false;
+  String? _duplicateWarning;
+  String? _selectedName;
+
+  Future<void> _search(String q) async {
+    if (q.trim().length < 2) {
+      setState(() { _suggestions = []; _showDropdown = false; _duplicateWarning = null; });
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final dio = ApiClient(sessionService: AppSessionService()).dio;
+      final res = await dio.get('/companies/search', queryParameters: {'q': q, 'limit': '8'});
+      final raw = res.data;
+      List<dynamic> list = [];
+      if (raw is Map && raw['data'] is List) list = raw['data'] as List;
+      else if (raw is List) list = raw;
+      setState(() {
+        _suggestions = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _showDropdown = _suggestions.isNotEmpty;
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() { _loading = false; _showDropdown = false; });
+    }
+  }
+
+  Future<void> _checkDuplicate(String name) async {
+    if (name.trim().length < 3) return;
+    try {
+      final dio = ApiClient(sessionService: AppSessionService()).dio;
+      final res = await dio.post('/companies/check-duplicate', data: {'name': name.trim()});
+      final raw = res.data;
+      final data = raw is Map ? (raw['data'] ?? raw) : raw;
+      if (data is Map) {
+        final isDup = data['isDuplicate'] == true;
+        final suggestions = (data['suggestions'] as List?) ?? [];
+        if (isDup) {
+          setState(() => _duplicateWarning = '⚠️ "${data['exactMatch']?['name']}" already exists. You will be linked to it automatically.');
+        } else if (suggestions.isNotEmpty) {
+          final topName = suggestions.first['name'] as String? ?? '';
+          setState(() => _duplicateWarning = '💡 Did you mean "$topName"?');
+        } else {
+          setState(() => _duplicateWarning = null);
+        }
+      }
+    } catch (_) {
+      setState(() => _duplicateWarning = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      TextFormField(
+        controller: widget.nameCtrl,
+        enabled: widget.enabled,
+        onChanged: (v) {
+          setState(() { _selectedName = null; _duplicateWarning = null; });
+          _search(v);
+        },
+        onEditingComplete: () => _checkDuplicate(widget.nameCtrl.text),
+        validator: (v) => (v ?? '').trim().isEmpty ? 'Company name is required' : null,
+        decoration: InputDecoration(
+          hintText: 'Search or type company name...',
+          prefixIcon: Icon(Icons.business_rounded, color: widget.primary, size: 20),
+          suffixIcon: _loading
+              ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)))
+              : (_selectedName != null ? const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20) : null),
+          filled: true,
+          fillColor: widget.isDark ? Colors.white.withOpacity(0.06) : Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: widget.primary, width: 1.5)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        ),
+      ),
+
+      if (_showDropdown && _suggestions.isNotEmpty)
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          decoration: BoxDecoration(
+            color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Column(
+            children: _suggestions.map((c) {
+              final name = c['name']?.toString() ?? '';
+              final address = c['address']?.toString() ?? '';
+              return InkWell(
+                onTap: () {
+                  widget.nameCtrl.text = name;
+                  setState(() { _selectedName = name; _showDropdown = false; _duplicateWarning = null; });
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(children: [
+                    Icon(Icons.business_rounded, size: 16, color: widget.primary),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      if (address.isNotEmpty)
+                        Text(address, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                    ])),
+                    if (_selectedName == name)
+                      Icon(Icons.check_rounded, size: 16, color: widget.primary),
+                  ]),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+
+      if (_showDropdown && _suggestions.isEmpty && widget.nameCtrl.text.trim().length >= 2)
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2)),
+          ),
+          child: Row(children: [
+            Icon(Icons.add_business_rounded, size: 16, color: Colors.blue.shade600),
+            const SizedBox(width: 8),
+            Expanded(child: Text(
+              'New company — will be created and submitted for admin review.',
+              style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+            )),
+          ]),
+        ),
+
+      if (_duplicateWarning != null)
+        Container(
+          margin: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.amber.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.amber.withOpacity(0.4)),
+          ),
+          child: Text(_duplicateWarning!, style: TextStyle(fontSize: 12, color: Colors.amber.shade800, fontWeight: FontWeight.w600)),
+        ),
+    ]);
   }
 }

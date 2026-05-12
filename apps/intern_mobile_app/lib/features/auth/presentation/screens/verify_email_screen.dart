@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -33,16 +34,31 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     super.initState();
     _emailController.text = widget.email ?? '';
     _tokenController.text = widget.initialToken ?? '';
-    _tokenController.addListener(_refresh);
+    _tokenController.addListener(_onTokenChanged);
     _emailController.addListener(_refresh);
 
     if ((widget.initialToken?.trim().isNotEmpty ?? false)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _verify();
-        }
+        if (mounted) _verify();
       });
     }
+  }
+
+  void _onTokenChanged() {
+    // Auto-extract token if user pastes a full URL
+    final text = _tokenController.text.trim();
+    if (text.contains('token=')) {
+      final uri = Uri.tryParse(text);
+      final extracted = uri?.queryParameters['token'];
+      if (extracted != null && extracted.isNotEmpty && extracted != text) {
+        _tokenController.value = TextEditingValue(
+          text: extracted,
+          selection: TextSelection.collapsed(offset: extracted.length),
+        );
+        return;
+      }
+    }
+    _refresh();
   }
 
   void _refresh() {
@@ -54,7 +70,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   @override
   void dispose() {
     _tokenController
-      ..removeListener(_refresh)
+      ..removeListener(_onTokenChanged)
       ..dispose();
     _emailController
       ..removeListener(_refresh)
@@ -127,7 +143,7 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Paste the verification token from your email to activate your account.',
+                'If you received a verification email, copy the token part of the link (after "token=") and paste it here. You can also tap the "Paste" option after copying from your clipboard.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),

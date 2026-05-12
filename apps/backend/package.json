@@ -7,7 +7,8 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "seed": "ts-node -P prisma/tsconfig.json prisma/seed.ts"
+    "seed": "ts-node -P prisma/tsconfig.json prisma/seed.ts",
+    "seed:universities": "ts-node -P prisma/tsconfig.json prisma/seed_ethiopian_universities.ts"
   },
   "prisma": {
     "seed": "ts-node -P prisma/tsconfig.json prisma/seed.ts"
