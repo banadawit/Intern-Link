@@ -22,6 +22,7 @@ import activityRoutes from './routes/activityRoutes';
 import hodRoutes from './routes/hodRoutes';
 import commonFeedRoutes from './routes/commonFeedRoutes';
 import fileRoutes from './routes/fileRoutes';
+import supportRoutes from './routes/supportRoutes';
 
 import organizationRoutes from './routes/organizationRoutes';
 import { startReminderScheduler } from './services/reminderScheduler';
@@ -61,8 +62,7 @@ app.use('/api/common-feed', commonFeedRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/files', fileRoutes);
-// Public organization search (no auth — used during registration)
-app.use('/api', organizationRoutes);
+app.use('/api/support', supportRoutes);
 // 3. Basic Health Check Route
 app.get('/', (req: Request, res: Response) => {
     res.send('InternLink Backend API is Running...');

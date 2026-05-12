@@ -19,6 +19,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
+import SupportLink from "@/components/shared/SupportLink";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useHodStore } from "@/lib/store/hodStore";
@@ -137,6 +138,7 @@ const HodSidebar = () => {
             <p className="truncate text-xs text-text-muted dark:text-slate-400">Head of Department</p>
           </div>
         </div>
+        <SupportLink />
         <button
           type="button"
           onClick={() => setShowLogout(true)}
