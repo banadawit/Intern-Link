@@ -11636,10 +11636,12 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
     final isPending = approval == 'PENDING';
     final rawUniName = coord['pending_university_name'] as String? ?? '';
     // Detect if coordinator selected an existing university
-    final isExistingUni = rawUniName.startsWith('__EXISTING__:');
-    final uniName = isExistingUni
-        ? rawUniName.split(':').skip(2).join(':').trim()
-        : (rawUniName.isNotEmpty ? rawUniName : 'University not linked');
+    final isExistingUni = coord['university'] != null || rawUniName.startsWith('__EXISTING__:');
+    final uniName = coord['university']?['name']?.toString().isNotEmpty == true
+        ? coord['university']['name'].toString()
+        : rawUniName.startsWith('__EXISTING__:')
+            ? rawUniName.split(':').skip(2).join(':').trim()
+            : (rawUniName.isNotEmpty ? rawUniName : 'University not linked');
     final docUrl = user['verification_document']?.toString() ?? '';
     final hasDoc = docUrl.isNotEmpty;
     final statusColor = switch (approval) {
@@ -11945,15 +11947,63 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab> with SingleTicke
   Future<void> _approveCoordinator(dynamic coord) async {
     final userId = _parseInt(coord['user']?['id'] ?? coord['userId']);
     if (userId == 0) return;
+
+    final rawPendingName = coord['pending_university_name']?.toString() ?? '';
+    final hasExistingUni = coord['university'] != null;
+    final isNewUniRequest = !hasExistingUni && rawPendingName.isNotEmpty && !rawPendingName.startsWith('__EXISTING__:');
+
+    // For new university requests, show a dialog so admin can correct the name
+    String? universityNameOverride;
+    if (isNewUniRequest) {
+      final nameCtrl = TextEditingController(text: rawPendingName);
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(children: [
+            Icon(Icons.account_balance_rounded, color: Colors.blue),
+            SizedBox(width: 10),
+            Text('Confirm University Name', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('The coordinator requested a new university. Verify or correct the name before approving.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: nameCtrl,
+              decoration: InputDecoration(
+                labelText: 'University Name',
+                hintText: 'e.g. Haramaya University',
+                prefixIcon: const Icon(Icons.account_balance_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.check_rounded, size: 16),
+              label: const Text('Approve'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      universityNameOverride = nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim();
+    }
+
     try {
-      await ref.read(adminRepositoryProvider).approveCoordinator(userId);
+      await ref.read(adminRepositoryProvider).approveCoordinator(userId, universityNameOverride: universityNameOverride);
       ref.invalidate(pendingCoordinatorsProvider);
+      ref.invalidate(allUniversitiesProvider);
       ref.invalidate(adminStatsProvider);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${coord['user']?['full_name']} approved as Coordinator'), backgroundColor: Colors.green),
       );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${_extractErrorMessage(e)}'), backgroundColor: Colors.red));
     }
   }
 

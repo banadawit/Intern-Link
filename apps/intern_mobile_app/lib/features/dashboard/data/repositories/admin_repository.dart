@@ -126,8 +126,9 @@ class AdminRepository {
     });
   }
 
-  Future<void> approveCoordinator(int userId) async {
-    await apiClient.dio.post('/admin/coordinators/$userId/approve');
+  Future<void> approveCoordinator(int userId, {String? universityNameOverride}) async {
+    await apiClient.dio.post('/admin/coordinators/$userId/approve',
+        data: universityNameOverride != null ? {'universityNameOverride': universityNameOverride} : null);
   }
 
   Future<void> rejectCoordinator(int userId) async {

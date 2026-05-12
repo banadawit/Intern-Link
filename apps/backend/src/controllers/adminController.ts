@@ -37,8 +37,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             prisma.internshipAssignment.count({ where: { status: 'ACTIVE' } }),
             prisma.coordinator.count({
                 where: {
-                    universityId: { equals: null },
-                    user: { institution_access_approval: 'PENDING' },
+                    user: { institution_access_approval: 'PENDING', role: 'COORDINATOR' },
                 },
             }),
             prisma.supervisor.count({
@@ -753,13 +752,12 @@ export const getSuspendedCoordinators = async (req: AuthRequest, res: Response) 
     } catch (error: any) { res.status(500).json({ error: error.message }); }
 };
 
-/** List all coordinators pending admin approval (no university linked yet) */
+/** List all coordinators pending admin approval */
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
     try {
         const coordinators = await prisma.coordinator.findMany({
             where: {
-                universityId: { equals: null },
-                user: { institution_access_approval: 'PENDING' },
+                user: { institution_access_approval: 'PENDING', role: 'COORDINATOR' },
             },
             include: {
                 user: {
@@ -773,6 +771,7 @@ export const getPendingCoordinators = async (req: AuthRequest, res: Response) =>
                         created_at: true,
                     },
                 },
+                university: { select: { id: true, name: true } },
             },
             orderBy: { user: { created_at: 'desc' } },
         });
@@ -794,6 +793,8 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
     try {
         const rawId = req.params.userId;
         const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+        // Admin can override the university name when approving a new-university request
+        const { universityNameOverride } = req.body as { universityNameOverride?: string };
 
         const coordinator = await prisma.coordinator.findUnique({
             where: { userId },
@@ -803,10 +804,39 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
         if (!coordinator) {
             return res.status(404).json({ error: 'Coordinator not found' });
         }
-        if (coordinator.universityId) {
-            return res.status(400).json({ error: 'Coordinator is already linked to a university' });
+        if (coordinator.universityId && coordinator.user.institution_access_approval === 'APPROVED') {
+            return res.status(400).json({ error: 'Coordinator is already approved and linked to a university' });
         }
 
+        // Case 1: Coordinator already linked to an existing university (selected during registration)
+        if (coordinator.universityId) {
+            // Just approve the user — university already exists and is approved
+            await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    institution_access_approval: 'APPROVED',
+                    verification_status: 'APPROVED',
+                },
+            });
+
+            const university = await prisma.university.findUnique({ where: { id: coordinator.universityId } });
+
+            await prisma.auditLog.create({
+                data: {
+                    adminId: req.user!.userId,
+                    action: 'APPROVED_COORDINATOR',
+                    targetId: userId,
+                    details: `Approved coordinator ${coordinator.user.full_name} — linked to existing university "${university?.name ?? coordinator.universityId}"`,
+                },
+            });
+
+            await sendOrganizationApprovalEmail(coordinator.user.email, university?.name ?? 'your university', 'University');
+            await sendNotification(userId, `✅ Your coordinator account has been approved. You can now access the platform.`);
+
+            return res.json({ message: 'Coordinator approved', universityId: coordinator.universityId });
+        }
+
+        // Case 2: New university request — pending_university_name must exist
         const pendingName = coordinator.pending_university_name;
         if (!pendingName) {
             return res.status(400).json({ error: 'No pending university name on this coordinator profile' });
@@ -831,9 +861,11 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
 
         // New university request — find or create
         if (!resolvedUniversity) {
-            const universityName = pendingName.startsWith('__EXISTING__:')
-                ? pendingName.split(':').slice(2).join(':')
-                : pendingName;
+            // Admin can override the name (e.g. fix "harama" → "Haramaya University")
+            const universityName = universityNameOverride?.trim() ||
+                (pendingName.startsWith('__EXISTING__:')
+                    ? pendingName.split(':').slice(2).join(':')
+                    : pendingName);
 
             resolvedUniversity = await prisma.university.findFirst({ where: { name: universityName } });
             if (!resolvedUniversity) {

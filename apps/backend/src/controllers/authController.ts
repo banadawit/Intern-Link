@@ -80,20 +80,21 @@ export const register = async (req: Request, res: Response) => {
 
         if (roleUpper === 'COORDINATOR') {
             const universityId = parseInt(String(bodyUniversityId ?? ''), 10);
-            if (!universityId) {
-                return sendError(res, 'University ID is required for coordinator registration.', 400);
-            }
 
-            const university = await prisma.university.findUnique({ where: { id: universityId } });
-            if (!university || university.approval_status !== 'APPROVED') {
-                return sendError(
-                    res,
-                    'Selected university is not approved or does not exist. Please select from the list of approved institutions.',
-                    400
-                );
+            if (universityId && !isNaN(universityId)) {
+                // Coordinator selected an existing university
+                const university = await prisma.university.findUnique({ where: { id: universityId } });
+                if (!university || university.approval_status !== 'APPROVED') {
+                    return sendError(
+                        res,
+                        'Selected university is not approved or does not exist. Please select from the list of approved institutions.',
+                        400
+                    );
+                }
+                coordinatorEnrollment = { universityId, universityName: university.name };
             }
-
-            coordinatorEnrollment = { universityId, universityName: university.name };
+            // If no universityId provided, coordinator is requesting a new institution
+            // (university_name will be stored as pending_university_name)
         }
 
         let hodEnrollment:
@@ -216,11 +217,22 @@ export const register = async (req: Request, res: Response) => {
 
             if (roleUpper === 'COORDINATOR') {
                 if (coordinatorEnrollment) {
+                    // Selected existing university — link immediately, admin still approves the user
                     await tx.coordinator.create({
                         data: {
                             userId: user.id,
                             universityId: coordinatorEnrollment.universityId,
                             pending_university_name: null,
+                            phone_number: null,
+                        },
+                    });
+                } else {
+                    // New university request — store name for admin to create university on approval
+                    await tx.coordinator.create({
+                        data: {
+                            userId: user.id,
+                            universityId: null,
+                            pending_university_name: university_name || null,
                             phone_number: null,
                         },
                     });
