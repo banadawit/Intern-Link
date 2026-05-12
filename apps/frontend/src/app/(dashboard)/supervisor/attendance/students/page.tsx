@@ -21,11 +21,12 @@ export default function SupervisorAttendanceStudentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const hmRes = await api.get<{ success: boolean; data: HeatmapResponse }>("/supervisor/attendance-heatmap");
-      const hmData = hmRes.data.data;
+      const hmRes = await api.get<{ success: boolean; data: HeatmapResponse } | HeatmapResponse>("/supervisor/attendance-heatmap");
+      // Handle both wrapped { success, data } and plain responses
+      const hmData: HeatmapResponse = (hmRes.data as { success?: boolean; data?: HeatmapResponse }).data ?? (hmRes.data as HeatmapResponse);
       setHeatmap(hmData);
       setSelectedStudentId((prev) => {
-        const list = hmData?.students ?? [];
+        const list = hmData.students ?? [];
         if (prev != null && list.some((s) => s.studentId === prev)) return prev;
         return list[0]?.studentId ?? null;
       });
@@ -43,7 +44,7 @@ export default function SupervisorAttendanceStudentsPage() {
 
   const selectedHeatmap = useMemo(() => {
     if (!heatmap || selectedStudentId === null) return null;
-    return heatmap.students.find((s) => s.studentId === selectedStudentId) ?? null;
+    return (heatmap.students ?? []).find((s) => s.studentId === selectedStudentId) ?? null;
   }, [heatmap, selectedStudentId]);
 
   return (

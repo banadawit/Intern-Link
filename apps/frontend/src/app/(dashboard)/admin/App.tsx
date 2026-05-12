@@ -11,13 +11,11 @@ import AdminPageHero from "./AdminPageHero";
 import CoordinatorApprovals from "./CoordinatorApprovals";
 import SupervisorApprovals from "./SupervisorApprovals";
 import ApprovalsView from "./ApprovalsView";
-import ApprovedHistoryView from "./ApprovedHistoryView";
-import RejectedHistoryView from "./RejectedHistoryView";
-import SuspendedView from "./SuspendedView";
 import SystemSettings from "./SystemSettings";
 import OrganizationsView from "./OrganizationsView";
-import AnalyticsView from "./AnalyticsView";
 import api from "@/lib/api/client";
+import NotificationBell from "@/components/shared/NotificationBell";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 import {
   mapUniversityToProposal,
   mapCompanyToProposal,
@@ -30,10 +28,6 @@ type ViewKey =
   | "dashboard"
   | "approvals"
   | "organizations"
-  | "analytics"
-  | "approved"
-  | "rejected"
-  | "suspended"
   | "audit-log"
   | "settings";
 
@@ -41,10 +35,6 @@ const VALID_VIEWS: ViewKey[] = [
   "dashboard",
   "approvals",
   "organizations",
-  "analytics",
-  "approved",
-  "rejected",
-  "suspended",
   "audit-log",
   "settings",
 ];
@@ -76,8 +66,10 @@ export default function App() {
     setListsLoading(true);
     try {
       const [uniRes, compRes] = await Promise.all([api.get("/admin/universities"), api.get("/admin/companies")]);
-      const uniRows = Array.isArray(uniRes.data) ? uniRes.data as Record<string, unknown>[] : [];
-      const compRows = Array.isArray(compRes.data) ? compRes.data as Record<string, unknown>[] : [];
+      const uniRaw = (uniRes.data as { data?: unknown[] })?.data ?? uniRes.data;
+      const compRaw = (compRes.data as { data?: unknown[] })?.data ?? compRes.data;
+      const uniRows = Array.isArray(uniRaw) ? uniRaw as Record<string, unknown>[] : [];
+      const compRows = Array.isArray(compRaw) ? compRaw as Record<string, unknown>[] : [];
       const u = uniRows.map((row) => mapUniversityToProposal(row as never));
       const c = compRows.map((row) => mapCompanyToProposal(row as never));
       setProposals([...u, ...c]);
@@ -156,8 +148,15 @@ export default function App() {
     try {
       await patchOrgStatus(id, "SUSPENDED");
       setSelectedProposal(null);
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "";
+      // Already suspended — just close the modal and refresh
+      if (msg.toLowerCase().includes("only approved")) {
+        setSelectedProposal(null);
+        await loadProposals();
+      } else {
+        console.error(e);
+      }
     }
   };
 
@@ -171,6 +170,33 @@ export default function App() {
   };
 
   const pendingVerificationCount = proposals.filter((p) => p.status === "Pending").length;
+
+  const handleReview = useCallback(async (p: VerificationProposal) => {
+    try {
+      const parsed = parseProposalId(p.id);
+      if (parsed) {
+        const endpoint = parsed.kind === "university"
+          ? `/admin/universities`
+          : `/admin/companies`;
+        const res = await api.get(endpoint);
+        const raw = (res.data as { data?: unknown[] })?.data ?? res.data;
+        const rows = Array.isArray(raw) ? raw as Record<string, unknown>[] : [];
+        const fresh = rows.find((r) => Number(r.id) === parsed.numericId);
+        if (fresh) {
+          const mapped = parsed.kind === "university"
+            ? mapUniversityToProposal(fresh as never)
+            : mapCompanyToProposal(fresh as never);
+          setSelectedProposal(mapped);
+          return;
+        }
+      }
+    } catch {
+      // fall through to use cached data
+    }
+    setSelectedProposal(p);
+  }, []);
+
+
 
   const mainContent = useMemo(() => {
     if (activeView === "dashboard")
@@ -189,7 +215,7 @@ export default function App() {
           pendingCount={pendingVerificationCount}
           pendingCoordinatorCount={stats?.pendingCoordinators ?? 0}
           pendingSupervisorCount={stats?.pendingSupervisors ?? 0}
-          onReview={setSelectedProposal}
+          onReview={handleReview}
           onActionComplete={() => { loadStats(); loadAuditLogs(); loadProposals(); }}
         />
       );
@@ -198,50 +224,28 @@ export default function App() {
         <OrganizationsView
           proposals={proposals}
           loading={listsLoading}
-          onReview={setSelectedProposal}
+          onReview={handleReview}
           onActionComplete={() => { loadProposals(); loadStats(); }}
-        />
-      );
-    if (activeView === "analytics") return <AnalyticsView />;
-    if (activeView === "approved")
-      return (
-        <ApprovedHistoryView
-          proposals={proposals}
-          listsLoading={listsLoading}
-          onReview={setSelectedProposal}
-        />
-      );
-    if (activeView === "rejected")
-      return (
-        <RejectedHistoryView
-          proposals={proposals}
-          listsLoading={listsLoading}
-          onReview={setSelectedProposal}
-          rejectedCoordinatorCount={stats?.rejectedCoordinators ?? 0}
-          rejectedSupervisorCount={stats?.rejectedSupervisors ?? 0}
-        />
-      );
-    if (activeView === "suspended")
-      return (
-        <SuspendedView
-          proposals={proposals}
-          listsLoading={listsLoading}
-          onReview={setSelectedProposal}
-          suspendedCoordinatorCount={stats?.suspendedCoordinators ?? 0}
-          suspendedSupervisorCount={stats?.suspendedSupervisors ?? 0}
         />
       );
     if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
     if (activeView === "settings") return <SystemSettings />;
-  }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading]);
+  }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading, handleReview]);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-600 antialiased lg:flex-row dark:bg-slate-950 dark:text-slate-300">
       <Sidebar activeView={activeView} onNavigate={handleNavigate} pendingCount={pendingVerificationCount} pendingCoordinatorCount={stats?.pendingCoordinators ?? 0} pendingSupervisorCount={stats?.pendingSupervisors ?? 0} />
 
-      <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
-        <div className="mx-auto w-full max-w-7xl">{mainContent}</div>
-      </main>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Top bar — matches other dashboards */}
+        <div className="flex items-center justify-end gap-2 border-b border-border-default bg-bg-main/95 dark:bg-slate-900/95 dark:border-slate-700 px-4 py-3 backdrop-blur-sm sm:px-6 lg:px-8">
+          <ThemeToggle variant="inline" className="px-2.5 py-2 [&>span]:hidden" />
+          <NotificationBell />
+        </div>
+        <main className="min-h-0 min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+          <div className="mx-auto w-full max-w-7xl">{mainContent}</div>
+        </main>
+      </div>
 
       <VerificationDetail
         proposal={selectedProposal}

@@ -11,6 +11,7 @@ import {
   LogOut,
   GraduationCap,
   Settings,
+  Activity,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -54,10 +55,11 @@ const StudentSidebar = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/student", badge: 0 },
-    { icon: ClipboardList, label: "Weekly Plans", path: "/student/plans", badge: 0 },
+    { icon: ClipboardList, label: "Plans", path: "/student/plans", badge: 0 },
     { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
     { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
     { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation", badge: 0 },
+    { icon: Activity, label: "Activity", path: "/student/settings/activity", badge: 0 },
     { icon: Settings, label: "Settings", path: "/student/settings", badge: 0 },
     { icon: MessageSquare, label: "Common Feed", path: "/student/common", badge: 0 },
   ];
@@ -97,7 +99,7 @@ const StudentSidebar = () => {
             item.path === "/student"
               ? pathname === item.path
               : item.path === "/student/settings"
-                ? pathname === "/student/settings" || pathname?.startsWith("/student/settings/")
+                ? pathname === "/student/settings" || pathname === "/student/settings/alerts"
                 : pathname?.startsWith(item.path) ?? false;
           return (
             <Link key={item.path} href={item.path} className={linkClass(!!active)}>

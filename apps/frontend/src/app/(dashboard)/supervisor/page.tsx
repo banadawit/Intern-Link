@@ -95,13 +95,13 @@ export default function SupervisorDashboardPage() {
   const reportsSubmittedCount = stats.reportsSubmittedCount ?? 0;
 
   const quickLinks = [
-    { href: "/supervisor/proposals", label: "Proposals", desc: "Review incoming placement requests", icon: Inbox, badge: stats.pendingProposalsCount, color: "bg-violet-50 text-violet-600" },
-    { href: "/supervisor/plans", label: "Weekly plans", desc: "Approve or reject student plans", icon: ClipboardList, badge: stats.pendingWeeklyPlansCount, color: "bg-amber-50 text-amber-600" },
-    { href: "/supervisor/students", label: "Students", desc: "View all placed interns", icon: Users, badge: 0, color: "bg-emerald-50 text-emerald-600" },
-    { href: "/supervisor/teams", label: "Teams", desc: "Manage intern groups", icon: UsersRound, badge: 0, color: "bg-blue-50 text-blue-600" },
-    { href: "/supervisor/projects", label: "Projects", desc: "Assign and track projects", icon: FolderKanban, badge: 0, color: "bg-teal-50 text-teal-600" },
-    { href: "/supervisor/reports", label: "Reports", desc: "Submit evaluations & generate PDFs", icon: FileCheck, badge: 0, color: "bg-rose-50 text-rose-600" },
-    { href: "/supervisor/attendance/students", label: "Attendance", desc: "Student check-in heatmap", icon: CalendarDays, badge: 0, color: "bg-slate-100 text-slate-600" },
+    { href: "/supervisor/proposals", label: "Proposals", desc: "Review incoming placement requests", icon: Inbox, badge: stats.pendingProposalsCount, color: "bg-primary-50 text-primary-600" },
+    { href: "/supervisor/plans", label: "Weekly plans", desc: "Approve or reject student plans", icon: ClipboardList, badge: stats.pendingWeeklyPlansCount, color: "bg-primary-50 text-primary-600" },
+    { href: "/supervisor/students", label: "Students", desc: "View all placed interns", icon: Users, badge: 0, color: "bg-primary-50 text-primary-600" },
+    { href: "/supervisor/teams", label: "Teams", desc: "Manage intern groups", icon: UsersRound, badge: 0, color: "bg-primary-50 text-primary-600" },
+    { href: "/supervisor/projects", label: "Projects", desc: "Assign and track projects", icon: FolderKanban, badge: 0, color: "bg-primary-50 text-primary-600" },
+    { href: "/supervisor/reports", label: "Reports", desc: "Submit evaluations & generate PDFs", icon: FileCheck, badge: 0, color: "bg-primary-50 text-primary-600" },
+    { href: "/supervisor/attendance/students", label: "Attendance", desc: "Student check-in heatmap", icon: CalendarDays, badge: 0, color: "bg-primary-50 text-primary-600" },
     { href: "/supervisor/chat", label: "Messages", desc: "Chat with placed students", icon: MessageSquare, badge: 0, color: "bg-primary-50 text-primary-600" },
   ];
 
@@ -131,98 +131,66 @@ export default function SupervisorDashboardPage() {
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {/* Pending proposals */}
-        <Link href="/supervisor/proposals" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-violet-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Pending proposals</p>
-              <p className={cn("mt-2 text-3xl font-bold", stats.pendingProposalsCount > 0 ? "text-violet-600" : "text-slate-900")}>
-                {stats.pendingProposalsCount}
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {stats.pendingProposalsCount > 0 ? "Need your response" : "All reviewed"}
-              </p>
+        {[
+          {
+            href: "/supervisor/proposals",
+            label: "Pending proposals",
+            value: stats.pendingProposalsCount,
+            sub: stats.pendingProposalsCount > 0 ? "Need your response" : "All reviewed",
+            icon: Inbox,
+            accent: "bg-violet-50 text-violet-700 ring-violet-100",
+          },
+          {
+            href: "/supervisor/plans",
+            label: "Pending plans",
+            value: stats.pendingWeeklyPlansCount,
+            sub: stats.pendingWeeklyPlansCount > 0 ? "Awaiting review" : "All up to date",
+            icon: ClipboardList,
+            accent: "bg-amber-50 text-amber-700 ring-amber-100",
+          },
+          {
+            href: "/supervisor/students",
+            label: "Active interns",
+            value: stats.placedStudentsCount,
+            sub: "Placed at your company",
+            icon: Users,
+            accent: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+          },
+          {
+            href: "/supervisor/reports",
+            label: "Reports submitted",
+            value: reportsSubmittedCount,
+            sub: "Final evaluations sent",
+            icon: FileCheck,
+            accent: "bg-rose-50 text-rose-700 ring-rose-100",
+          },
+        ].map((s) => (
+          <Link
+            key={s.href}
+            href={s.href}
+            className="group flex items-center gap-4 rounded-2xl border border-border-default bg-white p-5 shadow-sm transition-all duration-200 hover:border-primary-200 hover:shadow-md dark:bg-slate-900 dark:border-slate-700"
+          >
+            <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 transition-transform duration-200 group-hover:scale-105", s.accent)}>
+              <s.icon className="h-6 w-6" />
             </div>
-            <div className={cn("rounded-xl p-2.5 shrink-0", stats.pendingProposalsCount > 0 ? "bg-violet-50 text-violet-600" : "bg-slate-50 text-slate-400")}>
-              <Inbox className="h-5 w-5" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{s.label}</p>
+              <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{s.sub}</p>
             </div>
-          </div>
-          {stats.pendingProposalsCount > 0 && (
-            <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-violet-600">
-              Review now <ChevronRight className="h-3.5 w-3.5" />
-            </div>
-          )}
-        </Link>
-
-        {/* Pending weekly plans */}
-        <Link href="/supervisor/plans" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Pending plans</p>
-              <p className={cn("mt-2 text-3xl font-bold", stats.pendingWeeklyPlansCount > 0 ? "text-amber-600" : "text-slate-900")}>
-                {stats.pendingWeeklyPlansCount}
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {stats.pendingWeeklyPlansCount > 0 ? "Awaiting review" : "All up to date"}
-              </p>
-            </div>
-            <div className={cn("rounded-xl p-2.5 shrink-0", stats.pendingWeeklyPlansCount > 0 ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-400")}>
-              <ClipboardList className="h-5 w-5" />
-            </div>
-          </div>
-          {stats.pendingWeeklyPlansCount > 0 && (
-            <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-amber-600">
-              Review now <ChevronRight className="h-3.5 w-3.5" />
-            </div>
-          )}
-        </Link>
-
-        {/* Active interns */}
-        <Link href="/supervisor/students" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Active interns</p>
-              <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{stats.placedStudentsCount}</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Placed at your company</p>
-            </div>
-            <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600 shrink-0">
-              <Users className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-            <span className="flex items-center gap-1">
-              <Send className="h-3 w-3 text-emerald-500" />
-              {approvedProposalsCount} total approved
-            </span>
-          </div>
-        </Link>
-
-        {/* Reports */}
-        <Link href="/supervisor/reports" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-rose-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Reports submitted</p>
-              <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{reportsSubmittedCount}</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Final evaluations sent</p>
-            </div>
-            <div className="rounded-xl bg-rose-50 p-2.5 text-rose-600 shrink-0">
-              <FileCheck className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-rose-600 group-hover:text-rose-700">
-            Manage reports <ChevronRight className="h-3.5 w-3.5" />
-          </div>
-        </Link>      </div>
+          </Link>
+        ))}
+      </div>
 
       {/* Action needed panels */}
       {(recentPendingProposals.length > 0 || recentPendingPlans.length > 0) && (
         <div className="grid gap-5 lg:grid-cols-2">
           {/* Pending proposals */}
           {recentPendingProposals.length > 0 && (
-            <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-5 dark:border-violet-900/50 dark:bg-violet-900/20">
+            <div className="rounded-2xl border border-primary-200 bg-primary-50/40 p-5 dark:border-primary-900/50 dark:bg-primary-900/20">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-violet-100 p-1.5 text-violet-600">
+                  <div className="rounded-lg bg-primary-100 p-1.5 text-primary-600">
                     <Inbox className="h-4 w-4" />
                   </div>
                   <div>
@@ -230,14 +198,14 @@ export default function SupervisorDashboardPage() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">{stats.pendingProposalsCount} awaiting response</p>
                   </div>
                 </div>
-                <Link href="/supervisor/proposals" className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 transition-colors">
+                <Link href="/supervisor/proposals" className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 transition-colors">
                   View all <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
               <div className="space-y-2">
                 {recentPendingProposals.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-violet-100 bg-white px-4 py-2.5 dark:border-violet-900/50 dark:bg-slate-900">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white px-4 py-2.5 dark:border-primary-900/50 dark:bg-slate-900">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
                       {p.studentName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -256,10 +224,10 @@ export default function SupervisorDashboardPage() {
 
           {/* Pending weekly plans */}
           {recentPendingPlans.length > 0 && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 dark:border-amber-900/50 dark:bg-amber-900/20">
+            <div className="rounded-2xl border border-primary-200 bg-primary-50/40 p-5 dark:border-primary-900/50 dark:bg-primary-900/20">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-amber-100 p-1.5 text-amber-600">
+                  <div className="rounded-lg bg-primary-100 p-1.5 text-primary-600">
                     <ClipboardList className="h-4 w-4" />
                   </div>
                   <div>
@@ -267,14 +235,14 @@ export default function SupervisorDashboardPage() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">{stats.pendingWeeklyPlansCount} pending</p>
                   </div>
                 </div>
-                <Link href="/supervisor/plans" className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors">
+                <Link href="/supervisor/plans" className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 transition-colors">
                   View all <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
               <div className="space-y-2">
                 {recentPendingPlans.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-amber-100 bg-white px-4 py-2.5 dark:border-amber-900/50 dark:bg-slate-900">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
+                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white px-4 py-2.5 dark:border-primary-900/50 dark:bg-slate-900">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
                       {p.studentName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                     </div>
                     <div className="min-w-0 flex-1">

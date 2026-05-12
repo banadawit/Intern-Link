@@ -7,6 +7,68 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  COORDINATOR
+  HOD
+  SUPERVISOR
+  STUDENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+  CANCELLED
+  RESUBMITTED
+}
+
+enum InternshipStatus {
+  PENDING
+  PLACED
+  COMPLETED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+enum PostType {
+  ANNOUNCEMENT
+  OPPORTUNITY
+  EXPERIENCE
+  GENERAL_UPDATE
+}
+
+enum PostVisibility {
+  PUBLIC
+  UNIVERSITY
+  COMPANY
+  ROLE_SPECIFIC
+}
+
+enum FileType {
+  VERIFICATION_DOC
+  WEEKLY_PRESENTATION
+  PLAN_ATTACHMENT
+  PROPOSAL_ATTACHMENT
+  COMPANY_STAMP
+  FINAL_REPORT
+  COMMON_FEED_IMAGE
+  COMMON_FEED_DOCUMENT
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
 model User {
   id                          Int             @id @default(autoincrement())
   full_name                   String
@@ -40,6 +102,7 @@ model User {
   studentProfile              Student?
   supervisorProfile           Supervisor?
   activityLogs                ActivityLog[]
+  auditLogs                   AuditLog[]
 }
 
 /// Daily activity counts for contribution heatmap (login, submissions, etc.).
@@ -78,9 +141,9 @@ model University {
   rejection_reason String?
   coordinators     Coordinator[]
   hods             HodProfile[]
+  students         Student[]
   proposalsSent    InternshipProposal[]
   reportsReceived  Report[]             @relation("ReportToUniversity")
-  students         Student[]
   config           UniversityConfig?
 }
 
@@ -232,7 +295,7 @@ model WeeklyPlan {
   student          Student                   @relation(fields: [studentId], references: [id])
   daySubmissions   WeeklyPlanDaySubmission[]
   presentation     WeeklyPresentation?
-  weeklyReports    WeeklyReport?
+  weeklyReport     WeeklyReport?
 }
 
 /// One row per calendar day the student marked as submitted for that approved weekly plan (daily check-in).
@@ -448,16 +511,7 @@ model Notification {
   message     String
   is_read     Boolean  @default(false)
   created_at  DateTime @default(now())
-  recipient   User     @relation(fields: [recipientId], references: [id])
-}
-
-model AuditLog {
-  id        Int      @id @default(autoincrement())
-  adminId   Int
-  action    String
-  targetId  Int
-  details   String?
-  timestamp DateTime @default(now())
+  recipient   User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 }
 
 model File {
@@ -478,6 +532,21 @@ model File {
   @@map("files")
 }
 
+/// Admin action audit trail.
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int
+  action    String
+  targetId  Int?
+  details   String?
+  timestamp DateTime @default(now())
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, timestamp])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
 /// Key-value store for platform-wide configuration set by admins.
 model SystemConfig {
   key       String   @id
@@ -487,6 +556,7 @@ model SystemConfig {
 
 /// Per-university registration override.
 /// studentRegistrationEnabled = null → use global SystemConfig setting.
+/// studentRegistrationEnabled = true/false → override global setting.
 model UniversityConfig {
   id                         Int        @id @default(autoincrement())
   universityId               Int        @unique
@@ -507,64 +577,4 @@ model ChatMessage {
 
   @@index([senderId, receiverId, created_at])
   @@index([receiverId, is_read])
-}
-
-enum Role {
-  ADMIN
-  COORDINATOR
-  SUPERVISOR
-  STUDENT
-  HOD
-}
-
-enum ApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  SUSPENDED
-  CANCELLED
-  RESUBMITTED
-}
-
-enum InternshipStatus {
-  PENDING
-  PLACED
-  COMPLETED
-}
-
-enum AssignmentStatus {
-  ACTIVE
-  COMPLETED
-  TERMINATED
-}
-
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  LATE
-}
-
-enum PostType {
-  ANNOUNCEMENT
-  OPPORTUNITY
-  EXPERIENCE
-  GENERAL_UPDATE
-}
-
-enum PostVisibility {
-  PUBLIC
-  UNIVERSITY
-  COMPANY
-  ROLE_SPECIFIC
-}
-
-enum FileType {
-  VERIFICATION_DOC
-  WEEKLY_PRESENTATION
-  PLAN_ATTACHMENT
-  PROPOSAL_ATTACHMENT
-  COMPANY_STAMP
-  FINAL_REPORT
-  COMMON_FEED_IMAGE
-  COMMON_FEED_DOCUMENT
 }

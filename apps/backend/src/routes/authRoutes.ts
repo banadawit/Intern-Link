@@ -25,8 +25,8 @@ const router = Router();
 // PUBLIC ROUTES (No authentication required)
 // ============================================
 
-// Registration with file upload
-router.post('/register', uploadVerificationDocument, validate(registerSchema), register);
+// Registration (no multer needed now as frontend uploads directly to Cloudinary)
+router.post('/register', register);
 
 // Login
 router.post('/login', validate(loginSchema), login);

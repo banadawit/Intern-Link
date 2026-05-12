@@ -6,7 +6,7 @@ import { Loader2, RefreshCw, RotateCcw } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodSendProposalForm from "@/components/hod/HodSendProposalForm";
 import HodProposalTrackerTable from "@/components/hod/HodProposalTrackerTable";
-import { cn } from "@/lib/utils";
+import SuccessToast from "@/components/shared/SuccessToast";
 import type { HodCompanyRow, HodProposalRow, HodStudentRow } from "@/components/hod/types";
 
 export default function HodPlacementsPage() {
@@ -16,7 +16,7 @@ export default function HodPlacementsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [proposalStudentId, setProposalStudentId] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<number>>(new Set());
   const [proposalCompanyId, setProposalCompanyId] = useState("");
   const [proposalWeeks, setProposalWeeks] = useState("");
   const [proposalOutcomes, setProposalOutcomes] = useState("");
@@ -24,6 +24,7 @@ export default function HodPlacementsPage() {
   const [reassignStudent, setReassignStudent] = useState<HodStudentRow | null>(null);
   const [reassignCompanyId, setReassignCompanyId] = useState("");
   const [reassignWeeks, setReassignWeeks] = useState("");
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +51,19 @@ export default function HodPlacementsPage() {
     (s) => s.hod_approval_status === "APPROVED" && s.internship_status !== "PLACED"
   );
 
+  // Exclude students who already have a pending or approved proposal
+  const assignedStudentIds = new Set(
+    proposals
+      .filter((p) => p.status === "PENDING" || p.status === "APPROVED")
+      .map((p) => {
+        const s = students.find((st) => st.user.email === p.student.user.email);
+        return s?.id;
+      })
+      .filter((id): id is number => id !== undefined)
+  );
+
+  const availableStudents = approvedStudents.filter((s) => !assignedStudentIds.has(s.id));
+
   // Students whose latest proposal was rejected (internship_status reset to PENDING)
   const rejectedProposals = proposals.filter((p) => p.status === "REJECTED");
   const rejectedStudentIds = new Set(rejectedProposals.map((p) => {
@@ -60,24 +74,35 @@ export default function HodPlacementsPage() {
 
   const sendProposal = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedStudentIds.size === 0 || !proposalCompanyId) return;
     setSubmitting(true);
     setError(null);
     try {
-      await api.post("/hod/proposals", {
-        studentId: parseInt(proposalStudentId, 10),
-        companyId: parseInt(proposalCompanyId, 10),
-        expected_duration_weeks: proposalWeeks ? parseInt(proposalWeeks, 10) : undefined,
-        expected_outcomes: proposalOutcomes || undefined,
-        proposal_type: "University_Initiated",
-      });
-      setProposalStudentId("");
+      // Send one proposal per selected student sequentially
+      const ids = Array.from(selectedStudentIds);
+      for (const studentId of ids) {
+        await api.post("/hod/proposals", {
+          studentId,
+          companyId: parseInt(proposalCompanyId, 10),
+          expected_duration_weeks: proposalWeeks ? parseInt(proposalWeeks, 10) : undefined,
+          expected_outcomes: proposalOutcomes || undefined,
+          proposal_type: "University_Initiated",
+        });
+      }
+      setSelectedStudentIds(new Set());
       setProposalCompanyId("");
       setProposalWeeks("");
       setProposalOutcomes("");
+      setToast({
+        show: true,
+        message: ids.length > 1
+          ? `✅ ${ids.length} proposals sent successfully`
+          : "✅ Proposal sent to company successfully",
+      });
       await load();
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { error?: string } } };
-      setError(ax.response?.data?.error || "Could not send proposal.");
+      const ax = err as { response?: { data?: { message?: string; error?: string } } };
+      setError(ax.response?.data?.message ?? ax.response?.data?.error ?? "Could not send proposal.");
     } finally {
       setSubmitting(false);
     }
@@ -98,6 +123,7 @@ export default function HodPlacementsPage() {
       setReassignStudent(null);
       setReassignCompanyId("");
       setReassignWeeks("");
+      setToast({ show: true, message: "✅ Student reassigned to new company" });
       await load();
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { error?: string } } };
@@ -160,14 +186,14 @@ export default function HodPlacementsPage() {
           )}
 
           <HodSendProposalForm
-            approvedStudents={approvedStudents}
+            approvedStudents={availableStudents}
             companies={companies}
             submitting={submitting}
-            proposalStudentId={proposalStudentId}
+            selectedStudentIds={selectedStudentIds}
             proposalCompanyId={proposalCompanyId}
             proposalWeeks={proposalWeeks}
             proposalOutcomes={proposalOutcomes}
-            onStudentId={setProposalStudentId}
+            onStudentIds={setSelectedStudentIds}
             onCompanyId={setProposalCompanyId}
             onWeeks={setProposalWeeks}
             onOutcomes={setProposalOutcomes}
@@ -225,6 +251,12 @@ export default function HodPlacementsPage() {
           </div>
         </div>
       )}
+
+      <SuccessToast
+        show={toast.show}
+        message={toast.message}
+        onClose={() => setToast({ show: false, message: "" })}
+      />
     </div>
   );
 }

@@ -3,11 +3,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { CheckCircle, XCircle, FileText, User, Building, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import Link from "next/link";
 import api from "@/lib/api/client";
 import { AxiosError } from "axios";
 import AdminPageHero from "./AdminPageHero";
-import { getViewerUrl } from "@/lib/utils";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
+import SuccessToast from "@/components/shared/SuccessToast";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 interface PendingCoordinator {
   id: number;
@@ -34,6 +35,9 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState<{ userId: number; reason: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,6 +56,8 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
     setErrorMessage("");
     try {
       await api.post(`/admin/coordinators/${userId}/approve`);
+      setConfirmApprove(null);
+      setToast({ show: true, message: "✅ Coordinator approved successfully" });
       await load();
       onActionComplete?.();
     } catch (e) {
@@ -75,6 +81,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
     try {
       await api.post(`/admin/coordinators/${rejectReason.userId}/reject`, { reason: rejectReason.reason });
       setRejectReason(null);
+      setToast({ show: true, message: "Coordinator registration rejected" });
       await load();
       onActionComplete?.();
     } catch (e) {
@@ -146,13 +153,14 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                   </td>
                   <td className="px-6 py-4">
                     {c.user.verification_document ? (
-                      <Link
-                        href={getViewerUrl(c.user.verification_document)}
+                      <button
+                        type="button"
+                        onClick={() => setDocUrl(c.user.verification_document)}
                         className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                       >
                         <FileText className="w-4 h-4" />
                         View Doc
-                      </Link>
+                      </button>
                     ) : (
                       <span className="text-xs text-slate-400 italic">No document</span>
                     )}
@@ -163,7 +171,7 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => handleApprove(c.userId)}
+                        onClick={() => setConfirmApprove(c.userId)}
                         disabled={actionLoading === c.userId}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                       >
@@ -230,6 +238,28 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
         </div>
       )}
 
+      <ConfirmDialog
+        open={confirmApprove !== null}
+        title="Approve coordinator?"
+        message="This will create their university and grant them full coordinator access. They will be notified by email."
+        confirmLabel="Approve"
+        variant="success"
+        loading={actionLoading !== null}
+        onConfirm={() => confirmApprove !== null && void handleApprove(confirmApprove)}
+        onCancel={() => setConfirmApprove(null)}
+      />
+
+      <SuccessToast
+        show={toast.show}
+        message={toast.message}
+        onClose={() => setToast({ show: false, message: "" })}
+      />
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title="Verification Document"
+        onClose={() => setDocUrl(null)}
+      />
     </div>
   );
 };

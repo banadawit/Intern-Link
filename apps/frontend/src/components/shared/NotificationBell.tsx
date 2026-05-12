@@ -61,9 +61,10 @@ export default function NotificationBell() {
 
   const load = useCallback(async () => {
     try {
-      const { data } = await api.get<Notification[]>("/notifications");
-      setNotifications(data);
-      setUnread(data.filter((n) => !n.is_read).length);
+      const { data: res } = await api.get<{ data: Notification[] }>("/notifications");
+      const list = Array.isArray(res?.data) ? res.data : [];
+      setNotifications(list);
+      setUnread(list.filter((n) => !n.is_read).length);
     } catch { /* ignore */ }
   }, []);
 

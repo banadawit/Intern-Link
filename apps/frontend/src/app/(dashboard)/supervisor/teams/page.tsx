@@ -16,7 +16,14 @@ type Team = {
 };
 
 type DeletedTeam = { id: number; name: string; deleted_at: string };
-type StudentOpt = { student: { id: number; user: { full_name: string; email: string } } };
+type StudentOpt = {
+  student: {
+    id: number;
+    user: { full_name: string; email: string };
+    internship_status?: string;
+    department?: string | null;
+  };
+};
 
 function initials(name: string) {
   return name.split(/\s+/).map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -53,11 +60,11 @@ export default function SupervisorTeamsPage() {
     setError(null);
     try {
       const [t, s] = await Promise.all([
-        api.get<{ active: Team[]; deleted: DeletedTeam[] }>("/supervisor/teams"),
+        api.get<{ success: boolean; data: { active: Team[]; deleted: DeletedTeam[] } }>("/supervisor/teams"),
         api.get<{ success: boolean; data: StudentOpt[] }>("/supervisor/students"),
       ]);
-      setTeams(t.data.active);
-      setDeletedTeams(t.data.deleted);
+      setTeams(t.data.data?.active ?? []);
+      setDeletedTeams(t.data.data?.deleted ?? []);
       setStudents(Array.isArray(s.data.data) ? s.data.data : []);
     } catch {
       setError("Could not load teams.");
@@ -112,11 +119,14 @@ export default function SupervisorTeamsPage() {
   };
 
   const addMember = async (teamId: number) => {
-    const sid = parseInt(pick[teamId] || "", 10);
-    if (Number.isNaN(sid)) return;
+    const raw = pick[teamId] ?? "";
+    const ids = raw.split(",").map((v) => parseInt(v.trim(), 10)).filter((n) => !Number.isNaN(n));
+    if (ids.length === 0) return;
     setAssigning(teamId);
     try {
-      await api.post(`/supervisor/teams/${teamId}/members`, { studentId: sid });
+      for (const sid of ids) {
+        await api.post(`/supervisor/teams/${teamId}/members`, { studentId: sid });
+      }
       setPick((p) => ({ ...p, [teamId]: "" }));
       await load();
     } catch {
@@ -185,17 +195,17 @@ export default function SupervisorTeamsPage() {
       {!loading && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           {[
-            { label: "Total teams", value: teams.length, icon: UsersRound, color: "bg-primary-50 text-primary-600" },
-            { label: "Total students", value: students.length, icon: Users, color: "bg-blue-50 text-blue-600" },
-            { label: "Team members", value: teams.reduce((a, t) => a + t.members.length, 0), icon: UserPlus, color: "bg-emerald-50 text-emerald-600" },
+            { label: "Total teams", value: teams.length, icon: UsersRound, color: "bg-primary-50 text-primary-600 ring-primary-100" },
+            { label: "Total students", value: students.length, icon: Users, color: "bg-primary-50 text-primary-600 ring-primary-100" },
+            { label: "Team members", value: teams.reduce((a, t) => a + t.members.length, 0), icon: UserPlus, color: "bg-primary-50 text-primary-600 ring-primary-100" },
           ].map((s) => (
-            <div key={s.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm">
-              <div className={cn("rounded-xl p-2.5", s.color)}>
-                <s.icon className="h-5 w-5" />
+            <div key={s.label} className="group flex items-center gap-4 rounded-2xl border border-border-default bg-white dark:bg-slate-900 p-5 shadow-sm transition-all duration-200 hover:border-primary-200 hover:shadow-md">
+              <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 transition-transform duration-200 group-hover:scale-105", s.color)}>
+                <s.icon className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{s.label}</p>
-                <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{s.value}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{s.label}</p>
+                <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</p>
               </div>
             </div>
           ))}
@@ -273,23 +283,33 @@ export default function SupervisorTeamsPage() {
                 {/* Members list */}
                 <div className="flex-1 px-5 py-3 space-y-2">
                   {team.members.length === 0 ? (
-                    <p className="text-sm text-slate-400 dark:text-slate-500 italic">No members yet.</p>
+                    <p className="py-2 text-sm text-slate-400 dark:text-slate-500 italic">No members yet.</p>
                   ) : (
                     team.members.map((m) => (
-                      <div key={m.student.id} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 dark:bg-slate-800 px-3 py-2">
+                      <div
+                        key={m.student.id}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/60 px-3 py-2.5 shadow-sm"
+                      >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold", colorForId(m.student.id))}>
+                          <div className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ring-white dark:ring-slate-900",
+                            colorForId(m.student.id)
+                          )}>
                             {initials(m.student.user.full_name)}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{m.student.user.full_name}</p>
-                            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{m.student.user.email}</p>
+                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              {m.student.user.full_name}
+                            </p>
+                            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                              {m.student.user.email}
+                            </p>
                           </div>
                         </div>
                         <button
                           type="button"
                           onClick={() => void removeMember(team.id, m.student.id)}
-                          className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                           aria-label="Remove member"
                         >
                           <UserMinus className="h-3.5 w-3.5" />
@@ -301,21 +321,21 @@ export default function SupervisorTeamsPage() {
 
                 {/* Add member */}
                 <div className="border-t border-slate-100 dark:border-slate-700 px-5 py-3">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <StudentPicker
                       students={available.map((s) => s.student)}
                       value={pick[team.id] ?? ""}
                       onChange={(val) => setPick((p) => ({ ...p, [team.id]: val }))}
-                      placeholder="Add member…"
+                      placeholder="Add members…"
                     />
                     <button
                       type="button"
                       onClick={() => void addMember(team.id)}
                       disabled={!pick[team.id] || assigning === team.id}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
-                      Add
+                      {assigning === team.id ? "Adding…" : "Add"}
                     </button>
                   </div>
                   {available.length === 0 && (

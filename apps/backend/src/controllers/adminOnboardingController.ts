@@ -156,7 +156,6 @@ export const adminCreateUniversity = async (req: AuthRequest, res: Response) => 
                     role: 'COORDINATOR',
                     verification_status: 'APPROVED',
                     institution_access_approval: 'APPROVED',
-                    must_change_password: true,
                     reset_password_token: setupToken,
                     reset_password_expires: tokenExpiry,
                     coordinatorProfile: {
@@ -258,7 +257,6 @@ export const adminCreateCompany = async (req: AuthRequest, res: Response) => {
                     role: 'SUPERVISOR',
                     verification_status: 'APPROVED',
                     institution_access_approval: 'APPROVED',
-                    must_change_password: true,
                     reset_password_token: setupToken,
                     reset_password_expires: tokenExpiry,
                     supervisorProfile: {
@@ -360,7 +358,6 @@ export const sendSetupLink = async (req: AuthRequest, res: Response) => {
             data: {
                 reset_password_token: setupToken,
                 reset_password_expires: tokenExpiry,
-                must_change_password: true,
             },
         });
 

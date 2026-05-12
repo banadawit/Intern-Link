@@ -33,13 +33,10 @@ if (process.env.NODE_ENV !== 'production') {
                   .replace(/^["']|["']$/g, '')
                   .trim()
             : '';
-    const hasOpenAi = Boolean(strip(process.env.OPENAI_API_KEY));
-    const hasGemini = Boolean(
-        strip(process.env.GEMINI_API_KEY) || strip(process.env.GOOGLE_GENERATIVE_AI_API_KEY)
-    );
-    if (!hasOpenAi && !hasGemini) {
+    const hasGroq = Boolean(strip(process.env.GROQ_API_KEY));
+    if (!hasGroq) {
         console.warn(
-            '[InternLink] No AI key: set GEMINI_API_KEY (https://aistudio.google.com/apikey) and/or OPENAI_API_KEY in apps/backend/.env, then restart.'
+            '[InternLink] No AI key: set GROQ_API_KEY in apps/backend/.env, then restart.'
         );
     }
 }

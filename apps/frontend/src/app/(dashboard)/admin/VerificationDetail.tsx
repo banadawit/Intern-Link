@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import Link from "next/link";
-import { X, FileText, ExternalLink, CheckCircle, XCircle, Info, Sparkles, Timer, Ban, RotateCcw } from "lucide-react";
+import { X, FileText, CheckCircle, XCircle, Info, Sparkles, Timer, Ban, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { VerificationProposal } from "@/lib/superadmin/types";
 import { getPendingVerificationSla } from "@/lib/superadmin/verificationSla";
-import { cn, getViewerUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 interface Props {
   proposal: VerificationProposal | null;
@@ -20,6 +20,15 @@ interface Props {
 const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend, onReactivate }: Props) => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectionInput, setShowRejectionInput] = useState(false);
+  const [docUrl, setDocUrl] = useState<string | null>(null);
+
+  // Reset local state whenever the proposal changes
+  const proposalId = proposal?.id;
+  React.useEffect(() => {
+    setRejectionReason("");
+    setShowRejectionInput(false);
+    setDocUrl(null);
+  }, [proposalId]);
 
   if (!proposal) return null;
 
@@ -37,15 +46,15 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
         role="dialog"
         aria-modal="true"
         aria-labelledby="verification-detail-title"
-        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/60 bg-white shadow-[0_25px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/60 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-[0_25px_50px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 dark:ring-slate-700"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="relative overflow-hidden border-b border-slate-200/80 bg-gradient-to-br from-teal-50/90 via-white to-slate-50 px-6 pb-5 pt-6 sm:px-8">
+        <header className="relative overflow-hidden border-b border-slate-200/80 dark:border-slate-700 bg-gradient-to-br from-teal-50/90 via-white to-slate-50 dark:from-teal-950/30 dark:via-slate-900 dark:to-slate-900 px-6 pb-5 pt-6 sm:px-8">
           <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-teal-200/35 blur-3xl" aria-hidden />
           <div className="pointer-events-none absolute -bottom-8 left-1/4 h-24 w-40 rounded-full bg-sky-100/40 blur-2xl" aria-hidden />
           <div className="relative flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-3">
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-teal-800 shadow-sm ring-1 ring-teal-100 sm:text-xs">
+              <p className="inline-flex items-center gap-2 rounded-full bg-white/90 dark:bg-slate-800/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-teal-800 dark:text-teal-300 shadow-sm ring-1 ring-teal-100 dark:ring-teal-800 sm:text-xs">
                 <Sparkles className="h-3.5 w-3.5 shrink-0" />
                 Verification review
               </p>
@@ -59,10 +68,10 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
                   <FileText className="h-6 w-6" />
                 </div>
                 <div className="min-w-0">
-                  <h2 id="verification-detail-title" className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                  <h2 id="verification-detail-title" className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
                     {proposal.organizationName}
                   </h2>
-                  <p className="text-sm text-slate-600">Proposal #{proposal.id}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Proposal #{proposal.id}</p>
                 </div>
               </div>
             </div>
@@ -115,21 +124,31 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
           <section>
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Verification Documents</h3>
             <div className="space-y-3">
-              {proposal.documents.map((doc, index) => (
-                <Link 
-                  key={index} 
-                  href={getViewerUrl(doc)}
-                  className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-teal-600 hover:bg-teal-50 transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-slate-100 p-2 rounded-lg group-hover:bg-teal-50">
-                      <FileText className="w-5 h-5 text-slate-500 group-hover:text-teal-600" />
+              {proposal.documents.length === 0 ? (
+                <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800/50">
+                  <FileText className="h-5 w-5 shrink-0" />
+                  No verification document was uploaded.
+                </div>
+              ) : (
+                proposal.documents.map((doc, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setDocUrl(doc)}
+                    className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 hover:border-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="rounded-lg bg-teal-50 dark:bg-teal-900/30 p-2 group-hover:bg-teal-100 dark:group-hover:bg-teal-900/50">
+                        <FileText className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                      </div>
+                      <span className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        Verification_Document_{index + 1}.pdf
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-slate-900">Verification_Credential_{index + 1}.pdf</span>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-teal-600" />
-                </Link>
-              ))}
+                    <span className="shrink-0 text-xs font-semibold text-teal-700 dark:text-teal-400">View</span>
+                  </button>
+                ))
+              )}
             </div>
           </section>
 
@@ -183,7 +202,7 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
                   <button onClick={() => onReject(proposal.id, rejectionReason)} disabled={!rejectionReason.trim()} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium disabled:opacity-50 transition-colors">
                     Confirm Rejection
                   </button>
-                  <button onClick={() => setShowRejectionInput(false)} className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+                  <button onClick={() => { setShowRejectionInput(false); setRejectionReason(""); }} className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
                     Cancel
                   </button>
                 </div>
@@ -210,20 +229,71 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
           </footer>
         )}
 
-        {proposal.status === "Approved" && onSuspend && (
-          <footer className="p-6 border-t border-slate-200 bg-slate-50 space-y-3">
-            <p className="text-xs text-slate-600">
-              Suspend this organization after approval to block all associated users from signing in (e.g. compliance or policy
-              review). You can reactivate from the Suspended list.
+        {proposal.status === "Rejected" && (
+          <footer className="p-6 border-t border-emerald-200/80 bg-emerald-50/60 space-y-3">
+            <p className="text-xs text-emerald-900/80">
+              This organization was previously rejected. You can approve it if the issue has been resolved — they will be notified by email.
             </p>
             <button
               type="button"
-              onClick={() => onSuspend(proposal.id)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
+              onClick={() => onApprove(proposal.id)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
-              <Ban className="h-5 w-5" aria-hidden />
-              Suspend organization
+              <CheckCircle className="h-5 w-5" aria-hidden />
+              Approve organization
             </button>
+          </footer>
+        )}
+
+        {proposal.status === "Approved" && onSuspend && (
+          <footer className="p-6 border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50 space-y-3">
+            {showRejectionInput ? (
+              <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <label className="text-sm font-bold text-slate-500">Reason for Rejection</label>
+                <textarea
+                  className="w-full min-h-[80px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                  placeholder="Provide a clear reason for rejection..."
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                />
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { onReject(proposal.id, rejectionReason); }}
+                    disabled={!rejectionReason.trim()}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium disabled:opacity-50 transition-colors"
+                  >
+                    Confirm Rejection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowRejectionInput(false); setRejectionReason(""); }}
+                    className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => onSuspend(proposal.id)}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-900"
+                >
+                  <Ban className="h-4 w-4" aria-hidden />
+                  Suspend
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRejectionInput(true)}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
+                >
+                  <XCircle className="h-4 w-4" aria-hidden />
+                  Reject
+                </button>
+              </div>
+            )}
           </footer>
         )}
 
@@ -244,6 +314,12 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
         )}
       </div>
 
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title="Verification Document"
+        onClose={() => setDocUrl(null)}
+      />
     </div>
   );
 };
