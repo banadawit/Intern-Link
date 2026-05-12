@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import type { AxiosError } from 'axios';
+import ContactSupportModal from '@/components/shared/ContactSupportModal';
 
 interface FormErrors {
   email?: string;
@@ -24,6 +25,7 @@ const LoginPage = () => {
   const [touched, setTouched] = useState({ email: false, password: false });
   const [rememberMe, setRememberMe] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showSupport, setShowSupport] = useState(false);
 
   // Validation functions
   const validateEmail = (email: string) => {
@@ -422,7 +424,16 @@ const LoginPage = () => {
             Privacy Policy
           </Link>
         </p>
+        <button
+          type="button"
+          onClick={() => setShowSupport(true)}
+          className="mt-2 text-xs text-slate-400 hover:text-primary-600 transition-colors dark:text-slate-500 dark:hover:text-primary-400"
+        >
+          Having trouble? Contact support
+        </button>
       </div>
+
+      <ContactSupportModal open={showSupport} onClose={() => setShowSupport(false)} />
     </div>
   );
 };

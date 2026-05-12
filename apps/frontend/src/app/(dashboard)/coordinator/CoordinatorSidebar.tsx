@@ -15,6 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
+import SupportLink from "@/components/shared/SupportLink";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useCoordinatorStore } from "@/lib/store/coordinatorStore";
@@ -133,6 +134,7 @@ const CoordinatorSidebar = () => {
             <p className="truncate text-xs text-text-muted dark:text-slate-400">Coordinator</p>
           </div>
         </div>
+        <SupportLink />
         <button
           type="button"
           onClick={() => setShowLogout(true)}
