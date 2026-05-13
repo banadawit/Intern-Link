@@ -21,6 +21,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useSupervisorStore } from "@/lib/store/supervisorStore";

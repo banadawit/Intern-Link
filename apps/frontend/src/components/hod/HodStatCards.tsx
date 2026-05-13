@@ -4,10 +4,12 @@ import Link from "next/link";
 import { Users, FileCheck, Building2, FileText, Clock, CheckCircle2, XCircle, Send, ChevronRight, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HodStats } from "./types";
+import { useTranslations } from "next-intl";
 
 type Props = { stats: HodStats | null };
 
 export default function HodStatCards({ stats }: Props) {
+  const t = useTranslations("HodPortal.stats");
   if (!stats) return null;
 
   const proposals = stats.proposals ?? { pending: 0, approved: 0, rejected: 0 };
@@ -32,15 +34,15 @@ export default function HodStatCards({ stats }: Props) {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Department students</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{t("departmentStudents")}</p>
               <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{stats.totalStudents}</p>
               <div className="mt-2 flex items-center gap-2 flex-wrap">
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                  <CheckCircle2 className="h-3 w-3" />{approvedStudents} approved
+                  <CheckCircle2 className="h-3 w-3" />{approvedStudents} {t("approved")}
                 </span>
                 {rejectedStudents > 0 && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                    <XCircle className="h-3 w-3" />{rejectedStudents} rejected
+                    <XCircle className="h-3 w-3" />{rejectedStudents} {t("rejected")}
                   </span>
                 )}
               </div>
@@ -52,7 +54,7 @@ export default function HodStatCards({ stats }: Props) {
           {/* Approval rate bar */}
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-1 dark:text-slate-400">
-              <span>Approval rate</span>
+              <span>{t("approvalRate")}</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">{approvalRate}%</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800">
@@ -65,12 +67,12 @@ export default function HodStatCards({ stats }: Props) {
         <Link href="/hod/students?status=pending" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-amber-300 hover:shadow-md transition-all dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Pending approvals</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{t("pendingApprovals")}</p>
               <p className={cn("mt-2 text-3xl font-bold", stats.pendingApprovals > 0 ? "text-amber-600" : "text-slate-900")}>
                 {stats.pendingApprovals}
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {stats.pendingApprovals > 0 ? "Awaiting your review" : "All caught up"}
+                {stats.pendingApprovals > 0 ? t("awaitingReview") : t("allCaughtUp")}
               </p>
             </div>
             <div className={cn("rounded-xl p-2.5 shrink-0", stats.pendingApprovals > 0 ? "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300" : "bg-slate-50 text-slate-400 dark:bg-slate-800 dark:text-slate-500")}>
@@ -79,7 +81,7 @@ export default function HodStatCards({ stats }: Props) {
           </div>
           {stats.pendingApprovals > 0 && (
             <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-amber-600 group-hover:text-amber-700">
-              Review now <ChevronRight className="h-3.5 w-3.5" />
+              {t("reviewNow")} <ChevronRight className="h-3.5 w-3.5" />
             </div>
           )}
         </Link>
@@ -88,12 +90,12 @@ export default function HodStatCards({ stats }: Props) {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Placements</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{t("placements")}</p>
               <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{stats.placedStudents}</p>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {approvedNotPlaced > 0
-                  ? `${approvedNotPlaced} approved, not yet placed`
-                  : "All approved students placed"}
+                  ? t("approvedNotPlaced", { count: approvedNotPlaced })
+                  : t("allPlaced")}
               </p>
             </div>
             <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600 shrink-0">
@@ -103,7 +105,7 @@ export default function HodStatCards({ stats }: Props) {
           {/* Placement rate bar */}
           <div className="mt-4">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-1 dark:text-slate-400">
-              <span>Placement rate</span>
+              <span>{t("placementRate")}</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">{placementRate}%</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800">
@@ -116,7 +118,7 @@ export default function HodStatCards({ stats }: Props) {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Proposals</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">{t("proposals")}</p>
               <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{proposals.pending + proposals.approved + proposals.rejected}</p>
             </div>
             <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600 shrink-0">
@@ -125,15 +127,15 @@ export default function HodStatCards({ stats }: Props) {
           </div>
           <div className="mt-3 space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-amber-600"><span className="h-2 w-2 rounded-full bg-amber-400" />Pending</span>
+              <span className="flex items-center gap-1.5 text-amber-600"><span className="h-2 w-2 rounded-full bg-amber-400" />{t("pending")}</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">{proposals.pending}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-emerald-600"><span className="h-2 w-2 rounded-full bg-emerald-400" />Approved</span>
+              <span className="flex items-center gap-1.5 text-emerald-600"><span className="h-2 w-2 rounded-full bg-emerald-400" />{t("approved")}</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">{proposals.approved}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><FileText className="h-3 w-3" />Final reports</span>
+              <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><FileText className="h-3 w-3" />{t("finalReports")}</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">{stats.reports}</span>
             </div>
           </div>
@@ -149,15 +151,15 @@ export default function HodStatCards({ stats }: Props) {
                 <Clock className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Students awaiting approval</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{stats.pendingApprovals} student{stats.pendingApprovals !== 1 ? "s" : ""} need your review</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{t("studentsAwaitingApproval")}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t("needsReview", { count: stats.pendingApprovals })}</p>
               </div>
             </div>
             <Link
               href="/hod/students?status=pending"
               className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
             >
-              Review all <ChevronRight className="h-3.5 w-3.5" />
+              {t("reviewAll")} <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
           <div className="space-y-2">
@@ -174,7 +176,7 @@ export default function HodStatCards({ stats }: Props) {
                   href="/hod/students?status=pending"
                   className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
                 >
-                  Review
+                  {t("reviewNow")}
                 </Link>
               </div>
             ))}

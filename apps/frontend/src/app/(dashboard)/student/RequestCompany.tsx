@@ -16,8 +16,10 @@ import { mapPlacementToCompanyRequest, type PlacementProposalApi } from '@/lib/a
 import { CompanyRequest } from '@/lib/superadmin/types';
 import { cn } from '@/lib/utils';
 import StudentPageHero from './StudentPageHero';
+import { useTranslations } from 'next-intl';
 
 const RequestCompany = () => {
+  const t = useTranslations('StudentPortal.requestCompany');
   const [requests, setRequests] = useState<CompanyRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -43,9 +45,7 @@ const RequestCompany = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setInfoMessage(
-      'Placement proposals are created by your university coordinator. Please contact your coordinator with the company details you entered.'
-    );
+    setInfoMessage(t('coordinatorMessage'));
     setFormData({ companyName: '', contactEmail: '', description: '' });
     setTimeout(() => setInfoMessage(null), 8000);
   };
@@ -53,29 +53,29 @@ const RequestCompany = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <StudentPageHero
-        badge="Request company"
-        title="Request Company"
-        description="Track placement proposals your school sends to companies."
+        badge={t('badge')}
+        title={t('title')}
+        description={t('description')}
       />
 
-      {loading && <p className="text-sm text-text-muted">Loading proposals…</p>}
+      {loading && <p className="text-sm text-text-muted">{t('loading')}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="card p-8">
           <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
             <Building className="w-5 h-5 text-primary-base" />
-            Suggest a company
+            {t('suggestCompany')}
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-bold text-text-muted">Company Name</label>
+              <label className="text-sm font-bold text-text-muted">{t('companyName')}</label>
               <div className="relative">
                 <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 <input
                   type="text"
                   className="input-field w-full pl-10"
-                  placeholder="Enter company name..."
+                  placeholder={t('companyNamePlaceholder')}
                   value={formData.companyName}
                   onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                 />
@@ -83,13 +83,13 @@ const RequestCompany = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-bold text-text-muted">Contact Email</label>
+              <label className="text-sm font-bold text-text-muted">{t('contactEmail')}</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 <input
                   type="email"
                   className="input-field w-full pl-10"
-                  placeholder="Enter HR or supervisor email..."
+                  placeholder={t('contactEmailPlaceholder')}
                   value={formData.contactEmail}
                   onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                 />
@@ -97,10 +97,10 @@ const RequestCompany = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-bold text-text-muted">Additional Information (Optional)</label>
+              <label className="text-sm font-bold text-text-muted">{t('additionalInfo')}</label>
               <textarea
                 className="input-field w-full min-h-[100px] text-sm"
-                placeholder="Notes for your coordinator..."
+                placeholder={t('additionalInfoPlaceholder')}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
@@ -109,13 +109,13 @@ const RequestCompany = () => {
             <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 dark:bg-blue-900/20 dark:border-blue-900/50">
               <Info className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
               <p className="text-xs text-blue-700 leading-relaxed dark:text-blue-300">
-                Official placement proposals are sent by your coordinator. Use this form to collect details you can share with them.
+                {t('formNote')}
               </p>
             </div>
 
             <button type="submit" className="w-full btn-primary flex items-center justify-center gap-2">
               <Send className="w-4 h-4" />
-              Save draft / remind coordinator
+              {t('saveDraft')}
             </button>
 
             {infoMessage && (
@@ -128,7 +128,7 @@ const RequestCompany = () => {
         </div>
 
         <div className="space-y-6">
-          <h3 className="text-lg font-bold">Placement proposals</h3>
+          <h3 className="text-lg font-bold">{t('proposalsTitle')}</h3>
           <div className="space-y-4">
             {requests.map((request) => (
               <div
@@ -180,7 +180,7 @@ const RequestCompany = () => {
             {!loading && requests.length === 0 && (
               <div className="card p-12 text-center text-text-muted">
                 <Building className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                <p className="text-sm font-medium">No placement proposals yet.</p>
+                <p className="text-sm font-medium">{t('noProposals')}</p>
               </div>
             )}
           </div>

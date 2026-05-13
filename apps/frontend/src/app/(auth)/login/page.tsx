@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useTranslations } from 'next-intl';
 import type { AxiosError } from 'axios';
 
 interface FormErrors {
@@ -16,6 +17,8 @@ interface FormErrors {
 const LoginPage = () => {
   const router = useRouter();
   const { login } = useAuth();
+  const t = useTranslations('Auth.login');
+  const tErr = useTranslations('Auth.login.errors');
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,14 +31,14 @@ const LoginPage = () => {
   // Validation functions
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
-    if (!email) return 'Email is required';
-    if (!emailRegex.test(email)) return 'Please enter a valid email address';
+    if (!email) return tErr('emailRequired');
+    if (!emailRegex.test(email)) return tErr('emailInvalid');
     return '';
   };
 
   const validatePassword = (password: string) => {
-    if (!password) return 'Password is required';
-    if (password.length < 8) return 'Password must be at least 8 characters';
+    if (!password) return tErr('passwordRequired');
+    if (password.length < 8) return tErr('passwordMinLength');
     return '';
   };
 
@@ -92,7 +95,7 @@ const LoginPage = () => {
 
     try {
       await login(formData.email.trim(), formData.password, rememberMe);
-      setSuccessMessage('Login successful! Redirecting...');
+      setSuccessMessage(t('loginSuccess'));
 
       const { user: loggedInUser } = useAuth.getState();
       const role = loggedInUser?.role;
@@ -195,10 +198,10 @@ const LoginPage = () => {
       {/* Header Section */}
       <div className="text-center lg:text-left">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-          Welcome Back
+          {t('title')}
         </h1>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Please enter your credentials to access your dashboard
+          {t('subtitle')}
         </p>
       </div>
 
@@ -222,11 +225,8 @@ const LoginPage = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Email Field */}
         <div className="space-y-2">
-          <label 
-            htmlFor="email" 
-            className="text-sm font-semibold text-slate-700 dark:text-slate-200"
-          >
-            Email Address
+          <label htmlFor="email" className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            {t('email')}
           </label>
           <div className="relative group">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
@@ -236,7 +236,7 @@ const LoginPage = () => {
               type="email"
               autoComplete="email"
               required
-              placeholder="Enter your email address"
+              placeholder={t('emailPlaceholder')}
               className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all duration-200 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                 ${errors.email && touched.email
@@ -262,17 +262,11 @@ const LoginPage = () => {
         {/* Password Field */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label 
-              htmlFor="password" 
-              className="text-sm font-semibold text-slate-700 dark:text-slate-200"
-            >
-              Password
+            <label htmlFor="password" className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {t('password')}
             </label>
-            <Link 
-              href="/forgot-password" 
-              className="text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
-            >
-              Forgot password?
+            <Link href="/forgot-password" className="text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors">
+              {t('forgotPassword')}
             </Link>
           </div>
           <div className="relative group">
@@ -325,7 +319,7 @@ const LoginPage = () => {
               disabled={isLoading}
             />
             <span className="text-sm text-slate-500 group-hover:text-slate-700 transition-colors dark:text-slate-400 dark:group-hover:text-slate-200">
-              Remember me
+              {t('rememberMe')}
             </span>
           </label>
           
@@ -336,7 +330,7 @@ const LoginPage = () => {
               className="text-xs text-slate-400 hover:text-primary-600 transition-colors dark:text-slate-500"
               aria-label="Demo login options"
             >
-              Demo Login
+              {t('demoLogin')}
             </button>
             <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 dark:bg-slate-900 dark:border-slate-700">
               <div className="py-2">
@@ -345,35 +339,35 @@ const LoginPage = () => {
                   onClick={() => handleDemoLogin('Student')}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  🎓 Login as Student
+                  🎓 {t('demoStudent')}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('Coordinator')}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  🏛️ Login as Coordinator
+                  🏛️ {t('demoCoordinator')}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('HOD')}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  📚 Login as HOD
+                  📚 {t('demoHod')}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('Supervisor')}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  💼 Login as Supervisor
+                  💼 {t('demoSupervisor')}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDemoLogin('Admin')}
                   className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  ⚙️ Login as Admin
+                  ⚙️ {t('demoAdmin')}
                 </button>
               </div>
             </div>
@@ -389,10 +383,10 @@ const LoginPage = () => {
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Verifying credentials...
+              {t('signingIn')}
             </>
           ) : (
-            'Sign In to InternLink'
+            t('signIn')
           )}
         </button>
       </form>
@@ -400,12 +394,9 @@ const LoginPage = () => {
       {/* Footer Note */}
       <div className="pt-4 text-center">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Don&apos;t have an account?{' '}
-          <Link 
-            href="/register" 
-            className="font-semibold text-primary-600 hover:text-primary-700 transition-colors underline underline-offset-4"
-          >
-            Create an account
+          {t('noAccount')}{' '}
+          <Link href="/register" className="font-semibold text-primary-600 hover:text-primary-700 transition-colors underline underline-offset-4">
+            {t('register')}
           </Link>
         </p>
       </div>
@@ -413,13 +404,13 @@ const LoginPage = () => {
       {/* Help Text */}
       <div className="text-center">
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          By signing in, you agree to our{' '}
+          {t('agreePrefix')}{' '}
           <Link href="/terms" className="hover:text-primary-600 transition-colors">
-            Terms of Service
+            {t('termsOfService')}
           </Link>{' '}
-          and{' '}
+          {t('and')}{' '}
           <Link href="/privacy" className="hover:text-primary-600 transition-colors">
-            Privacy Policy
+            {t('privacyPolicy')}
           </Link>
         </p>
       </div>

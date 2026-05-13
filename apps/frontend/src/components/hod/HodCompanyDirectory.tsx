@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Building2, Mail, MapPin, Users, Briefcase, Search, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import type { HodCompanyRow } from "./types";
@@ -9,25 +10,24 @@ import { cn } from "@/lib/utils";
 type Props = { companies: HodCompanyRow[] };
 
 export default function HodCompanyDirectory({ companies }: Props) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "placements" | "recent">("name");
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    let result = q ? companies.filter((c) => 
-      c.name.toLowerCase().includes(q) || 
-      c.official_email.toLowerCase().includes(q) ||
-      c.address?.toLowerCase().includes(q)
-    ) : companies;
+    let result = q
+      ? companies.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            c.official_email.toLowerCase().includes(q) ||
+            c.address?.toLowerCase().includes(q)
+        )
+      : companies;
 
-    // Sort
-    if (sortBy === "name") {
-      result = [...result].sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === "placements") {
-      result = [...result].sort((a, b) => b.activePlacementsCount - a.activePlacementsCount);
-    } else if (sortBy === "recent") {
-      result = [...result].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    }
+    if (sortBy === "name") result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortBy === "placements") result = [...result].sort((a, b) => b.activePlacementsCount - a.activePlacementsCount);
+    else if (sortBy === "recent") result = [...result].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return result;
   }, [companies, searchQuery, sortBy]);
@@ -64,10 +64,10 @@ export default function HodCompanyDirectory({ companies }: Props) {
       {/* Stats summary */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: "Total companies", value: companies.length, icon: Building2, color: "bg-primary-50 text-primary-600" },
-          { label: "Active placements", value: companies.reduce((sum, c) => sum + c.activePlacementsCount, 0), icon: Briefcase, color: "bg-emerald-50 text-emerald-600" },
-          { label: "Total supervisors", value: companies.reduce((sum, c) => sum + c.supervisorCount, 0), icon: Users, color: "bg-blue-50 text-blue-600" },
-          { label: "Showing results", value: filtered.length, icon: Search, color: "bg-violet-50 text-violet-600" },
+          { label: "Total companies",  value: companies.length,                                                    icon: Building2, color: "bg-primary-50 text-primary-600" },
+          { label: "Active placements",value: companies.reduce((s, c) => s + c.activePlacementsCount, 0),          icon: Briefcase, color: "bg-emerald-50 text-emerald-600" },
+          { label: "Total supervisors",value: companies.reduce((s, c) => s + c.supervisorCount, 0),                icon: Users,     color: "bg-blue-50 text-blue-600" },
+          { label: "Showing results",  value: filtered.length,                                                     icon: Search,    color: "bg-violet-50 text-violet-600" },
         ].map((stat) => (
           <div key={stat.label} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <div className={cn("rounded-xl p-2.5", stat.color)}>
@@ -91,17 +91,19 @@ export default function HodCompanyDirectory({ companies }: Props) {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((company) => (
-            <div
+            <button
               key={company.id}
-              className="group flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-primary-200 dark:border-slate-700 dark:bg-slate-900"
+              type="button"
+              onClick={() => router.push(`/hod/companies/${company.id}`)}
+              className="group flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-primary-200 text-left dark:border-slate-700 dark:bg-slate-900 dark:hover:border-primary-700"
             >
               {/* Card header */}
               <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
-                <div className="rounded-xl bg-primary-50 p-2.5 text-primary-600 shrink-0 group-hover:bg-primary-100 transition-colors">
+                <div className="rounded-xl bg-primary-50 p-2.5 text-primary-600 shrink-0 group-hover:bg-primary-100 transition-colors dark:bg-primary-900/30 dark:text-primary-400">
                   <Building2 className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-slate-900 truncate group-hover:text-primary-600 transition-colors dark:text-slate-100">
+                  <h3 className="font-bold text-slate-900 truncate group-hover:text-primary-600 transition-colors dark:text-slate-100 dark:group-hover:text-primary-400">
                     {company.name}
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">
@@ -138,7 +140,7 @@ export default function HodCompanyDirectory({ companies }: Props) {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Briefcase className="h-4 w-4 text-emerald-500" />
-                    <span className="text-sm font-medium text-emerald-700">{company.activePlacementsCount}</span>
+                    <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{company.activePlacementsCount}</span>
                     <span className="text-xs text-slate-400 dark:text-slate-500">active</span>
                   </div>
                 </div>
@@ -147,14 +149,14 @@ export default function HodCompanyDirectory({ companies }: Props) {
               {/* Card footer */}
               <div className="border-t border-slate-100 px-5 py-3 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50">
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     Verified
                   </span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">ID: {company.id}</span>
+                  <span className="text-xs font-medium text-primary-500 group-hover:underline">View details →</span>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}

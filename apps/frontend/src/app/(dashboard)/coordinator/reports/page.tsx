@@ -5,6 +5,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import api from "@/lib/api/client";
 import CoordinatorPageHero from "../CoordinatorPageHero";
 import PdfViewerPage from "@/components/shared/PdfViewerPage";
+import { useTranslations } from "next-intl";
 
 type ReportRow = {
   id: number;
@@ -22,6 +23,7 @@ export default function CoordinatorReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdf, setPdf] = useState<{ url: string; title: string } | null>(null);
+  const t = useTranslations("CoordinatorPortal.reports");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -30,12 +32,12 @@ export default function CoordinatorReportsPage() {
       const { data } = await api.get<ReportRow[]>("/coordinator-portal/reports/overview");
       setReports(data);
     } catch {
-      setError("Could not load reports.");
+      setError(t("couldNotLoad"));
       setReports([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -44,9 +46,9 @@ export default function CoordinatorReportsPage() {
   return (
     <div className="space-y-6 pb-8">
       <CoordinatorPageHero
-        badge="Reports"
-        title="Final reports"
-        description="Submitted final reports from students across your university."
+        badge={t("badge")}
+        title={t("title")}
+        description={t("description")}
         action={
           <button
             type="button"
@@ -55,7 +57,7 @@ export default function CoordinatorReportsPage() {
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
@@ -73,11 +75,11 @@ export default function CoordinatorReportsPage() {
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50/80">
               <tr>
-                <th className="px-4 py-3 font-semibold text-slate-700">Student</th>
-                <th className="px-4 py-3 font-semibold text-slate-700">Department</th>
-                <th className="px-4 py-3 font-semibold text-slate-700">Stamped</th>
-                <th className="px-4 py-3 font-semibold text-slate-700">Generated</th>
-                <th className="px-4 py-3 font-semibold text-slate-700">PDF</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">{t("colStudent")}</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">{t("colDepartment")}</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">{t("colStamped")}</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">{t("colGenerated")}</th>
+                <th className="px-4 py-3 font-semibold text-slate-700">{t("colPdf")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -85,14 +87,14 @@ export default function CoordinatorReportsPage() {
                 <tr key={r.id} className="hover:bg-slate-50/50">
                   <td className="px-4 py-3 font-medium text-slate-900">{r.student.user.full_name}</td>
                   <td className="px-4 py-3 text-slate-600">{r.student.department ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-700">{r.stamped ? "Yes" : "No"}</td>
+                  <td className="px-4 py-3 text-slate-700">{r.stamped ? t("yes") : t("no")}</td>
                   <td className="px-4 py-3 text-slate-500">{new Date(r.generated_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => setPdf({ url: r.pdf_url, title: `${r.student.user.full_name} - Final Report` })}
+                      onClick={() => setPdf({ url: r.pdf_url, title: `${r.student.user.full_name} - ${t("finalReportLabel")}` })}
                       className="font-medium text-primary-600 hover:text-primary-700 hover:underline"
                     >
-                      View PDF
+                      {t("viewPdf")}
                     </button>
                   </td>
                 </tr>
@@ -100,7 +102,7 @@ export default function CoordinatorReportsPage() {
             </tbody>
           </table>
           {reports.length === 0 && (
-            <p className="py-10 text-center text-sm text-slate-500">No reports yet.</p>
+            <p className="py-10 text-center text-sm text-slate-500">{t("noReports")}</p>
           )}
         </section>
       )}

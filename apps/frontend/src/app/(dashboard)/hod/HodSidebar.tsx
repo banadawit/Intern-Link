@@ -19,14 +19,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LogoutModal from "@/components/common/LogoutModal";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useHodStore } from "@/lib/store/hodStore";
+import { useTranslations } from "next-intl";
 
 const HodSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const t = useTranslations("HodPortal");
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const { unreadCount, fetchUnread } = useChatStore();
@@ -57,7 +60,7 @@ const HodSidebar = () => {
     router.push("/login");
   };
 
-  const displayName = user?.fullName ?? "HOD";
+  const displayName = user?.fullName ?? t("sidebar.hodFallback");
   const initials =
     user?.fullName
       ?.split(/\s+/)
@@ -67,15 +70,15 @@ const HodSidebar = () => {
       .slice(0, 2) ?? "HD";
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/hod", badge: 0 },
-    { icon: MessagesSquare, label: "Messages", path: "/hod/chat", badge: unreadCount },
-    { icon: Users, label: "Students", path: "/hod/students", badge: pendingStudents },
-    { icon: Building2, label: "Companies", path: "/hod/companies", badge: 0 },
-    { icon: Send, label: "Placements", path: "/hod/placements", badge: 0 },
-    { icon: Mail, label: "Invite company", path: "/hod/invite", badge: 0 },
-    { icon: FileCheck, label: "Open letters", path: "/hod/open-letters", badge: 0 },
-    { icon: FileText, label: "Reports", path: "/hod/reports", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/hod/common-feed", badge: 0 },
+    { icon: LayoutDashboard, label: t("nav.dashboard"),    path: "/hod",              badge: 0 },
+    { icon: MessagesSquare,  label: t("nav.messages"),     path: "/hod/chat",         badge: unreadCount },
+    { icon: Users,           label: t("nav.students"),     path: "/hod/students",     badge: pendingStudents },
+    { icon: Building2,       label: t("nav.companies"),    path: "/hod/companies",    badge: 0 },
+    { icon: Send,            label: t("nav.placements"),   path: "/hod/placements",   badge: 0 },
+    { icon: Mail,            label: t("nav.inviteCompany"),path: "/hod/invite",       badge: 0 },
+    { icon: FileCheck,       label: t("nav.openLetters"),  path: "/hod/open-letters", badge: 0 },
+    { icon: FileText,        label: t("nav.reports"),      path: "/hod/reports",      badge: 0 },
+    { icon: MessageSquare,   label: t("nav.commonFeed"),   path: "/hod/common-feed",  badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>
@@ -97,11 +100,11 @@ const HodSidebar = () => {
         </div>
         <div className="min-w-0">
           <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">
-            Department Portal
+            {t("sidebar.portalTitle")}
           </span>
           {universityName
             ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{universityName}</span>
-            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">Head of Department</span>
+            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">{t("sidebar.hodFallback")}</span>
           }
         </div>
       </div>
@@ -134,7 +137,7 @@ const HodSidebar = () => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-text-heading dark:text-slate-100">{displayName}</p>
-            <p className="truncate text-xs text-text-muted dark:text-slate-400">Head of Department</p>
+            <p className="truncate text-xs text-text-muted dark:text-slate-400">{t("sidebar.hodFallback")}</p>
           </div>
         </div>
         <button
@@ -143,7 +146,7 @@ const HodSidebar = () => {
           className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          Logout
+          {t("sidebar.logout")}
         </button>
       </div>
 

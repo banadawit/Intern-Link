@@ -17,6 +17,7 @@ import {
   FileText,
 } from "lucide-react";
 import { format } from "date-fns";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import AdminPageHero from "./AdminPageHero";
 import { VerificationProposal } from "@/lib/superadmin/types";
@@ -36,7 +37,7 @@ interface Props {
   proposals: VerificationProposal[];
   loading: boolean;
   onReview: (p: VerificationProposal) => void;
-  onActionComplete: () => void;
+  onActionComplete?: () => void;
 }
 
 interface PersonUser {
@@ -64,6 +65,14 @@ interface SupervisorRow {
 
 type PersonStatus = "approved" | "rejected" | "suspended";
 
+type OrgNavTab = {
+  id: OrgTab;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  count?: number;
+  pending?: number;
+};
+
 function usePersonList<T>(endpoint: string) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,28 +89,32 @@ function usePersonList<T>(endpoint: string) {
   return { data, loading };
 }
 
-function statusBadge(status: PersonStatus) {
+function PersonStatusBadge({ status }: { status: PersonStatus }) {
+  const tc = useTranslations("Common");
   if (status === "approved")
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-        <CheckCircle className="w-3 h-3" /> Approved
+        <CheckCircle className="w-3 h-3" /> {tc("approved")}
       </span>
     );
   if (status === "rejected")
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-200">
-        <XCircle className="w-3 h-3" /> Rejected
+        <XCircle className="w-3 h-3" /> {tc("rejected")}
       </span>
     );
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-300">
-      <Ban className="w-3 h-3" /> Suspended
+      <Ban className="w-3 h-3" /> {tc("suspended")}
     </span>
   );
 }
 
 function CoordinatorsPanel() {
   type StatusFilter = "all" | PersonStatus;
+  const to = useTranslations("AdminPortal.organizations");
+  const tc = useTranslations("Common");
+  const td = useTranslations("AdminPortal.dashboard");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
 
@@ -125,22 +138,29 @@ function CoordinatorsPanel() {
     });
   }, [approved, rejected, suspended, statusFilter, search]);
 
+  const filterLabel = (s: StatusFilter) => {
+    if (s === "all") return to("statusAll");
+    if (s === "approved") return tc("approved");
+    if (s === "rejected") return tc("rejected");
+    return tc("suspended");
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search coordinators…"
+            placeholder={to("searchCoordinators")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20" />
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="h-4 w-4 text-slate-400 shrink-0" />
           {(["all", "approved", "rejected", "suspended"] as StatusFilter[]).map((s) => (
             <button key={s} type="button" onClick={() => setStatusFilter(s)}
-              className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all capitalize",
+              className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all",
                 statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700")}>
-              {s}
+              {filterLabel(s)}
             </button>
           ))}
         </div>
@@ -150,16 +170,16 @@ function CoordinatorsPanel() {
         {loading ? (
           <div className="flex min-h-[20vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>
         ) : rows.length === 0 ? (
-          <div className="flex min-h-[16vh] items-center justify-center text-sm text-slate-400">No coordinators match your filters.</div>
+          <div className="flex min-h-[16vh] items-center justify-center text-sm text-slate-400">{to("personEmptyCoordinators")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  <th className="px-6 py-3">Coordinator</th>
-                  <th className="px-6 py-3">University</th>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">{to("personTableCoordinator")}</th>
+                  <th className="px-6 py-3">{to("personTableUniversity")}</th>
+                  <th className="px-6 py-3">{to("personTableDate")}</th>
+                  <th className="px-6 py-3">{to("tableStatus")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -175,10 +195,10 @@ function CoordinatorsPanel() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                      {c.university?.name ?? c.pending_university_name ?? <span className="italic text-slate-400">—</span>}
+                      {c.university?.name ?? c.pending_university_name ?? <span className="italic text-slate-400">{td("activityDash")}</span>}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">{format(new Date(c.user.created_at), "MMM d, yyyy")}</td>
-                    <td className="px-6 py-4">{statusBadge(c._status)}</td>
+                    <td className="px-6 py-4"><PersonStatusBadge status={c._status} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -192,6 +212,8 @@ function CoordinatorsPanel() {
 
 function SupervisorsPanel() {
   type StatusFilter = "all" | PersonStatus;
+  const to = useTranslations("AdminPortal.organizations");
+  const tc = useTranslations("Common");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
 
@@ -215,22 +237,29 @@ function SupervisorsPanel() {
     });
   }, [approved, rejected, suspended, statusFilter, search]);
 
+  const filterLabel = (s: StatusFilter) => {
+    if (s === "all") return to("statusAll");
+    if (s === "approved") return tc("approved");
+    if (s === "rejected") return tc("rejected");
+    return tc("suspended");
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search supervisors…"
+            placeholder={to("searchSupervisors")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20" />
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="h-4 w-4 text-slate-400 shrink-0" />
           {(["all", "approved", "rejected", "suspended"] as StatusFilter[]).map((s) => (
             <button key={s} type="button" onClick={() => setStatusFilter(s)}
-              className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all capitalize",
+              className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all",
                 statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700")}>
-              {s}
+              {filterLabel(s)}
             </button>
           ))}
         </div>
@@ -240,16 +269,16 @@ function SupervisorsPanel() {
         {loading ? (
           <div className="flex min-h-[20vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>
         ) : rows.length === 0 ? (
-          <div className="flex min-h-[16vh] items-center justify-center text-sm text-slate-400">No supervisors match your filters.</div>
+          <div className="flex min-h-[16vh] items-center justify-center text-sm text-slate-400">{to("personEmptySupervisors")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  <th className="px-6 py-3">Supervisor</th>
-                  <th className="px-6 py-3">Company</th>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">{to("personTableSupervisor")}</th>
+                  <th className="px-6 py-3">{to("personTableCompany")}</th>
+                  <th className="px-6 py-3">{to("personTableDate")}</th>
+                  <th className="px-6 py-3">{to("tableStatus")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -266,7 +295,7 @@ function SupervisorsPanel() {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{s.company.name}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">{format(new Date(s.user.created_at), "MMM d, yyyy")}</td>
-                    <td className="px-6 py-4">{statusBadge(s._status)}</td>
+                    <td className="px-6 py-4"><PersonStatusBadge status={s._status} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -278,11 +307,34 @@ function SupervisorsPanel() {
   );
 }
 
-export default function OrganizationsView({ proposals, loading, onReview }: Props) {
+export default function OrganizationsView({ proposals, loading, onReview, onActionComplete: _onActionComplete }: Props) {
+  const to = useTranslations("AdminPortal.organizations");
+  const ta = useTranslations("AdminPortal.approvals");
+  const td = useTranslations("AdminPortal.dashboard");
   const [tab, setTab] = useState<OrgTab>("universities");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Approved" | "Rejected" | "Suspended">("All");
   const [docUrl, setDocUrl] = useState<string | null>(null);
+
+  const orgStatusLabel = (s: VerificationProposal["status"]) => {
+    switch (s) {
+      case "Pending": return to("statusPending");
+      case "Approved": return to("statusApproved");
+      case "Rejected": return to("statusRejected");
+      case "Suspended": return to("statusSuspended");
+      default: return s;
+    }
+  };
+
+  const orgListStatusLabel = (s: typeof statusFilter) => {
+    switch (s) {
+      case "All": return to("statusAll");
+      case "Pending": return to("statusPending");
+      case "Approved": return to("statusApproved");
+      case "Rejected": return to("statusRejected");
+      case "Suspended": return to("statusSuspended");
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -304,61 +356,63 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
     };
   }, [proposals]);
 
-  const tabs: Array<{ id: OrgTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number; pending?: number }> = [
-    { id: "universities", label: "Universities", icon: Building,  count: counts.universities, pending: counts.uniPending },
-    { id: "companies",    label: "Companies",    icon: Briefcase, count: counts.companies,    pending: counts.compPending },
-    { id: "coordinators", label: "Coordinators", icon: UserCheck },
-    { id: "supervisors",  label: "Supervisors",  icon: Briefcase },
-  ];
+  const navTabs = useMemo<OrgNavTab[]>(
+    () => [
+      { id: "universities", label: to("tabUniversities"), icon: Building, count: counts.universities, pending: counts.uniPending },
+      { id: "companies", label: to("tabCompanies"), icon: Briefcase, count: counts.companies, pending: counts.compPending },
+      { id: "coordinators", label: to("tabCoordinators"), icon: UserCheck },
+      { id: "supervisors", label: to("tabSupervisors"), icon: Briefcase },
+    ],
+    [to, counts.universities, counts.uniPending, counts.companies, counts.compPending]
+  );
+
+  const typeTotal = proposals.filter((p) => (tab === "universities" ? p.organizationType === "University" : p.organizationType === "Company")).length;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <AdminPageHero
-        badge="Organizations"
-        title="Organizations & Members"
-        description="Manage all universities, companies, coordinators, and supervisors on the platform."
+        badge={to("heroBadge")}
+        title={to("heroTitle")}
+        description={to("heroDescription")}
       />
 
-      {/* Tab bar */}
       <div className="flex gap-1 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-1">
-        {tabs.map((t) => (
-          <button key={t.id} type="button"
-            onClick={() => { setTab(t.id); setSearch(""); setStatusFilter("All"); }}
+        {navTabs.map((tabItem) => (
+          <button key={tabItem.id} type="button"
+            onClick={() => { setTab(tabItem.id); setSearch(""); setStatusFilter("All"); }}
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-              tab === t.id
+              tab === tabItem.id
                 ? "bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             )}>
-            <t.icon className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">{t.label}</span>
-            {t.count !== undefined && (
+            <tabItem.icon className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">{tabItem.label}</span>
+            {tabItem.count !== undefined && (
               <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                tab === t.id ? "bg-teal-100 text-teal-800" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300")}>
-                {t.count}
+                tab === tabItem.id ? "bg-teal-100 text-teal-800" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300")}>
+                {tabItem.count}
               </span>
             )}
-            {t.pending !== undefined && t.pending > 0 && (
+            {tabItem.pending !== undefined && tabItem.pending > 0 && (
               <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-amber-800">
-                {t.pending} pending
+                {to("pendingBadge", { count: tabItem.pending })}
               </span>
             )}
           </button>
         ))}
       </div>
 
-      {/* Coordinators / Supervisors panels */}
       {tab === "coordinators" && <CoordinatorsPanel />}
       {tab === "supervisors" && <SupervisorsPanel />}
 
-      {/* Universities / Companies table */}
       {(tab === "universities" || tab === "companies") && (
         <>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder={`Search ${tab}…`}
+                placeholder={tab === "universities" ? to("searchUniversities") : to("searchCompanies")}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20" />
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -367,7 +421,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                 <button key={s} type="button" onClick={() => setStatusFilter(s)}
                   className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all",
                     statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700")}>
-                  {s}
+                  {orgListStatusLabel(s)}
                 </button>
               ))}
             </div>
@@ -380,20 +434,20 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex min-h-[20vh] items-center justify-center text-sm text-slate-400">
-                No {tab} match your filters.
+                {to("emptyFiltered")}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      <th className="px-6 py-3">Name</th>
-                      <th className="px-6 py-3">Email</th>
-                      <th className="px-6 py-3">Address</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3">Registered</th>
-                      <th className="px-6 py-3">Documents</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
+                      <th className="px-6 py-3">{to("tableName")}</th>
+                      <th className="px-6 py-3">{to("tableEmail")}</th>
+                      <th className="px-6 py-3">{to("tableAddress")}</th>
+                      <th className="px-6 py-3">{to("tableStatus")}</th>
+                      <th className="px-6 py-3">{to("tableRegistered")}</th>
+                      <th className="px-6 py-3">{to("tableDocuments")}</th>
+                      <th className="px-6 py-3 text-right">{to("tableActions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -408,15 +462,15 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                             {p.email ? (
                               <a href={`mailto:${p.email}`} className="hover:text-teal-600 hover:underline">{p.email}</a>
                             ) : (
-                              <span className="text-xs text-slate-400 italic">—</span>
+                              <span className="text-xs text-slate-400 italic">{td("activityDash")}</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400 max-w-[160px] truncate">
-                            {p.description || <span className="italic text-slate-400">—</span>}
+                            {p.description || <span className="italic text-slate-400">{td("activityDash")}</span>}
                           </td>
                           <td className="px-6 py-4">
                             <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ring-1", cfg.bg, cfg.text, cfg.ring)}>
-                              {p.status}
+                              {orgStatusLabel(p.status)}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-slate-500 text-xs">
@@ -429,17 +483,17 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                                   type="button"
                                   onClick={() => setDocUrl(p.documents[0])}
                                   className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
-                                  <FileText className="h-3 w-3" /> Verification doc
+                                  <FileText className="h-3 w-3" /> {to("orgDocVerify")}
                                 </button>
                               ) : (
-                                <span className="text-xs text-slate-400 italic">No doc</span>
+                                <span className="text-xs text-slate-400 italic">{to("orgNoDoc")}</span>
                               )}
                               {p.stampImageUrl && (
                                 <button
                                   type="button"
                                   onClick={() => setDocUrl(p.stampImageUrl!)}
                                   className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
-                                  <FileText className="h-3 w-3" /> Stamp
+                                  <FileText className="h-3 w-3" /> {to("orgDocStamp")}
                                 </button>
                               )}
                             </div>
@@ -448,38 +502,39 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                             <div className="flex items-center justify-end gap-1.5">
                               <button type="button" onClick={() => onReview(p)}
                                 className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                                Review
+                                {ta("review")}
                               </button>
                               {p.status === "Pending" && (
                                 <button type="button" onClick={() => onReview(p)}
                                   className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors">
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> {ta("approve")}
                                 </button>
                               )}
                               {p.status === "Approved" && (
                                 <button type="button" onClick={() => onReview(p)}
                                   className="inline-flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors">
-                                  <Ban className="h-3.5 w-3.5" /> Suspend
+                                  <Ban className="h-3.5 w-3.5" /> {to("actionSuspend")}
                                 </button>
                               )}
                               {p.status === "Suspended" && (
                                 <button type="button" onClick={() => onReview(p)}
                                   className="inline-flex items-center gap-1 rounded-lg bg-teal-50 border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 transition-colors">
-                                  <RotateCcw className="h-3.5 w-3.5" /> Reactivate
+                                  <RotateCcw className="h-3.5 w-3.5" /> {to("actionReactivate")}
                                 </button>
                               )}
                               {p.status === "Rejected" && (
                                 <button type="button" onClick={() => onReview(p)}
                                   className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors">
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> {ta("approve")}
                                 </button>
                               )}
                               {(p.status === "Pending" || p.status === "Approved") && (
                                 <button type="button" onClick={() => onReview(p)}
                                   className="inline-flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors">
-                                  <XCircle className="h-3.5 w-3.5" /> Reject
+                                  <XCircle className="h-3.5 w-3.5" /> {ta("reject")}
                                 </button>
-                              )}                            </div>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -491,14 +546,14 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
           </div>
 
           <p className="text-xs text-slate-400 text-right">
-            Showing {filtered.length} of {proposals.filter((p) => tab === "universities" ? p.organizationType === "University" : p.organizationType === "Company").length} {tab}
+            {to("listFooter", { filtered: filtered.length, total: typeTotal })}
           </p>
         </>
       )}
       <PdfViewerModal
         isOpen={!!docUrl}
         pdfUrl={docUrl ?? ""}
-        title="Verification Document"
+        title={to("pdfTitle")}
         onClose={() => setDocUrl(null)}
       />
     </div>

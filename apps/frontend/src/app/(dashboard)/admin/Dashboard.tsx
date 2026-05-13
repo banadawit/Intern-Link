@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Users, GraduationCap, Briefcase, Building2, CheckCircle2,
@@ -14,6 +14,7 @@ import {
 import api from "@/lib/api/client";
 import AdminPageHero from "./AdminPageHero";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,15 +111,6 @@ function ActionBadge({ action }: { action: string }) {
   return <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", cls)}>{action.replace(/_/g, " ")}</span>;
 }
 
-// ─── Quick links ──────────────────────────────────────────────────────────────
-
-const quickLinks = [
-  { href: "/admin?view=approvals",    label: "Review pending",  icon: Clock,        accent: "bg-amber-50 text-amber-700 ring-amber-100"   },
-  { href: "/admin?view=organizations",label: "Organizations",   icon: Building2,    accent: "bg-blue-50 text-blue-700 ring-blue-100"      },
-  { href: "/admin?view=audit-log",    label: "Audit log",       icon: FileText,     accent: "bg-slate-100 text-slate-700 ring-slate-200"  },
-  { href: "/admin?view=settings",     label: "Settings",        icon: CheckCircle2, accent: "bg-teal-50 text-teal-700 ring-teal-100"      },
-];
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 type DashboardProps = {
@@ -128,6 +120,7 @@ type DashboardProps = {
 };
 
 export default function Dashboard({ pendingVerificationCount, stats, statsLoading }: DashboardProps) {
+  const t = useTranslations("AdminPortal.dashboard");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -138,6 +131,16 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const ACTIVITY_LIMIT = 4;
+
+  const quickLinks = useMemo(
+    () => [
+      { href: "/admin?view=approvals", label: t("quickReviewPending"), icon: Clock, accent: "bg-amber-50 text-amber-700 ring-amber-100" },
+      { href: "/admin?view=organizations", label: t("quickOrganizations"), icon: Building2, accent: "bg-blue-50 text-blue-700 ring-blue-100" },
+      { href: "/admin?view=audit-log", label: t("quickAuditLog"), icon: FileText, accent: "bg-slate-100 text-slate-700 ring-slate-200" },
+      { href: "/admin?view=settings", label: t("quickSettings"), icon: CheckCircle2, accent: "bg-teal-50 text-teal-700 ring-teal-100" },
+    ],
+    [t]
+  );
 
   const load = useCallback(async (silent = false, page = activityPage) => {
     if (!silent) setLoading(true);
@@ -151,13 +154,13 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       setLastUpdated(new Date());
       setOnline(true);
     } catch {
-      setError("Failed to load analytics data.");
+      setError(t("failedAnalytics"));
       setOnline(false);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activityPage]);
+  }, [activityPage, t]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -177,16 +180,34 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
   const proposalApprovalRate = data && data.proposalStats.total > 0
     ? Math.round((data.proposalStats.approved / data.proposalStats.total) * 100)
     : 0;
-  const internshipPieData = data ? [
-    { name: "Placed",    value: data.placementStats.placed    },
-    { name: "Completed", value: data.placementStats.completed },
-    { name: "Pending",   value: data.placementStats.pending   },
-  ] : [];
-  const proposalPieData = data ? [
-    { name: "Approved", value: data.proposalStats.approved },
-    { name: "Rejected", value: data.proposalStats.rejected },
-    { name: "Pending",  value: data.proposalStats.pending  },
-  ] : [];
+  const internshipPieData = useMemo(() => {
+    if (!data) return [];
+    return [
+      { name: t("chartPlaced"), value: data.placementStats.placed },
+      { name: t("chartCompleted"), value: data.placementStats.completed },
+      { name: t("chartPending"), value: data.placementStats.pending },
+    ];
+  }, [data, t]);
+
+  const proposalPieData = useMemo(() => {
+    if (!data) return [];
+    return [
+      { name: t("chartApproved"), value: data.proposalStats.approved },
+      { name: t("chartRejected"), value: data.proposalStats.rejected },
+      { name: t("chartPending"), value: data.proposalStats.pending },
+    ];
+  }, [data, t]);
+
+  const pendingBreakdown = useMemo(() => {
+    if (!data?.pendingApprovals) return "";
+    const pa = data.pendingApprovals;
+    const parts: string[] = [];
+    if (pa.universities > 0) parts.push(t("universitiesCount", { count: pa.universities }));
+    if (pa.companies > 0) parts.push(t("companiesCount", { count: pa.companies }));
+    if (pa.coordinators > 0) parts.push(t("coordinatorsCount", { count: pa.coordinators }));
+    if (pa.supervisors > 0) parts.push(t("supervisorsCount", { count: pa.supervisors }));
+    return parts.join(" · ");
+  }, [data, t]);
 
   const totalPending = (data?.pendingApprovals.total ?? 0) || pendingVerificationCount;
 
@@ -196,9 +217,9 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <AdminPageHero
-          badge="Platform"
-          title="System Overview"
-          description="Real-time statistics and platform health monitoring."
+          badge={t("heroBadge")}
+          title={t("heroTitle")}
+          description={t("heroDescription")}
         />
         <div className="flex items-center gap-2 shrink-0">
           <div className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
@@ -206,7 +227,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                    : "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
           )}>
             {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {online ? "Live" : "Offline"}
+            {online ? t("live") : t("offline")}
           </div>
           {lastUpdated && (
             <span className="text-xs text-slate-400">
@@ -220,7 +241,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-            Refresh
+            {t("refresh")}
           </button>
         </div>
       </div>
@@ -232,16 +253,11 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
             <div>
               <p className="font-semibold text-amber-800 dark:text-amber-300">
-                {totalPending} pending approval{totalPending !== 1 ? "s" : ""} require attention
+                {t("pendingAlertTitle", { count: totalPending })}
               </p>
-              {data?.pendingApprovals && (
+              {pendingBreakdown && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  {[
-                    data.pendingApprovals.universities > 0 && `${data.pendingApprovals.universities} universit${data.pendingApprovals.universities !== 1 ? "ies" : "y"}`,
-                    data.pendingApprovals.companies > 0 && `${data.pendingApprovals.companies} compan${data.pendingApprovals.companies !== 1 ? "ies" : "y"}`,
-                    data.pendingApprovals.coordinators > 0 && `${data.pendingApprovals.coordinators} coordinator${data.pendingApprovals.coordinators !== 1 ? "s" : ""}`,
-                    data.pendingApprovals.supervisors > 0 && `${data.pendingApprovals.supervisors} supervisor${data.pendingApprovals.supervisors !== 1 ? "s" : ""}`,
-                  ].filter(Boolean).join(" · ")}
+                  {pendingBreakdown}
                 </p>
               )}
             </div>
@@ -250,7 +266,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
             href="/admin?view=approvals"
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700"
           >
-            Open queue <ArrowRight className="h-4 w-4" />
+            {t("openQueue")} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       )}
@@ -269,35 +285,35 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       ) : data ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label="Total Users" value={data.totalUsers.toLocaleString()} sub="All roles combined"
+            <KpiCard label={t("kpiTotalUsers")} value={data.totalUsers.toLocaleString()} sub={t("kpiTotalUsersSub")}
               icon={Users} color="bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-              trend={{ value: data.newUsersThisMonth, label: "this month" }} />
-            <KpiCard label="Total Students" value={data.placementStats.total.toLocaleString()} sub={`${placementRate}% placement rate`}
+              trend={{ value: data.newUsersThisMonth, label: t("kpiThisMonth") }} />
+            <KpiCard label={t("kpiTotalStudents")} value={data.placementStats.total.toLocaleString()} sub={t("kpiPlacementRateSub", { rate: placementRate })}
               icon={GraduationCap} color="bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400" />
-            <KpiCard label="Active Internships" value={data.placementStats.placed.toLocaleString()} sub={`${data.placementStats.completed} completed`}
+            <KpiCard label={t("kpiActiveInternships")} value={data.placementStats.placed.toLocaleString()} sub={t("kpiCompleted", { count: data.placementStats.completed })}
               icon={Briefcase} color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400" />
-            <KpiCard label="Proposal Approval" value={`${proposalApprovalRate}%`} sub={`${data.proposalStats.approved} of ${data.proposalStats.total} proposals`}
+            <KpiCard label={t("kpiProposalApproval")} value={`${proposalApprovalRate}%`} sub={t("kpiProposalSub", { approved: data.proposalStats.approved, total: data.proposalStats.total })}
               icon={CheckCircle2} color="bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400" />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label="Universities" value={data.orgStats.universities.approved} sub={`${data.orgStats.universities.total} total registered`}
+            <KpiCard label={t("kpiUniversities")} value={data.orgStats.universities.approved} sub={t("kpiUniversitiesSub", { total: data.orgStats.universities.total })}
               icon={Building2} color="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400" />
-            <KpiCard label="Companies" value={data.orgStats.companies.approved} sub={`${data.orgStats.companies.total} total registered`}
+            <KpiCard label={t("kpiCompanies")} value={data.orgStats.companies.approved} sub={t("kpiCompaniesSub", { total: data.orgStats.companies.total })}
               icon={Briefcase} color="bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400" />
-            <KpiCard label="Evaluations Done" value={data.totalEvaluations.toLocaleString()}
-              sub={data.evalStats.count > 0 ? `Avg tech: ${data.evalStats.avgTechnical} · Avg soft: ${data.evalStats.avgSoftSkill}` : "No evaluations yet"}
+            <KpiCard label={t("kpiEvaluationsDone")} value={data.totalEvaluations.toLocaleString()}
+              sub={data.evalStats.count > 0 ? t("kpiEvaluationsAvg", { tech: data.evalStats.avgTechnical, soft: data.evalStats.avgSoftSkill }) : t("kpiNoEvaluationsYet")}
               icon={Star} color="bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400" />
-            <KpiCard label="Final Reports" value={data.totalReports.toLocaleString()} sub="Submitted by students"
+            <KpiCard label={t("kpiFinalReports")} value={data.totalReports.toLocaleString()} sub={t("kpiFinalReportsSub")}
               icon={FileText} color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" />
           </div>
 
           {/* Quick navigation */}
           <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Quick navigation</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{t("quickNavTitle")}</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {quickLinks.map((q) => (
-                <Link key={q.label} href={q.href}
+                <Link key={q.href} href={q.href}
                   className={cn("card group flex items-center justify-between gap-3 p-4 transition-all hover:border-teal-200 hover:shadow-md ring-1 ring-transparent hover:ring-teal-100")}
                 >
                   <span className="flex min-w-0 items-center gap-3">
@@ -311,7 +327,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
           </section>
 
           {/* User growth chart */}
-          <SectionCard title="User Growth — Last 6 Months" subtitle="New registrations per role per month">
+          <SectionCard title={t("chartUserGrowthTitle")} subtitle={t("chartUserGrowthSubtitle")}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={data.userGrowth} barSize={10} barGap={2}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -319,17 +335,17 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                 <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="students" name="Students" fill={COLORS.blue} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="coordinators" name="Coordinators" fill={COLORS.teal} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="supervisors" name="Supervisors" fill={COLORS.violet} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="hods" name="HoDs" fill={COLORS.amber} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="students" name={t("chartStudents")} fill={COLORS.blue} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="coordinators" name={t("chartCoordinators")} fill={COLORS.teal} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="supervisors" name={t("chartSupervisors")} fill={COLORS.violet} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="hods" name={t("chartHods")} fill={COLORS.amber} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </SectionCard>
 
           {/* Placement trend + internship status */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <SectionCard title="Placement Trend" subtitle="New assignments created per month">
+            <SectionCard title={t("chartPlacementTrendTitle")} subtitle={t("chartPlacementTrendSubtitle")}>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={data.placementTrend}>
                   <defs>
@@ -342,12 +358,12 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                   <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
-                  <Area type="monotone" dataKey="count" name="Placements" stroke={COLORS.emerald} strokeWidth={2} fill="url(#placementGrad)" dot={{ r: 4, fill: COLORS.emerald }} />
+                  <Area type="monotone" dataKey="count" name={t("chartPlacements")} stroke={COLORS.emerald} strokeWidth={2} fill="url(#placementGrad)" dot={{ r: 4, fill: COLORS.emerald }} />
                 </AreaChart>
               </ResponsiveContainer>
             </SectionCard>
 
-            <SectionCard title="Internship Status" subtitle="Current breakdown of all students">
+            <SectionCard title={t("chartInternshipStatusTitle")} subtitle={t("chartInternshipStatusSubtitle")}>
               <div className="flex items-center justify-center gap-8">
                 <PieChart width={160} height={160}>
                   <Pie data={internshipPieData} cx={75} cy={75} innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
@@ -370,7 +386,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
 
           {/* Proposal outcomes + weekly plan trend */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <SectionCard title="Proposal Outcomes" subtitle="All-time internship proposal results">
+            <SectionCard title={t("chartProposalOutcomesTitle")} subtitle={t("chartProposalOutcomesSubtitle")}>
               <div className="flex items-center justify-center gap-8">
                 <PieChart width={160} height={160}>
                   <Pie data={proposalPieData} cx={75} cy={75} innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
@@ -390,7 +406,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
               </div>
             </SectionCard>
 
-            <SectionCard title="Weekly Plan Submissions" subtitle="Submitted vs approved per month">
+            <SectionCard title={t("chartWeeklyPlansTitle")} subtitle={t("chartWeeklyPlansSubtitle")}>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={data.weeklyPlanTrend} barSize={12} barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -398,8 +414,8 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                   <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="submitted" name="Submitted" fill={COLORS.slate} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="approved" name="Approved" fill={COLORS.teal} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="submitted" name={t("chartSubmitted")} fill={COLORS.slate} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="approved" name={t("chartApproved")} fill={COLORS.teal} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </SectionCard>
@@ -407,11 +423,11 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
 
           {/* Org approval rates + evaluation scores */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <SectionCard title="Organisation Approval Rates" subtitle="Approved vs total registered">
+            <SectionCard title={t("chartOrgApprovalTitle")} subtitle={t("chartOrgApprovalSubtitle")}>
               <div className="space-y-5">
                 {[
-                  { label: "Universities", approved: data.orgStats.universities.approved, total: data.orgStats.universities.total, color: COLORS.blue },
-                  { label: "Companies",    approved: data.orgStats.companies.approved,    total: data.orgStats.companies.total,    color: COLORS.violet },
+                  { label: t("kpiUniversities"), approved: data.orgStats.universities.approved, total: data.orgStats.universities.total, color: COLORS.blue },
+                  { label: t("kpiCompanies"), approved: data.orgStats.companies.approved, total: data.orgStats.companies.total, color: COLORS.violet },
                 ].map((org) => {
                   const pct = org.total > 0 ? Math.round((org.approved / org.total) * 100) : 0;
                   return (
@@ -429,14 +445,14 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
               </div>
             </SectionCard>
 
-            <SectionCard title="Evaluation Scores" subtitle="Average scores from final evaluations">
+            <SectionCard title={t("chartEvaluationScoresTitle")} subtitle={t("chartEvaluationScoresSubtitle")}>
               {data.evalStats.count === 0 ? (
-                <div className="flex h-24 items-center justify-center text-sm text-slate-400">No evaluations submitted yet</div>
+                <div className="flex h-24 items-center justify-center text-sm text-slate-400">{t("chartNoEvaluationsBlock")}</div>
               ) : (
                 <div className="space-y-5">
                   {[
-                    { label: "Technical Score",  value: data.evalStats.avgTechnical, color: COLORS.blue   },
-                    { label: "Soft Skill Score", value: data.evalStats.avgSoftSkill, color: COLORS.violet },
+                    { label: t("chartTechnicalScore"), value: data.evalStats.avgTechnical, color: COLORS.blue },
+                    { label: t("chartSoftSkillScore"), value: data.evalStats.avgSoftSkill, color: COLORS.violet },
                   ].map((s) => (
                     <div key={s.label}>
                       <div className="mb-1.5 flex justify-between text-sm">
@@ -448,26 +464,26 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                       </div>
                     </div>
                   ))}
-                  <p className="text-xs text-slate-400">Based on {data.evalStats.count} evaluation{data.evalStats.count !== 1 ? "s" : ""}</p>
+                  <p className="text-xs text-slate-400">{t("evaluationBasedOn", { count: data.evalStats.count })}</p>
                 </div>
               )}
             </SectionCard>
           </div>
 
           {/* Recent activity */}
-          <SectionCard title="Recent Admin Activity" subtitle="Latest actions taken on the platform">
+          <SectionCard title={t("activityTitle")} subtitle={t("activitySubtitle")}>
             {data.recentActivity.length === 0 ? (
-              <div className="flex h-16 items-center justify-center text-sm text-slate-400">No activity recorded yet</div>
+              <div className="flex h-16 items-center justify-center text-sm text-slate-400">{t("activityNoRows")}</div>
             ) : (
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-slate-100 dark:border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        <th className="pb-3 pr-4">Action</th>
-                        <th className="pb-3 pr-4">Admin</th>
-                        <th className="pb-3 pr-4">Details</th>
-                        <th className="pb-3 text-right">Date</th>
+                        <th className="pb-3 pr-4">{t("activityColAction")}</th>
+                        <th className="pb-3 pr-4">{t("activityColAdmin")}</th>
+                        <th className="pb-3 pr-4">{t("activityColDetails")}</th>
+                        <th className="pb-3 text-right">{t("activityColDate")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -486,7 +502,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                           </td>
                           <td className="py-3 pr-4 max-w-[220px]">
                             <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                              {entry.details ?? "—"}
+                              {entry.details ?? t("activityDash")}
                             </p>
                           </td>
                           <td className="py-3 text-right text-xs text-slate-400 whitespace-nowrap">
@@ -504,7 +520,11 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                   return (
                     <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
                       <span className="text-xs text-slate-400">
-                        {((activityPage - 1) * ACTIVITY_LIMIT) + 1}–{Math.min(activityPage * ACTIVITY_LIMIT, data.totalActivity)} of {data.totalActivity}
+                        {t("activityPageRange", {
+                          start: ((activityPage - 1) * ACTIVITY_LIMIT) + 1,
+                          end: Math.min(activityPage * ACTIVITY_LIMIT, data.totalActivity),
+                          total: data.totalActivity,
+                        })}
                       </span>
                       <div className="flex items-center gap-1">
                         <button
@@ -513,7 +533,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                           disabled={activityPage <= 1}
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                         >
-                          <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                          <ChevronLeft className="h-3.5 w-3.5" /> {t("paginationPrev")}
                         </button>
                         {Array.from({ length: totalPages }, (_, i) => i + 1)
                           .filter(p => p === 1 || p === totalPages || Math.abs(p - activityPage) <= 1)
@@ -547,7 +567,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
                           disabled={activityPage >= totalPages}
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                         >
-                          Next <ChevronRight className="h-3.5 w-3.5" />
+                          {t("paginationNext")} <ChevronRight className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
@@ -560,7 +580,9 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       ) : null}
 
       <p className="text-center text-xs text-slate-400">
-        Auto-refreshes every 30 seconds · Last updated {lastUpdated?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) ?? "—"}
+        {t("autoRefresh", {
+          time: lastUpdated?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) ?? t("autoRefreshUnknown"),
+        })}
       </p>
     </div>
   );

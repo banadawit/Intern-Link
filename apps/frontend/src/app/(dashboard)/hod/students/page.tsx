@@ -9,8 +9,10 @@ import type { HodStudentRow } from "@/components/hod/types";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import SuccessToast from "@/components/shared/SuccessToast";
 import { useHodStore } from "@/lib/store/hodStore";
+import { useTranslations } from "next-intl";
 
 export default function HodStudentsPage() {
+  const t = useTranslations("HodPortal.students");
   const [students, setStudents] = useState<HodStudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function HodStudentsPage() {
       const res = await api.get<{ success: boolean; data: HodStudentRow[] }>("/hod/students", { params: { status: "all" } });
       setStudents(Array.isArray(res.data.data) ? res.data.data : []);
     } catch {
-      setError("Could not load students.");
+      setError(t("couldNotLoad"));
     } finally {
       setLoading(false);
     }
@@ -45,12 +47,12 @@ export default function HodStudentsPage() {
       setToast({
         show: true,
         message: confirm.action === "approve"
-          ? "✅ Student approved successfully"
-          : "Student registration rejected",
+          ? t("approvedToast")
+          : t("rejectedToast"),
       });
       await load();
     } catch {
-      setError(`Failed to ${confirm.action} student.`);
+      setError(t("failedAction", { action: confirm.action }));
       setConfirm(null);
     } finally {
       setSubmitting(false);
@@ -60,18 +62,15 @@ export default function HodStudentsPage() {
   return (
     <div className="space-y-6 pb-8">
       <HodPageHero
-        badge="Student approvals"
-        title="Student approvals"
-        description="Approve or reject student registrations in your department."
+        badge={t("badge")}
+        title={t("title")}
+        description={t("description")}
         action={
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
+          <button type="button" onClick={() => void load()} disabled={loading}
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
@@ -95,13 +94,9 @@ export default function HodStudentsPage() {
 
       <ConfirmDialog
         open={!!confirm}
-        title={confirm?.action === "approve" ? "Approve student?" : "Reject student?"}
-        message={
-          confirm?.action === "approve"
-            ? "This will grant the student access to InternLink features. You can review their profile before confirming."
-            : "This will reject the student's registration. They will be notified by email."
-        }
-        confirmLabel={confirm?.action === "approve" ? "Approve" : "Reject"}
+        title={confirm?.action === "approve" ? t("approveTitle") : t("rejectTitle")}
+        message={confirm?.action === "approve" ? t("approveMessage") : t("rejectMessage")}
+        confirmLabel={confirm?.action === "approve" ? t("approve") : t("reject")}
         variant={confirm?.action === "approve" ? "success" : "danger"}
         loading={submitting}
         onConfirm={() => void actOnStudent()}

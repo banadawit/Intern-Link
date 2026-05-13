@@ -8,9 +8,11 @@ import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodStatCards from "@/components/hod/HodStatCards";
 import HodQuickLinks from "@/components/hod/HodQuickLinks";
 import type { HodStats } from "@/components/hod/types";
+import { useTranslations } from "next-intl";
 
 export default function HodDashboardPage() {
   const { user } = useAuth();
+  const t = useTranslations("HodPortal.dashboard");
   const [stats, setStats] = useState<HodStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export default function HodDashboardPage() {
       const st = await api.get<{ success: boolean; data: HodStats }>("/hod/dashboard-stats");
       setStats(st.data.data ?? null);
     } catch {
-      setError("Could not load dashboard data.");
+      setError(t("couldNotLoad"));
     } finally {
       setLoading(false);
     }
@@ -41,9 +43,9 @@ export default function HodDashboardPage() {
   return (
     <div className="space-y-8 pb-8">
       <HodPageHero
-        badge="Department portal"
-        title={`Welcome back, ${user?.fullName ?? "Head of Department"}`}
-        description="Overview of your department. Use the sidebar or the links below to manage students, placements, and reports."
+        badge={t("badge")}
+        title={t("welcomeBack", { name: user?.fullName ?? t("hodFallback") })}
+        description={t("description")}
         action={
           <button
             type="button"
@@ -52,7 +54,7 @@ export default function HodDashboardPage() {
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />

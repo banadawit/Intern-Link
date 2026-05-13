@@ -21,8 +21,10 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import StudentPageHero from './StudentPageHero';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useTranslations } from 'next-intl';
 
 const CommonPage = () => {
+  const t = useTranslations('StudentPortal.commonPage');
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,12 +88,12 @@ const CommonPage = () => {
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-500">
       <StudentPageHero
-        badge="Common page"
-        title="Common Page"
-        description="Share experiences, announcements, and updates with the community."
+        badge={t('badge')}
+        title={t('title')}
+        description={t('description')}
       />
 
-      {loading && <p className="text-sm text-text-muted">Loading feed…</p>}
+      {loading && <p className="text-sm text-text-muted">{t('loading')}</p>}
 
       <div className="card p-6">
         <form onSubmit={handlePostSubmit} className="space-y-4">
@@ -101,7 +103,7 @@ const CommonPage = () => {
             </div>
             <textarea
               className="flex-1 bg-bg-secondary border border-border-default rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring-focus focus:border-transparent transition-all min-h-[100px] resize-none"
-              placeholder="Share your experience or an update..."
+              placeholder={t('placeholder')}
               value={newPostContent}
               onChange={(e) => setNewPostContent(e.target.value)}
             />
@@ -124,7 +126,7 @@ const CommonPage = () => {
               className="btn-primary flex items-center gap-2 px-6 py-2.5 rounded-xl disabled:opacity-60"
             >
               <Send className="w-4 h-4" />
-              Post
+              {t('post')}
             </button>
           </div>
         </form>
@@ -158,21 +160,21 @@ const CommonPage = () => {
             <div className="flex items-center gap-6 pt-2 border-t border-border-default">
               <button type="button" className="flex items-center gap-2 text-sm text-text-muted hover:text-red-500 transition-colors">
                 <Heart className="w-4 h-4" />
-                {post.likes > 0 ? post.likes : 'Like'}
+                {post.likes > 0 ? post.likes : t('like')}
               </button>
               <button type="button" className="flex items-center gap-2 text-sm text-text-muted hover:text-primary-base transition-colors">
                 <MessageSquare className="w-4 h-4" />
-                Comment
+                {t('comment')}
               </button>
               <button type="button" className="flex items-center gap-2 text-sm text-text-muted hover:text-primary-base transition-colors">
                 <Share2 className="w-4 h-4" />
-                Share
+                {t('share')}
               </button>
             </div>
           </div>
         ))}
         {!loading && postsChronological.length === 0 && (
-          <p className="text-center text-text-muted py-12">No posts yet. Be the first to share an update.</p>
+          <p className="text-center text-text-muted py-12">{t('noPosts')}</p>
         )}
       </div>
     </div>

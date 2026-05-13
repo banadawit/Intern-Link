@@ -5,6 +5,7 @@ import CalendarHeatmap from "react-calendar-heatmap";
 import api from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { Activity, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export type ActivityDay = { date: string; count: number };
 
@@ -64,6 +65,7 @@ function dayAfterUtcYmd(ymd: string): string {
 }
 
 export default function ContributionHeatmap() {
+  const t = useTranslations("StudentPortal.activity");
   const [series, setSeries] = useState<ActivityDay[]>([]);
   const [stats, setStats] = useState<ActivityStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +87,7 @@ export default function ContributionHeatmap() {
           ? (err as { response?: { data?: { error?: string; message?: string } } }).response?.data?.error ??
             (err as { response?: { data?: { error?: string; message?: string } } }).response?.data?.message
           : null;
-      setError(msg ? `Could not load activity: ${msg}` : "Could not load activity. Check that you are signed in and the API is running.");
+      setError(msg ? `${t("loadError")}: ${msg}` : t("loadError"));
       setSeries([]);
       setStats(null);
     } finally {
@@ -170,7 +172,7 @@ export default function ContributionHeatmap() {
   );
 
   const titleForValue = (value: { date?: string | Date; count?: number } | null) => {
-    if (!value?.date) return "No activity";
+    if (!value?.date) return t("noActivity");
     const d = typeof value.date === "string" ? value.date.slice(0, 10) : value.date.toISOString().slice(0, 10);
     const c = value.count ?? 0;
     return `Date: ${d}, Activity: ${c}`;
@@ -185,7 +187,7 @@ export default function ContributionHeatmap() {
     return (
       <div className="flex min-h-[140px] w-full min-w-0 items-center justify-center gap-2 rounded-2xl border border-border-default bg-white p-8 text-slate-500">
         <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-        Loading activity…
+        {t("loading")}
       </div>
     );
   }
@@ -206,9 +208,9 @@ export default function ContributionHeatmap() {
             <Activity className="h-5 w-5" aria-hidden />
           </span>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Contribution activity</h2>
+            <h2 className="text-lg font-bold text-slate-900">{t("title")}</h2>
             <p className="text-sm text-slate-500">
-              Last 365 days (UTC). Logins, weekly plan submissions, and daily check-ins.
+              {t("subtitle")}
             </p>
           </div>
         </div>
@@ -217,26 +219,26 @@ export default function ContributionHeatmap() {
           onClick={() => void load()}
           className="self-start rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
         >
-          Refresh
+          {t("refresh")}
         </button>
       </div>
 
       {derivedStats && (
         <dl className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100">
-            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</dt>
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("total")}</dt>
             <dd className="text-lg font-bold tabular-nums text-slate-900">{derivedStats.totalContributions}</dd>
           </div>
           <div className="rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100">
-            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Current streak</dt>
-            <dd className="text-lg font-bold tabular-nums text-slate-900">{derivedStats.currentStreak} days</dd>
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("currentStreak")}</dt>
+            <dd className="text-lg font-bold tabular-nums text-slate-900">{derivedStats.currentStreak} {t("days")}</dd>
           </div>
           <div className="rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100">
-            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Longest streak</dt>
-            <dd className="text-lg font-bold tabular-nums text-slate-900">{derivedStats.longestStreak} days</dd>
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("longestStreak")}</dt>
+            <dd className="text-lg font-bold tabular-nums text-slate-900">{derivedStats.longestStreak} {t("days")}</dd>
           </div>
           <div className="rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100">
-            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Most active day</dt>
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("mostActiveDay")}</dt>
             <dd className="text-sm font-semibold text-slate-900">
               {derivedStats.mostActiveDate ? (
                 <>
@@ -275,7 +277,7 @@ export default function ContributionHeatmap() {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
-        <span className="font-medium text-slate-600">Less</span>
+        <span className="font-medium text-slate-600">{t("less")}</span>
         <span className="flex items-center gap-1">
           {[0, 1, 2, 3, 4].map((i) => (
             <span
@@ -284,7 +286,7 @@ export default function ContributionHeatmap() {
             />
           ))}
         </span>
-        <span className="font-medium text-slate-600">More</span>
+        <span className="font-medium text-slate-600">{t("more")}</span>
       </div>
     </div>
   );

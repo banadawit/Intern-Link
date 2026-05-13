@@ -4,29 +4,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  GraduationCap, 
-  ArrowRight, 
-  ArrowLeft, 
-  Upload, 
-  CheckCircle2,
-  Mail,
-  Lock,
-  UserCircle,
-  AlertCircle,
-  Eye,
-  EyeOff,
-  X,
-  FileText,
-  Loader2,
-  Check,
-  Building,
-  Briefcase,
-  School,
-  ChevronDown,
-  Search
+  GraduationCap, ArrowRight, ArrowLeft, Upload, CheckCircle2,
+  Mail, Lock, UserCircle, AlertCircle, Eye, EyeOff, X,
+  FileText, Loader2, Check, Building, Briefcase, School,
+  ChevronDown, Search
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { cloudinaryService } from '@/lib/services/cloudinary.service';
+import { useTranslations } from 'next-intl';
 
 // Types
 type Role = 'student' | 'coordinator' | 'hod' | 'supervisor' | null;
@@ -69,6 +54,8 @@ interface FormErrors {
 const RegisterPage = () => {
   const router = useRouter();
   const { register, isLoading: authLoading } = useAuth();
+  const t = useTranslations('Auth.register');
+  const tErr = useTranslations('Auth.register.errors');
   
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<Role>(null);
@@ -131,11 +118,11 @@ const RegisterPage = () => {
     if (password.match(/[^A-Za-z0-9]/)) score++;
     
     const strengthMap = {
-      0: { label: 'Very Weak', color: 'text-red-500' },
-      1: { label: 'Weak', color: 'text-orange-500' },
-      2: { label: 'Fair', color: 'text-yellow-500' },
-      3: { label: 'Good', color: 'text-primary-500' },
-      4: { label: 'Strong', color: 'text-emerald-500' },
+      0: { label: t('passwordStrength.weak'),   color: 'text-red-500'     },
+      1: { label: t('passwordStrength.weak'),   color: 'text-orange-500'  },
+      2: { label: t('passwordStrength.fair'),   color: 'text-yellow-500'  },
+      3: { label: t('passwordStrength.good'),   color: 'text-primary-500' },
+      4: { label: t('passwordStrength.strong'), color: 'text-emerald-500' },
     };
     
     return { score, ...strengthMap[score as keyof typeof strengthMap] };
@@ -181,55 +168,54 @@ const RegisterPage = () => {
 
   // Validation functions
   const validateFullName = (name: string) => {
-    if (!name) return 'Full name is required';
-    if (name.length < 3) return 'Name must be at least 3 characters';
+    if (!name) return tErr('fullNameRequired');
+    if (name.length < 3) return tErr('fullNameRequired');
     return '';
   };
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
-    if (!email) return 'Email is required';
-    if (!emailRegex.test(email)) return 'Please enter a valid email address';
-    
+    if (!email) return tErr('emailRequired');
+    if (!emailRegex.test(email)) return tErr('emailInvalid');
     return '';
   };
 
   const validatePassword = (password: string) => {
-    if (!password) return 'Password is required';
-    if (password.length < 8) return 'Password must be at least 8 characters';
-    if (!password.match(/[A-Za-z]/)) return 'Password must contain at least one letter';
-    if (!password.match(/[0-9]/)) return 'Password must contain at least one number';
+    if (!password) return tErr('passwordRequired');
+    if (password.length < 8) return tErr('passwordMinLength');
+    if (!password.match(/[A-Za-z]/)) return tErr('passwordRequired');
+    if (!password.match(/[0-9]/)) return tErr('passwordRequired');
     return '';
   };
 
   const validateConfirmPassword = (confirm: string) => {
-    if (!confirm) return 'Please confirm your password';
-    if (confirm !== formData.password) return 'Passwords do not match';
+    if (!confirm) return tErr('passwordMismatch');
+    if (confirm !== formData.password) return tErr('passwordMismatch');
     return '';
   };
 
   const validateRoleSpecific = () => {
     if (role === 'coordinator') {
-      if (!formData.universityId) return 'University selection is required. Please select an existing institution from the dropdown list. You cannot proceed with a manually typed organization name.';
+      if (!formData.universityId) return tErr('universityRequired');
       // Verify the selected ID actually exists in approved universities
       const selectedUni = approvedUniversities.find(u => u.id === formData.universityId);
-      if (!selectedUni) return 'Selected university is not valid or no longer approved. Please select from the list again.';
+      if (!selectedUni) return tErr('universityRequired');
     }
     if (role === 'hod') {
-      if (!formData.universityId) return 'Please select a university';
+      if (!formData.universityId) return tErr('universityRequired');
       if (!approvedUniversities.find((u) => u.id === formData.universityId)?.hasCoordinator) {
-        return 'This university does not have a coordinator yet. Please make sure your coordinator registers and gets approved first.';
+        return t('noCoordinatorWarning');
       }
-      if (!formData.department) return 'Department is required';
+      if (!formData.department) return tErr('departmentRequired');
     }
     if (role === 'supervisor') {
-      if (!formData.companyName) return 'Company name is required';
-      if (!formData.position) return 'Position is required';
+      if (!formData.companyName) return tErr('companyRequired');
+      if (!formData.position) return tErr('positionRequired');
     }
     if (role === 'student') {
-      if (!formData.universityId) return 'Please select a university';
-      if (!formData.hodId) return 'Please select a department';
-      if (!formData.studentId) return 'Student ID is required';
+      if (!formData.universityId) return tErr('universityRequired');
+      if (!formData.hodId) return tErr('hodRequired');
+      if (!formData.studentId) return tErr('studentIdRequired');
     }
     return '';
   };
@@ -338,7 +324,7 @@ const RegisterPage = () => {
     }
     
     if (!agreedToTerms) {
-      setErrors(prev => ({ ...prev, general: 'You must agree to the terms and conditions' }));
+      setErrors(prev => ({ ...prev, general: tErr('termsRequired') }));
       return false;
     }
     
@@ -414,7 +400,7 @@ const RegisterPage = () => {
     } catch (error: unknown) {
       const err = error as { message?: string };
       setErrors({
-        general: err?.message || 'Registration failed. Please try again.'
+        general: err?.message || tErr('registrationFailed')
       });
     } finally {
       setIsLoading(false);
@@ -428,9 +414,9 @@ const RegisterPage = () => {
       {/* Progress Header */}
       <div className="space-y-2">
         <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-          <span>Step {step} of 3</span>
+          <span>{t('stepOf', { step, total: 3 })}</span>
           <span>
-            {step === 1 ? 'Role Selection' : step === 2 ? 'Account Details' : 'Verification'}
+            {step === 1 ? t('step1Title') : step === 2 ? t('step2Title') : t('step3Title')}
           </span>
         </div>
         <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden dark:bg-slate-800">
@@ -453,42 +439,18 @@ const RegisterPage = () => {
       {step === 1 && (
         <div className="space-y-6 animate-slide-up">
           <div className="text-center lg:text-left">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Choose your role</h1>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{t('step1Title')}</h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Select how you will be using the InternLink platform
+              {t('step1Subtitle')}
             </p>
           </div>
 
           <div className="grid gap-4">
             {[
-              { 
-                id: 'student' as const, 
-                title: 'Student', 
-                icon: GraduationCap, 
-                desc: 'Apply for internships and track your progress',
-                color: 'bg-emerald-50 text-emerald-600',
-              },
-              { 
-                id: 'coordinator' as const, 
-                title: 'University Coordinator', 
-                icon: School, 
-                desc: 'Manage student placements and university partnerships',
-                color: 'bg-primary-50 text-primary-600',
-              },
-              {
-                id: 'hod' as const,
-                title: 'Head of Department',
-                icon: Building,
-                desc: 'Oversee departmental internship activities and approvals',
-                color: 'bg-violet-50 text-violet-600',
-              },
-              { 
-                id: 'supervisor' as const, 
-                title: 'Company Supervisor', 
-                icon: Briefcase, 
-                desc: 'Evaluate students and verify internship reports',
-                color: 'bg-slate-100 text-slate-600',
-              },
+              { id: 'student' as const,     title: t('roles.student'),     icon: GraduationCap, desc: t('roles.studentDesc'),     color: 'bg-emerald-50 text-emerald-600' },
+              { id: 'coordinator' as const, title: t('roles.coordinator'), icon: School,        desc: t('roles.coordinatorDesc'), color: 'bg-primary-50 text-primary-600' },
+              { id: 'hod' as const,         title: t('roles.hod'),         icon: Building,      desc: t('roles.hodDesc'),         color: 'bg-violet-50 text-violet-600'   },
+              { id: 'supervisor' as const,  title: t('roles.supervisor'),  icon: Briefcase,     desc: t('roles.supervisorDesc'),  color: 'bg-slate-100 text-slate-600'    },
             ].map((item) => {
               const isClosed = !regStatus[item.id];
               return (
@@ -516,12 +478,12 @@ const RegisterPage = () => {
                   <div className="flex-1">
                     <p className={`font-bold ${isClosed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>{item.title}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {isClosed ? 'Registration is currently closed for this role.' : item.desc}
+                      {isClosed ? t('registrationClosed') : item.desc}
                     </p>
                   </div>
                   {isClosed ? (
                     <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                      Closed
+                      {t('closed')}
                     </span>
                   ) : role === item.id ? (
                     <CheckCircle2 className="h-5 w-5 text-primary-600" />
@@ -536,7 +498,7 @@ const RegisterPage = () => {
             onClick={nextStep}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Continue to Account Details 
+            {t('createAccount')}
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -546,9 +508,9 @@ const RegisterPage = () => {
       {step === 2 && (
         <div className="space-y-6 animate-slide-up">
           <div className="text-center lg:text-left">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Account Details</h1>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{t('step2Title')}</h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Enter your official credentials
+              {t('step2Subtitle')}
             </p>
           </div>
 
@@ -556,7 +518,7 @@ const RegisterPage = () => {
             {/* Full Name */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Full Name <span className="text-red-500">*</span>
+                {t('fullName')} <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
                 <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
@@ -566,7 +528,7 @@ const RegisterPage = () => {
                   value={formData.fullName}
                   onChange={handleInputChange}
                   onBlur={() => handleBlur('fullName')}
-                  placeholder="Enter your full name"
+                  placeholder={t('fullNamePlaceholder')}
                   className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                     focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                     ${errors.fullName && touched.fullName 
@@ -586,7 +548,7 @@ const RegisterPage = () => {
             {/* Email */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Email Address <span className="text-red-500">*</span>
+                {t('email')} <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
@@ -596,7 +558,7 @@ const RegisterPage = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   onBlur={() => handleBlur('email')}
-                  placeholder={role === 'coordinator' ? 'Enter your university email' : 'Enter your email address'}
+                  placeholder={role === 'coordinator' ? t('emailPlaceholder') : t('emailPlaceholder')}
                   className={`w-full pl-10 pr-4 py-3 rounded-xl border bg-white text-slate-900 placeholder:text-slate-400 transition-all dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500
                     focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
                     ${errors.email && touched.email 
@@ -616,7 +578,7 @@ const RegisterPage = () => {
             {/* Password */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Password <span className="text-red-500">*</span>
+                {t('password')} <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
@@ -665,7 +627,7 @@ const RegisterPage = () => {
                     ))}
                   </div>
                   <p className={`text-xs ${passwordStrength.color}`}>
-                    {passwordStrength.label} password
+                    {passwordStrength.label} {t('passwordStrengthSuffix')}
                   </p>
                 </div>
               )}
@@ -681,7 +643,7 @@ const RegisterPage = () => {
             {/* Confirm Password */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Confirm Password <span className="text-red-500">*</span>
+                {t('confirmPassword')} <span className="text-red-500">*</span>
               </label>
               <div className="relative group">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
@@ -722,13 +684,13 @@ const RegisterPage = () => {
               className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors rounded-xl hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-900"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back
+              {t('back')}
             </button>
             <button
               onClick={nextStep}
               className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
             >
-              Next Step
+              {t('nextStep')}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -740,19 +702,19 @@ const RegisterPage = () => {
         <div className="space-y-6 animate-slide-up">
           <div className="text-center lg:text-left">
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-              {role === 'student' ? 'Student Information' : 
-               role === 'coordinator' ? 'University Information' :
-               role === 'hod' ? 'Department Information' :
-               'Company Information'}
+              {role === 'student' ? t('step3TitleStudent') : 
+               role === 'coordinator' ? t('step3TitleCoordinator') :
+               role === 'hod' ? t('step3TitleHod') :
+               t('step3TitleSupervisor')}
             </h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               {role === 'student' 
-                ? 'Enter your academic details and upload student ID'
+                ? t('step3SubtitleStudent')
                 : role === 'coordinator'
-                ? 'Select your institution from the approved universities'
+                ? t('step3SubtitleCoordinator')
                 : role === 'hod'
-                ? 'Select your university, enter your department, and upload your staff ID'
-                : 'Enter your company details and upload official verification document'}
+                ? t('step3SubtitleHod')
+                : t('step3SubtitleSupervisor')}
             </p>
           </div>
 
@@ -771,7 +733,7 @@ const RegisterPage = () => {
                 {/* Searchable University Dropdown - REQUIRED FROM DATABASE ONLY */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    University <span className="text-red-500">* (select from list only)</span>
+                    {t('universityLabel')} <span className="text-red-500">* ({t('selectFromListOnly')})</span>
                   </label>
                   <div className="relative">
                     <button
@@ -789,7 +751,7 @@ const RegisterPage = () => {
                       <span className={formData.universityId ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>
                         {formData.universityId
                           ? approvedUniversities.find((u) => u.id === formData.universityId)?.name
-                          : 'Select your university'}
+                          : t('selectUniversity')}
                       </span>
                       <ChevronDown className={`h-4 w-4 text-slate-400 dark:text-slate-500 transition-transform ${uniDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -804,7 +766,7 @@ const RegisterPage = () => {
                               name="universitySearch"
                               value={formData.universitySearch}
                               onChange={handleInputChange}
-                              placeholder="Search universities..."
+                              placeholder={t('universitySearchPlaceholder')}
                               className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:bg-slate-950 dark:text-slate-100"
                               autoFocus
                             />
@@ -833,7 +795,7 @@ const RegisterPage = () => {
                           {approvedUniversities.filter((u) =>
                             u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
                           ).length === 0 && (
-                            <li className="px-4 py-3 text-sm text-slate-400 text-center">No universities found</li>
+                            <li className="px-4 py-3 text-sm text-slate-400 text-center">{t('noUniversitiesFound')}</li>
                           )}
                         </ul>
                       </div>
@@ -853,9 +815,9 @@ const RegisterPage = () => {
                     <div className="flex items-start gap-3">
                       <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-red-800 dark:text-red-300">University selection required</p>
+                        <p className="text-sm font-semibold text-red-800 dark:text-red-300">{t('universitySelectionRequiredTitle')}</p>
                         <p className="text-xs text-red-700 dark:text-red-400 mt-1">
-                          You must select an existing university from the dropdown. You cannot proceed without selecting a valid institution. Typing text alone is not a valid selection.
+                          {t('universitySelectionRequiredBody')}
                         </p>
                       </div>
                     </div>
@@ -870,9 +832,9 @@ const RegisterPage = () => {
                     <div className="flex items-start gap-3">
                       <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Can't find your institution?</p>
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('cantFindInstitution')}</p>
                         <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                          If your university is not listed, you can request to have it added to the system.
+                          {t('cantFindInstitutionBody')}
                         </p>
                         <button
                           type="button"
@@ -883,7 +845,7 @@ const RegisterPage = () => {
                           }}
                           className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 underline underline-offset-2"
                         >
-                          Request New Institution
+                          {t('requestNewInstitution')}
                         </button>
                       </div>
                     </div>
@@ -897,7 +859,7 @@ const RegisterPage = () => {
                 {/* Searchable University Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    University <span className="text-red-500">*</span>
+                    {t('universityLabel')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <button
@@ -909,7 +871,7 @@ const RegisterPage = () => {
                       <span className={formData.universityId ? 'text-slate-900' : 'text-slate-400'}>
                         {formData.universityId
                           ? approvedUniversities.find((u) => u.id === formData.universityId)?.name
-                          : 'Select your university'}
+                          : t('selectUniversity')}
                       </span>
                       <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${uniDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -924,7 +886,7 @@ const RegisterPage = () => {
                               name="universitySearch"
                               value={formData.universitySearch}
                               onChange={handleInputChange}
-                              placeholder="Search universities..."
+                              placeholder={t('universitySearchPlaceholder')}
                               className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                               autoFocus
                             />
@@ -953,7 +915,7 @@ const RegisterPage = () => {
                           {approvedUniversities.filter((u) =>
                             u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
                           ).length === 0 && (
-                            <li className="px-4 py-3 text-sm text-slate-400 text-center">No universities found</li>
+                            <li className="px-4 py-3 text-sm text-slate-400 text-center">{t('noUniversitiesFound')}</li>
                           )}
                         </ul>
                       </div>
@@ -968,7 +930,7 @@ const RegisterPage = () => {
                   {role === 'hod' && formData.universityId && !approvedUniversities.find((u) => u.id === formData.universityId)?.hasCoordinator && (
                     <div className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
                       <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                      <span>This university does not have a coordinator yet. Please make sure your coordinator registers and gets approved first before you register as Head of Department.</span>
+                      <span>{t('noCoordinatorWarning')}</span>
                     </div>
                   )}
                 </div>
@@ -976,7 +938,7 @@ const RegisterPage = () => {
                 {/* Department */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Department <span className="text-red-500">*</span>
+                    {t('departmentLabel')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -985,7 +947,7 @@ const RegisterPage = () => {
                       name="department"
                       value={formData.department}
                       onChange={handleInputChange}
-                      placeholder="Enter your department name"
+                      placeholder={t('departmentInputPlaceholder')}
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                     />
                   </div>
@@ -994,14 +956,14 @@ const RegisterPage = () => {
                 {/* Employee ID (optional) */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Employee ID <span className="text-slate-400 font-normal">(optional)</span>
+                    {t('employeeIdLabel')} <span className="text-slate-400 font-normal">({t('optional')})</span>
                   </label>
                   <input
                     type="text"
                     name="employeeId"
                     value={formData.employeeId}
                     onChange={handleInputChange}
-                    placeholder="Enter your employee ID (optional)"
+                    placeholder={t('employeeIdInputPlaceholder')}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                   />
                 </div>
@@ -1012,7 +974,7 @@ const RegisterPage = () => {
               <>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Company Name <span className="text-red-500">*</span>
+                    {t('companyNameLabel')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -1021,21 +983,21 @@ const RegisterPage = () => {
                       name="companyName"
                       value={formData.companyName}
                       onChange={handleInputChange}
-                      placeholder="Enter your company name"
+                      placeholder={t('companyNamePlaceholder')}
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Position <span className="text-red-500">*</span>
+                    {t('positionLabel')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="position"
                     value={formData.position}
                     onChange={handleInputChange}
-                    placeholder="Enter your position or job title"
+                    placeholder={t('positionPlaceholder')}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                   />
                 </div>
@@ -1047,7 +1009,7 @@ const RegisterPage = () => {
                 {/* University Searchable Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    University <span className="text-red-500">*</span>
+                    {t('universityLabel')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <button
@@ -1059,7 +1021,7 @@ const RegisterPage = () => {
                       <span className={formData.universityId ? 'text-slate-900' : 'text-slate-400'}>
                         {formData.universityId
                           ? approvedUniversities.find((u) => u.id === formData.universityId)?.name
-                          : 'Select your university'}
+                          : t('selectUniversity')}
                       </span>
                       <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${uniDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -1073,7 +1035,7 @@ const RegisterPage = () => {
                               name="universitySearch"
                               value={formData.universitySearch}
                               onChange={handleInputChange}
-                              placeholder="Search universities..."
+                              placeholder={t('universitySearchPlaceholder')}
                               className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                               autoFocus
                             />
@@ -1098,7 +1060,7 @@ const RegisterPage = () => {
                               </li>
                             ))}
                           {approvedUniversities.filter((u) => u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())).length === 0 && (
-                            <li className="px-4 py-3 text-sm text-slate-400 text-center">No universities found</li>
+                            <li className="px-4 py-3 text-sm text-slate-400 text-center">{t('noUniversitiesFound')}</li>
                           )}
                         </ul>
                       </div>
@@ -1114,7 +1076,7 @@ const RegisterPage = () => {
                 {/* Department Dropdown — populated after university selected */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Department <span className="text-red-500">*</span>
+                    {t('departmentLabel')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -1130,12 +1092,12 @@ const RegisterPage = () => {
                     >
                       <option value="">
                         {!formData.universityId
-                          ? 'Select a university first'
+                          ? t('selectUniversityFirst')
                           : deptLoading
-                          ? 'Loading departments...'
+                          ? t('loadingDepartments')
                           : departments.length === 0
-                          ? 'No departments available'
-                          : 'Select your department'}
+                          ? t('noDepartmentsAvailable')
+                          : t('selectDepartment')}
                       </option>
                       {departments.map((d) => (
                         <option key={d.id} value={d.id}>{d.department}</option>
@@ -1153,14 +1115,14 @@ const RegisterPage = () => {
                 {/* Student ID */}
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Student ID <span className="text-red-500">*</span>
+                    {t('studentIdLabel')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="studentId"
                     value={formData.studentId}
                     onChange={handleInputChange}
-                    placeholder="Enter your student ID"
+                    placeholder={t('studentIdPlaceholder')}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                   />
                 </div>
@@ -1175,17 +1137,17 @@ const RegisterPage = () => {
                 ? 'text-slate-400 dark:text-slate-500' 
                 : 'text-slate-700 dark:text-slate-200'
             }`}>
-              {role === 'student' ? 'Student ID / Verification' : 
-               role === 'coordinator' ? 'Official University Letter with Stamp (Optional)' :
-               role === 'hod' ? 'Staff ID / Verification Document' :
-               'Official Company Letter with Stamp'} {role !== 'coordinator' && <span className="text-red-500">*</span>}
+              {role === 'student' ? t('fileUploadStudent') : 
+               role === 'coordinator' ? t('fileUploadCoordinator') :
+               role === 'hod' ? t('fileUploadHod') :
+               t('fileUploadSupervisor')} {role !== 'coordinator' && <span className="text-red-500">*</span>}
             </label>
             
             {/* Disabled state message for coordinators without selection */}
             {role === 'coordinator' && !formData.universityId && (
               <div className="rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/50 p-4 text-center">
                 <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                  ℹ️ File upload is disabled until you select a valid university
+                  ℹ️ {t('fileUploadDisabled')}
                 </p>
               </div>
             )}
@@ -1217,14 +1179,14 @@ const RegisterPage = () => {
                   coordinatorUploadLocked
                     ? 'text-slate-600 dark:text-slate-400'
                     : 'text-slate-900 dark:text-slate-100'
-                }`}>Click to upload or drag and drop</p>
+                }`}>{t('clickToUpload')}</p>
                 <p className={`text-xs mt-1 ${
                   coordinatorUploadLocked
                     ? 'text-slate-500 dark:text-slate-500'
                     : 'text-slate-500 dark:text-slate-400'
-                }`}>PDF, JPG or PNG (max. 5MB)</p>
+                }`}>{t('fileFormats')}</p>
                 {role !== 'coordinator' && (
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Official document with institutional stamp required</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">{t('officialDocRequired')}</p>
                 )}
               </label>
             ) : (
@@ -1282,13 +1244,13 @@ const RegisterPage = () => {
               className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
             />
             <label htmlFor="terms" className="text-sm text-slate-600 dark:text-slate-400">
-              I agree to the{' '}
+              {t('agreeToTerms')}{' '}
               <Link href="/terms" className="text-primary-600 hover:text-primary-700 font-medium">
-                Terms of Service
+                {t('termsOfService')}
               </Link>{' '}
-              and{' '}
+              {t('and')}{' '}
               <Link href="/privacy" className="text-primary-600 hover:text-primary-700 font-medium">
-                Privacy Policy
+                {t('privacyPolicy')}
               </Link>
             </label>
           </div>
@@ -1299,28 +1261,28 @@ const RegisterPage = () => {
               className="flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors rounded-xl hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-900"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back
+              {t('back')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={isLoading || authLoading || (role === 'coordinator' && !formData.universityId)}
               className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700 disabled:opacity-70 disabled:cursor-not-allowed"
-              title={role === 'coordinator' && !formData.universityId ? 'Please select a valid university from the dropdown first' : ''}
+              title={role === 'coordinator' && !formData.universityId ? t('selectUniversityFirst') : ''}
             >
               {isLoading || authLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating Account...
+                  {t('creatingAccount')}
                 </>
               ) : role === 'coordinator' && !formData.universityId ? (
                 <>
                   <AlertCircle className="h-4 w-4" />
-                  Select University to Continue
+                  {t('selectUniversityToContinue')}
                 </>
               ) : (
                 <>
                   <Check className="h-4 w-4" />
-                  Complete Registration
+                  {t('createAccount')}
                 </>
               )}
             </button>
@@ -1330,12 +1292,12 @@ const RegisterPage = () => {
 
       {/* Footer */}
       <p className="text-center text-sm text-slate-500 pt-4 dark:text-slate-400">
-        Already have an account?{' '}
+        {t('alreadyHaveAccount')}{' '}
         <Link 
           href="/login" 
           className="font-bold text-primary-600 hover:text-primary-700 underline underline-offset-4 transition-colors"
         >
-          Sign In
+          {t('signIn')}
         </Link>
       </p>
     </div>

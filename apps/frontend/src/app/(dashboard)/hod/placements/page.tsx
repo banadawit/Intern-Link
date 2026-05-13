@@ -8,8 +8,10 @@ import HodSendProposalForm from "@/components/hod/HodSendProposalForm";
 import HodProposalTrackerTable from "@/components/hod/HodProposalTrackerTable";
 import SuccessToast from "@/components/shared/SuccessToast";
 import type { HodCompanyRow, HodProposalRow, HodStudentRow } from "@/components/hod/types";
+import { useTranslations } from "next-intl";
 
 export default function HodPlacementsPage() {
+  const t = useTranslations("HodPortal.placements");
   const [students, setStudents] = useState<HodStudentRow[]>([]);
   const [companies, setCompanies] = useState<HodCompanyRow[]>([]);
   const [proposals, setProposals] = useState<HodProposalRow[]>([]);
@@ -39,7 +41,7 @@ export default function HodPlacementsPage() {
       setCompanies(Array.isArray(comp.data.data) ? comp.data.data : []);
       setProposals(Array.isArray(prop.data.data) ? prop.data.data : []);
     } catch {
-      setError("Could not load placement data.");
+      setError(t("couldNotLoad"));
     } finally {
       setLoading(false);
     }
@@ -106,13 +108,13 @@ export default function HodPlacementsPage() {
       setToast({
         show: true,
         message: ids.length > 1
-          ? `✅ ${ids.length} proposals sent successfully`
-          : "✅ Proposal sent to company successfully",
+          ? t("proposalsSentMultiple", { count: ids.length })
+          : t("proposalSentOne"),
       });
       await load();
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { message?: string; error?: string } } };
-      setError(ax.response?.data?.message ?? ax.response?.data?.error ?? "Could not send proposal.");
+      setError(ax.response?.data?.message ?? ax.response?.data?.error ?? t("couldNotSend"));
     } finally {
       setSubmitting(false);
     }
@@ -133,11 +135,11 @@ export default function HodPlacementsPage() {
       setReassignStudent(null);
       setReassignCompanyId("");
       setReassignWeeks("");
-      setToast({ show: true, message: "✅ Student reassigned to new company" });
+      setToast({ show: true, message: t("reassignedToast") });
       await load();
     } catch (err: unknown) {
       const ax = err as { response?: { data?: { error?: string } } };
-      setError(ax.response?.data?.error || "Could not reassign student.");
+      setError(ax.response?.data?.error || t("couldNotReassign"));
     } finally {
       setSubmitting(false);
     }
@@ -146,15 +148,15 @@ export default function HodPlacementsPage() {
   return (
     <div className="space-y-8 pb-8">
       <HodPageHero
-        badge="Placements"
-        title="Placements"
-        description="Send university-initiated proposals to verified companies and track responses in one place."
+        badge={t("badge")}
+        title={t("title")}
+        description={t("description")}
         action={
           <button type="button" onClick={() => void load()} disabled={loading}
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
@@ -172,8 +174,8 @@ export default function HodPlacementsPage() {
           {/* Students needing reassignment */}
           {studentsNeedingReassignment.length > 0 && (
             <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6 dark:border-amber-900/50 dark:bg-amber-900/20">
-              <h2 className="text-base font-bold text-amber-900 mb-1 dark:text-amber-200">⚠️ Students needing reassignment</h2>
-              <p className="text-sm text-amber-700 mb-4 dark:text-amber-300">These students were rejected by a company. Assign them to a new company.</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("needsReassignment")}</h3>
+              <p className="text-sm text-amber-700 mb-4 dark:text-amber-300">{t("needsReassignmentDesc")}</p>
               <div className="space-y-2">
                 {studentsNeedingReassignment.map((s) => (
                   <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3 dark:border-amber-900/50 dark:bg-slate-900">
@@ -187,7 +189,7 @@ export default function HodPlacementsPage() {
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      Reassign
+                      {t("reassign")}
                     </button>
                   </div>
                 ))}
@@ -217,7 +219,7 @@ export default function HodPlacementsPage() {
               <div className="flex items-center gap-2 mb-4">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 <h2 className="text-base font-bold text-emerald-900 dark:text-emerald-200">
-                  Placed students ({placedStudents.length})
+                  {t("placedStudents", { count: placedStudents.length })}
                 </h2>
               </div>
               <div className="space-y-2">
@@ -232,7 +234,7 @@ export default function HodPlacementsPage() {
                         <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{s.companyName}</p>
                       )}
                       <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                        Placed
+                        {t("placed")}
                       </span>
                     </div>
                   </div>
@@ -247,32 +249,24 @@ export default function HodPlacementsPage() {
       {reassignStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl mx-4 space-y-4 dark:bg-slate-900 dark:border dark:border-slate-700">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Reassign student</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("reassignTitle")}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Assign <strong>{reassignStudent.user.full_name}</strong> to a new company.
+              {t("reassignDesc", { name: reassignStudent.user.full_name })}
             </p>
             <form onSubmit={(e) => void sendReassignment(e)} className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Company</label>
-                <select
-                  required
-                  value={reassignCompanyId}
-                  onChange={(e) => setReassignCompanyId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                >
-                  <option value="">Select company…</option>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">{t("selectCompany").replace("…","")}</label>
+                <select required value={reassignCompanyId} onChange={(e) => setReassignCompanyId(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                  <option value="">{t("selectCompany")}</option>
                   {companies.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Duration (weeks, optional)</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={reassignWeeks}
-                  onChange={(e) => setReassignWeeks(e.target.value)}
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">{t("durationLabel")}</label>
+                <input type="number" min={1} value={reassignWeeks} onChange={(e) => setReassignWeeks(e.target.value)}
                   placeholder="e.g. 12"
                   className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
@@ -280,11 +274,11 @@ export default function HodPlacementsPage() {
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setReassignStudent(null)}
                   className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-                  Cancel
+                  {t("cancel")}
                 </button>
                 <button type="submit" disabled={submitting}
                   className="flex-1 rounded-xl bg-primary-600 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60">
-                  {submitting ? "Sending…" : "Send Proposal"}
+                  {submitting ? t("sending") : t("sendProposal")}
                 </button>
               </div>
             </form>

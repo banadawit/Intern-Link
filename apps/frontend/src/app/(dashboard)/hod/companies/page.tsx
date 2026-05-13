@@ -6,8 +6,10 @@ import { Loader2, RefreshCw } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodCompanyDirectory from "@/components/hod/HodCompanyDirectory";
 import type { HodCompanyRow } from "@/components/hod/types";
+import { useTranslations } from "next-intl";
 
 export default function HodCompaniesPage() {
+  const t = useTranslations("HodPortal.companies");
   const [companies, setCompanies] = useState<HodCompanyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +21,7 @@ export default function HodCompaniesPage() {
       const res = await api.get<{ success: boolean; data: HodCompanyRow[] }>("/hod/companies", { params: { verifiedOnly: true } });
       setCompanies(Array.isArray(res.data.data) ? res.data.data : []);
     } catch {
-      setError("Could not load companies.");
+      setError(t("couldNotLoad"));
     } finally {
       setLoading(false);
     }
@@ -32,18 +34,15 @@ export default function HodCompaniesPage() {
   return (
     <div className="space-y-6 pb-8">
       <HodPageHero
-        badge="Companies"
-        title="Verified companies"
-        description="Directory of platform-approved organizations you can use when sending placement proposals."
+        badge={t("badge")}
+        title={t("title")}
+        description={t("description")}
         action={
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
+          <button type="button" onClick={() => void load()} disabled={loading}
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
