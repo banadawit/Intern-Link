@@ -1,8 +1,13 @@
 import { Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { ymdFromUtcMs } from '../utils/internshipWeekDates';
 import { sendSuccess, sendError } from '../utils/responseHelper';
+import {
+    getPeerStudentIdsWithTeamLeaderForCompany,
+    weeklyPlanWhereVisibleToSupervisor,
+} from '../utils/supervisorWeeklyPlanFilter';
 
 export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
     try {
@@ -18,6 +23,8 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
         }
 
         const companyId = supervisor.companyId;
+        const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(companyId);
+        const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
 
         // ── Core counts ───────────────────────────────────────────────────────
         const [
@@ -34,6 +41,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 where: {
                     status: 'PENDING',
                     student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+                    ...supervisorWeeklyVisibility,
                 },
             }),
             prisma.internshipAssignment.count({ where: { companyId, status: 'ACTIVE' } }),
@@ -52,6 +60,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 where: {
                     status: 'PENDING',
                     student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+                    ...supervisorWeeklyVisibility,
                 },
                 orderBy: { submitted_at: 'desc' },
                 take: 3,
@@ -132,7 +141,10 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
         // ── Recent activity feed ──────────────────────────────────────────────
         const [recentPlans, recentProposals] = await Promise.all([
             prisma.weeklyPlan.findMany({
-                where: { student: { assignments: { some: { companyId, status: 'ACTIVE' } } } },
+                where: {
+                    student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+                    ...supervisorWeeklyVisibility,
+                },
                 orderBy: { submitted_at: 'desc' },
                 take: 5,
                 select: {
@@ -250,6 +262,9 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
                         finalReport: {
                             select: { locked: true, sent_at: true, pdf_url: true, generated_at: true },
                         },
+                        finalEvaluation: {
+                            select: { technical_skills: true, problem_solving: true, communication: true, team_collaboration: true, time_management: true, adaptability: true, professionalism: true, initiative_creativity: true, attendance_punctuality: true, task_completion_quality: true, comments: true },
+                        },
                     },
                 },
             },
@@ -264,6 +279,7 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
                 user: a.student.user,
                 university: a.student.university,
                 finalReport: a.student.finalReport,
+                finalEvaluation: a.student.finalEvaluation ?? null,
             },
             assignment: {
                 id: a.id,
@@ -300,13 +316,16 @@ export const getCompanyWeeklyPlans = async (req: AuthRequest, res: Response) => 
         }
 
         const statusParam = typeof req.query.status === 'string' ? req.query.status.toUpperCase() : undefined;
-        const where: {
-            studentId: { in: number[] };
-            status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
-        } = { studentId: { in: studentIds } };
-        if (statusParam === 'PENDING' || statusParam === 'APPROVED' || statusParam === 'REJECTED') {
-            where.status = statusParam;
-        }
+        const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(supervisor.companyId);
+        const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
+
+        const where: Prisma.WeeklyPlanWhereInput = {
+            studentId: { in: studentIds },
+            ...(statusParam === 'PENDING' || statusParam === 'APPROVED' || statusParam === 'REJECTED'
+                ? { status: statusParam }
+                : {}),
+            ...supervisorWeeklyVisibility,
+        };
 
         const plans = await prisma.weeklyPlan.findMany({
             where,
@@ -465,10 +484,12 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
             },
         });
 
+        const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(supervisor.companyId);
+        const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
+
         const rows = await prisma.weeklyPlanDaySubmission.findMany({
             where: {
                 weeklyPlan: {
-                    status: 'APPROVED',
                     student: {
                         assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } },
                     },
@@ -480,32 +501,64 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
                 weeklyPlan: {
                     select: {
                         studentId: true,
-                        student: {
-                            select: {
-                                user: { select: { full_name: true, email: true } },
-                            },
-                        },
+                        student: { select: { user: { select: { full_name: true, email: true } } } },
                     },
                 },
             },
         });
 
+        // Approved weekly plan dates (dark green — supervisor approved)
+        const approvedPlans = await prisma.weeklyPlan.findMany({
+            where: {
+                status: 'APPROVED',
+                student: { assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } } },
+                reviewed_at: { gte: new Date(startUtc), lte: new Date(endUtc) },
+            },
+            select: { studentId: true, reviewed_at: true, submitted_at: true },
+        });
+
+        // Plan submission dates (medium green — visible to supervisor: TL-approved for teammates)
+        const planSubmissions = await prisma.weeklyPlan.findMany({
+            where: {
+                student: { assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } } },
+                submitted_at: { gte: new Date(startUtc), lte: new Date(endUtc) },
+                ...supervisorWeeklyVisibility,
+            },
+            select: { studentId: true, submitted_at: true },
+        });
+
         const byStudent = new Map<
             number,
-            { fullName: string; email: string; dates: Set<string> }
+            { fullName: string; email: string; dailyDates: Set<string>; approvedDates: Set<string>; submittedDates: Set<string> }
         >();
+
+        const ensureEntry = (sid: number, fullName: string, email: string) => {
+            if (!byStudent.has(sid)) {
+                byStudent.set(sid, { fullName, email, dailyDates: new Set(), approvedDates: new Set(), submittedDates: new Set() });
+            }
+            return byStudent.get(sid)!;
+        };
 
         for (const r of rows) {
             const sid = r.weeklyPlan.studentId;
             const u = r.weeklyPlan.student.user;
-            let entry = byStudent.get(sid);
-            if (!entry) {
-                entry = { fullName: u.full_name, email: u.email, dates: new Set<string>() };
-                byStudent.set(sid, entry);
+            const entry = ensureEntry(sid, u.full_name, u.email);
+            entry.dailyDates.add(ymdFromUtcMs(new Date(r.workDate).getTime()));
+        }
+
+        for (const p of approvedPlans) {
+            const student = placedStudents.find((s) => s.id === p.studentId);
+            if (student) {
+                const dateMs = p.reviewed_at ? new Date(p.reviewed_at).getTime() : new Date(p.submitted_at).getTime();
+                ensureEntry(p.studentId, student.user.full_name, student.user.email).approvedDates.add(ymdFromUtcMs(dateMs));
             }
-            const wd = r.workDate;
-            const ms = new Date(wd).getTime();
-            entry.dates.add(ymdFromUtcMs(ms));
+        }
+
+        for (const p of planSubmissions) {
+            const student = placedStudents.find((s) => s.id === p.studentId);
+            if (student) {
+                ensureEntry(p.studentId, student.user.full_name, student.user.email).submittedDates.add(ymdFromUtcMs(new Date(p.submitted_at).getTime()));
+            }
         }
 
         const rangeEnd = ymdFromUtcMs(endUtc);
@@ -517,7 +570,10 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
                 studentId: s.id,
                 fullName: s.user.full_name,
                 email: s.user.email,
-                submittedDates: sub ? [...sub.dates].sort() : [],
+                submittedDates: sub ? [...new Set([...sub.dailyDates, ...sub.approvedDates, ...sub.submittedDates])].sort() : [],
+                dailyCheckInDates: sub ? [...sub.dailyDates].sort() : [],
+                approvedPlanDates: sub ? [...sub.approvedDates].sort() : [],
+                planSubmissionDates: sub ? [...sub.submittedDates].sort() : [],
             };
         });
 
@@ -539,7 +595,7 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         });
         if (!supervisor) return sendError(res, 'Supervisor profile not found.', 403);
 
-        const { studentId, technical_score, soft_skill_score, comments } = req.body;
+        const { studentId, technical_skills, problem_solving, communication, team_collaboration, time_management, adaptability, professionalism, initiative_creativity, attendance_punctuality, task_completion_quality, comments } = req.body;
         const sid = parseInt(String(studentId), 10);
 
         // Verify student belongs to this company
@@ -553,16 +609,32 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         const evaluation = await prisma.finalEvaluation.upsert({
             where: { studentId: sid },
             update: {
-                technical_score,
-                soft_skill_score,
+                technical_skills: parseFloat(technical_skills),
+                problem_solving: parseFloat(problem_solving),
+                communication: parseFloat(communication),
+                team_collaboration: parseFloat(team_collaboration),
+                time_management: parseFloat(time_management),
+                adaptability: parseFloat(adaptability),
+                professionalism: parseFloat(professionalism),
+                initiative_creativity: parseFloat(initiative_creativity),
+                attendance_punctuality: parseFloat(attendance_punctuality),
+                task_completion_quality: parseFloat(task_completion_quality),
                 comments,
                 evaluated_at: new Date(),
             },
             create: {
                 studentId: sid,
                 supervisorId: supervisor.id,
-                technical_score,
-                soft_skill_score,
+                technical_skills: parseFloat(technical_skills),
+                problem_solving: parseFloat(problem_solving),
+                communication: parseFloat(communication),
+                team_collaboration: parseFloat(team_collaboration),
+                time_management: parseFloat(time_management),
+                adaptability: parseFloat(adaptability),
+                professionalism: parseFloat(professionalism),
+                initiative_creativity: parseFloat(initiative_creativity),
+                attendance_punctuality: parseFloat(attendance_punctuality),
+                task_completion_quality: parseFloat(task_completion_quality),
                 comments,
             },
         });
@@ -597,7 +669,7 @@ export const getSupervisorPerformance = async (req: AuthRequest, res: Response) 
             prisma.internshipAssignment.count({ where: { companyId, status: 'COMPLETED' } }),
             prisma.finalEvaluation.findMany({
                 where: { supervisor: { companyId } },
-                select: { technical_score: true, soft_skill_score: true },
+                select: { technical_skills: true, problem_solving: true, communication: true, team_collaboration: true, time_management: true, adaptability: true, professionalism: true, initiative_creativity: true, attendance_punctuality: true, task_completion_quality: true },
             }),
             prisma.internshipProposal.count({ where: { companyId, status: 'APPROVED' } }),
             prisma.internshipProposal.count({ where: { companyId } }),
@@ -612,8 +684,9 @@ export const getSupervisorPerformance = async (req: AuthRequest, res: Response) 
             }),
         ]);
 
+        const avg10 = (e: any) => [e.technical_skills, e.problem_solving, e.communication, e.team_collaboration, e.time_management, e.adaptability, e.professionalism, e.initiative_creativity, e.attendance_punctuality, e.task_completion_quality].reduce((s: number, v: any) => s + Number(v), 0) / 10;
         const avgScore = evaluations.length > 0
-            ? evaluations.reduce((sum, e) => sum + (Number(e.technical_score) + Number(e.soft_skill_score)) / 2, 0) / evaluations.length
+            ? evaluations.reduce((sum, e) => sum + avg10(e), 0) / evaluations.length
             : null;
 
         const proposalApprovalRate = totalProposals > 0

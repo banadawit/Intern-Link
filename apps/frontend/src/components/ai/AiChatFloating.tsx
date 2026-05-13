@@ -24,6 +24,8 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
 
   const clearRef = useRef<(() => void) | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const expandedRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
 
   // ── Drag-to-resize: expanded panel left edge ───────────────────────────────
   const startResizeExpanded = useCallback((e: React.MouseEvent) => {
@@ -114,11 +116,41 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // Close on Escape key
+  useEffect(() => {
+    if (!open && !expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setExpanded(false);
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, expanded]);
+
+  // Close when clicking outside the panel (e.g. sidebar)
+  useEffect(() => {
+    if (!open && !expanded) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      const inPanel = panelRef.current?.contains(target) || expandedRef.current?.contains(target);
+      const inToggle = toggleRef.current?.contains(target);
+      if (!inPanel && !inToggle) {
+        setExpanded(false);
+        setOpen(false);
+      }
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => window.removeEventListener("pointerdown", onPointerDown, true);
+  }, [open, expanded]);
+
   return (
     <>
       {/* Toggle button — hidden when expanded */}
       {!expanded && (
         <button
+          ref={toggleRef}
           type="button"
           onClick={() => setOpen((o) => !o)}
           className={cn(
@@ -213,6 +245,7 @@ export default function AiChatFloating({ role }: { role: AiChatRole }) {
       {/* ── Expanded full right-panel ── */}
       {expanded && (
         <div
+          ref={expandedRef}
           className="fixed inset-y-0 right-0 z-[60] flex flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
           style={{ width: expandedW }}
           role="dialog"

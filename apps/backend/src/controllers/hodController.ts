@@ -173,7 +173,15 @@ export const getStudents = async (req: AuthRequest, res: Response) => {
         const studentIds = filtered.map((s) => s.id);
         const proposals = studentIds.length === 0 ? [] : await prisma.internshipProposal.findMany({
             where: { studentId: { in: studentIds } },
-            include: { company: { select: { id: true, name: true } } },
+            select: {
+                id: true,
+                studentId: true,
+                companyId: true,
+                status: true,
+                proposal_type: true,
+                submitted_at: true,
+                company: { select: { id: true, name: true } },
+            },
             orderBy: { submitted_at: 'desc' },
         });
 
@@ -541,7 +549,17 @@ export const getProposals = async (req: AuthRequest, res: Response) => {
                 studentId: { in: studentIds },
                 ...(statusFilter ? { status: statusFilter } : {}),
             },
-            include: {
+            select: {
+                id: true,
+                studentId: true,
+                companyId: true,
+                universityId: true,
+                status: true,
+                proposal_type: true,
+                submitted_at: true,
+                responded_at: true,
+                expected_duration_weeks: true,
+                expected_outcomes: true,
                 student: { include: { user: { select: { full_name: true, email: true } } } },
                 company: { select: { id: true, name: true, official_email: true, approval_status: true } },
             },
@@ -634,9 +652,19 @@ export const getOpenLetterProposals = async (req: AuthRequest, res: Response) =>
 
         const proposals = await prisma.internshipProposal.findMany({
             where: { studentId: { in: studentIds }, proposal_type: 'Open_Letter' },
-            include: {
+            select: {
+                id: true,
+                studentId: true,
+                companyId: true,
+                universityId: true,
+                status: true,
+                proposal_type: true,
+                submitted_at: true,
+                responded_at: true,
+                expected_duration_weeks: true,
+                expected_outcomes: true,
                 student: { include: { user: { select: { full_name: true, email: true } } } },
-                company: true,
+                company: { select: { id: true, name: true, official_email: true, approval_status: true, address: true } },
             },
             orderBy: { submitted_at: 'desc' },
         });
@@ -761,7 +789,29 @@ export const getReports = async (req: AuthRequest, res: Response) => {
         
         const reports = deptIds.length === 0 ? [] : await prisma.report.findMany({
             where: { studentId: { in: deptIds } },
-            include: { student: { include: { user: { select: { full_name: true, email: true } } } } },
+            include: {
+                student: {
+                    include: {
+                        user: { select: { full_name: true, email: true } },
+                        finalEvaluation: {
+                            select: {
+                                technical_skills: true,
+                                problem_solving: true,
+                                communication: true,
+                                team_collaboration: true,
+                                time_management: true,
+                                adaptability: true,
+                                professionalism: true,
+                                initiative_creativity: true,
+                                attendance_punctuality: true,
+                                task_completion_quality: true,
+                                comments: true,
+                                evaluated_at: true,
+                            },
+                        },
+                    },
+                },
+            },
             orderBy: { generated_at: 'desc' },
         });
         return sendSuccess(res, reports);

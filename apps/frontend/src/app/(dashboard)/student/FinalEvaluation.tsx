@@ -63,11 +63,11 @@ const FinalEvaluation = () => {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.get<{ evaluation: Parameters<typeof mapEvaluationApi>[0] | null }>(
+        const res = await api.get<{ success: boolean; data: { evaluation: Parameters<typeof mapEvaluationApi>[0] | null } }>(
           '/reports/my-evaluation'
         );
         if (cancelled) return;
-        if (data.evaluation) setEvaluation(mapEvaluationApi(data.evaluation));
+        if (res.data.data?.evaluation) setEvaluation(mapEvaluationApi(res.data.data.evaluation));
         else setEvaluation(null);
       } catch {
         if (!cancelled) setEvaluation(null);
@@ -123,8 +123,16 @@ const FinalEvaluation = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <ScoreCard label={t('technicalSkills')} score={evaluation.technicalScore} color="#0D9488" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
-        <ScoreCard label={t('softSkills')} score={evaluation.softSkillScore} color="#3B82F6" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Technical Skills" score={evaluation.technical_skills} color="#0D9488" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Problem Solving" score={evaluation.problem_solving} color="#6366F1" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Communication" score={evaluation.communication} color="#14B8A6" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Team Collaboration" score={evaluation.team_collaboration} color="#22C55E" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Time Management" score={evaluation.time_management} color="#F59E0B" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Adaptability" score={evaluation.adaptability} color="#F97316" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Professionalism" score={evaluation.professionalism} color="#8B5CF6" icon={ShieldCheck} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Initiative & Creativity" score={evaluation.initiative_creativity} color="#EC4899" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Attendance & Punctuality" score={evaluation.attendance_punctuality} color="#06B6D4" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Task Completion Quality" score={evaluation.task_completion_quality} color="#EF4444" icon={ShieldCheck} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

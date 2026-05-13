@@ -57,6 +57,11 @@ router.get('/suspended-supervisors', adminCtrl.getSuspendedSupervisors);
 router.post('/supervisors/:userId/approve', adminCtrl.approveSupervisor);
 router.post('/supervisors/:userId/reject', adminCtrl.rejectSupervisor);
 
+// HOD Approval Workflow
+router.get('/pending-hods', adminCtrl.getPendingHods);
+router.post('/hods/:userId/approve', adminCtrl.approveHod);
+router.post('/hods/:userId/reject', adminCtrl.rejectHod);
+
 // Common Page Feed
 router.post('/announcements', adminCtrl.postAnnouncement);
 

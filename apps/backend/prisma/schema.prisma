@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 enum Role {
@@ -167,6 +167,28 @@ model Company {
   teams             Team[]
 }
 
+enum OrganizationType {
+  UNIVERSITY
+  COMPANY
+}
+
+model OrganizationRequest {
+  id               Int              @id @default(autoincrement())
+  name             String
+  type             OrganizationType
+  address          String?
+  website          String?
+  verification_doc String
+  status           ApprovalStatus   @default(PENDING)
+  rejection_reason String?
+  requester_email  String
+  document_viewed  Boolean          @default(false)
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+
+  @@index([status])
+}
+
 model Coordinator {
   id                      Int         @id @default(autoincrement())
   userId                  Int         @unique
@@ -232,6 +254,9 @@ model Student {
   studentTeams        StudentTeam[]
   weeklyPlans         WeeklyPlan[]
   weeklyReports       WeeklyReport[]
+  managedTeams        Team[]             @relation("TeamManager")
+  teamWeeklyPlans     TeamWeeklyPlan[]   @relation("TeamPlanSubmitter")
+  teamDailyPlans      TeamDailyPlan[]    @relation("TeamDailySubmitter")
 }
 
 model InternshipProposal {
@@ -296,6 +321,10 @@ model WeeklyPlan {
   version          Int                       @default(1)
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
   attachments      Json                      @default("[]")
+  /// Team Leader review
+  tl_status        String                    @default("PENDING")
+  tl_comment       String?                   @db.Text
+  tl_reviewed_at   DateTime?
   student          Student                   @relation(fields: [studentId], references: [id])
   daySubmissions   WeeklyPlanDaySubmission[]
   presentation     WeeklyPresentation?
@@ -304,12 +333,19 @@ model WeeklyPlan {
 
 /// One row per calendar day the student marked as submitted for that approved weekly plan (daily check-in).
 model WeeklyPlanDaySubmission {
-  id           Int        @id @default(autoincrement())
-  weeklyPlanId Int
-  workDate     DateTime   @db.Date
-  notes        String?    @db.Text
-  submittedAt  DateTime   @default(now())
-  weeklyPlan   WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+  id             Int        @id @default(autoincrement())
+  weeklyPlanId   Int
+  workDate       DateTime   @db.Date
+  notes          String?    @db.Text
+  submittedAt    DateTime   @default(now())
+  status         String     @default("PENDING")
+  supervisorNote String?    @db.Text
+  reviewedAt     DateTime?
+  /// Team Leader review
+  tl_status      String     @default("PENDING")
+  tl_comment     String?    @db.Text
+  tl_reviewed_at DateTime?
+  weeklyPlan     WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
 
   @@unique([weeklyPlanId, workDate])
   @@index([weeklyPlanId])
@@ -338,15 +374,23 @@ model WeeklyReport {
 }
 
 model FinalEvaluation {
-  id               Int        @id @default(autoincrement())
-  studentId        Int        @unique
-  supervisorId     Int
-  technical_score  Decimal    @db.Decimal(5, 2)
-  soft_skill_score Decimal    @db.Decimal(5, 2)
-  comments         String?    @db.Text
-  evaluated_at     DateTime   @default(now())
-  student          Student    @relation(fields: [studentId], references: [id])
-  supervisor       Supervisor @relation(fields: [supervisorId], references: [id])
+  id                      Int        @id @default(autoincrement())
+  studentId               Int        @unique
+  supervisorId            Int
+  technical_skills        Decimal    @db.Decimal(5, 2)
+  problem_solving         Decimal    @db.Decimal(5, 2)
+  communication           Decimal    @db.Decimal(5, 2)
+  team_collaboration      Decimal    @db.Decimal(5, 2)
+  time_management         Decimal    @db.Decimal(5, 2)
+  adaptability            Decimal    @db.Decimal(5, 2)
+  professionalism         Decimal    @db.Decimal(5, 2)
+  initiative_creativity   Decimal    @db.Decimal(5, 2)
+  attendance_punctuality  Decimal    @db.Decimal(5, 2)
+  task_completion_quality Decimal    @db.Decimal(5, 2)
+  comments                String?    @db.Text
+  evaluated_at            DateTime   @default(now())
+  student                 Student    @relation(fields: [studentId], references: [id])
+  supervisor              Supervisor @relation(fields: [supervisorId], references: [id])
 }
 
 model Report {
@@ -368,11 +412,14 @@ model Team {
   companyId    Int
   supervisorId Int?
   projectId    Int?
+  managerId    Int?
   created_at   DateTime      @default(now())
   deleted_at   DateTime?
   members      StudentTeam[]
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   project      Project?      @relation(fields: [projectId], references: [id])
+  manager      Student?      @relation("TeamManager", fields: [managerId], references: [id])
+  weeklyPlans  TeamWeeklyPlan[]
 }
 
 model StudentTeam {
@@ -397,6 +444,7 @@ model Project {
   company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   students       StudentProject[]
   teams          Team[]
+  teamWeeklyPlans TeamWeeklyPlan[]
 }
 
 model StudentProject {
@@ -569,6 +617,52 @@ model UniversityConfig {
   university                 University @relation(fields: [universityId], references: [id], onDelete: Cascade)
 }
 
+/// Team-level weekly plan submitted by the project manager on behalf of the team.
+model TeamWeeklyPlan {
+  id               Int              @id @default(autoincrement())
+  teamId           Int
+  projectId        Int?
+  submittedById    Int
+  week_number      Int
+  plan_description String           @db.Text
+  /// Supervisor-facing status: PENDING | APPROVED | REJECTED | RESUBMITTED
+  status           String           @default("PENDING")
+  feedback         String?          @db.Text
+  reviewed_at      DateTime?
+  submitted_at     DateTime         @default(now())
+  version          Int              @default(1)
+  /// TL review of the compiled team plan before it reaches the supervisor
+  /// Values: PENDING | APPROVED | REVISION_REQUESTED
+  tl_status        String           @default("PENDING")
+  tl_comment       String?          @db.Text
+  tl_reviewed_at   DateTime?
+  team             Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project          Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  submittedBy      Student          @relation("TeamPlanSubmitter", fields: [submittedById], references: [id])
+  dailyPlans       TeamDailyPlan[]
+
+  @@unique([teamId, week_number])
+  @@index([teamId])
+}
+
+/// Team-level daily plan submitted by the project manager on behalf of the team.
+model TeamDailyPlan {
+  id               Int            @id @default(autoincrement())
+  teamWeeklyPlanId Int
+  submittedById    Int
+  workDate         DateTime       @db.Date
+  notes            String?        @db.Text
+  status           String         @default("PENDING")
+  supervisorNote   String?        @db.Text
+  reviewedAt       DateTime?
+  submittedAt      DateTime       @default(now())
+  teamWeeklyPlan   TeamWeeklyPlan @relation(fields: [teamWeeklyPlanId], references: [id], onDelete: Cascade)
+  submittedBy      Student        @relation("TeamDailySubmitter", fields: [submittedById], references: [id])
+
+  @@unique([teamWeeklyPlanId, workDate])
+  @@index([teamWeeklyPlanId])
+}
+
 model ChatMessage {
   id         Int      @id @default(autoincrement())
   senderId   Int
@@ -581,4 +675,40 @@ model ChatMessage {
 
   @@index([senderId, receiverId, created_at])
   @@index([receiverId, is_read])
+}
+
+/// Cached AI weekly plan (JSON string: tasks, goals, deliverables). `studentId` = `Student.id` as decimal string.
+model StudentPlan {
+  id        String   @id @default(uuid()) @db.Uuid
+  studentId String   @unique
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+/// Cached AI supervisor feedback (JSON string). `studentId` = `Student.id` as string.
+model SupervisorFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  studentId String
+  week      Int
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, week])
+  @@index([studentId])
+}
+
+/// Cached AI HOD suggestion (plain text). `studentId` = `Student.id` as string.
+model HodSuggestion {
+  id        String   @id @default(uuid()) @db.Uuid
+  studentId String   @unique
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+/// Cached AI coordinator report (plain text). `coordinatorUserId` = `User.id` of the coordinator (cache scope).
+model CoordinatorReport {
+  id                  String   @id @default(uuid()) @db.Uuid
+  coordinatorUserId   Int      @unique
+  content             String   @db.Text
+  createdAt           DateTime @default(now())
 }

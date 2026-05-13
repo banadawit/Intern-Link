@@ -12,6 +12,7 @@ import {
   ClipboardList,
   MessageSquare,
   TrendingUp,
+  AlertTriangle,
 } from 'lucide-react';
 import api from '@/lib/api/client';
 import { mapStudentProfileFromMe, mapWeeklyPlanRow, type StudentMeResponse } from '@/lib/api/mappers';
@@ -26,6 +27,7 @@ const StudentDashboard = () => {
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [plans, setPlans] = useState<WeeklyPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [flagInfo, setFlagInfo] = useState<{ type: string; note: string | null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,9 +38,14 @@ const StudentDashboard = () => {
           api.get('/progress/my-plans'),
         ]);
         if (cancelled) return;
-        const meRaw = meRes.data as { success?: boolean; data?: StudentMeResponse } | StudentMeResponse;
-        const meData: StudentMeResponse = (meRaw as { success?: boolean; data?: StudentMeResponse })?.data ?? meRaw as StudentMeResponse;
+        const meRaw = meRes.data as { success?: boolean; data?: StudentMeResponse & { flag_type?: string | null; flag_note?: string | null } } | StudentMeResponse;
+        const meData = (meRaw as { success?: boolean; data?: StudentMeResponse & { flag_type?: string | null; flag_note?: string | null } })?.data ?? meRaw as StudentMeResponse & { flag_type?: string | null; flag_note?: string | null };
         setStudent(mapStudentProfileFromMe(meData));
+        if ((meData as Record<string, unknown>).flag_type) {
+          setFlagInfo({ type: (meData as Record<string, unknown>).flag_type as string, note: ((meData as Record<string, unknown>).flag_note as string | null) ?? null });
+        } else {
+          setFlagInfo(null);
+        }
         const plansRaw = plansRes.data as { success?: boolean; data?: unknown[] } | unknown[];
         const plansData = (plansRaw as { success?: boolean; data?: unknown[] })?.data ?? plansRaw as Record<string, unknown>[];
         const rows = Array.isArray(plansData) ? plansData as Record<string, unknown>[] : [];
@@ -73,6 +80,29 @@ const StudentDashboard = () => {
 
   return (
     <div className="space-y-8 pb-8 animate-in fade-in duration-500">
+      {/* Flag warning banner */}
+      {flagInfo && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-900/50 dark:bg-amber-900/20">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              Your profile has been flagged as{" "}
+              <span className="font-bold">
+                {flagInfo.type === "LOW_PERFORMANCE" ? "Low Performance" : "Inactive"}
+              </span>{" "}
+              by your Head of Department.
+            </p>
+            {flagInfo.note && (
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                Note: &ldquo;{flagInfo.note}&rdquo;
+              </p>
+            )}
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+              Please contact your Head of Department for more information.
+            </p>
+          </div>
+        </div>
+      )}
       <StudentPageHero
         badge={t('badge')}
         title={t('welcomeBack', { name })}

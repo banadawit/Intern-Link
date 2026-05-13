@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/lib/hooks/useAuth';
 import { cloudinaryService } from '@/lib/services/cloudinary.service';
 import { useTranslations } from 'next-intl';
+import ContactSupportModal from '@/components/shared/ContactSupportModal';
 
 // Types
 type Role = 'student' | 'coordinator' | 'hod' | 'supervisor' | null;
@@ -58,6 +59,7 @@ const RegisterPage = () => {
   const tErr = useTranslations('Auth.register.errors');
   
   const [step, setStep] = useState(1);
+  const [showSupport, setShowSupport] = useState(false);
   const [role, setRole] = useState<Role>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -1300,6 +1302,16 @@ const RegisterPage = () => {
           {t('signIn')}
         </Link>
       </p>
+      <p className="text-center pt-1">
+        <button
+          type="button"
+          onClick={() => setShowSupport(true)}
+          className="text-xs text-slate-400 hover:text-primary-600 transition-colors dark:text-slate-500 dark:hover:text-primary-400"
+        >
+          Having trouble? Contact support
+        </button>
+      </p>
+      <ContactSupportModal open={showSupport} onClose={() => setShowSupport(false)} />
     </div>
   );
 };

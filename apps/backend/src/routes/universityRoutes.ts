@@ -32,7 +32,8 @@ router.get('/approved', async (_req, res) => {
 // Public: list departments with an approved HoD for a given university
 router.get('/:universityId/departments', async (req, res) => {
     try {
-        const universityId = parseInt(req.params.universityId, 10);
+        const universityIdStr = req.params.universityId as string;
+        const universityId = parseInt(universityIdStr, 10);
         if (isNaN(universityId)) return sendError(res, 'Invalid university id', 400);
 
         const hods = await prisma.hodProfile.findMany({

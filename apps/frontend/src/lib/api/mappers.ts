@@ -50,9 +50,11 @@ export function mapWeeklyPlanRow(p: {
   feedback?: string | null;
   reviewed_at?: string | null;
   version?: number;
+  tl_status?: string | null;
+  tl_comment?: string | null;
   presentation?: { file_url: string } | null;
-  day_submissions?: { workDate: string | Date }[];
-  daySubmissions?: { workDate: string | Date }[];
+  day_submissions?: { workDate: string | Date; notes?: string | null }[];
+  daySubmissions?: { workDate: string | Date; notes?: string | null }[];
 }): WeeklyPlan {
   const url = p.presentation?.file_url ? apiFileUrl(p.presentation.file_url) : undefined;
   const path = p.presentation?.file_url ?? "";
@@ -69,6 +71,8 @@ export function mapWeeklyPlanRow(p: {
     submittedAt: p.submitted_at,
     reviewedAt: p.reviewed_at ?? undefined,
     version: p.version ?? 1,
+    tlStatus: p.tl_status ?? undefined,
+    tlComment: p.tl_comment ?? undefined,
     daySubmissions: rawDays.map((d) => ({
       workDate:
         typeof d.workDate === "string"
@@ -243,16 +247,32 @@ export type EvaluationWithMeta = FinalEvaluation & {
 };
 
 export function mapEvaluationApi(e: {
-  technicalScore: number;
-  softSkillScore: number;
+  technical_skills: number;
+  problem_solving: number;
+  communication: number;
+  team_collaboration: number;
+  time_management: number;
+  adaptability: number;
+  professionalism: number;
+  initiative_creativity: number;
+  attendance_punctuality: number;
+  task_completion_quality: number;
   comments: string;
   evaluatedAt: string;
   supervisorName: string;
   companyName: string;
 }): EvaluationWithMeta {
   return {
-    technicalScore: e.technicalScore,
-    softSkillScore: e.softSkillScore,
+    technical_skills: e.technical_skills,
+    problem_solving: e.problem_solving,
+    communication: e.communication,
+    team_collaboration: e.team_collaboration,
+    time_management: e.time_management,
+    adaptability: e.adaptability,
+    professionalism: e.professionalism,
+    initiative_creativity: e.initiative_creativity,
+    attendance_punctuality: e.attendance_punctuality,
+    task_completion_quality: e.task_completion_quality,
     comments: e.comments,
     reportUrl: "#",
     supervisorName: e.supervisorName,
