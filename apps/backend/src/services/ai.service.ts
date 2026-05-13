@@ -412,3 +412,65 @@ export async function chatAssistant(input: ChatInput): Promise<ChatResult> {
     if (!reply) throw new Error('Empty AI response');
     return { reply };
 }
+
+export type HodSuggestionInput = {
+    contextText: string;
+};
+
+export type CoordinatorReportInput = {
+    contextText: string;
+};
+
+function mockHodSuggestion(input: HodSuggestionInput): string {
+    return `Mock HOD guidance (no Groq key):\n\nReview ${input.contextText.slice(0, 120)}…\n- Confirm eligibility and documentation\n- Align with department placement policy\n- Follow up on pending items`;
+}
+
+function mockCoordinatorReport(input: CoordinatorReportInput): string {
+    return `Mock coordinator report (no Groq key):\n\nContext summary: ${input.contextText.slice(0, 200)}…\n- Track outstanding placements\n- Engage supervisors on delayed feedback\n- Share weekly status with university leadership`;
+}
+
+export async function generateHodSuggestion(input: HodSuggestionInput): Promise<string> {
+    if (!getGroqApiKey() && isAiMockEnabled()) return mockHodSuggestion(input);
+
+    const groq = getClient();
+    const completion = await groq.chat.completions.create({
+        model: AI_MODEL,
+        messages: [
+            {
+                role: 'system',
+                content:
+                    'You are a Head of Department advising on internship student progress and approvals. Be concise, professional, actionable. Plain text only (no JSON).',
+            },
+            {
+                role: 'user',
+                content: `Student / department context:\n${input.contextText}\n\nProvide focused HOD guidance (approvals, risks, next steps).`,
+            },
+        ],
+    });
+    const text = completion.choices[0]?.message?.content?.trim();
+    if (!text) throw new Error('Empty AI response');
+    return text;
+}
+
+export async function generateCoordinatorReport(input: CoordinatorReportInput): Promise<string> {
+    if (!getGroqApiKey() && isAiMockEnabled()) return mockCoordinatorReport(input);
+
+    const groq = getClient();
+    const completion = await groq.chat.completions.create({
+        model: AI_MODEL,
+        messages: [
+            {
+                role: 'system',
+                content:
+                    'You are a university internship coordinator. Produce a short operational report: priorities, follow-ups, and risks. Plain text only (no JSON).',
+            },
+            {
+                role: 'user',
+                content: input.contextText,
+            },
+        ],
+    });
+    const text = completion.choices[0]?.message?.content?.trim();
+    if (!text) throw new Error('Empty AI response');
+    return text;
+}

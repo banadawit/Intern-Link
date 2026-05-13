@@ -50,9 +50,11 @@ export function mapWeeklyPlanRow(p: {
   feedback?: string | null;
   reviewed_at?: string | null;
   version?: number;
+  tl_status?: string | null;
+  tl_comment?: string | null;
   presentation?: { file_url: string } | null;
-  day_submissions?: { workDate: string | Date }[];
-  daySubmissions?: { workDate: string | Date }[];
+  day_submissions?: { workDate: string | Date; notes?: string | null }[];
+  daySubmissions?: { workDate: string | Date; notes?: string | null }[];
 }): WeeklyPlan {
   const url = p.presentation?.file_url ? apiFileUrl(p.presentation.file_url) : undefined;
   const path = p.presentation?.file_url ?? "";
@@ -69,6 +71,8 @@ export function mapWeeklyPlanRow(p: {
     submittedAt: p.submitted_at,
     reviewedAt: p.reviewed_at ?? undefined,
     version: p.version ?? 1,
+    tlStatus: p.tl_status ?? undefined,
+    tlComment: p.tl_comment ?? undefined,
     daySubmissions: rawDays.map((d) => ({
       workDate:
         typeof d.workDate === "string"

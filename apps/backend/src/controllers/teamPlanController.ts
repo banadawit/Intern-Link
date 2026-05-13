@@ -176,7 +176,9 @@ export const getTeamMembersPlans = async (req: AuthRequest, res: Response) => {
 
         if (!team) return sendError(res, 'You are not a Team Leader of any team.', 403);
 
-        const membersData = team.members.map((m) => ({
+        const membersData = team.members
+            .filter((m) => m.studentId !== team.managerId)
+            .map((m) => ({
             studentId: m.studentId,
             fullName: m.student.user.full_name,
             email: m.student.user.email,
@@ -188,11 +190,15 @@ export const getTeamMembersPlans = async (req: AuthRequest, res: Response) => {
                 status: p.status,
                 feedback: p.feedback,
                 submittedAt: p.submitted_at,
+                tl_status: p.tl_status,
+                tl_comment: p.tl_comment,
                 dailySubmissions: p.daySubmissions.map((d) => ({
                     id: d.id,
                     workDate: d.workDate instanceof Date ? d.workDate.toISOString().slice(0, 10) : String(d.workDate).slice(0, 10),
                     notes: d.notes,
                     status: d.status,
+                    tl_status: d.tl_status,
+                    tl_comment: d.tl_comment,
                 })),
             })),
         }));
@@ -254,6 +260,8 @@ export const getTeamWeeklyPlans = async (req: AuthRequest, res: Response) => {
         const plans = await prisma.teamWeeklyPlan.findMany({
             where: {
                 teamId: { in: teamIds },
+                // Exclude TL_PENDING — those are still being reviewed by the Team Leader
+                status: { not: 'TL_PENDING' },
                 ...(statusFilter === 'PENDING' ? { status: { in: ['PENDING', 'RESUBMITTED'] } } : {}),
             },
             include: {
@@ -413,6 +421,468 @@ export const reviewTeamDailyPlan = async (req: AuthRequest, res: Response) => {
         }
 
         return sendSuccess(res, updated, `Team daily plan ${status.toLowerCase()}.`);
+    } catch (e: any) {
+        return sendError(res, e.message, e.status ?? 500);
+    }
+};
+
+// ── Team Leader: review a member's weekly plan ────────────────────────────────
+export const tlReviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await getStudentOrFail(req.user!.userId);
+        const planId = parseInt(String(req.params.planId), 10);
+        const { status, comment } = req.body as { status?: string; comment?: string };
+
+        if (status !== 'APPROVED' && status !== 'REVISION_REQUESTED') {
+            return sendError(res, "status must be 'APPROVED' or 'REVISION_REQUESTED'.", 400);
+        }
+
+        // Verify student is TL of the plan owner's team
+        const plan = await prisma.weeklyPlan.findUnique({
+            where: { id: planId },
+            include: { student: { include: { user: { select: { id: true, full_name: true } } } } },
+        });
+        if (!plan) return sendError(res, 'Plan not found.', 404);
+
+        const team = await prisma.team.findFirst({
+            where: { managerId: student.id, deleted_at: null },
+            include: {
+                members: {
+                    include: {
+                        student: { include: { user: { select: { id: true } } } },
+                    },
+                },
+            },
+        });
+        if (!team) return sendError(res, 'You are not a Team Leader.', 403);
+        if (!team.members.some((m) => m.studentId === plan.studentId)) {
+            return sendError(res, 'This plan is not from a member of your team.', 403);
+        }
+
+        const updated = await prisma.weeklyPlan.update({
+            where: { id: planId },
+            data: {
+                tl_status: status,
+                tl_comment: typeof comment === 'string' ? comment.trim() || null : null,
+                tl_reviewed_at: new Date(),
+            },
+        });
+
+        // Notify the member
+        const msg = status === 'APPROVED'
+            ? `✅ Your Week ${plan.week_number} plan was approved by the Team Leader.`
+            : `🔄 Your Week ${plan.week_number} plan needs revision. ${comment ? `Comment: ${comment}` : ''} Please resubmit.`;
+        void sendNotification(plan.student.user.id, msg);
+
+        // If approved — check if ALL team members' plans for this week are TL-approved
+        // If yes, auto-compile and submit the team plan to the supervisor
+        if (status === 'APPROVED') {
+            const weekNum = plan.week_number;
+            const peerMemberIds = team.members
+                .map((m) => m.studentId)
+                .filter((sid) => sid !== team.managerId);
+
+            if (peerMemberIds.length > 0) {
+            const memberPlans = await prisma.weeklyPlan.findMany({
+                where: { studentId: { in: peerMemberIds }, week_number: weekNum },
+                include: { student: { include: { user: { select: { full_name: true } } } } },
+            });
+
+            const allApproved = peerMemberIds.every((sid) => {
+                const mp = memberPlans.find((p) => p.studentId === sid);
+                return mp && (mp.tl_status === 'APPROVED' || mp.id === planId);
+            });
+
+            if (allApproved && memberPlans.length === peerMemberIds.length) {
+                // Compile all plans into team plan description
+                const compiledText = memberPlans
+                    .map((p) => `**${p.student.user.full_name}:**\n${p.plan_description}`)
+                    .join('\n\n');
+
+                // Upsert team plan — set status to TL_PENDING so TL reviews before supervisor sees it
+                const existingTeamPlan = await prisma.teamWeeklyPlan.findUnique({
+                    where: { teamId_week_number: { teamId: team.id, week_number: weekNum } },
+                });
+
+                if (existingTeamPlan) {
+                    await prisma.teamWeeklyPlan.update({
+                        where: { id: existingTeamPlan.id },
+                        data: {
+                            plan_description: compiledText,
+                            status: 'TL_PENDING',
+                            tl_status: 'PENDING',
+                            tl_comment: null,
+                            tl_reviewed_at: null,
+                            feedback: null,
+                            reviewed_at: null,
+                            version: existingTeamPlan.version + 1,
+                            submitted_at: new Date(),
+                        },
+                    });
+                } else {
+                    await prisma.teamWeeklyPlan.create({
+                        data: {
+                            teamId: team.id,
+                            projectId: team.projectId ?? undefined,
+                            submittedById: student.id,
+                            week_number: weekNum,
+                            plan_description: compiledText,
+                            status: 'TL_PENDING',
+                            tl_status: 'PENDING',
+                        },
+                    });
+                }
+
+                void incrementActivityForUser(req.user!.userId);
+
+                // Notify TL that the compiled plan is ready for their final review
+                void sendNotification(req.user!.userId,
+                    `📋 All Week ${weekNum} member plans approved! Review the compiled team plan in your Team Plans tab before forwarding to the supervisor.`
+                );
+            }
+            }
+        }
+
+        return sendSuccess(res, updated, `Weekly plan ${status === 'APPROVED' ? 'approved' : 'revision requested'}.`);
+    } catch (e: any) {
+        return sendError(res, e.message, e.status ?? 500);
+    }
+};
+
+// ── Team Leader: review a member's daily plan ─────────────────────────────────
+export const tlReviewDailyPlan = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await getStudentOrFail(req.user!.userId);
+        const submissionId = parseInt(String(req.params.submissionId), 10);
+        const { status, comment } = req.body as { status?: string; comment?: string };
+
+        if (status !== 'APPROVED' && status !== 'REVISION_REQUESTED') {
+            return sendError(res, "status must be 'APPROVED' or 'REVISION_REQUESTED'.", 400);
+        }
+
+        const submission = await prisma.weeklyPlanDaySubmission.findUnique({
+            where: { id: submissionId },
+            include: {
+                weeklyPlan: {
+                    include: { student: { include: { user: { select: { id: true } } } } },
+                },
+            },
+        });
+        if (!submission) return sendError(res, 'Daily submission not found.', 404);
+
+        const team = await prisma.team.findFirst({
+            where: { managerId: student.id, deleted_at: null },
+            include: {
+                members: {
+                    include: {
+                        student: { include: { user: { select: { id: true } } } },
+                    },
+                },
+            },
+        });
+        if (!team) return sendError(res, 'You are not a Team Leader.', 403);
+        if (!team.members.some((m) => m.studentId === submission.weeklyPlan.studentId)) {
+            return sendError(res, 'This submission is not from a member of your team.', 403);
+        }
+
+        const updated = await prisma.weeklyPlanDaySubmission.update({
+            where: { id: submissionId },
+            data: {
+                tl_status: status,
+                tl_comment: typeof comment === 'string' ? comment.trim() || null : null,
+                tl_reviewed_at: new Date(),
+            },
+        });
+
+        const dateStr = submission.workDate instanceof Date
+            ? submission.workDate.toISOString().slice(0, 10)
+            : String(submission.workDate).slice(0, 10);
+        const msg = status === 'APPROVED'
+            ? `✅ Your daily plan for ${dateStr} was approved by the Team Leader.`
+            : `🔄 Your daily plan for ${dateStr} needs revision. ${comment ? `Comment: ${comment}` : ''} Please resubmit.`;
+        void sendNotification(submission.weeklyPlan.student.user.id, msg);
+
+        // If approved — check if ALL teammates' daily submissions for this date are TL-approved
+        if (status === 'APPROVED') {
+            const peerMemberIds = team.members
+                .map((m) => m.studentId)
+                .filter((sid) => sid !== team.managerId);
+            const weekNum = submission.weeklyPlan.week_number;
+
+            // Find the team weekly plan for this week
+            const teamWeeklyPlan = await prisma.teamWeeklyPlan.findUnique({
+                where: { teamId_week_number: { teamId: team.id, week_number: weekNum } },
+            });
+
+            if (teamWeeklyPlan && peerMemberIds.length > 0) {
+                // Get all teammates' daily submissions for this date
+                const memberDailyPlans = await prisma.weeklyPlanDaySubmission.findMany({
+                    where: {
+                        workDate: submission.workDate,
+                        weeklyPlan: { studentId: { in: peerMemberIds }, week_number: weekNum },
+                    },
+                    include: { weeklyPlan: { select: { studentId: true } } },
+                });
+
+                const allDailyApproved = peerMemberIds.every((sid) => {
+                    const dp = memberDailyPlans.find((d) => d.weeklyPlan.studentId === sid);
+                    return dp && (dp.tl_status === 'APPROVED' || dp.id === submissionId);
+                });
+
+                if (allDailyApproved && memberDailyPlans.length === peerMemberIds.length) {
+                    // Compile notes
+                    const compiledNotes = memberDailyPlans
+                        .map((d) => d.notes?.trim())
+                        .filter(Boolean)
+                        .join('\n');
+
+                    // Upsert team daily plan
+                    const existingTeamDaily = await prisma.teamDailyPlan.findUnique({
+                        where: { teamWeeklyPlanId_workDate: { teamWeeklyPlanId: teamWeeklyPlan.id, workDate: submission.workDate } },
+                    });
+
+                    if (existingTeamDaily) {
+                        await prisma.teamDailyPlan.update({
+                            where: { id: existingTeamDaily.id },
+                            data: { notes: compiledNotes || null, status: 'PENDING', supervisorNote: null, reviewedAt: null },
+                        });
+                    } else {
+                        await prisma.teamDailyPlan.create({
+                            data: {
+                                teamWeeklyPlanId: teamWeeklyPlan.id,
+                                submittedById: student.id,
+                                workDate: submission.workDate,
+                                notes: compiledNotes || null,
+                                status: 'PENDING',
+                            },
+                        });
+                    }
+
+                    // Notify team
+                    for (const m of team.members) {
+                        void sendNotification(m.student.user.id,
+                            `📤 All daily plans for ${dateStr} approved! Auto-submitted to supervisor.`
+                        );
+                    }
+                }
+            }
+        }
+
+        return sendSuccess(res, updated, `Daily plan ${status === 'APPROVED' ? 'approved' : 'revision requested'}.`);
+    } catch (e: any) {
+        return sendError(res, e.message, e.status ?? 500);
+    }
+};
+
+// ── Team Leader: forward compiled plan to supervisor ──────────────────────────
+// Compiles all TL-approved member plans for a given week into a team plan draft
+export const forwardToSupervisor = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await getStudentOrFail(req.user!.userId);
+        const { week_number, plan_description } = req.body as { week_number?: number; plan_description?: string };
+
+        if (!week_number || !plan_description?.trim()) {
+            return sendError(res, 'week_number and plan_description are required.', 400);
+        }
+
+        const team = await prisma.team.findFirst({
+            where: { managerId: student.id, deleted_at: null },
+            include: {
+                members: {
+                    include: {
+                        student: { include: { user: { select: { id: true } } } },
+                    },
+                },
+            },
+        });
+        if (!team) return sendError(res, 'You are not a Team Leader.', 403);
+
+        // Check if team plan already exists for this week
+        const existing = await prisma.teamWeeklyPlan.findUnique({
+            where: { teamId_week_number: { teamId: team.id, week_number } },
+        });
+        if (existing) {
+            // Update existing plan
+            const updated = await prisma.teamWeeklyPlan.update({
+                where: { id: existing.id },
+                data: {
+                    plan_description: plan_description.trim(),
+                    status: 'TL_PENDING',
+                    tl_status: 'PENDING',
+                    tl_comment: null,
+                    tl_reviewed_at: null,
+                    feedback: null,
+                    reviewed_at: null,
+                    version: existing.version + 1,
+                    submitted_at: new Date(),
+                },
+            });
+            void incrementActivityForUser(req.user!.userId);
+            return sendSuccess(res, updated, 'Team plan updated and ready for your final review.', 200);
+        }
+
+        const plan = await prisma.teamWeeklyPlan.create({
+            data: {
+                teamId: team.id,
+                projectId: team.projectId ?? undefined,
+                submittedById: student.id,
+                week_number,
+                plan_description: plan_description.trim(),
+                status: 'TL_PENDING',
+                tl_status: 'PENDING',
+            },
+        });
+
+        void incrementActivityForUser(req.user!.userId);
+
+        // Notify all team members
+        for (const m of team.members) {
+            if (m.student.user.id !== req.user!.userId) {
+                void sendNotification(m.student.user.id, `📤 Your Team Leader has submitted the Week ${week_number} team plan to the supervisor.`);
+            }
+        }
+
+        return sendSuccess(res, plan, 'Team plan ready for your final review.', 201);
+    } catch (e: any) {
+        return sendError(res, e.message, e.status ?? 500);
+    }
+};
+
+// ── Team Leader: approve or request resubmission of the compiled team plan ────
+export const tlReviewTeamPlan = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await getStudentOrFail(req.user!.userId);
+        const planId = parseInt(String(req.params.planId), 10);
+        const { status, comment } = req.body as { status?: string; comment?: string };
+
+        if (status !== 'APPROVED' && status !== 'REVISION_REQUESTED') {
+            return sendError(res, "status must be 'APPROVED' or 'REVISION_REQUESTED'.", 400);
+        }
+
+        // Verify TL owns this team plan
+        const teamPlan = await prisma.teamWeeklyPlan.findUnique({
+            where: { id: planId },
+            include: {
+                team: {
+                    include: {
+                        members: {
+                            include: { student: { include: { user: { select: { id: true } } } } },
+                        },
+                    },
+                },
+            },
+        });
+        if (!teamPlan) return sendError(res, 'Team plan not found.', 404);
+        if (teamPlan.team.managerId !== student.id) {
+            return sendError(res, 'Only the Team Leader can review this plan.', 403);
+        }
+
+        const trimmedComment = typeof comment === 'string' ? comment.trim() || null : null;
+
+        if (status === 'APPROVED') {
+            // TL approves → forward to supervisor (status becomes PENDING)
+            await prisma.teamWeeklyPlan.update({
+                where: { id: planId },
+                data: {
+                    tl_status: 'APPROVED',
+                    tl_comment: trimmedComment,
+                    tl_reviewed_at: new Date(),
+                    status: 'PENDING',
+                },
+            });
+
+            // Notify all team members
+            for (const m of teamPlan.team.members) {
+                void sendNotification(m.student.user.id,
+                    `📤 Team Leader approved the Week ${teamPlan.week_number} team plan. It has been forwarded to the supervisor.`
+                );
+            }
+
+            return sendSuccess(res, null, `Week ${teamPlan.week_number} team plan forwarded to supervisor.`);
+        } else {
+            // TL requests resubmission → reset to TL_PENDING, notify members to revise
+            await prisma.teamWeeklyPlan.update({
+                where: { id: planId },
+                data: {
+                    tl_status: 'REVISION_REQUESTED',
+                    tl_comment: trimmedComment,
+                    tl_reviewed_at: new Date(),
+                    status: 'TL_PENDING',
+                },
+            });
+
+            // Reset all member plans' tl_status so they resubmit
+            const memberIds = teamPlan.team.members.map((m) => m.studentId);
+            await prisma.weeklyPlan.updateMany({
+                where: { studentId: { in: memberIds }, week_number: teamPlan.week_number },
+                data: { tl_status: 'REVISION_REQUESTED', tl_comment: trimmedComment },
+            });
+
+            // Notify all members
+            for (const m of teamPlan.team.members) {
+                void sendNotification(m.student.user.id,
+                    `🔄 Team Leader requested revision for the Week ${teamPlan.week_number} team plan. ${trimmedComment ? `Comment: ${trimmedComment}` : ''} Please revise and resubmit.`
+                );
+            }
+
+            return sendSuccess(res, null, 'Revision requested. Members have been notified.');
+        }
+    } catch (e: any) {
+        return sendError(res, e.message, e.status ?? 500);
+    }
+};
+
+// ── Team Leader: get compiled draft from approved member plans ────────────────
+export const getCompiledDraft = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await getStudentOrFail(req.user!.userId);
+        const weekNum = parseInt(String(req.query.week), 10);
+        if (Number.isNaN(weekNum)) return sendError(res, 'week query param required.', 400);
+
+        const team = await prisma.team.findFirst({
+            where: { managerId: student.id, deleted_at: null },
+            include: {
+                members: {
+                    include: {
+                        student: {
+                            include: {
+                                user: { select: { full_name: true } },
+                                weeklyPlans: {
+                                    where: { week_number: weekNum, tl_status: 'APPROVED' },
+                                    include: { daySubmissions: { where: { tl_status: 'APPROVED' } } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        if (!team) return sendError(res, 'You are not a Team Leader.', 403);
+
+        const peerMembers = team.members.filter((m) => m.studentId !== team.managerId);
+
+        // Compile approved plans into a draft (teammates only — TL uses Weekly Plans separately)
+        const approvedPlans = peerMembers
+            .filter((m) => m.student.weeklyPlans.length > 0)
+            .map((m) => ({
+                memberName: m.student.user.full_name,
+                plan: m.student.weeklyPlans[0].plan_description,
+                approvedDailyDates: m.student.weeklyPlans[0].daySubmissions.map((d) =>
+                    d.workDate instanceof Date ? d.workDate.toISOString().slice(0, 10) : String(d.workDate).slice(0, 10)
+                ),
+            }));
+
+        const compiledText = approvedPlans.length > 0
+            ? approvedPlans.map((p) => `**${p.memberName}:**\n${p.plan}`).join('\n\n')
+            : '';
+
+        return sendSuccess(res, {
+            weekNumber: weekNum,
+            compiledDraft: compiledText,
+            approvedMembersCount: approvedPlans.length,
+            totalMembers: peerMembers.length,
+            members: approvedPlans,
+        });
     } catch (e: any) {
         return sendError(res, e.message, e.status ?? 500);
     }

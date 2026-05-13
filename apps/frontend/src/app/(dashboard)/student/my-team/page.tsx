@@ -109,7 +109,7 @@ export default function StudentMyTeamPage() {
               )}
               {team.managerName && !team.isManager && (
                 <span className="text-sm text-slate-500 dark:text-slate-400">
-                  📋 PM: <span className="font-semibold text-primary-600 dark:text-primary-400">{team.managerName}</span>
+                  👑 TL: <span className="font-semibold text-amber-600 dark:text-amber-400">{team.managerName}</span>
                 </span>
               )}
             </div>

@@ -5,6 +5,10 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import { sendNotification } from '../utils/notificationHelper';
 import { sendSuccess, sendError } from '../utils/responseHelper';
+import {
+    getPeerStudentIdsWithTeamLeaderForCompany,
+    weeklyPlanWhereVisibleToSupervisor,
+} from '../utils/supervisorWeeklyPlanFilter';
 
 // 1. SUPERVISOR: Submit Final Evaluation (FR-16)
 export const submitEvaluation = async (req: AuthRequest, res: Response) => {
@@ -22,8 +26,15 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         });
         if (!assignment) return sendError(res, 'This student is not actively placed at your company.', 403);
 
+        const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(supervisor.companyId);
+        const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
+
         const pendingPlans = await prisma.weeklyPlan.count({
-            where: { studentId: sid, status: 'PENDING' },
+            where: {
+                studentId: sid,
+                status: 'PENDING',
+                ...supervisorWeeklyVisibility,
+            },
         });
         if (pendingPlans > 0) {
             return sendError(res, 'Cannot submit final evaluation. There are still pending weekly plans that need approval.', 400);
