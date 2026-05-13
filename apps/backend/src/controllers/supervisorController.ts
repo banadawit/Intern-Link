@@ -1,8 +1,13 @@
 import { Response } from 'express';
+import type { Prisma } from '@prisma/client';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import { ymdFromUtcMs } from '../utils/internshipWeekDates';
 import { sendSuccess, sendError } from '../utils/responseHelper';
+import {
+    getPeerStudentIdsWithTeamLeaderForCompany,
+    weeklyPlanWhereVisibleToSupervisor,
+} from '../utils/supervisorWeeklyPlanFilter';
 
 export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
     try {
@@ -18,6 +23,8 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
         }
 
         const companyId = supervisor.companyId;
+        const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(companyId);
+        const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
 
         // ── Core counts ───────────────────────────────────────────────────────
         const [
@@ -34,6 +41,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 where: {
                     status: 'PENDING',
                     student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+                    ...supervisorWeeklyVisibility,
                 },
             }),
             prisma.internshipAssignment.count({ where: { companyId, status: 'ACTIVE' } }),
@@ -52,6 +60,7 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
                 where: {
                     status: 'PENDING',
                     student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+                    ...supervisorWeeklyVisibility,
                 },
                 orderBy: { submitted_at: 'desc' },
                 take: 3,
@@ -132,7 +141,10 @@ export const getSupervisorMe = async (req: AuthRequest, res: Response) => {
         // ── Recent activity feed ──────────────────────────────────────────────
         const [recentPlans, recentProposals] = await Promise.all([
             prisma.weeklyPlan.findMany({
-                where: { student: { assignments: { some: { companyId, status: 'ACTIVE' } } } },
+                where: {
+                    student: { assignments: { some: { companyId, status: 'ACTIVE' } } },
+                    ...supervisorWeeklyVisibility,
+                },
                 orderBy: { submitted_at: 'desc' },
                 take: 5,
                 select: {
@@ -304,13 +316,16 @@ export const getCompanyWeeklyPlans = async (req: AuthRequest, res: Response) => 
         }
 
         const statusParam = typeof req.query.status === 'string' ? req.query.status.toUpperCase() : undefined;
-        const where: {
-            studentId: { in: number[] };
-            status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
-        } = { studentId: { in: studentIds } };
-        if (statusParam === 'PENDING' || statusParam === 'APPROVED' || statusParam === 'REJECTED') {
-            where.status = statusParam;
-        }
+        const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(supervisor.companyId);
+        const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
+
+        const where: Prisma.WeeklyPlanWhereInput = {
+            studentId: { in: studentIds },
+            ...(statusParam === 'PENDING' || statusParam === 'APPROVED' || statusParam === 'REJECTED'
+                ? { status: statusParam }
+                : {}),
+            ...supervisorWeeklyVisibility,
+        };
 
         const plans = await prisma.weeklyPlan.findMany({
             where,
@@ -469,6 +484,9 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
             },
         });
 
+        const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(supervisor.companyId);
+        const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
+
         const rows = await prisma.weeklyPlanDaySubmission.findMany({
             where: {
                 weeklyPlan: {
@@ -499,11 +517,12 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
             select: { studentId: true, reviewed_at: true, submitted_at: true },
         });
 
-        // Plan submission dates (medium green — student submitted)
+        // Plan submission dates (medium green — visible to supervisor: TL-approved for teammates)
         const planSubmissions = await prisma.weeklyPlan.findMany({
             where: {
                 student: { assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } } },
                 submitted_at: { gte: new Date(startUtc), lte: new Date(endUtc) },
+                ...supervisorWeeklyVisibility,
             },
             select: { studentId: true, submitted_at: true },
         });

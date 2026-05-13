@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/db';
 import { ApprovalStatus, OrganizationType } from '@prisma/client';
 import { sendSuccess, sendError } from '../utils/responseHelper';
-import { findSimilarMatch, normalizeName } from '../utils/fuzzySearch';
+import { findSimilarMatch, normalizeName, getLevenshteinDistance } from '../utils/fuzzySearch';
 import { CloudinaryService } from '../services/cloudinary.service';
 
 /**
@@ -43,6 +43,50 @@ export const searchOrganizations = async (req: Request, res: Response) => {
         }
 
         return sendSuccess(res, results, 'Organizations fetched');
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
+    }
+};
+
+/**
+ * Check if an organization name is a duplicate or very similar.
+ */
+export const checkDuplicateOrganization = async (req: Request, res: Response) => {
+    try {
+        const { name, type } = req.body;
+        // Fallback to query param if type is not in body
+        const orgType = (req.query.type as string)?.toUpperCase() || type?.toUpperCase();
+
+        if (!name) return sendSuccess(res, { isDuplicate: false, suggestions: [] });
+
+        const existingOrgs = orgType === 'UNIVERSITY'
+            ? await prisma.university.findMany({ select: { id: true, name: true } })
+            : await prisma.company.findMany({ select: { id: true, name: true } });
+
+        const normalizedName = normalizeName(name);
+
+        let exactMatch = null;
+        let suggestions: any[] = [];
+
+        for (const org of existingOrgs) {
+            const normalizedOrg = normalizeName(org.name);
+            if (normalizedOrg === normalizedName) {
+                exactMatch = org;
+                break; // If exact match, no need to check further for exact.
+            }
+
+            // Allow a small typo threshold (e.g. Haramya vs Haramaya)
+            const distance = getLevenshteinDistance(normalizedName, normalizedOrg);
+            if (distance <= 2) {
+                suggestions.push(org);
+            }
+        }
+
+        if (exactMatch) {
+            return sendSuccess(res, { isDuplicate: true, exactMatch, suggestions: [] });
+        }
+
+        return sendSuccess(res, { isDuplicate: false, suggestions });
     } catch (error: any) {
         return sendError(res, error.message, 500);
     }

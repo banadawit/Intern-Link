@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as supervisorCtrl from '../controllers/supervisorController';
 import * as supervisorTeamCtrl from '../controllers/supervisorTeamController';
 import * as assignmentCtrl from '../controllers/assignmentController';
+import * as teamPlanCtrl from '../controllers/teamPlanController';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
 import { uploadImage } from '../config/multer.config';
@@ -52,5 +53,11 @@ router.patch('/assignments/students/:studentId/team', assignmentCtrl.moveStudent
 router.patch('/assignments/teams/:teamId/project', assignmentCtrl.moveTeamToProject);
 
 router.post('/evaluation', validate(evaluationSchema), supervisorCtrl.submitEvaluation);
+
+// ── Team plans (project manager workflow) ─────────────────────────────────────
+router.patch('/teams/:teamId/manager', teamPlanCtrl.assignTeamManager);
+router.get('/team-plans', teamPlanCtrl.getTeamWeeklyPlans);
+router.patch('/team-plans/:planId/review', teamPlanCtrl.reviewTeamWeeklyPlan);
+router.patch('/team-daily-plans/:dailyId/review', teamPlanCtrl.reviewTeamDailyPlan);
 
 export default router;

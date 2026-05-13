@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
+import { useTranslations } from "next-intl";
 import {
   CheckCircle2,
   XCircle,
@@ -24,44 +25,46 @@ interface Props {
 
 const PAGE_SIZE = 5;
 
-const ACTION_CONFIG: Record<
-  AuditLogEntry["action"],
-  { icon: React.ComponentType<{ className?: string }>; label: string; bg: string; text: string; dot: string }
-> = {
-  Approve: {
-    icon: CheckCircle2,
-    label: "Approved",
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
-    dot: "bg-emerald-500",
-  },
-  Reject: {
-    icon: XCircle,
-    label: "Rejected",
-    bg: "bg-red-50",
-    text: "text-red-700",
-    dot: "bg-red-500",
-  },
-  Suspend: {
-    icon: Ban,
-    label: "Suspended",
-    bg: "bg-amber-50",
-    text: "text-amber-700",
-    dot: "bg-amber-500",
-  },
-  Reactivate: {
-    icon: RotateCcw,
-    label: "Reactivated",
-    bg: "bg-teal-50",
-    text: "text-teal-700",
-    dot: "bg-teal-500",
-  },
-};
-
 const AuditLog = ({ logs }: Props) => {
+  const t = useTranslations("AdminPortal.audit");
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<AuditLogEntry["action"] | "All">("All");
   const [page, setPage] = useState(1);
+
+  const ACTION_CONFIG = useMemo(
+    () =>
+      ({
+        Approve: {
+          icon: CheckCircle2,
+          label: t("actionApproved"),
+          bg: "bg-emerald-50",
+          text: "text-emerald-700",
+          dot: "bg-emerald-500",
+        },
+        Reject: {
+          icon: XCircle,
+          label: t("actionRejected"),
+          bg: "bg-red-50",
+          text: "text-red-700",
+          dot: "bg-red-500",
+        },
+        Suspend: {
+          icon: Ban,
+          label: t("actionSuspended"),
+          bg: "bg-amber-50",
+          text: "text-amber-700",
+          dot: "bg-amber-500",
+        },
+        Reactivate: {
+          icon: RotateCcw,
+          label: t("actionReactivated"),
+          bg: "bg-teal-50",
+          text: "text-teal-700",
+          dot: "bg-teal-500",
+        },
+      }) as const,
+    [t]
+  );
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -86,9 +89,9 @@ const AuditLog = ({ logs }: Props) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <AdminPageHero
-        badge="Compliance"
-        title="Audit Log"
-        description="Complete history of verification decisions and administrative actions."
+        badge={t("heroBadge")}
+        title={t("heroTitle")}
+        description={t("heroDescription")}
       />
 
       {/* Toolbar */}
@@ -100,7 +103,7 @@ const AuditLog = ({ logs }: Props) => {
             type="text"
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search by organization, admin, or notes…"
+            placeholder={t("searchPlaceholder")}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
@@ -120,7 +123,7 @@ const AuditLog = ({ logs }: Props) => {
                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
               )}
             >
-              {a === "All" ? "All actions" : ACTION_CONFIG[a].label}
+              {a === "All" ? t("filterAllActions") : ACTION_CONFIG[a].label}
             </button>
           ))}
         </div>
@@ -158,7 +161,7 @@ const AuditLog = ({ logs }: Props) => {
         {paginated.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
             <FileText className="h-10 w-10 opacity-40" />
-            <p className="text-sm font-medium">No audit entries match your filters.</p>
+            <p className="text-sm font-medium">{t("empty")}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -227,11 +230,11 @@ const AuditLog = ({ logs }: Props) => {
       {filtered.length > 0 && (
         <div className="flex flex-col items-center gap-3 pb-6">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Showing{" "}
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
-              {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)}
-            </span>{" "}
-            of <span className="font-semibold text-slate-700 dark:text-slate-200">{filtered.length}</span> entries
+            {t("paginationRange", {
+              start: (safePage - 1) * PAGE_SIZE + 1,
+              end: Math.min(safePage * PAGE_SIZE, filtered.length),
+              total: filtered.length,
+            })}
           </p>
 
           <div className="flex items-center gap-1">

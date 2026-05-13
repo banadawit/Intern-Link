@@ -94,7 +94,7 @@ function TimelineModal({ studentName, studentId, onClose }: { studentName: strin
   );
 }
 
-type ViewMode = "row" | "card";
+
 
 type Props = {
   students: HodStudentRow[];

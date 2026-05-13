@@ -6,9 +6,11 @@ import { Loader2, RefreshCw } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodCompanyDirectory from "@/components/hod/HodCompanyDirectory";
 import type { HodCompanyRow } from "@/components/hod/types";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export default function HodCompaniesPage() {
+  const t = useTranslations("HodPortal.companies");
   const [companies, setCompanies] = useState<HodCompanyRow[]>([]);
   const [hodInvitedIds, setHodInvitedIds] = useState<Set<number>>(new Set());
   const [verifiedOnly, setVerifiedOnly] = useState(true);
@@ -29,29 +31,26 @@ export default function HodCompaniesPage() {
       const invited = Array.isArray(invitedRes.data.data) ? invitedRes.data.data : [];
       setHodInvitedIds(new Set(invited.map((c) => c.id)));
     } catch {
-      setError("Could not load companies.");
+      setError(t("couldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, [verifiedOnly]);
+  }, [verifiedOnly, t]);
 
   useEffect(() => { void load(); }, [load]);
 
   return (
     <div className="space-y-6 pb-8">
       <HodPageHero
-        badge="Companies"
-        title="Company directory"
-        description="Browse platform-approved organizations you can use when sending placement proposals."
+        badge={t("badge")}
+        title={t("title")}
+        description={t("description")}
         action={
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
+          <button type="button" onClick={() => void load()} disabled={loading}
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
@@ -74,7 +73,7 @@ export default function HodCompaniesPage() {
                 : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
             )}
           >
-            {v ? "Verified" : "All"}
+            {v ? t("verified") : "All"}
           </button>
         ))}
       </div>

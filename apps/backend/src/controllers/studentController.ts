@@ -111,7 +111,59 @@ export const getMyStudentProfile = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// 3. STUDENT: Submit an Open Letter request to their HoD
+// 3. STUDENT: Get their team info
+export const getMyTeam = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        const student = await prisma.student.findUnique({ where: { userId } });
+        if (!student) return sendError(res, 'Student profile not found.', 404);
+
+        const membership = await prisma.studentTeam.findFirst({
+            where: { studentId: student.id, team: { deleted_at: null } },
+            include: {
+                team: {
+                    include: {
+                        members: {
+                            include: {
+                                student: {
+                                    include: {
+                                        user: { select: { full_name: true, email: true } },
+                                    },
+                                },
+                            },
+                        },
+                        project: { select: { id: true, name: true, description: true } },
+                    },
+                },
+            },
+        });
+
+        if (!membership) return sendSuccess(res, null, 'Not in a team.');
+
+        const team = membership.team;
+        const manager = team.members.find((m) => m.studentId === team.managerId);
+
+        return sendSuccess(res, {
+            id: team.id,
+            name: team.name,
+            managerId: team.managerId,
+            managerName: manager?.student.user.full_name ?? null,
+            project: team.project ?? null,
+            isManager: team.managerId === student.id,
+            members: team.members.map((m) => ({
+                studentId: m.studentId,
+                fullName: m.student.user.full_name,
+                email: m.student.user.email,
+                isManager: m.studentId === team.managerId,
+                isMe: m.studentId === student.id,
+            })),
+        });
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
+    }
+};
+
+// 4. STUDENT: Submit an Open Letter request to their HoD
 export const submitOpenLetter = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.userId;
