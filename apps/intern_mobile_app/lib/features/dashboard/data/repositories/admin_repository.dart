@@ -173,22 +173,42 @@ class AdminRepository {
   // --- ORGANIZATION REQUESTS (NEW FLOW) ---
 
   Future<List<dynamic>> getOrganizationRequests() async {
-    final response = await apiClient.dio.get('/organization/admin/requests');
+    final response = await apiClient.dio.get('/admin/requests');
     return _deepList(response.data);
   }
 
   Future<void> markRequestAsViewed(int id) async {
-    await apiClient.dio.patch('/organization/admin/requests/$id/view');
+    await apiClient.dio.patch('/admin/requests/$id/view');
   }
 
-  Future<void> approveOrganizationRequest(int id) async {
-    await apiClient.dio.post('/organization/admin/requests/$id/approve');
+  Future<void> approveOrganizationRequest(int id, {String? resolution}) async {
+    await apiClient.dio.post('/admin/requests/$id/approve', data: {if (resolution != null) 'resolution': resolution});
   }
 
   Future<void> rejectOrganizationRequest(int id, {String? reason}) async {
-    await apiClient.dio.post('/organization/admin/requests/$id/reject', data: {
+    await apiClient.dio.post('/admin/requests/$id/reject', data: {
       if (reason != null) 'reason': reason,
     });
+  }
+
+  // --- MERGE DUPLICATES ---
+
+  Future<List<dynamic>> findDuplicateUniversities() async {
+    final response = await apiClient.dio.get('/admin/merge/duplicates/universities');
+    return _deepList(response.data);
+  }
+
+  Future<List<dynamic>> findDuplicateCompanies() async {
+    final response = await apiClient.dio.get('/admin/merge/duplicates/companies');
+    return _deepList(response.data);
+  }
+
+  Future<void> mergeUniversities(int sourceId, int targetId) async {
+    await apiClient.dio.post('/admin/merge/universities', data: {'sourceId': sourceId, 'targetId': targetId});
+  }
+
+  Future<void> mergeCompanies(int sourceId, int targetId) async {
+    await apiClient.dio.post('/admin/merge/companies', data: {'sourceId': sourceId, 'targetId': targetId});
   }
 
   // --- SYSTEM CONFIGURATION ---
@@ -414,4 +434,12 @@ final systemConfigProvider = FutureProvider<Map<String, String>>((ref) {
 
 final adminAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getAnalytics();
+});
+
+final duplicateUniversitiesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).findDuplicateUniversities();
+});
+
+final duplicateCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).findDuplicateCompanies();
 });

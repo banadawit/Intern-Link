@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { 
     searchOrganizations, 
     requestNewOrganization, 
+    checkDuplicateOrganization,
     adminGetRequests, 
     adminApproveRequest, 
     adminRejectRequest,
@@ -24,6 +25,8 @@ router.post('/request', uploadVerification.single('verification_doc'), requestNe
 // Backward compatibility (optional, but good to have)
 router.get('/universities/search', (req, res) => { req.query.type = 'UNIVERSITY'; searchOrganizations(req, res); });
 router.get('/companies/search', (req, res) => { req.query.type = 'COMPANY'; searchOrganizations(req, res); });
+router.post('/universities/check-duplicate', (req, res) => { req.query.type = 'UNIVERSITY'; checkDuplicateOrganization(req, res); });
+router.post('/companies/check-duplicate', (req, res) => { req.query.type = 'COMPANY'; checkDuplicateOrganization(req, res); });
 
 /**
  * Admin only management routes
