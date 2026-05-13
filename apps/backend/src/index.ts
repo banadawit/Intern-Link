@@ -62,9 +62,12 @@ app.use('/api/common-feed', commonFeedRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/files', fileRoutes);
-app.use('/api/support', supportRoutes);
+<<<<<<<<< Temporary merge branch 1
 // Public organization search (no auth — used during registration)
 app.use('/api', organizationRoutes);
+=========
+app.use('/api/support', supportRoutes);
+>>>>>>>>> Temporary merge branch 2
 // 3. Basic Health Check Route
 app.get('/', (req: Request, res: Response) => {
     res.send('InternLink Backend API is Running...');

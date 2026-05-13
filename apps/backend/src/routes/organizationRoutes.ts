@@ -1,32 +1,37 @@
-/**
- * Public organization search routes
- * Used during registration for autocomplete and duplicate detection.
- * No authentication required — these are public lookup endpoints.
- */
-
 import { Router } from 'express';
-import {
-  searchUniversities,
-  getApprovedUniversities,
-  checkUniversityDuplicate,
-  searchCompanies,
-  checkCompanyDuplicate,
-} from '../controllers/universitySearchController';
+import { 
+    searchOrganizations, 
+    requestNewOrganization, 
+    adminGetRequests, 
+    adminApproveRequest, 
+    adminRejectRequest,
+    adminMarkDocumentViewed,
+    adminMergeOrganizations
+} from '../controllers/organizationController';
+import { authenticate, authorize } from '../middlewares/authMiddleware';
+import { Role } from '@prisma/client';
+import { uploadVerification } from '../config/multer.config';
 
 const router = Router();
 
-// ── University endpoints ──────────────────────────────────────────────────────
-// GET  /universities/search?q=haramaya&limit=10  — autocomplete search
-// GET  /universities/approved                    — full list for dropdowns
-// POST /universities/check-duplicate             — fuzzy duplicate check
-router.get('/universities/search', searchUniversities);
-router.get('/universities/approved', getApprovedUniversities);
-router.post('/universities/check-duplicate', checkUniversityDuplicate);
+/**
+ * Public organization search & request routes
+ * Used during registration for autocomplete and new institution requests.
+ */
+router.get('/search', searchOrganizations);
+router.post('/request', uploadVerification.single('verification_doc'), requestNewOrganization);
 
-// ── Company endpoints ─────────────────────────────────────────────────────────
-// GET  /companies/search?q=demo&limit=10         — autocomplete search
-// POST /companies/check-duplicate                — fuzzy duplicate check
-router.get('/companies/search', searchCompanies);
-router.post('/companies/check-duplicate', checkCompanyDuplicate);
+// Backward compatibility (optional, but good to have)
+router.get('/universities/search', (req, res) => { req.query.type = 'UNIVERSITY'; searchOrganizations(req, res); });
+router.get('/companies/search', (req, res) => { req.query.type = 'COMPANY'; searchOrganizations(req, res); });
+
+/**
+ * Admin only management routes
+ */
+router.get('/admin/requests', authenticate, authorize([Role.ADMIN]), adminGetRequests);
+router.patch('/admin/requests/:id/view', authenticate, authorize([Role.ADMIN]), adminMarkDocumentViewed);
+router.post('/admin/requests/:id/approve', authenticate, authorize([Role.ADMIN]), adminApproveRequest);
+router.post('/admin/requests/:id/reject', authenticate, authorize([Role.ADMIN]), adminRejectRequest);
+router.post('/admin/merge', authenticate, authorize([Role.ADMIN]), adminMergeOrganizations);
 
 export default router;

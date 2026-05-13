@@ -468,7 +468,6 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
         const rows = await prisma.weeklyPlanDaySubmission.findMany({
             where: {
                 weeklyPlan: {
-                    status: 'APPROVED',
                     student: {
                         assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } },
                     },
@@ -480,32 +479,63 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
                 weeklyPlan: {
                     select: {
                         studentId: true,
-                        student: {
-                            select: {
-                                user: { select: { full_name: true, email: true } },
-                            },
-                        },
+                        student: { select: { user: { select: { full_name: true, email: true } } } },
                     },
                 },
             },
         });
 
+        // Approved weekly plan dates (dark green — supervisor approved)
+        const approvedPlans = await prisma.weeklyPlan.findMany({
+            where: {
+                status: 'APPROVED',
+                student: { assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } } },
+                reviewed_at: { gte: new Date(startUtc), lte: new Date(endUtc) },
+            },
+            select: { studentId: true, reviewed_at: true, submitted_at: true },
+        });
+
+        // Plan submission dates (medium green — student submitted)
+        const planSubmissions = await prisma.weeklyPlan.findMany({
+            where: {
+                student: { assignments: { some: { companyId: supervisor.companyId, status: 'ACTIVE' } } },
+                submitted_at: { gte: new Date(startUtc), lte: new Date(endUtc) },
+            },
+            select: { studentId: true, submitted_at: true },
+        });
+
         const byStudent = new Map<
             number,
-            { fullName: string; email: string; dates: Set<string> }
+            { fullName: string; email: string; dailyDates: Set<string>; approvedDates: Set<string>; submittedDates: Set<string> }
         >();
+
+        const ensureEntry = (sid: number, fullName: string, email: string) => {
+            if (!byStudent.has(sid)) {
+                byStudent.set(sid, { fullName, email, dailyDates: new Set(), approvedDates: new Set(), submittedDates: new Set() });
+            }
+            return byStudent.get(sid)!;
+        };
 
         for (const r of rows) {
             const sid = r.weeklyPlan.studentId;
             const u = r.weeklyPlan.student.user;
-            let entry = byStudent.get(sid);
-            if (!entry) {
-                entry = { fullName: u.full_name, email: u.email, dates: new Set<string>() };
-                byStudent.set(sid, entry);
+            const entry = ensureEntry(sid, u.full_name, u.email);
+            entry.dailyDates.add(ymdFromUtcMs(new Date(r.workDate).getTime()));
+        }
+
+        for (const p of approvedPlans) {
+            const student = placedStudents.find((s) => s.id === p.studentId);
+            if (student) {
+                const dateMs = p.reviewed_at ? new Date(p.reviewed_at).getTime() : new Date(p.submitted_at).getTime();
+                ensureEntry(p.studentId, student.user.full_name, student.user.email).approvedDates.add(ymdFromUtcMs(dateMs));
             }
-            const wd = r.workDate;
-            const ms = new Date(wd).getTime();
-            entry.dates.add(ymdFromUtcMs(ms));
+        }
+
+        for (const p of planSubmissions) {
+            const student = placedStudents.find((s) => s.id === p.studentId);
+            if (student) {
+                ensureEntry(p.studentId, student.user.full_name, student.user.email).submittedDates.add(ymdFromUtcMs(new Date(p.submitted_at).getTime()));
+            }
         }
 
         const rangeEnd = ymdFromUtcMs(endUtc);
@@ -517,7 +547,10 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
                 studentId: s.id,
                 fullName: s.user.full_name,
                 email: s.user.email,
-                submittedDates: sub ? [...sub.dates].sort() : [],
+                submittedDates: sub ? [...new Set([...sub.dailyDates, ...sub.approvedDates, ...sub.submittedDates])].sort() : [],
+                dailyCheckInDates: sub ? [...sub.dailyDates].sort() : [],
+                approvedPlanDates: sub ? [...sub.approvedDates].sort() : [],
+                planSubmissionDates: sub ? [...sub.submittedDates].sort() : [],
             };
         });
 

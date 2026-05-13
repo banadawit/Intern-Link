@@ -61,6 +61,31 @@ export type StudentContext = {
     }[];
 };
 
+export type SupervisorContext = {
+    companyName?: string;
+    placedStudents?: {
+        name: string;
+        email: string;
+        projectName?: string;
+        pendingPlans: number;
+        approvedPlans: number;
+        rejectedPlans: number;
+        lastPlanDescription?: string;
+    }[];
+    pendingProposalsCount?: number;
+    pendingPlansCount?: number;
+};
+
+export type HodContext = {
+    universityName?: string;
+    department?: string;
+    totalStudents?: number;
+    pendingApprovals?: number;
+    approvedStudents?: number;
+    placedStudents?: number;
+    recentPendingStudents?: { name: string; email: string }[];
+};
+
 export type ChatInput = {
     message: string;
     history?: { role: 'user' | 'assistant'; content: string }[];
@@ -68,6 +93,8 @@ export type ChatInput = {
     userId: number;
     userDisplayName: string;
     studentContext?: StudentContext;
+    supervisorContext?: SupervisorContext;
+    hodContext?: HodContext;
 };
 
 export type ChatResult = {
@@ -192,8 +219,48 @@ function buildStudentContextBlock(ctx: StudentContext): string {
     return lines.join('\n');
 }
 
+function buildSupervisorContextBlock(ctx: SupervisorContext): string {
+    const lines: string[] = ['--- Supervisor Context (live data) ---'];
+    if (ctx.companyName) lines.push(`🏢 Company: ${ctx.companyName}`);
+    if (ctx.pendingProposalsCount !== undefined) lines.push(`📥 Pending proposals: ${ctx.pendingProposalsCount}`);
+    if (ctx.pendingPlansCount !== undefined) lines.push(`📋 Pending weekly plans to review: ${ctx.pendingPlansCount}`);
+
+    if (ctx.placedStudents && ctx.placedStudents.length > 0) {
+        lines.push(`\n👥 Placed interns (${ctx.placedStudents.length}):`);
+        for (const s of ctx.placedStudents) {
+            lines.push(`  👤 ${s.name} (${s.email})`);
+            if (s.projectName) lines.push(`     📁 Project: ${s.projectName}`);
+            lines.push(`     Plans: ✅ ${s.approvedPlans} approved · ⏳ ${s.pendingPlans} pending · ❌ ${s.rejectedPlans} rejected`);
+            if (s.lastPlanDescription) lines.push(`     Latest plan: ${s.lastPlanDescription.slice(0, 150)}${s.lastPlanDescription.length > 150 ? '…' : ''}`);
+        }
+    } else {
+        lines.push('📭 No placed interns yet.');
+    }
+    lines.push('--- End of context ---');
+    return lines.join('\n');
+}
+
+function buildHodContextBlock(ctx: HodContext): string {
+    const lines: string[] = ['--- Head of Department Context (live data) ---'];
+    if (ctx.universityName) lines.push(`🏛️ University: ${ctx.universityName}`);
+    if (ctx.department) lines.push(`📚 Department: ${ctx.department}`);
+    if (ctx.totalStudents !== undefined) lines.push(`👥 Total students in department: ${ctx.totalStudents}`);
+    if (ctx.pendingApprovals !== undefined) lines.push(`⏳ Pending student approvals: ${ctx.pendingApprovals}`);
+    if (ctx.approvedStudents !== undefined) lines.push(`✅ Approved students: ${ctx.approvedStudents}`);
+    if (ctx.placedStudents !== undefined) lines.push(`🏢 Students placed at companies: ${ctx.placedStudents}`);
+    if (ctx.recentPendingStudents && ctx.recentPendingStudents.length > 0) {
+        lines.push(`\n🔔 Students awaiting approval:`);
+        for (const s of ctx.recentPendingStudents) {
+            lines.push(`  • ${s.name} (${s.email})`);
+        }
+    }
+    lines.push('--- End of context ---');
+    return lines.join('\n');
+}
+
 function buildFullChatSystemMessage(input: ChatInput): string {
     let base = `${CHAT_SYSTEM_MESSAGE}\n\n${buildChatSessionInstruction(input.userDisplayName, input.appRole)}`;
+
     if (input.appRole === 'STUDENT' && input.studentContext) {
         base += `\n\n${buildStudentContextBlock(input.studentContext)}`;
         base += `\n\n**When responding to this student, always:**
@@ -203,6 +270,25 @@ function buildFullChatSystemMessage(input: ChatInput): string {
 - Format responses with **bold headings**, bullet points, and emojis
 - Be proactive: suggest next steps, ask about blockers, celebrate progress`;
     }
+
+    if (input.appRole === 'SUPERVISOR' && input.supervisorContext) {
+        base += `\n\n${buildSupervisorContextBlock(input.supervisorContext)}`;
+        base += `\n\n**When responding to this supervisor, always:**
+- Reference their company ("${input.supervisorContext.companyName ?? 'your company'}") and interns by name
+- Help review weekly plans, generate feedback, and track intern progress
+- Suggest actions for pending proposals or plans
+- Format responses with **bold headings**, bullet points, and emojis`;
+    }
+
+    if (input.appRole === 'HOD' && input.hodContext) {
+        base += `\n\n${buildHodContextBlock(input.hodContext)}`;
+        base += `\n\n**When responding to this Head of Department, always:**
+- Reference their university ("${input.hodContext.universityName ?? 'your university'}") and department ("${input.hodContext.department ?? 'your department'}")
+- Help manage student approvals, placements, and department oversight
+- Provide insights on student progress and placement rates
+- Format responses with **bold headings**, bullet points, and emojis`;
+    }
+
     return base;
 }
 

@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -165,6 +166,28 @@ model Company {
   projects          Project[]
   supervisors       Supervisor[]
   teams             Team[]
+}
+
+enum OrganizationType {
+  UNIVERSITY
+  COMPANY
+}
+
+model OrganizationRequest {
+  id               Int              @id @default(autoincrement())
+  name             String
+  type             OrganizationType
+  address          String?
+  website          String?
+  verification_doc String
+  status           ApprovalStatus   @default(PENDING)
+  rejection_reason String?
+  requester_email  String
+  document_viewed  Boolean          @default(false)
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+
+  @@index([status])
 }
 
 model Coordinator {

@@ -337,7 +337,7 @@ export default function AIChat({
   return (
     <div className={cn(shell, className)}>
       {/* ── Header ── */}
-      {!hideHeader && (variant === "page" || variant === "floating") && (
+      {!hideHeader && (
         <div className={cn(
           "flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 px-4 py-3",
           variant === "page"
