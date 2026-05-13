@@ -789,7 +789,21 @@ export const getReports = async (req: AuthRequest, res: Response) => {
         
         const reports = deptIds.length === 0 ? [] : await prisma.report.findMany({
             where: { studentId: { in: deptIds } },
-            include: { student: { include: { user: { select: { full_name: true, email: true } } } } },
+            include: {
+                student: {
+                    include: {
+                        user: { select: { full_name: true, email: true } },
+                        finalEvaluation: {
+                            select: {
+                                technical_score: true,
+                                soft_skill_score: true,
+                                comments: true,
+                                evaluated_at: true,
+                            },
+                        },
+                    },
+                },
+            },
             orderBy: { generated_at: 'desc' },
         });
         return sendSuccess(res, reports);

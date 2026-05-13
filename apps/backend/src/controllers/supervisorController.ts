@@ -250,6 +250,9 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
                         finalReport: {
                             select: { locked: true, sent_at: true, pdf_url: true, generated_at: true },
                         },
+                        finalEvaluation: {
+                            select: { technical_score: true, soft_skill_score: true, comments: true },
+                        },
                     },
                 },
             },
@@ -264,6 +267,7 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
                 user: a.student.user,
                 university: a.student.university,
                 finalReport: a.student.finalReport,
+                finalEvaluation: a.student.finalEvaluation ?? null,
             },
             assignment: {
                 id: a.id,
