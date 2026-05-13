@@ -19,8 +19,7 @@ export default function HodReportsTable({ reports }: Props) {
           <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/70">
             <tr>
               <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Student</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Technical</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Soft Skills</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Avg Score</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Evaluated</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Stamped</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-200">Report</th>
@@ -38,16 +37,12 @@ export default function HodReportsTable({ reports }: Props) {
                   <td className="px-4 py-3">
                     {ev ? (
                       <span className="inline-flex items-center rounded-lg bg-teal-50 px-2.5 py-1 text-sm font-bold text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
-                        {Number(ev.technical_score)}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 dark:text-slate-500">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {ev ? (
-                      <span className="inline-flex items-center rounded-lg bg-blue-50 px-2.5 py-1 text-sm font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                        {Number(ev.soft_skill_score)}
+                        {Math.round((
+                          Number(ev.technical_skills) + Number(ev.problem_solving) + Number(ev.communication) +
+                          Number(ev.team_collaboration) + Number(ev.time_management) + Number(ev.adaptability) +
+                          Number(ev.professionalism) + Number(ev.initiative_creativity) + Number(ev.attendance_punctuality) +
+                          Number(ev.task_completion_quality)
+                        ) / 10 * 10) / 10}
                       </span>
                     ) : (
                       <span className="text-slate-400 dark:text-slate-500">—</span>

@@ -117,8 +117,16 @@ const FinalEvaluation = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <ScoreCard label="Technical Skills" score={evaluation.technicalScore} color="#0D9488" icon={TrendingUp} />
-        <ScoreCard label="Soft Skills" score={evaluation.softSkillScore} color="#3B82F6" icon={Award} />
+        <ScoreCard label="Technical Skills" score={evaluation.technical_skills} color="#0D9488" icon={TrendingUp} />
+        <ScoreCard label="Problem Solving" score={evaluation.problem_solving} color="#6366F1" icon={TrendingUp} />
+        <ScoreCard label="Communication" score={evaluation.communication} color="#14B8A6" icon={Award} />
+        <ScoreCard label="Team Collaboration" score={evaluation.team_collaboration} color="#22C55E" icon={Award} />
+        <ScoreCard label="Time Management" score={evaluation.time_management} color="#F59E0B" icon={TrendingUp} />
+        <ScoreCard label="Adaptability" score={evaluation.adaptability} color="#F97316" icon={Award} />
+        <ScoreCard label="Professionalism" score={evaluation.professionalism} color="#8B5CF6" icon={ShieldCheck} />
+        <ScoreCard label="Initiative & Creativity" score={evaluation.initiative_creativity} color="#EC4899" icon={TrendingUp} />
+        <ScoreCard label="Attendance & Punctuality" score={evaluation.attendance_punctuality} color="#06B6D4" icon={Award} />
+        <ScoreCard label="Task Completion Quality" score={evaluation.task_completion_quality} color="#EF4444" icon={ShieldCheck} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

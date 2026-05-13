@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api/client";
-import { Loader2, RefreshCw, TrendingUp, Award } from "lucide-react";
+import { Loader2, RefreshCw, TrendingUp } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodReportsTable from "@/components/hod/HodReportsTable";
 import type { HodReportRow } from "@/components/hod/types";
 
 type ReportsSummary = {
-  averageTechnicalScore: number | null;
-  averageSoftSkillScore: number | null;
+  averageScore: number | null;
   studentsWithFinalReport: number;
 };
 
@@ -70,20 +69,9 @@ export default function HodReportsPage() {
               <TrendingUp className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Avg Technical</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Avg Score</p>
               <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
-                {summary.averageTechnicalScore !== null ? summary.averageTechnicalScore : "—"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-              <Award className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Avg Soft Skills</p>
-              <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
-                {summary.averageSoftSkillScore !== null ? summary.averageSoftSkillScore : "—"}
+                {summary.averageScore !== null ? summary.averageScore : "—"}
               </p>
             </div>
           </div>

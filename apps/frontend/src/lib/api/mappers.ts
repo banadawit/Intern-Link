@@ -243,16 +243,32 @@ export type EvaluationWithMeta = FinalEvaluation & {
 };
 
 export function mapEvaluationApi(e: {
-  technicalScore: number;
-  softSkillScore: number;
+  technical_skills: number;
+  problem_solving: number;
+  communication: number;
+  team_collaboration: number;
+  time_management: number;
+  adaptability: number;
+  professionalism: number;
+  initiative_creativity: number;
+  attendance_punctuality: number;
+  task_completion_quality: number;
   comments: string;
   evaluatedAt: string;
   supervisorName: string;
   companyName: string;
 }): EvaluationWithMeta {
   return {
-    technicalScore: e.technicalScore,
-    softSkillScore: e.softSkillScore,
+    technical_skills: e.technical_skills,
+    problem_solving: e.problem_solving,
+    communication: e.communication,
+    team_collaboration: e.team_collaboration,
+    time_management: e.time_management,
+    adaptability: e.adaptability,
+    professionalism: e.professionalism,
+    initiative_creativity: e.initiative_creativity,
+    attendance_punctuality: e.attendance_punctuality,
+    task_completion_quality: e.task_completion_quality,
     comments: e.comments,
     reportUrl: "#",
     supervisorName: e.supervisorName,

@@ -18,8 +18,16 @@ class FinalEvaluation {
   final int id;
   final int studentId;
   final int supervisorId;
-  final double technicalScore;
-  final double softSkillScore;
+  final double technicalSkills;
+  final double problemSolving;
+  final double communication;
+  final double teamCollaboration;
+  final double timeManagement;
+  final double adaptability;
+  final double professionalism;
+  final double initiativeCreativity;
+  final double attendancePunctuality;
+  final double taskCompletionQuality;
   final String? comments;
   final DateTime evaluatedAt;
 
@@ -27,19 +35,39 @@ class FinalEvaluation {
     required this.id,
     required this.studentId,
     required this.supervisorId,
-    required this.technicalScore,
-    required this.softSkillScore,
+    required this.technicalSkills,
+    required this.problemSolving,
+    required this.communication,
+    required this.teamCollaboration,
+    required this.timeManagement,
+    required this.adaptability,
+    required this.professionalism,
+    required this.initiativeCreativity,
+    required this.attendancePunctuality,
+    required this.taskCompletionQuality,
     this.comments,
     required this.evaluatedAt,
   });
+
+  double get averageScore => (technicalSkills + problemSolving + communication +
+      teamCollaboration + timeManagement + adaptability + professionalism +
+      initiativeCreativity + attendancePunctuality + taskCompletionQuality) / 10;
 
   factory FinalEvaluation.fromJson(Map<String, dynamic> json) {
     return FinalEvaluation(
       id: _si(json['id']),
       studentId: _si(json['studentId']),
       supervisorId: _si(json['supervisorId']),
-      technicalScore: _safeDouble(json['technical_score']),
-      softSkillScore: _safeDouble(json['soft_skill_score']),
+      technicalSkills: _safeDouble(json['technical_skills']),
+      problemSolving: _safeDouble(json['problem_solving']),
+      communication: _safeDouble(json['communication']),
+      teamCollaboration: _safeDouble(json['team_collaboration']),
+      timeManagement: _safeDouble(json['time_management']),
+      adaptability: _safeDouble(json['adaptability']),
+      professionalism: _safeDouble(json['professionalism']),
+      initiativeCreativity: _safeDouble(json['initiative_creativity']),
+      attendancePunctuality: _safeDouble(json['attendance_punctuality']),
+      taskCompletionQuality: _safeDouble(json['task_completion_quality']),
       comments: json['comments'],
       evaluatedAt: json['evaluated_at'] != null
           ? DateTime.tryParse(json['evaluated_at'].toString()) ?? DateTime.now()

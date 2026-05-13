@@ -795,8 +795,16 @@ export const getReports = async (req: AuthRequest, res: Response) => {
                         user: { select: { full_name: true, email: true } },
                         finalEvaluation: {
                             select: {
-                                technical_score: true,
-                                soft_skill_score: true,
+                                technical_skills: true,
+                                problem_solving: true,
+                                communication: true,
+                                team_collaboration: true,
+                                time_management: true,
+                                adaptability: true,
+                                professionalism: true,
+                                initiative_creativity: true,
+                                attendance_punctuality: true,
+                                task_completion_quality: true,
                                 comments: true,
                                 evaluated_at: true,
                             },
