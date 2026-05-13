@@ -360,15 +360,23 @@ model WeeklyReport {
 }
 
 model FinalEvaluation {
-  id               Int        @id @default(autoincrement())
-  studentId        Int        @unique
-  supervisorId     Int
-  technical_score  Decimal    @db.Decimal(5, 2)
-  soft_skill_score Decimal    @db.Decimal(5, 2)
-  comments         String?    @db.Text
-  evaluated_at     DateTime   @default(now())
-  student          Student    @relation(fields: [studentId], references: [id])
-  supervisor       Supervisor @relation(fields: [supervisorId], references: [id])
+  id                      Int        @id @default(autoincrement())
+  studentId               Int        @unique
+  supervisorId            Int
+  technical_skills        Decimal    @db.Decimal(5, 2)
+  problem_solving         Decimal    @db.Decimal(5, 2)
+  communication           Decimal    @db.Decimal(5, 2)
+  team_collaboration      Decimal    @db.Decimal(5, 2)
+  time_management         Decimal    @db.Decimal(5, 2)
+  adaptability            Decimal    @db.Decimal(5, 2)
+  professionalism         Decimal    @db.Decimal(5, 2)
+  initiative_creativity   Decimal    @db.Decimal(5, 2)
+  attendance_punctuality  Decimal    @db.Decimal(5, 2)
+  task_completion_quality Decimal    @db.Decimal(5, 2)
+  comments                String?    @db.Text
+  evaluated_at            DateTime   @default(now())
+  student                 Student    @relation(fields: [studentId], references: [id])
+  supervisor              Supervisor @relation(fields: [supervisorId], references: [id])
 }
 
 model Report {

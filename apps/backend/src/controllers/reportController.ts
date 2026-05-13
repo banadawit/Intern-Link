@@ -9,7 +9,7 @@ import { sendSuccess, sendError } from '../utils/responseHelper';
 // 1. SUPERVISOR: Submit Final Evaluation (FR-16)
 export const submitEvaluation = async (req: AuthRequest, res: Response) => {
     try {
-        const { studentId, technical_score, soft_skill_score, comments } = req.body;
+        const { studentId, technical_skills, problem_solving, communication, team_collaboration, time_management, adaptability, professionalism, initiative_creativity, attendance_punctuality, task_completion_quality, comments } = req.body;
 
         const supervisor = await prisma.supervisor.findUnique({
             where: { userId: req.user!.userId },
@@ -34,14 +34,30 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
             create: {
                 studentId: sid,
                 supervisorId: supervisor.id,
-                technical_score: parseFloat(technical_score),
-                soft_skill_score: parseFloat(soft_skill_score),
+                technical_skills: parseFloat(technical_skills),
+                problem_solving: parseFloat(problem_solving),
+                communication: parseFloat(communication),
+                team_collaboration: parseFloat(team_collaboration),
+                time_management: parseFloat(time_management),
+                adaptability: parseFloat(adaptability),
+                professionalism: parseFloat(professionalism),
+                initiative_creativity: parseFloat(initiative_creativity),
+                attendance_punctuality: parseFloat(attendance_punctuality),
+                task_completion_quality: parseFloat(task_completion_quality),
                 comments,
             },
             update: {
                 supervisorId: supervisor.id,
-                technical_score: parseFloat(technical_score),
-                soft_skill_score: parseFloat(soft_skill_score),
+                technical_skills: parseFloat(technical_skills),
+                problem_solving: parseFloat(problem_solving),
+                communication: parseFloat(communication),
+                team_collaboration: parseFloat(team_collaboration),
+                time_management: parseFloat(time_management),
+                adaptability: parseFloat(adaptability),
+                professionalism: parseFloat(professionalism),
+                initiative_creativity: parseFloat(initiative_creativity),
+                attendance_punctuality: parseFloat(attendance_punctuality),
+                task_completion_quality: parseFloat(task_completion_quality),
                 comments,
             },
         });
@@ -54,13 +70,13 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         if (student) {
             await sendNotification(
                 student.userId,
-                `📊 Your final evaluation has been submitted — Technical: ${parseFloat(technical_score)}/100, Soft Skills: ${parseFloat(soft_skill_score)}/100.`
+                `📊 Your final evaluation has been submitted with 10 criteria scores.`
             );
             // Notify HOD if linked
             if (student.hod) {
                 await sendNotification(
                     student.hod.userId,
-                    `📊 Final evaluation submitted for ${student.user.full_name} — Technical: ${parseFloat(technical_score)}/100, Soft Skills: ${parseFloat(soft_skill_score)}/100.`
+                    `📊 Final evaluation submitted for ${student.user.full_name} with 10 criteria scores.`
                 );
             }
         }
@@ -91,8 +107,16 @@ export const getMyEvaluation = async (req: AuthRequest, res: Response) => {
         const ev = student.finalEvaluation;
         return sendSuccess(res, {
             evaluation: {
-                technicalScore: Number(ev.technical_score),
-                softSkillScore: Number(ev.soft_skill_score),
+                technical_skills: Number(ev.technical_skills),
+                problem_solving: Number(ev.problem_solving),
+                communication: Number(ev.communication),
+                team_collaboration: Number(ev.team_collaboration),
+                time_management: Number(ev.time_management),
+                adaptability: Number(ev.adaptability),
+                professionalism: Number(ev.professionalism),
+                initiative_creativity: Number(ev.initiative_creativity),
+                attendance_punctuality: Number(ev.attendance_punctuality),
+                task_completion_quality: Number(ev.task_completion_quality),
                 comments: ev.comments ?? '',
                 evaluatedAt: ev.evaluated_at,
                 supervisorName: ev.supervisor.user.full_name,
@@ -118,6 +142,12 @@ export const generateStudentReport = async (req: AuthRequest, res: Response) => 
                 finalEvaluation: { include: { supervisor: { include: { user: true } } } },
                 weeklyPlans: { where: { status: 'APPROVED' }, orderBy: { week_number: 'asc' } },
                 assignments: { include: { company: true } },
+                weeklyReports: {
+                    orderBy: { submitted_at: 'asc' },
+                    include: {
+                        weeklyPlan: { select: { week_number: true, daySubmissions: { select: { workDate: true } } } },
+                    },
+                },
             },
         });
 
@@ -271,36 +301,233 @@ export const generateStudentReport = async (req: AuthRequest, res: Response) => 
         doc.moveTo(50, evalY + 18).lineTo(doc.page.width - 50, evalY + 18).strokeColor('#1e3a5f').lineWidth(1.5).stroke();
         doc.lineWidth(1);
 
-        // Score boxes
-        const boxY = evalY + 28;
-        const boxW = (doc.page.width - 120) / 2;
+        // 10-criteria score grid (2 columns)
+        const criteria: Array<{ label: string; key: keyof typeof ev }> = [
+            { label: 'Technical Skills', key: 'technical_skills' },
+            { label: 'Problem Solving', key: 'problem_solving' },
+            { label: 'Communication', key: 'communication' },
+            { label: 'Team Collaboration', key: 'team_collaboration' },
+            { label: 'Time Management', key: 'time_management' },
+            { label: 'Adaptability', key: 'adaptability' },
+            { label: 'Professionalism', key: 'professionalism' },
+            { label: 'Initiative & Creativity', key: 'initiative_creativity' },
+            { label: 'Attendance & Punctuality', key: 'attendance_punctuality' },
+            { label: 'Task Completion Quality', key: 'task_completion_quality' },
+        ];
 
-        // Technical score box
-        doc.roundedRect(50, boxY, boxW, 70, 6).fillAndStroke('#e8f4fd', '#b3d4f0');
-        doc.fontSize(10).font('Helvetica-Bold').fillColor('#1e3a5f').text('Technical Skills', 60, boxY + 10);
-        doc.fontSize(28).font('Helvetica-Bold').fillColor('#1e3a5f')
-            .text(`${Number(ev.technical_score)}`, 60, boxY + 26);
-        doc.fontSize(10).font('Helvetica').fillColor('#666').text('out of 100', 60, boxY + 54);
+        const gridStartY = evalY + 28;
+        const colW = (doc.page.width - 120) / 2;
+        const rowH = 28;
 
-        // Soft skills score box
-        const box2x = 50 + boxW + 20;
-        doc.roundedRect(box2x, boxY, boxW, 70, 6).fillAndStroke('#edf7ee', '#b3ddb5');
-        doc.fontSize(10).font('Helvetica-Bold').fillColor('#2d6a2d').text('Soft Skills', box2x + 10, boxY + 10);
-        doc.fontSize(28).font('Helvetica-Bold').fillColor('#2d6a2d')
-            .text(`${Number(ev.soft_skill_score)}`, box2x + 10, boxY + 26);
-        doc.fontSize(10).font('Helvetica').fillColor('#666').text('out of 100', box2x + 10, boxY + 54);
+        criteria.forEach((c, i) => {
+            const col = i % 2;
+            const row = Math.floor(i / 2);
+            const cx = 50 + col * (colW + 20);
+            const cy = gridStartY + row * rowH;
+            const bg = col === 0 ? '#e8f4fd' : '#edf7ee';
+            const border = col === 0 ? '#b3d4f0' : '#b3ddb5';
+            const textColor = col === 0 ? '#1e3a5f' : '#2d6a2d';
+            doc.roundedRect(cx, cy, colW, rowH - 2, 4).fillAndStroke(bg, border);
+            doc.fontSize(9).font('Helvetica-Bold').fillColor(textColor).text(c.label, cx + 8, cy + 5);
+            doc.fontSize(11).font('Helvetica-Bold').fillColor(textColor)
+                .text(`${Number(ev[c.key])}/100`, cx + colW - 60, cy + 5, { width: 55, align: 'right' });
+        });
+
+        // Overall average
+        const overallAvg = Math.round(([
+            ev.technical_skills, ev.problem_solving, ev.communication, ev.team_collaboration,
+            ev.time_management, ev.adaptability, ev.professionalism, ev.initiative_creativity,
+            ev.attendance_punctuality, ev.task_completion_quality,
+        ].reduce((s, v) => s + Number(v), 0) / 10) * 10) / 10;
+
+        const avgBoxY = gridStartY + Math.ceil(criteria.length / 2) * rowH + 6;
+        doc.roundedRect(50, avgBoxY, doc.page.width - 100, 32, 5).fillAndStroke('#1e3a5f', '#1e3a5f');
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#ffffff')
+            .text(`Overall Average Score: ${overallAvg} / 100`, 60, avgBoxY + 9, { width: doc.page.width - 120, align: 'center' });
 
         // Comments
         if (ev.comments) {
-            const commY = boxY + 85;
+            const commY = avgBoxY + 42;
             doc.fontSize(10).font('Helvetica-Bold').fillColor('#1e3a5f').text('Supervisor Comments:', 50, commY);
             doc.roundedRect(50, commY + 16, doc.page.width - 100, 50, 5).fillAndStroke('#fafafa', '#e0e0e0');
             doc.fontSize(10).font('Helvetica-Oblique').fillColor('#444')
                 .text(`"${ev.comments}"`, 60, commY + 24, { width: doc.page.width - 120 });
         }
 
-        // Weekly progress section
-        const weekY = boxY + 160;
+        // ── WEEKLY ATTENDANCE RECORD ──────────────────────────────────────────
+        const attStartY = avgBoxY + (ev.comments ? 115 : 50);
+
+        // Build attendance map: weekNumber → { mon, tue, wed, thu, fri }
+        type DayStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'NONE';
+        type WeekAttendance = { mon: DayStatus; tue: DayStatus; wed: DayStatus; thu: DayStatus; fri: DayStatus };
+
+        const weekMap = new Map<number, WeekAttendance>();
+        const emptyWeek = (): WeekAttendance => ({ mon: 'NONE', tue: 'NONE', wed: 'NONE', thu: 'NONE', fri: 'NONE' });
+        const dayKeys: Array<keyof WeekAttendance> = ['mon', 'tue', 'wed', 'thu', 'fri'];
+
+        // Populate from weeklyReports (one report per week)
+        for (const wr of data.weeklyReports) {
+            const wn = wr.weeklyPlan?.week_number;
+            if (!wn) continue;
+            if (!weekMap.has(wn)) weekMap.set(wn, emptyWeek());
+            const entry = weekMap.get(wn)!;
+
+            // Use day submissions to determine per-day status
+            const submittedDays = new Set(
+                (wr.weeklyPlan?.daySubmissions ?? []).map((d) => new Date(d.workDate).getDay()) // 1=Mon..5=Fri
+            );
+
+            // Map attendance status to each weekday
+            const status = wr.attendanceStatus as DayStatus;
+            for (let d = 1; d <= 5; d++) {
+                const key = dayKeys[d - 1];
+                if (submittedDays.has(d)) {
+                    entry[key] = status;
+                } else if (status === 'ABSENT') {
+                    entry[key] = 'ABSENT';
+                }
+            }
+        }
+
+        // Determine total weeks from assignment duration or max week number
+        const assignment = data.assignments.find((a) => a.status === 'ACTIVE') ?? data.assignments[0];
+        let totalWeeks = weekMap.size > 0 ? Math.max(...weekMap.keys()) : 0;
+        if (assignment?.start_date && assignment?.end_date) {
+            const diffMs = new Date(assignment.end_date).getTime() - new Date(assignment.start_date).getTime();
+            totalWeeks = Math.max(totalWeeks, Math.ceil(diffMs / (7 * 86400000)));
+        }
+        if (totalWeeks === 0) totalWeeks = data.weeklyPlans.length || 1;
+
+        // Ensure all weeks exist in map
+        for (let w = 1; w <= totalWeeks; w++) {
+            if (!weekMap.has(w)) weekMap.set(w, emptyWeek());
+        }
+
+        // Count totals
+        let totalPresent = 0, totalAbsent = 0, totalLate = 0, totalRecorded = 0;
+        for (const [, week] of weekMap) {
+            for (const key of dayKeys) {
+                const s = week[key];
+                if (s === 'PRESENT') { totalPresent++; totalRecorded++; }
+                else if (s === 'ABSENT') { totalAbsent++; totalRecorded++; }
+                else if (s === 'LATE') { totalLate++; totalRecorded++; }
+            }
+        }
+        const attendancePct = totalRecorded > 0
+            ? Math.round(((totalPresent + totalLate) / totalRecorded) * 100)
+            : 0;
+
+        // Section header
+        doc.addPage();
+        doc.rect(0, 0, doc.page.width, 80).fill('#1e3a5f');
+        doc.fillColor('#ffffff').fontSize(20).font('Helvetica-Bold')
+            .text('INTERNSHIP PERFORMANCE REPORT', 50, 25, { align: 'center' });
+        doc.fontSize(9).font('Helvetica').fillColor('#a8c4e0')
+            .text('InternLink — Official Internship Management System', 50, 52, { align: 'center' });
+
+        const attY = 100;
+        doc.fontSize(13).font('Helvetica-Bold').fillColor('#1e3a5f').text('WEEKLY ATTENDANCE RECORD', 50, attY);
+        doc.moveTo(50, attY + 18).lineTo(doc.page.width - 50, attY + 18).strokeColor('#1e3a5f').lineWidth(1.5).stroke();
+        doc.lineWidth(1);
+
+        // Legend
+        const legY = attY + 26;
+        const legendItems = [
+            { symbol: '\u2713', label: 'Present', color: '#16a34a' },
+            { symbol: '\u2717', label: 'Absent', color: '#dc2626' },
+            { symbol: 'L', label: 'Late', color: '#d97706' },
+            { symbol: '\u2014', label: 'Not recorded', color: '#9ca3af' },
+        ];
+        let legX = 50;
+        for (const item of legendItems) {
+            doc.roundedRect(legX, legY, 14, 14, 2).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fontSize(8).font('Helvetica-Bold').fillColor(item.color).text(item.symbol, legX + 3, legY + 3);
+            doc.fontSize(8).font('Helvetica').fillColor('#555').text(item.label, legX + 18, legY + 3);
+            legX += 80;
+        }
+
+        // Table header
+        const tblY = legY + 24;
+        const colWidths = { week: 65, day: (doc.page.width - 165) / 5 };
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const tblRight = 50 + 65 + colWidths.day * 5;
+
+        // Header row
+        doc.rect(50, tblY, tblRight - 50, 20).fill('#1e3a5f');
+        doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff').text('WEEK', 55, tblY + 6);
+        days.forEach((d, i) => {
+            doc.text(d.toUpperCase(), 50 + 65 + i * colWidths.day + 4, tblY + 6, { width: colWidths.day - 4, align: 'center' });
+        });
+
+        // Week rows
+        let tblRowY = tblY + 20;
+        const sortedWeeks = Array.from(weekMap.entries()).sort(([a], [b]) => a - b);
+
+        const statusSymbol = (s: DayStatus): string => {
+            if (s === 'PRESENT') return '\u2713';  // ✓ check mark
+            if (s === 'ABSENT') return '\u2717';   // ✗ ballot X
+            if (s === 'LATE') return 'L';
+            return '\u2014';                        // — em dash
+        };
+        const statusColor = (s: DayStatus): string => {
+            if (s === 'PRESENT') return '#16a34a';
+            if (s === 'ABSENT') return '#dc2626';
+            if (s === 'LATE') return '#d97706';
+            return '#9ca3af';
+        };
+        const statusBg = (s: DayStatus): string => {
+            if (s === 'PRESENT') return '#f0fdf4';
+            if (s === 'ABSENT') return '#fef2f2';
+            if (s === 'LATE') return '#fffbeb';
+            return '#f9fafb';
+        };
+
+        for (const [weekNum, week] of sortedWeeks) {
+            const rowBg = weekNum % 2 === 0 ? '#f8fafc' : '#ffffff';
+            doc.rect(50, tblRowY, tblRight - 50, 22).fill(rowBg).stroke();
+
+            // Week label
+            doc.rect(50, tblRowY, 65, 22).fill('#f0f4f8').stroke();
+            doc.fontSize(9).font('Helvetica-Bold').fillColor('#1e3a5f')
+                .text(`Week ${weekNum}`, 55, tblRowY + 7);
+
+            // Day cells
+            dayKeys.forEach((key, i) => {
+                const s = week[key];
+                const cellX = 50 + 65 + i * colWidths.day;
+                doc.rect(cellX, tblRowY, colWidths.day, 22).fill(statusBg(s)).stroke();
+                doc.fontSize(10).font('Helvetica-Bold').fillColor(statusColor(s))
+                    .text(statusSymbol(s), cellX, tblRowY + 6, { width: colWidths.day, align: 'center' });
+            });
+
+            tblRowY += 22;
+
+            // Add new page if running out of space
+            if (tblRowY > doc.page.height - 160) {
+                doc.addPage();
+                tblRowY = 50;
+            }
+        }
+
+        // Attendance Summary box
+        const sumY = tblRowY + 16;
+        doc.roundedRect(50, sumY, doc.page.width - 100, 80, 6).fillAndStroke('#f0f4f8', '#d0dce8');
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#1e3a5f').text('ATTENDANCE SUMMARY', 70, sumY + 12);
+        doc.moveTo(70, sumY + 28).lineTo(doc.page.width - 70, sumY + 28).strokeColor('#d0dce8').stroke();
+
+        const sumCol1 = 70, sumCol2 = 230, sumCol3 = 380;
+        doc.fontSize(9).font('Helvetica-Bold').fillColor('#16a34a').text(`\u2713 Present: ${totalPresent} days`, sumCol1, sumY + 36);
+        doc.font('Helvetica-Bold').fillColor('#dc2626').text(`\u2717 Absent: ${totalAbsent} days`, sumCol2, sumY + 36);
+        doc.font('Helvetica-Bold').fillColor('#d97706').text(`L Late: ${totalLate} days`, sumCol3, sumY + 36);
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#1e3a5f')
+            .text(`Attendance Rate: ${attendancePct}%`, sumCol1, sumY + 54);
+        const rateBarW = doc.page.width - 260;
+        doc.roundedRect(sumCol1 + 120, sumY + 56, rateBarW, 10, 3).fill('#e2e8f0');
+        doc.roundedRect(sumCol1 + 120, sumY + 56, Math.round(rateBarW * attendancePct / 100), 10, 3)
+            .fill(attendancePct >= 80 ? '#16a34a' : attendancePct >= 60 ? '#d97706' : '#dc2626');
+
+        // ── WEEKLY PROGRESS SUMMARY ───────────────────────────────────────────
+        const weekY = sumY + 110;
         doc.fontSize(13).font('Helvetica-Bold').fillColor('#1e3a5f').text('WEEKLY PROGRESS SUMMARY', 50, weekY);
         doc.moveTo(50, weekY + 18).lineTo(doc.page.width - 50, weekY + 18).strokeColor('#1e3a5f').lineWidth(1.5).stroke();
         doc.lineWidth(1);

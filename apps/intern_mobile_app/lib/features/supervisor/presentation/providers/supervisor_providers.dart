@@ -110,8 +110,16 @@ class SupervisorActionsNotifier extends Notifier<AsyncValue<void>> {
 
   Future<void> submitEvaluation(
     int studentId,
-    double technical,
-    double soft,
+    double technicalSkills,
+    double problemSolving,
+    double communication,
+    double teamCollaboration,
+    double timeManagement,
+    double adaptability,
+    double professionalism,
+    double initiativeCreativity,
+    double attendancePunctuality,
+    double taskCompletionQuality,
     String comments,
   ) async {
     state = const AsyncLoading();
@@ -120,8 +128,16 @@ class SupervisorActionsNotifier extends Notifier<AsyncValue<void>> {
           .read(supervisorRepositoryProvider)
           .submitEvaluation(
             studentId: studentId,
-            technicalScore: technical,
-            softSkillScore: soft,
+            technicalSkills: technicalSkills,
+            problemSolving: problemSolving,
+            communication: communication,
+            teamCollaboration: teamCollaboration,
+            timeManagement: timeManagement,
+            adaptability: adaptability,
+            professionalism: professionalism,
+            initiativeCreativity: initiativeCreativity,
+            attendancePunctuality: attendancePunctuality,
+            taskCompletionQuality: taskCompletionQuality,
             comments: comments,
           );
       state = const AsyncData(null);

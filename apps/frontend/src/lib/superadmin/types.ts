@@ -70,8 +70,16 @@ export interface CompanyRequest {
 }
 
 export interface FinalEvaluation {
-  technicalScore: number;
-  softSkillScore: number;
+  technical_skills: number;
+  problem_solving: number;
+  communication: number;
+  team_collaboration: number;
+  time_management: number;
+  adaptability: number;
+  professionalism: number;
+  initiative_creativity: number;
+  attendance_punctuality: number;
+  task_completion_quality: number;
   comments: string;
   reportUrl: string;
 }

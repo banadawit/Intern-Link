@@ -251,7 +251,7 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
                             select: { locked: true, sent_at: true, pdf_url: true, generated_at: true },
                         },
                         finalEvaluation: {
-                            select: { technical_score: true, soft_skill_score: true, comments: true },
+                            select: { technical_skills: true, problem_solving: true, communication: true, team_collaboration: true, time_management: true, adaptability: true, professionalism: true, initiative_creativity: true, attendance_punctuality: true, task_completion_quality: true, comments: true },
                         },
                     },
                 },
@@ -576,7 +576,7 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         });
         if (!supervisor) return sendError(res, 'Supervisor profile not found.', 403);
 
-        const { studentId, technical_score, soft_skill_score, comments } = req.body;
+        const { studentId, technical_skills, problem_solving, communication, team_collaboration, time_management, adaptability, professionalism, initiative_creativity, attendance_punctuality, task_completion_quality, comments } = req.body;
         const sid = parseInt(String(studentId), 10);
 
         // Verify student belongs to this company
@@ -590,16 +590,32 @@ export const submitEvaluation = async (req: AuthRequest, res: Response) => {
         const evaluation = await prisma.finalEvaluation.upsert({
             where: { studentId: sid },
             update: {
-                technical_score,
-                soft_skill_score,
+                technical_skills: parseFloat(technical_skills),
+                problem_solving: parseFloat(problem_solving),
+                communication: parseFloat(communication),
+                team_collaboration: parseFloat(team_collaboration),
+                time_management: parseFloat(time_management),
+                adaptability: parseFloat(adaptability),
+                professionalism: parseFloat(professionalism),
+                initiative_creativity: parseFloat(initiative_creativity),
+                attendance_punctuality: parseFloat(attendance_punctuality),
+                task_completion_quality: parseFloat(task_completion_quality),
                 comments,
                 evaluated_at: new Date(),
             },
             create: {
                 studentId: sid,
                 supervisorId: supervisor.id,
-                technical_score,
-                soft_skill_score,
+                technical_skills: parseFloat(technical_skills),
+                problem_solving: parseFloat(problem_solving),
+                communication: parseFloat(communication),
+                team_collaboration: parseFloat(team_collaboration),
+                time_management: parseFloat(time_management),
+                adaptability: parseFloat(adaptability),
+                professionalism: parseFloat(professionalism),
+                initiative_creativity: parseFloat(initiative_creativity),
+                attendance_punctuality: parseFloat(attendance_punctuality),
+                task_completion_quality: parseFloat(task_completion_quality),
                 comments,
             },
         });
@@ -634,7 +650,7 @@ export const getSupervisorPerformance = async (req: AuthRequest, res: Response) 
             prisma.internshipAssignment.count({ where: { companyId, status: 'COMPLETED' } }),
             prisma.finalEvaluation.findMany({
                 where: { supervisor: { companyId } },
-                select: { technical_score: true, soft_skill_score: true },
+                select: { technical_skills: true, problem_solving: true, communication: true, team_collaboration: true, time_management: true, adaptability: true, professionalism: true, initiative_creativity: true, attendance_punctuality: true, task_completion_quality: true },
             }),
             prisma.internshipProposal.count({ where: { companyId, status: 'APPROVED' } }),
             prisma.internshipProposal.count({ where: { companyId } }),
@@ -649,8 +665,9 @@ export const getSupervisorPerformance = async (req: AuthRequest, res: Response) 
             }),
         ]);
 
+        const avg10 = (e: any) => [e.technical_skills, e.problem_solving, e.communication, e.team_collaboration, e.time_management, e.adaptability, e.professionalism, e.initiative_creativity, e.attendance_punctuality, e.task_completion_quality].reduce((s: number, v: any) => s + Number(v), 0) / 10;
         const avgScore = evaluations.length > 0
-            ? evaluations.reduce((sum, e) => sum + (Number(e.technical_score) + Number(e.soft_skill_score)) / 2, 0) / evaluations.length
+            ? evaluations.reduce((sum, e) => sum + avg10(e), 0) / evaluations.length
             : null;
 
         const proposalApprovalRate = totalProposals > 0

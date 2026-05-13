@@ -50,8 +50,16 @@ export type HodReportRow = {
   student: {
     user: { full_name: string; email: string };
     finalEvaluation: {
-      technical_score: number;
-      soft_skill_score: number;
+      technical_skills: number;
+      problem_solving: number;
+      communication: number;
+      team_collaboration: number;
+      time_management: number;
+      adaptability: number;
+      professionalism: number;
+      initiative_creativity: number;
+      attendance_punctuality: number;
+      task_completion_quality: number;
       comments: string | null;
       evaluated_at: string;
     } | null;

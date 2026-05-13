@@ -134,14 +134,30 @@ class SupervisorRepository {
 
   Future<void> submitEvaluation({
     required int studentId,
-    required double technicalScore,
-    required double softSkillScore,
+    required double technicalSkills,
+    required double problemSolving,
+    required double communication,
+    required double teamCollaboration,
+    required double timeManagement,
+    required double adaptability,
+    required double professionalism,
+    required double initiativeCreativity,
+    required double attendancePunctuality,
+    required double taskCompletionQuality,
     required String comments,
   }) async {
     await _api.dio.post('/supervisor/evaluation', data: {
       'studentId': studentId,
-      'technical_score': technicalScore,
-      'soft_skill_score': softSkillScore,
+      'technical_skills': technicalSkills,
+      'problem_solving': problemSolving,
+      'communication': communication,
+      'team_collaboration': teamCollaboration,
+      'time_management': timeManagement,
+      'adaptability': adaptability,
+      'professionalism': professionalism,
+      'initiative_creativity': initiativeCreativity,
+      'attendance_punctuality': attendancePunctuality,
+      'task_completion_quality': taskCompletionQuality,
       'comments': comments,
     });
   }

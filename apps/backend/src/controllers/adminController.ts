@@ -1322,16 +1322,21 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         };
 
         // ── Evaluation stats ──────────────────────────────────────────────────
+        const avg10 = (e: any) => Math.round(([
+            e.technical_skills, e.problem_solving, e.communication, e.team_collaboration,
+            e.time_management, e.adaptability, e.professionalism, e.initiative_creativity,
+            e.attendance_punctuality, e.task_completion_quality
+        ].reduce((s: number, v: any) => s + Number(v), 0) / 10) * 10) / 10;
+
         const evalData = await prisma.finalEvaluation.findMany({
-            select: { technical_score: true, soft_skill_score: true },
+            select: { technical_skills: true, problem_solving: true, communication: true, team_collaboration: true, time_management: true, adaptability: true, professionalism: true, initiative_creativity: true, attendance_punctuality: true, task_completion_quality: true },
         });
         const evalStats = evalData.length > 0
             ? {
                 count: evalData.length,
-                avgTechnical: Math.round(evalData.reduce((s, e) => s + Number(e.technical_score), 0) / evalData.length * 10) / 10,
-                avgSoftSkill: Math.round(evalData.reduce((s, e) => s + Number(e.soft_skill_score), 0) / evalData.length * 10) / 10,
+                avgOverall: Math.round(evalData.reduce((s, e) => s + avg10(e), 0) / evalData.length * 10) / 10,
             }
-            : { count: 0, avgTechnical: 0, avgSoftSkill: 0 };
+            : { count: 0, avgOverall: 0 };
 
         // ── Recent activity (paginated) ───────────────────────────────────────
         const activityPage = Math.max(1, parseInt(String(req.query.activityPage ?? '1'), 10) || 1);

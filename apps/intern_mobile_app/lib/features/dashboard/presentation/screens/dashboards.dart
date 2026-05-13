@@ -3758,20 +3758,38 @@ class _SupervisorStudentsTab extends ConsumerWidget {
 
   void _showEvaluationDialog(BuildContext context, SupervisorStudent student, WidgetRef ref) {
     final techCtrl = TextEditingController();
-    final softCtrl = TextEditingController();
+    final problemCtrl = TextEditingController();
+    final commCtrl = TextEditingController();
+    final teamCtrl = TextEditingController();
+    final timeCtrl = TextEditingController();
+    final adaptCtrl = TextEditingController();
+    final profCtrl = TextEditingController();
+    final initCtrl = TextEditingController();
+    final attendCtrl = TextEditingController();
+    final taskCtrl = TextEditingController();
     final commentCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Evaluate ${student.fullName}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: techCtrl, decoration: const InputDecoration(labelText: 'Technical Score (0-100)')),
-            TextField(controller: softCtrl, decoration: const InputDecoration(labelText: 'Soft Skills Score (0-100)')),
-            TextField(controller: commentCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Final Comments')),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: techCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Technical Skills (0-100)')),
+              TextField(controller: problemCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Problem Solving (0-100)')),
+              TextField(controller: commCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Communication (0-100)')),
+              TextField(controller: teamCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Team Collaboration (0-100)')),
+              TextField(controller: timeCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Time Management (0-100)')),
+              TextField(controller: adaptCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Adaptability (0-100)')),
+              TextField(controller: profCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Professionalism (0-100)')),
+              TextField(controller: initCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Initiative & Creativity (0-100)')),
+              TextField(controller: attendCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Attendance & Punctuality (0-100)')),
+              TextField(controller: taskCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Task Completion Quality (0-100)')),
+              TextField(controller: commentCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Final Comments')),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -3779,8 +3797,16 @@ class _SupervisorStudentsTab extends ConsumerWidget {
             onPressed: () async {
               await ref.read(supervisorRepositoryProvider).submitEvaluation(
                 studentId: student.id,
-                technicalScore: double.parse(techCtrl.text),
-                softSkillScore: double.parse(softCtrl.text),
+                technicalSkills: double.parse(techCtrl.text),
+                problemSolving: double.parse(problemCtrl.text),
+                communication: double.parse(commCtrl.text),
+                teamCollaboration: double.parse(teamCtrl.text),
+                timeManagement: double.parse(timeCtrl.text),
+                adaptability: double.parse(adaptCtrl.text),
+                professionalism: double.parse(profCtrl.text),
+                initiativeCreativity: double.parse(initCtrl.text),
+                attendancePunctuality: double.parse(attendCtrl.text),
+                taskCompletionQuality: double.parse(taskCtrl.text),
                 comments: commentCtrl.text,
               );
               if (ctx.mounted) Navigator.pop(ctx);
@@ -9127,8 +9153,7 @@ class _HodReportsTabState extends ConsumerState<_HodReportsTab> with SingleTicke
     final present = _parseInt(attendance['PRESENT']);
     final absent = _parseInt(attendance['ABSENT']);
     final late = _parseInt(attendance['LATE']);
-    final avgTech = summary['averageTechnicalScore'];
-    final avgSoft = summary['averageSoftSkillScore'];
+    final avgTech = summary['averageScore'];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -9146,11 +9171,10 @@ class _HodReportsTabState extends ConsumerState<_HodReportsTab> with SingleTicke
           _summaryItem('Absent', '$absent', Colors.red),
           _summaryItem('Late', '$late', Colors.orange),
         ]),
-        if (avgTech != null || avgSoft != null) ...[
+        if (avgTech != null) ...[
           const SizedBox(height: 8),
           Row(children: [
-            if (avgTech != null) _summaryItem('Avg Tech', '${(avgTech as num).toStringAsFixed(1)}', Colors.blue),
-            if (avgSoft != null) _summaryItem('Avg Soft', '${(avgSoft as num).toStringAsFixed(1)}', Colors.teal),
+            _summaryItem('Avg Score', '${(avgTech as num).toStringAsFixed(1)}', Colors.blue),
           ]),
         ],
       ]),
@@ -14415,4 +14439,4 @@ class _OrgRequestActionsState extends ConsumerState<_OrgRequestActions> {
       ),
     );
   }
-}
+}
