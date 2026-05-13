@@ -19,7 +19,7 @@ export default function HodDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const st = await api.get<{ success: boolean; data: HodStats }>("/hod/dashboard-stats");
+      const st = await api.get<{ success: boolean; data: HodStats }>("/hod/dashboard-stats/enhanced");
       setStats(st.data.data ?? null);
     } catch {
       setError("Could not load dashboard data.");
