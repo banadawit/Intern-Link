@@ -1,10 +1,98 @@
 "use client";
 
-import { useState } from "react";
-import { LayoutGrid, Table2, FileText, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { LayoutGrid, Table2, FileText, X, Clock, Loader2, History } from "lucide-react";
 import { cn } from "@/lib/utils";
+import api from "@/lib/api/client";
 import type { HodStudentRow } from "./types";
 import PdfViewerModal from "@/components/shared/PdfViewerModal";
+
+type ViewMode = "row" | "card";
+
+type TimelineEntry = { state: string; timestamp: string; actor: string };
+
+function stateColor(state: string): string {
+  if (["APPROVED", "PLACED", "COMPLETED", "ACTIVE"].includes(state)) return "bg-emerald-500";
+  if (["REJECTED", "TERMINATED"].includes(state)) return "bg-red-500";
+  if (["PENDING", "REGISTERED"].includes(state)) return "bg-amber-400";
+  return "bg-slate-400";
+}
+
+function stateTextColor(state: string): string {
+  if (["APPROVED", "PLACED", "COMPLETED", "ACTIVE"].includes(state)) return "text-emerald-700 dark:text-emerald-300";
+  if (["REJECTED", "TERMINATED"].includes(state)) return "text-red-700 dark:text-red-300";
+  if (["PENDING", "REGISTERED"].includes(state)) return "text-amber-700 dark:text-amber-300";
+  return "text-slate-600 dark:text-slate-300";
+}
+
+function TimelineModal({ studentName, studentId, onClose }: { studentName: string; studentId: number; onClose: () => void }) {
+  const [entries, setEntries] = useState<TimelineEntry[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get<{ success: boolean; data: TimelineEntry[] }>(`/hod/students/${studentId}/timeline`);
+        setEntries(Array.isArray(res.data.data) ? res.data.data : []);
+      } catch {
+        setError("Could not load timeline.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-700 flex flex-col max-h-[80vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 dark:border-slate-700 shrink-0">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{studentName}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Student timeline</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <X className="h-4 w-4 text-slate-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto px-5 py-4 flex-1">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
+            </div>
+          ) : error ? (
+            <p className="text-sm text-red-600 dark:text-red-400 py-4 text-center">{error}</p>
+          ) : !entries || entries.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400 py-4 text-center">No timeline events yet.</p>
+          ) : (
+            <ol className="relative border-l border-slate-200 dark:border-slate-700 ml-3 space-y-6">
+              {entries.map((entry, i) => (
+                <li key={i} className="ml-5">
+                  {/* Dot */}
+                  <span className={cn("absolute -left-[9px] flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-900", stateColor(entry.state))} />
+                  <div>
+                    <p className={cn("text-sm font-bold", stateTextColor(entry.state))}>{entry.state}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {new Date(entry.timestamp).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                    <span className="inline-block mt-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 capitalize">
+                      {entry.actor}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type ViewMode = "row" | "card";
 
@@ -142,6 +230,7 @@ function ActionButtons({
 export default function HodStudentApprovalsTable({ students, submitting, onApprove, onReject, onFlag, onUnflag, onReprocess }: Props) {
   const [view, setView] = useState<ViewMode>("row");
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [timeline, setTimeline] = useState<{ id: number; name: string } | null>(null);
 
   const toggleView = () => setView((v) => (v === "row" ? "card" : "row"));
 
@@ -222,7 +311,16 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                       <StatusPill status={s.hod_approval_status} />
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <ActionButtons student={s} submitting={submitting} onApprove={onApprove} onReject={onReject} onFlag={onFlag} onUnflag={onUnflag} onReprocess={onReprocess} layout="row" />
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setTimeline({ id: s.id, name: s.user.full_name })}
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 inline-flex items-center gap-1"
+                        >
+                          <History className="h-3 w-3" /> Timeline
+                        </button>
+                        <ActionButtons student={s} submitting={submitting} onApprove={onApprove} onReject={onReject} onFlag={onFlag} onUnflag={onUnflag} onReprocess={onReprocess} layout="row" />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -284,6 +382,13 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                   onReprocess={onReprocess}
                   layout="card"
                 />
+                <button
+                  type="button"
+                  onClick={() => setTimeline({ id: s.id, name: s.user.full_name })}
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 inline-flex items-center justify-center gap-1"
+                >
+                  <History className="h-3 w-3" /> View timeline
+                </button>
               </article>
             ))}
             {students.length === 0 && (
@@ -298,6 +403,13 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
         title="Verification Document"
         onClose={() => setDocUrl(null)}
       />
+      {timeline && (
+        <TimelineModal
+          studentId={timeline.id}
+          studentName={timeline.name}
+          onClose={() => setTimeline(null)}
+        />
+      )}
     </>
   );
 }
