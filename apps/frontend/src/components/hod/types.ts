@@ -30,7 +30,17 @@ export type HodStudentRow = {
   internship_status: string;
   department: string | null;
   studentId: string | null;
+  flag_type: string | null;
+  flag_note: string | null;
   user: { full_name: string; email: string; verification_document: string | null };
+  latestProposal: {
+    id: number;
+    status: string;
+    companyId: number;
+    companyName: string;
+    submittedAt: string;
+    proposalType: string;
+  } | null;
 };
 
 export type HodCompanyRow = {

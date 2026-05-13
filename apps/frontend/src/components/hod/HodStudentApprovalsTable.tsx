@@ -31,6 +31,19 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+function ProposalPill({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    PENDING: "bg-amber-100 text-amber-800",
+    APPROVED: "bg-emerald-100 text-emerald-800",
+    REJECTED: "bg-red-100 text-red-700",
+    CANCELLED: "bg-slate-100 text-slate-600",
+  };
+  return (
+    <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold", colors[status] ?? "bg-slate-100 text-slate-600")}>
+      {status}
+    </span>
+  );
+}
 function ActionButtons({
   student,
   submitting,
@@ -120,6 +133,8 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Name</th>
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Email</th>
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Dept</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Student ID</th>
+                <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Proposal</th>
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Document</th>
                 <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Status</th>
                 <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200">Actions</th>
@@ -131,6 +146,17 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                   <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{s.user.full_name}</td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{s.user.email}</td>
                   <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{s.department ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{s.studentId ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {s.latestProposal ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate max-w-[120px]">{s.latestProposal.companyName}</span>
+                        <ProposalPill status={s.latestProposal.status} />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {s.user.verification_document ? (
                       <button
@@ -148,13 +174,7 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                     <StatusPill status={s.hod_approval_status} />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <ActionButtons
-                      student={s}
-                      submitting={submitting}
-                      onApprove={onApprove}
-                      onReject={onReject}
-                      layout="row"
-                    />
+                    <ActionButtons student={s} submitting={submitting} onApprove={onApprove} onReject={onReject} layout="row" />
                   </td>
                 </tr>
               ))}
@@ -182,6 +202,20 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                 <p className="text-sm text-slate-700 dark:text-slate-300">
                   <span className="text-slate-500 dark:text-slate-400">Dept:</span> {s.department ?? "—"}
                 </p>
+                {s.studentId && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <span className="font-medium">Student ID:</span> {s.studentId}
+                  </p>
+                )}
+                {s.latestProposal ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Proposal:</span>
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate max-w-[120px]">{s.latestProposal.companyName}</span>
+                    <ProposalPill status={s.latestProposal.status} />
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 dark:text-slate-500">No proposal yet</p>
+                )}
                 {s.user.verification_document && (
                   <button
                     type="button"

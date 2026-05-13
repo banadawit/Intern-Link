@@ -16,6 +16,7 @@ interface Props {
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  extra?: React.ReactNode;
 }
 
 const config: Record<Variant, { icon: React.ReactNode; confirmClass: string; iconBg: string }> = {
@@ -51,6 +52,7 @@ export default function ConfirmDialog({
   loading = false,
   onConfirm,
   onCancel,
+  extra,
 }: Props) {
   if (!open) return null;
 
@@ -85,6 +87,11 @@ export default function ConfirmDialog({
           </div>
 
           {/* Actions */}
+          {extra && (
+            <div className="px-6 pb-2">
+              {extra}
+            </div>
+          )}
           <div className="flex gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <button
               type="button"
