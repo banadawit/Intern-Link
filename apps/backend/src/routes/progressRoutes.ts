@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as progressCtrl from '../controllers/progressController';
+import * as teamPlanCtrl from '../controllers/teamPlanController';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { uploadPresentation } from '../middlewares/uploadMiddleware';
 import { uploadPlanAttachments } from '../config/multer.config';
@@ -45,5 +46,13 @@ router.delete('/plan/:id/days/:workDate', authorize([Role.STUDENT]), progressCtr
 
 // ── Supervisor: review (approve / reject with feedback) ───────────────────────
 router.patch('/review/:id', authorize([Role.SUPERVISOR]), progressCtrl.reviewWeeklyPlan);
+// ── Supervisor: review daily plan submission ──────────────────────────────────
+router.patch('/day-submission/:submissionId/review', authorize([Role.SUPERVISOR]), progressCtrl.reviewPlanDay);
+
+// ── Team plans (team leader submits on behalf of team) ────────────────────────
+router.get('/team-plans/my', authorize([Role.STUDENT]), teamPlanCtrl.getMyTeamPlans);
+router.get('/team-plans/members', authorize([Role.STUDENT]), teamPlanCtrl.getTeamMembersPlans);
+router.post('/team-plans', authorize([Role.STUDENT]), teamPlanCtrl.submitTeamWeeklyPlan);
+router.post('/team-plans/:planId/daily', authorize([Role.STUDENT]), teamPlanCtrl.submitTeamDailyPlan);
 
 export default router;

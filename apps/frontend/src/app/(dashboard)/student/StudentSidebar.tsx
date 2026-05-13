@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Settings,
   Activity,
+  UsersRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -60,6 +61,7 @@ const StudentSidebar = () => {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/student", badge: 0 },
     { icon: ClipboardList, label: "Plans", path: "/student/plans", badge: 0 },
+    { icon: UsersRound, label: "Team", path: "/student/team", badge: 0 },
     { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
     { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
     { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation", badge: 0 },

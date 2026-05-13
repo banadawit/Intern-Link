@@ -448,6 +448,8 @@ export const submitPlanDay = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// ── Supervisor: review daily plan submission ─────────────────────────────────
+
 export const deletePlanDay = async (req: AuthRequest, res: Response) => {
     try {
         const planId = parseInt(String(req.params.id), 10);
@@ -466,5 +468,66 @@ export const deletePlanDay = async (req: AuthRequest, res: Response) => {
         return sendSuccess(res, null, 'Removed.');
     } catch (error: unknown) {
         return sendError(res, error instanceof Error ? error.message : 'Server error', 500);
+    }
+};
+
+export const reviewPlanDay = async (req: AuthRequest, res: Response) => {
+    try {
+        const submissionId = parseInt(String(req.params.submissionId), 10);
+        if (Number.isNaN(submissionId)) return sendError(res, 'Invalid submission id.', 400);
+
+        const { status, supervisorNote } = req.body as { status?: string; supervisorNote?: string };
+        if (status !== 'APPROVED' && status !== 'REJECTED') {
+            return sendError(res, "status must be 'APPROVED' or 'REJECTED'.", 400);
+        }
+
+        const supervisor = await prisma.supervisor.findUnique({ where: { userId: req.user?.userId } });
+        if (!supervisor) return sendError(res, 'Only supervisors can review daily plans.', 403);
+
+        const submission = await prisma.weeklyPlanDaySubmission.findUnique({
+            where: { id: submissionId },
+            include: {
+                weeklyPlan: {
+                    include: {
+                        student: {
+                            include: {
+                                assignments: { where: { companyId: supervisor.companyId, status: 'ACTIVE' } },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!submission) return sendError(res, 'Daily submission not found.', 404);
+        if (submission.weeklyPlan.student.assignments.length === 0) {
+            return sendError(res, 'This submission is not for a student at your company.', 403);
+        }
+
+        const updated = await prisma.weeklyPlanDaySubmission.update({
+            where: { id: submissionId },
+            data: {
+                status,
+                supervisorNote: typeof supervisorNote === 'string' ? supervisorNote.trim() || null : null,
+                reviewedAt: new Date(),
+            },
+        });
+
+        // Notify student
+        const studentUserId = submission.weeklyPlan.student.userId;
+        const dateStr = submission.workDate instanceof Date
+            ? submission.workDate.toISOString().slice(0, 10)
+            : String(submission.workDate).slice(0, 10);
+        const { sendNotification } = await import('../utils/notificationHelper');
+        void sendNotification(
+            studentUserId,
+            status === 'APPROVED'
+                ? `✅ Your daily plan for ${dateStr} was approved by your supervisor.`
+                : `❌ Your daily plan for ${dateStr} was not approved. ${supervisorNote ? `Note: ${supervisorNote}` : ''}`
+        );
+
+        return sendSuccess(res, updated, `Daily plan ${status.toLowerCase()}.`);
+    } catch (error: any) {
+        return sendError(res, error.message, 500);
     }
 };
