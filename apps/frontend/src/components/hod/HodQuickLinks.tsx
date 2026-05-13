@@ -12,12 +12,12 @@ import {
 } from "lucide-react";
 
 const links = [
-  { href: "/dashboard/hod/students", label: "Student approvals", desc: "Review department registrations", icon: Users },
-  { href: "/dashboard/hod/companies", label: "Companies", desc: "Verified company directory", icon: Building2 },
-  { href: "/dashboard/hod/placements", label: "Placements", desc: "Send proposals and track status", icon: Send },
-  { href: "/dashboard/hod/invite", label: "Invite company", desc: "Email a company to join InternLink", icon: Mail },
-  { href: "/dashboard/hod/open-letters", label: "Open letters", desc: "External internship requests", icon: FileCheck },
-  { href: "/dashboard/hod/reports", label: "Final reports", desc: "Stamped PDFs and downloads", icon: FileText },
+  { href: "/hod/students", label: "Student approvals", desc: "Review department registrations", icon: Users },
+  { href: "/hod/companies", label: "Companies", desc: "Verified company directory", icon: Building2 },
+  { href: "/hod/placements", label: "Placements", desc: "Send proposals and track status", icon: Send },
+  { href: "/hod/invite", label: "Invite company", desc: "Email a company to join InternLink", icon: Mail },
+  { href: "/hod/open-letters", label: "Open letters", desc: "External internship requests", icon: FileCheck },
+  { href: "/hod/reports", label: "Final reports", desc: "Stamped PDFs and downloads", icon: FileText },
 ];
 
 export default function HodQuickLinks() {

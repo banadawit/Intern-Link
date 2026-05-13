@@ -75,7 +75,7 @@ export default function HodStatCards({ stats }: Props) {
         </div>
 
         {/* Pending approvals */}
-        <Link href="/dashboard/hod/students?status=pending" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-amber-300 hover:shadow-md transition-all dark:border-slate-700 dark:bg-slate-900">
+        <Link href="/hod/students?status=pending" className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-amber-300 hover:shadow-md transition-all dark:border-slate-700 dark:bg-slate-900">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Pending approvals</p>
@@ -239,7 +239,7 @@ export default function HodStatCards({ stats }: Props) {
                   <Icon className={cn("h-4 w-4 shrink-0", iconColor)} />
                   <p className="flex-1 text-xs text-slate-700 dark:text-slate-300">{alert.message}</p>
                   <Link
-                    href={`/dashboard/hod/students`}
+                    href={`/hod/students`}
                     className="shrink-0 text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline"
                   >
                     View student
@@ -265,7 +265,7 @@ export default function HodStatCards({ stats }: Props) {
               </div>
             </div>
             <Link
-              href="/dashboard/hod/students?status=pending"
+              href="/hod/students?status=pending"
               className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
             >
               Review all <ChevronRight className="h-3.5 w-3.5" />
@@ -282,7 +282,7 @@ export default function HodStatCards({ stats }: Props) {
                   <p className="text-xs text-slate-500 truncate dark:text-slate-400">{s.email}</p>
                 </div>
                 <Link
-                  href="/dashboard/hod/students?status=pending"
+                  href="/hod/students?status=pending"
                   className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
                 >
                   Review
