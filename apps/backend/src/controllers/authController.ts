@@ -435,7 +435,10 @@ export const register = async (req: Request, res: Response) => {
         
     } catch (error: any) {
         console.error('Registration error:', error);
-        return sendError(res, error.message, 500);
+        if (error.code === 'P2002' && error.meta?.target?.includes('universityId')) {
+            return sendError(res, 'A coordinator is already registered for this university. Each university can only have one primary coordinator.', 400);
+        }
+        return sendError(res, error.message || 'An unexpected error occurred during registration', 500);
     }
 };
 
