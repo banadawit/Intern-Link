@@ -45,8 +45,9 @@ export default function DailyPlanView() {
     setError(null);
     try {
       const res = await api.get("/progress/my-plans");
-      const rows = (res.data as Record<string, unknown>[]) ?? [];
-      const mapped = rows.map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0]));
+      const raw = res.data as { success?: boolean; data?: unknown[] } | unknown[];
+      const rows = ((raw as { success?: boolean; data?: unknown[] })?.data ?? raw) as Record<string, unknown>[];
+      const mapped = (Array.isArray(rows) ? rows : []).map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0]));
       setPlans(mapped);
     } catch {
       setError("Could not load plans. Make sure you have an active internship placement.");
@@ -151,6 +152,9 @@ export default function DailyPlanView() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-slate-900 dark:text-slate-100">Week {plan.weekNumber}</p>
+                {plan.tasks && (
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-1">{plan.tasks}</p>
+                )}
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {submittedDates.size} day{submittedDates.size !== 1 ? "s" : ""} submitted
                 </p>
@@ -179,6 +183,13 @@ export default function DailyPlanView() {
             {/* Day entries */}
             {isExpanded && (
               <div className="border-t border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
+                {/* Weekly plan context */}
+                {plan.tasks && (
+                  <div className="px-5 py-3 bg-slate-50/60 dark:bg-slate-800/40">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">This week&apos;s plan</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{plan.tasks}</p>
+                  </div>
+                )}
                 {/* Today's entry first if not submitted */}
                 {!submittedDates.has(today) && (
                   <DayEntryForm

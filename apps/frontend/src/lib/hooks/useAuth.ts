@@ -172,6 +172,7 @@ export const useAuth = create<AuthState>()(
         verification_document: typeof data.verificationDocument === 'string' ? data.verificationDocument : undefined,
         ...(data.role === 'coordinator' && {
           university_name: data.universityName,
+          university_id: data.universityId,
           position: data.position,
         }),
         ...(data.role === 'hod' && {

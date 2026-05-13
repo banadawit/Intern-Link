@@ -82,6 +82,44 @@ export const getRejectedHods = async (req: AuthRequest, res: Response) => {
 };
 
 /**
+ * GET /coordinator/suspended-hods
+ */
+export const getSuspendedHods = async (req: AuthRequest, res: Response) => {
+    try {
+        const universityId = await getCoordinatorUniversityId(req.user!.userId);
+        if (!universityId) return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+
+        const hods = await prisma.hodProfile.findMany({
+            where: { universityId, user: { institution_access_approval: 'SUSPENDED', role: 'HOD' } },
+            include: hodInclude,
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(hods);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * GET /coordinator/all-hods
+ */
+export const getAllHods = async (req: AuthRequest, res: Response) => {
+    try {
+        const universityId = await getCoordinatorUniversityId(req.user!.userId);
+        if (!universityId) return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+
+        const hods = await prisma.hodProfile.findMany({
+            where: { universityId, user: { role: 'HOD' } },
+            include: hodInclude,
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(hods);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
  * PATCH /coordinator/verify-hod
  * Approve or reject an HoD from the coordinator's own university.
  * Body: { userId: number, status: 'APPROVED' | 'REJECTED', reason?: string }

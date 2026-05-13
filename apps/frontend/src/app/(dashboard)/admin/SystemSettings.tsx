@@ -45,8 +45,8 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
       className={cn(
         "flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all",
         value
-          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-          : "bg-slate-100 text-slate-500 ring-1 ring-slate-200"
+          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:ring-emerald-800"
+          : "bg-slate-100 text-slate-500 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700"
       )}
     >
       {value ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
@@ -57,12 +57,12 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
 
 function Section({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-6 py-4">
-        <div className="rounded-xl bg-teal-50 p-2">
-          <Icon className="h-5 w-5 text-teal-600" />
+    <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+      <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-6 py-4">
+        <div className="rounded-xl bg-teal-50 dark:bg-teal-900/30 p-2">
+          <Icon className="h-5 w-5 text-teal-600 dark:text-teal-400" />
         </div>
-        <h2 className="text-base font-bold text-slate-900">{title}</h2>
+        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">{title}</h2>
       </div>
       <div className="p-6">{children}</div>
     </div>
@@ -192,7 +192,7 @@ export default function SystemSettings() {
 
       {/* ── Registration Controls ── */}
       <Section title="Registration Controls" icon={ToggleRight}>
-        <p className="mb-4 text-sm text-slate-500">
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
           Enable or disable new registrations per role. Existing accounts are not affected.
         </p>
         <div className="flex flex-wrap gap-3">
@@ -216,8 +216,8 @@ export default function SystemSettings() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-900">Enable maintenance mode</p>
-              <p className="text-xs text-slate-500">Blocks all new registrations and shows a message to users.</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Enable maintenance mode</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Blocks all new registrations and shows a message to users.</p>
             </div>
             <Toggle
               value={config.maintenance_mode === "true"}
@@ -227,12 +227,12 @@ export default function SystemSettings() {
           </div>
           {config.maintenance_mode === "true" && (
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">Maintenance message</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Maintenance message</label>
               <textarea
                 value={config.maintenance_message}
                 onChange={(e) => set("maintenance_message", e.target.value)}
                 rows={2}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none"
               />
             </div>
           )}
@@ -248,23 +248,23 @@ export default function SystemSettings() {
             { key: "max_weekly_plans", label: "Max weekly plans", type: "number", min: 1, max: 52 },
           ].map(({ key, label, min, max }) => (
             <div key={key} className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700">{label}</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{label}</label>
               <input
                 type="number"
                 min={min}
                 max={max}
                 value={config[key]}
                 onChange={(e) => set(key as keyof Config, e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
               />
             </div>
           ))}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Weekly plan deadline</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Weekly plan deadline</label>
             <select
               value={config.weekly_plan_deadline_day}
               onChange={(e) => set("weekly_plan_deadline_day", e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             >
               {DAYS.map((d) => <option key={d}>{d}</option>)}
             </select>
@@ -276,21 +276,21 @@ export default function SystemSettings() {
       <Section title="Platform Information" icon={Settings}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Platform name</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Platform name</label>
             <input
               type="text"
               value={config.platform_name}
               onChange={(e) => set("platform_name", e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Support email</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Support email</label>
             <input
               type="email"
               value={config.support_email}
               onChange={(e) => set("support_email", e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
         </div>
@@ -300,8 +300,8 @@ export default function SystemSettings() {
       <Section title="Email & SMTP" icon={Mail}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-900">SMTP connection status</p>
-            <p className="text-xs text-slate-500">Tests the current SMTP configuration from your .env file.</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">SMTP connection status</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Tests the current SMTP configuration from your .env file.</p>
           </div>
           <div className="flex items-center gap-3">
             {smtpStatus === "ok" && (
@@ -333,28 +333,28 @@ export default function SystemSettings() {
 
       {/* ── Broadcast Announcement ── */}
       <Section title="Broadcast Announcement" icon={Megaphone}>
-        <p className="mb-4 text-sm text-slate-500">
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
           Send an in-app notification to all users on the platform.
         </p>
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Title</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Title</label>
             <input
               type="text"
               value={broadcast.title}
               onChange={(e) => setBroadcast((b) => ({ ...b, title: e.target.value }))}
               placeholder="e.g., System maintenance scheduled"
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700">Message</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Message</label>
             <textarea
               value={broadcast.content}
               onChange={(e) => setBroadcast((b) => ({ ...b, content: e.target.value }))}
               placeholder="Write your announcement here…"
               rows={3}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -380,14 +380,14 @@ export default function SystemSettings() {
       <Section title="Data & Compliance" icon={Download}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-900">Export audit log</p>
-            <p className="text-xs text-slate-500">Download the last 5,000 audit entries as a CSV file.</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Export audit log</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Download the last 5,000 audit entries as a CSV file.</p>
           </div>
           <button
             type="button"
             onClick={() => void exportCsv()}
             disabled={exportLoading}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-60 transition-colors"
           >
             {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Download CSV

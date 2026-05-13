@@ -81,6 +81,7 @@ function AllPendingView({
   const [confirmApprove, setConfirmApprove] = useState<{ userId: number; role: "coordinator" | "supervisor" } | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [documentViewedUserIds, setDocumentViewedUserIds] = useState<Set<number>>(() => new Set());
 
   const loadPeople = useCallback(async () => {
     setLoading(true);
@@ -224,7 +225,14 @@ function AllPendingView({
                       <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{c.pending_university_name ?? <span className="italic text-slate-400">Not provided</span>}</td>
                       <td className="px-6 py-4">
                         {c.user.verification_document ? (
-                          <button type="button" onClick={() => setDocUrl(c.user.verification_document)} className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDocumentViewedUserIds((prev) => new Set(prev).add(c.userId));
+                              setDocUrl(c.user.verification_document);
+                            }}
+                            className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                          >
                             <FileText className="w-4 h-4" />View Doc
                           </button>
                         ) : <span className="text-xs text-slate-400 italic">No document</span>}
@@ -232,13 +240,38 @@ function AllPendingView({
                       <td className="px-6 py-4 text-sm text-slate-500">{format(new Date(c.user.created_at), "MMM d, yyyy")}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => setConfirmApprove({ userId: c.userId, role: "coordinator" })} disabled={actionLoading === c.userId}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors">
+                          <button
+                            onClick={() => setConfirmApprove({ userId: c.userId, role: "coordinator" })}
+                            disabled={
+                              actionLoading === c.userId ||
+                              !c.user.verification_document ||
+                              !documentViewedUserIds.has(c.userId)
+                            }
+                            title={
+                              !c.user.verification_document
+                                ? "Cannot approve without a verification document"
+                                : !documentViewedUserIds.has(c.userId)
+                                  ? "Open the verification document before approving"
+                                  : undefined
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                          >
                             {actionLoading === c.userId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                             Approve
                           </button>
-                          <button onClick={() => setRejectTarget({ userId: c.userId, role: "coordinator", reason: "" })} disabled={actionLoading === c.userId}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors">
+                          <button
+                            onClick={() => setRejectTarget({ userId: c.userId, role: "coordinator", reason: "" })}
+                            disabled={
+                              actionLoading === c.userId ||
+                              (!!c.user.verification_document && !documentViewedUserIds.has(c.userId))
+                            }
+                            title={
+                              c.user.verification_document && !documentViewedUserIds.has(c.userId)
+                                ? "Open the verification document before rejecting"
+                                : undefined
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors"
+                          >
                             <XCircle className="w-3.5 h-3.5" />Reject
                           </button>
                         </div>
@@ -264,7 +297,14 @@ function AllPendingView({
                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{s.company.name}</td>
                     <td className="px-6 py-4">
                       {s.user.verification_document ? (
-                        <button type="button" onClick={() => setDocUrl(s.user.verification_document)} className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDocumentViewedUserIds((prev) => new Set(prev).add(s.userId));
+                            setDocUrl(s.user.verification_document);
+                          }}
+                          className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                        >
                           <FileText className="w-4 h-4" />View Doc
                         </button>
                       ) : <span className="text-xs text-slate-400 italic">No document</span>}
@@ -272,13 +312,38 @@ function AllPendingView({
                     <td className="px-6 py-4 text-sm text-slate-500">{format(new Date(s.user.created_at), "MMM d, yyyy")}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => setConfirmApprove({ userId: s.userId, role: "supervisor" })} disabled={actionLoading === s.userId}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors">
+                        <button
+                          onClick={() => setConfirmApprove({ userId: s.userId, role: "supervisor" })}
+                          disabled={
+                            actionLoading === s.userId ||
+                            !s.user.verification_document ||
+                            !documentViewedUserIds.has(s.userId)
+                          }
+                          title={
+                            !s.user.verification_document
+                              ? "Cannot approve without a verification document"
+                              : !documentViewedUserIds.has(s.userId)
+                                ? "Open the verification document before approving"
+                                : undefined
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                        >
                           {actionLoading === s.userId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                           Approve
                         </button>
-                        <button onClick={() => setRejectTarget({ userId: s.userId, role: "supervisor", reason: "" })} disabled={actionLoading === s.userId}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors">
+                        <button
+                          onClick={() => setRejectTarget({ userId: s.userId, role: "supervisor", reason: "" })}
+                          disabled={
+                            actionLoading === s.userId ||
+                            (!!s.user.verification_document && !documentViewedUserIds.has(s.userId))
+                          }
+                          title={
+                            s.user.verification_document && !documentViewedUserIds.has(s.userId)
+                              ? "Open the verification document before rejecting"
+                              : undefined
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors"
+                        >
                           <XCircle className="w-3.5 h-3.5" />Reject
                         </button>
                       </div>

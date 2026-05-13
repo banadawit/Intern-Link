@@ -659,7 +659,7 @@ export default function CommonFeedPage() {
                               href={url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-teal-700 hover:bg-slate-100 transition-colors"
+                              className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm text-teal-700 dark:text-teal-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                             >
                               <FileText className="h-4 w-4 shrink-0" />
                               <span className="truncate">{decodeURIComponent(name)}</span>
@@ -761,26 +761,26 @@ export default function CommonFeedPage() {
                           <div key={comment.id} className="flex gap-3">
                             <div 
                               onClick={() => openUserProfile(comment.author.id)}
-                              className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 cursor-pointer hover:bg-slate-300 transition-colors"
+                              className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                             >
                               {getInitials(comment.author.full_name)}
                             </div>
                             <div className="flex-1">
-                              <div className="bg-white rounded-lg px-4 py-2 border border-slate-200">
+                              <div className="bg-white dark:bg-slate-900 rounded-lg px-4 py-2 border border-slate-200 dark:border-slate-700">
                                 <div className="flex items-center gap-2">
                                   <span 
                                     onClick={() => openUserProfile(comment.author.id)}
-                                    className="font-semibold text-sm text-slate-900 cursor-pointer hover:text-teal-600"
+                                    className="font-semibold text-sm text-slate-900 dark:text-slate-100 cursor-pointer hover:text-teal-600 dark:hover:text-teal-400"
                                   >
                                     {comment.author.full_name}
                                   </span>
-                                  <span className="text-xs text-slate-500">• {getRoleBadge(comment.author.role).label}</span>
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">• {getRoleBadge(comment.author.role).label}</span>
                                 </div>
-                                <p className="text-sm text-slate-700 mt-1">{comment.content}</p>
+                                <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">{comment.content}</p>
                               </div>
-                              <div className="flex items-center gap-4 mt-1 px-2 text-xs text-slate-600 font-medium">
-                                <button className="hover:text-teal-600">Like</button>
-                                <button className="hover:text-teal-600">Reply</button>
+                              <div className="flex items-center gap-4 mt-1 px-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                                <button className="hover:text-teal-600 dark:hover:text-teal-400">Like</button>
+                                <button className="hover:text-teal-600 dark:hover:text-teal-400">Reply</button>
                                 <span>{formatTimeAgo(comment.createdAt)}</span>
                               </div>
                             </div>
@@ -799,17 +799,17 @@ export default function CommonFeedPage() {
                 <button
                   onClick={() => fetchPosts(currentPage - 1, filter !== 'ALL' ? filter : undefined)}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                  className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
                 >
                   Previous
                 </button>
-                <span className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm">
+                <span className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300">
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
                   onClick={() => fetchPosts(currentPage + 1, filter !== 'ALL' ? filter : undefined)}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                  className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
                 >
                   Next
                 </button>
@@ -819,26 +819,26 @@ export default function CommonFeedPage() {
 
           {/* Right Sidebar - News/Suggestions */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg border border-slate-200 p-4 sticky top-6">
-              <h3 className="font-semibold text-slate-900 mb-4">InternLink News</h3>
+            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4 sticky top-6">
+              <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-4">InternLink News</h3>
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer">
                     New internship opportunities
                   </h4>
-                  <p className="text-xs text-slate-600 mt-1">2 hours ago • 45 readers</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">2 hours ago • 45 readers</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer">
                     Student success stories
                   </h4>
-                  <p className="text-xs text-slate-600 mt-1">5 hours ago • 128 readers</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">5 hours ago • 128 readers</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-900 hover:text-teal-600 cursor-pointer">
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 cursor-pointer">
                     Company partnerships
                   </h4>
-                  <p className="text-xs text-slate-600 mt-1">1 day ago • 89 readers</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">1 day ago • 89 readers</p>
                 </div>
               </div>
             </div>
@@ -1018,70 +1018,70 @@ export default function CommonFeedPage() {
             </div>
 
             <div className="p-6">
-              <div className="bg-slate-50 rounded-lg p-4 mb-6">
-                <h3 className="font-semibold text-slate-900 mb-1">{selectedSharePost.title}</h3>
-                <p className="text-sm text-slate-600">by {selectedSharePost.author.full_name}</p>
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">{selectedSharePost.title}</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">by {selectedSharePost.author.full_name}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => sharePost('copy')}
-                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all duration-200 group"
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all duration-200 group"
                 >
-                  <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center group-hover:bg-teal-100 transition-colors">
-                    <Share2 className="w-5 h-5 text-slate-600 group-hover:text-teal-600" />
+                  <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center group-hover:bg-teal-100 dark:group-hover:bg-teal-900/40 transition-colors">
+                    <Share2 className="w-5 h-5 text-slate-600 dark:text-slate-300 group-hover:text-teal-600" />
                   </div>
-                  <span className="font-semibold text-slate-700 group-hover:text-teal-700">Copy Link</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-teal-700 dark:group-hover:text-teal-400">Copy Link</span>
                 </button>
 
                 <button
                   onClick={() => sharePost('linkedin')}
-                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group"
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 group"
                 >
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                     <span className="text-blue-600 font-bold text-sm">in</span>
                   </div>
-                  <span className="font-semibold text-slate-700 group-hover:text-blue-700">LinkedIn</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-700">LinkedIn</span>
                 </button>
 
                 <button
                   onClick={() => sharePost('twitter')}
-                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-sky-500 hover:bg-sky-50 transition-all duration-200 group"
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-all duration-200 group"
                 >
-                  <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center group-hover:bg-sky-200 transition-colors">
+                  <div className="w-10 h-10 bg-sky-100 dark:bg-sky-900/30 rounded-full flex items-center justify-center group-hover:bg-sky-200 transition-colors">
                     <span className="text-sky-600 font-bold text-sm">𝕏</span>
                   </div>
-                  <span className="font-semibold text-slate-700 group-hover:text-sky-700">Twitter</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-sky-700">Twitter</span>
                 </button>
 
                 <button
                   onClick={() => sharePost('facebook')}
-                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-600 hover:bg-blue-50 transition-all duration-200 group"
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 group"
                 >
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                     <span className="text-blue-600 font-bold text-sm">f</span>
                   </div>
-                  <span className="font-semibold text-slate-700 group-hover:text-blue-700">Facebook</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-700">Facebook</span>
                 </button>
 
                 <button
                   onClick={() => sharePost('whatsapp')}
-                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-200 group"
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-200 group"
                 >
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
                     <span className="text-green-600 font-bold text-sm">W</span>
                   </div>
-                  <span className="font-semibold text-slate-700 group-hover:text-green-700">WhatsApp</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-green-700">WhatsApp</span>
                 </button>
 
                 <button
                   onClick={() => sharePost('email')}
-                  className="flex items-center gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 group"
+                  className="flex items-center gap-3 p-4 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-200 group"
                 >
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center group-hover:bg-orange-200 transition-colors">
                     <span className="text-orange-600 font-bold text-sm">@</span>
                   </div>
-                  <span className="font-semibold text-slate-700 group-hover:text-orange-700">Email</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-orange-700">Email</span>
                 </button>
               </div>
             </div>
@@ -1092,28 +1092,28 @@ export default function CommonFeedPage() {
       {/* Send Modal */}
       {showSendModal && selectedSendPost && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h2 className="text-xl font-bold text-slate-900">Send Post</h2>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Send Post</h2>
               <button
                 onClick={() => {
                   setShowSendModal(false);
                   setShareMessage('');
                 }}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
               >
-                <X className="w-5 h-5 text-slate-600" />
+                <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
             </div>
 
             <div className="p-6">
-              <div className="bg-slate-50 rounded-lg p-4 mb-4">
-                <h3 className="font-semibold text-slate-900 mb-1">{selectedSendPost.title}</h3>
-                <p className="text-sm text-slate-600">by {selectedSendPost.author.full_name}</p>
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 mb-4">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">{selectedSendPost.title}</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">by {selectedSendPost.author.full_name}</p>
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                   Add a message (optional)
                 </label>
                 <textarea
@@ -1121,7 +1121,7 @@ export default function CommonFeedPage() {
                   onChange={(e) => setShareMessage(e.target.value)}
                   placeholder="Write a message to send with this post..."
                   rows={4}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
               </div>
 
@@ -1140,19 +1140,19 @@ export default function CommonFeedPage() {
       {/* User Profile Modal */}
       {showUserProfile && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-teal-50 to-emerald-50">
-              <h2 className="text-xl font-bold text-slate-900">User Profile</h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-teal-50 dark:from-teal-950/30 to-emerald-50 dark:to-emerald-950/20">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">User Profile</h2>
               <button
                 onClick={() => {
                   setShowUserProfile(false);
                   setUserProfileData(null);
                   setUserPosts([]);
                 }}
-                className="p-2 hover:bg-white/80 rounded-full transition-all duration-200 hover:rotate-90"
+                className="p-2 hover:bg-white/80 dark:hover:bg-slate-800 rounded-full transition-all duration-200 hover:rotate-90"
               >
-                <X className="w-5 h-5 text-slate-600" />
+                <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
             </div>
 
@@ -1161,32 +1161,32 @@ export default function CommonFeedPage() {
               {loadingProfile ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <div className="relative">
-                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200"></div>
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200 dark:border-slate-700"></div>
                     <div className="animate-spin rounded-full h-16 w-16 border-4 border-teal-600 border-t-transparent absolute top-0 left-0"></div>
                   </div>
-                  <p className="mt-4 text-slate-600 font-medium">Loading profile...</p>
+                  <p className="mt-4 text-slate-600 dark:text-slate-400 font-medium">Loading profile...</p>
                 </div>
               ) : userProfileData ? (
                 <div>
                   {/* Profile Header */}
-                  <div className="px-6 py-8 bg-gradient-to-br from-slate-50 to-white border-b border-slate-200">
+                  <div className="px-6 py-8 bg-gradient-to-br from-slate-50 dark:from-slate-800 to-white dark:to-slate-900 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-6">
                       <div className="relative">
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-3xl font-bold text-white shadow-lg ring-4 ring-white">
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-3xl font-bold text-white shadow-lg ring-4 ring-white dark:ring-slate-900">
                           {getInitials(userProfileData.full_name)}
                         </div>
-                        <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white flex items-center justify-center">
+                        <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center">
                           <span className="text-white text-xs">✓</span>
                         </div>
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-3xl font-bold text-slate-900 mb-2">{userProfileData.full_name}</h3>
+                        <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">{userProfileData.full_name}</h3>
                         <div className="flex items-center gap-3 mb-2">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getRoleBadge(userProfileData.role).color} bg-slate-100`}>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getRoleBadge(userProfileData.role).color} bg-slate-100 dark:bg-slate-800`}>
                             {getRoleBadge(userProfileData.role).label}
                           </span>
                         </div>
-                        <p className="text-slate-600 flex items-center gap-2">
+                        <p className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
                           <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
                           {userProfileData.email}
                         </p>
@@ -1195,24 +1195,24 @@ export default function CommonFeedPage() {
                   </div>
 
                   {/* Stats Bar */}
-                  <div className="px-6 py-4 bg-white border-b border-slate-200">
+                  <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-8">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-slate-900">{userPosts.length}</div>
-                          <div className="text-sm text-slate-600">Posts</div>
+                          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{userPosts.length}</div>
+                          <div className="text-sm text-slate-600 dark:text-slate-400">Posts</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-slate-900">
+                          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                             {userPosts.reduce((sum, post) => sum + post.likeCount, 0)}
                           </div>
-                          <div className="text-sm text-slate-600">Likes</div>
+                          <div className="text-sm text-slate-600 dark:text-slate-400">Likes</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-slate-900">
+                          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                             {userPosts.reduce((sum, post) => sum + post.commentCount, 0)}
                           </div>
-                          <div className="text-sm text-slate-600">Comments</div>
+                          <div className="text-sm text-slate-600 dark:text-slate-400">Comments</div>
                         </div>
                       </div>
                       
@@ -1233,40 +1233,40 @@ export default function CommonFeedPage() {
                   </div>
 
                   {/* Posts Section */}
-                  <div className="px-6 py-6 bg-slate-50">
-                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <div className="px-6 py-6 bg-slate-50 dark:bg-slate-800/50">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
                       <FileText className="w-5 h-5 text-teal-600" />
                       Recent Posts
                     </h3>
 
                     {userPosts.length === 0 ? (
-                      <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-slate-200">
-                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
                           <FileText className="w-8 h-8 text-slate-400" />
                         </div>
-                        <p className="text-slate-500 font-medium">No posts yet</p>
-                        <p className="text-sm text-slate-400 mt-1">Posts will appear here when created</p>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium">No posts yet</p>
+                        <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Posts will appear here when created</p>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         {userPosts.map((post) => (
-                          <div key={post.id} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-all duration-200 hover:border-teal-200">
+                          <div key={post.id} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 hover:shadow-md transition-all duration-200 hover:border-teal-200 dark:hover:border-teal-800">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-sm font-medium text-teal-600 bg-teal-50 px-3 py-1 rounded-full">
+                                  <span className="text-sm font-medium text-teal-600 bg-teal-50 dark:bg-teal-900/30 px-3 py-1 rounded-full">
                                     {getPostTypeLabel(post.postType)}
                                   </span>
-                                  <span className="text-xs text-slate-500">
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">
                                     {formatTimeAgo(post.createdAt)}
                                   </span>
                                 </div>
-                                <h4 className="font-bold text-slate-900 text-lg mb-2">{post.title}</h4>
+                                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-lg mb-2">{post.title}</h4>
                               </div>
                               {currentUser && (currentUser.userId === post.author.id || currentUser.id === post.author.id) && (
                                 <button
                                   onClick={() => deleteUserPost(post.id)}
-                                  className="px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 hover:shadow-sm border border-transparent hover:border-red-200"
+                                  className="px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200 hover:shadow-sm border border-transparent hover:border-red-200 dark:hover:border-red-800"
                                 >
                                   Delete
                                 </button>
@@ -1274,11 +1274,11 @@ export default function CommonFeedPage() {
                             </div>
 
                             <div 
-                              className="text-slate-700 text-sm leading-relaxed mb-4 line-clamp-3"
+                              className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed mb-4 line-clamp-3"
                               dangerouslySetInnerHTML={{ __html: post.content }}
                             />
 
-                            <div className="flex items-center gap-6 text-sm text-slate-600 pt-3 border-t border-slate-100">
+                            <div className="flex items-center gap-6 text-sm text-slate-600 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-700">
                               <div className="flex items-center gap-2 hover:text-teal-600 transition-colors">
                                 <ThumbsUp className="w-4 h-4" />
                                 <span className="font-medium">{post.likeCount}</span>
@@ -1299,11 +1299,11 @@ export default function CommonFeedPage() {
                 </div>
               ) : (
                 <div className="py-20 text-center">
-                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <X className="w-8 h-8 text-red-600" />
+                  <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <X className="w-8 h-8 text-red-600 dark:text-red-400" />
                   </div>
-                  <p className="text-slate-600 font-medium">Failed to load profile</p>
-                  <p className="text-sm text-slate-400 mt-1">Please try again later</p>
+                  <p className="text-slate-600 dark:text-slate-400 font-medium">Failed to load profile</p>
+                  <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Please try again later</p>
                 </div>
               )}
             </div>

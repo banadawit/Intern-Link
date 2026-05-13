@@ -81,7 +81,7 @@ export const getTransporter = async (): Promise<Transporter> => {
  */
 export const sendVerificationEmail = async (email: string, token: string, role?: string): Promise<void> => {
   try {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const roleParam = role ? `&role=${role.toLowerCase()}` : '';
     const verificationUrl = `${frontendUrl}/verify-email?token=${token}${roleParam}`;
     
@@ -99,69 +99,18 @@ export const sendVerificationEmail = async (email: string, token: string, role?:
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Verify Your Email</title>
           <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-              line-height: 1.6;
-              color: #1e293b;
-              background-color: #f8fafc;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 0 auto;
-              padding: 40px 20px;
-            }
-            .card {
-              background-color: #ffffff;
-              border-radius: 16px;
-              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-              overflow: hidden;
-            }
-            .header {
-              background: linear-gradient(135deg, #0d9488 0%, #115e59 100%);
-              padding: 32px 24px;
-              text-align: center;
-            }
-            .logo {
-              font-size: 28px;
-              font-weight: bold;
-              color: white;
-              margin: 0;
-            }
-            .content {
-              padding: 32px 24px;
-            }
-            .button {
-              display: inline-block;
-              background-color: #0d9488;
-              color: white;
-              text-decoration: none;
-              padding: 12px 32px;
-              border-radius: 8px;
-              font-weight: 600;
-              margin: 24px 0;
-              transition: background-color 0.3s;
-            }
-            .button:hover {
-              background-color: #0f766e;
-            }
-            .footer {
-              background-color: #f1f5f9;
-              padding: 24px;
-              text-align: center;
-              font-size: 12px;
-              color: #64748b;
-            }
-            .text-muted {
-              color: #64748b;
-              font-size: 14px;
-            }
-            hr {
-              border: none;
-              border-top: 1px solid #e2e8f0;
-              margin: 24px 0;
-            }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+            .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+            .header { background: linear-gradient(135deg, #0d9488 0%, #115e59 100%); padding: 32px 24px; text-align: center; }
+            .logo { font-size: 28px; font-weight: bold; color: white; margin: 0; }
+            .content { padding: 32px 24px; }
+            .button { display: inline-block; background: #0d9488; color: white !important; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-weight: 700; font-size: 16px; margin: 20px 0; }
+            .token-box { background: #f0fdf4; border: 2px solid #0d9488; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }
+            .token-value { font-family: monospace; font-size: 13px; color: #0f766e; word-break: break-all; background: #fff; padding: 10px 14px; border-radius: 8px; border: 1px solid #d1fae5; display: block; margin-top: 8px; }
+            .footer { background: #f1f5f9; padding: 24px; text-align: center; font-size: 12px; color: #64748b; }
+            .text-muted { color: #64748b; font-size: 14px; }
+            hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
           </style>
         </head>
         <body>
@@ -169,26 +118,32 @@ export const sendVerificationEmail = async (email: string, token: string, role?:
             <div class="card">
               <div class="header">
                 <h1 class="logo">InternLink</h1>
-                <p style="color: rgba(255,255,255,0.9); margin-top: 8px;">Smart Internship Management System</p>
+                <p style="color:rgba(255,255,255,0.9);margin-top:8px;">Smart Internship Management System</p>
               </div>
               <div class="content">
-                <h2 style="margin-top: 0;">Verify Your Email Address</h2>
-                <p>Thank you for registering with InternLink! Please verify your email address to complete your registration and start using the platform.</p>
+                <h2 style="margin-top:0;">Verify Your Email Address</h2>
+                <p>Thank you for registering with InternLink! Click the button below to verify your email and activate your account.</p>
                 
-                <div style="text-align: center;">
-                  <a href="${verificationUrl}" class="button">Verify Email Address</a>
+                <div style="text-align:center;">
+                  <a href="${verificationUrl}" class="button">✓ Verify Email Address</a>
                 </div>
+
+                <hr />
+
+                <p style="font-weight:700;margin-bottom:6px;">📱 Using the mobile app?</p>
+                <p class="text-muted">Open the InternLink app, go to the <strong>Verify Email</strong> screen, and paste the token below:</p>
                 
-                <p class="text-muted">Or copy and paste this link into your browser:</p>
-                <p style="background-color: #f1f5f9; padding: 12px; border-radius: 8px; word-break: break-all; font-size: 12px;">
-                  ${verificationUrl}
-                </p>
+                <div class="token-box">
+                  <p style="margin:0;font-weight:700;color:#0f766e;font-size:14px;">Your Verification Token</p>
+                  <span class="token-value">${token}</span>
+                  <p style="margin:8px 0 0;font-size:12px;color:#64748b;">Copy this token and paste it in the app</p>
+                </div>
                 
                 <hr />
                 
-                <p class="text-muted" style="font-size: 12px;">
-                  This verification link will expire in <strong>24 hours</strong>.<br>
-                  If you did not create an account with InternLink, you can safely ignore this email.
+                <p class="text-muted" style="font-size:12px;">
+                  This token expires in <strong>24 hours</strong>.<br>
+                  If you did not create an account, you can safely ignore this email.
                 </p>
               </div>
               <div class="footer">
@@ -202,14 +157,9 @@ export const sendVerificationEmail = async (email: string, token: string, role?:
       `,
     };
 
-    // Send email
     const info = await transporter.sendMail(mailOptions);
-
     const testUrl = nodemailer.getTestMessageUrl(info);
-    if (testUrl) {
-      console.info(`ℹ️ Preview verification email at: ${testUrl}`);
-    }
-
+    if (testUrl) console.info(`ℹ️ Preview verification email at: ${testUrl}`);
     console.log(`✅ Verification email sent to ${email}: ${info.messageId}`);
     return;
   } catch (error: any) {
