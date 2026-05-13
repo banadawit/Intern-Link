@@ -41,7 +41,9 @@ interface FormData {
   universityId?: number;       // Coordinator, HoD & Student: selected approved university
   universitySearch?: string;   // search input text
   hodId?: number;              // Student: selected HoD/department
-  companyName?: string;
+  companyId?: number;          // Supervisor: selected approved company
+  companySearch?: string;      // Supervisor: search input text
+  companyName?: string;        // Supervisor: new company name (if not found)
   department?: string;
   studentId?: string;
   employeeId?: string;
@@ -100,6 +102,9 @@ const RegisterPage = () => {
   // Approved universities for HoD & Student dropdown
   const [approvedUniversities, setApprovedUniversities] = useState<{ id: number; name: string; hasCoordinator: boolean }[]>([]);
   const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
+  // Approved companies for Supervisor dropdown
+  const [approvedCompanies, setApprovedCompanies] = useState<{ id: number; name: string }[]>([]);
+  const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
   // Departments (HoD profiles) for the selected university
   const [departments, setDepartments] = useState<{ id: number; department: string }[]>([]);
   const [deptLoading, setDeptLoading] = useState(false);

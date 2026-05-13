@@ -137,7 +137,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
   const [activityPage, setActivityPage] = useState(1);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const ACTIVITY_LIMIT = 4;
+  const ACTIVITY_LIMIT = 5;
 
   const load = useCallback(async (silent = false, page = activityPage) => {
     if (!silent) setLoading(true);

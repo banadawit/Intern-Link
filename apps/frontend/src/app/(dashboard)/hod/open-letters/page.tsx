@@ -30,10 +30,10 @@ export default function HodOpenLettersPage() {
     void load();
   }, [load]);
 
-  const actOpenLetter = async (id: number, status: "APPROVED" | "REJECTED") => {
+  const actOpenLetter = async (id: number, status: "APPROVED" | "REJECTED", reason?: string) => {
     setSubmitting(true);
     try {
-      await api.patch(`/hod/proposals/open-letters/${id}`, { status });
+      await api.patch(`/hod/proposals/open-letters/${id}`, { status, reason });
       await load();
     } catch {
       setError("Could not update open letter proposal.");
@@ -74,7 +74,7 @@ export default function HodOpenLettersPage() {
           openLetters={openLetters}
           submitting={submitting}
           onApprove={(id) => void actOpenLetter(id, "APPROVED")}
-          onReject={(id) => void actOpenLetter(id, "REJECTED")}
+          onReject={(id, reason) => void actOpenLetter(id, "REJECTED", reason)}
         />
       )}
     </div>
