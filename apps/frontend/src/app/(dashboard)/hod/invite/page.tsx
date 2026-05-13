@@ -80,8 +80,9 @@ export default function HodInvitePage() {
       setSuccess("Invitation sent successfully.");
       fetchInvitations();
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { error?: string } } };
-      setError(ax.response?.data?.error || "Invite failed.");
+      const ax = err as { response?: { data?: unknown } };
+      const d = ax.response?.data as { message?: string; error?: string } | undefined;
+      setError(d?.message ?? d?.error ?? "Invite failed.");
     } finally {
       setSubmitting(false);
     }

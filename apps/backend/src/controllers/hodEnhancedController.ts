@@ -295,6 +295,17 @@ export const flagStudent = async (req: AuthRequest, res: Response) => {
             data: { flag_type: flagType, flag_note: note?.trim() ?? null },
         });
 
+        // Notify the student
+        const student = await prisma.student.findUnique({ where: { id: studentId }, select: { userId: true } });
+        if (student) {
+            const label = flagType === 'LOW_PERFORMANCE' ? 'Low Performance' : 'Inactive';
+            const noteText = note?.trim() ? ` Note from your HOD: "${note.trim()}"` : '';
+            await sendNotification(
+                student.userId,
+                `⚠️ Your profile has been flagged as ${label} by your Head of Department.${noteText} Please contact them for more information.`
+            );
+        }
+
         return sendSuccess(res, { studentId, flagType, note: note?.trim() ?? null });
     } catch (e: any) {
         return sendError(res, e.message);

@@ -10,6 +10,18 @@ export type HodStats = {
   recentPendingStudents: { id: number; full_name: string; email: string }[];
   university: { name: string };
   department: string;
+  // Enhanced stats
+  placementRate: number;
+  reportsCompletionRate: number;
+  approvalSuccessRate: number;
+  alerts: {
+    type: 'UNPLACED' | 'NEEDS_REASSIGNMENT' | 'INACTIVE';
+    message: string;
+    studentId: number;
+    studentName: string;
+    daysElapsed?: number;
+  }[];
+  weeklyPlacementTrend: { weekLabel: string; weekStart: string; count: number }[];
 };
 
 export type HodStudentRow = {
@@ -18,7 +30,17 @@ export type HodStudentRow = {
   internship_status: string;
   department: string | null;
   studentId: string | null;
+  flag_type: string | null;
+  flag_note: string | null;
   user: { full_name: string; email: string; verification_document: string | null };
+  latestProposal: {
+    id: number;
+    status: string;
+    companyId: number;
+    companyName: string;
+    submittedAt: string;
+    proposalType: string;
+  } | null;
 };
 
 export type HodCompanyRow = {

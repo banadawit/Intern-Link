@@ -51,6 +51,7 @@ const WeeklyPlans = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [teamChannelMessage, setTeamChannelMessage] = useState<string | null>(null);
 
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<WeeklyPlan | null>(null);
@@ -84,6 +85,20 @@ const WeeklyPlans = () => {
       const rows = Array.isArray(plansData) ? plansData as Record<string, unknown>[] : [];
       const mapped = rows.map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0]));
       setPlans(mapped);
+      // Check if student is in a team with a TL (restricted from direct submission)
+      try {
+        const teamRes = await api.get<{ success: boolean; data: { isManager?: boolean; team?: { name: string } | null } | null }>("/progress/team-plans/my");
+        const td = teamRes.data.data;
+        if (td && td.team && !td.isManager) {
+          setTeamChannelMessage(
+            `You are in team "${(td.team as { name: string }).name}". Submit your weekly plan and daily check-ins here. Your Team Leader reviews them first; they compile the team plan for your supervisor.`,
+          );
+        } else {
+          setTeamChannelMessage(null);
+        }
+      } catch {
+        setTeamChannelMessage(null);
+      }
       // Find the next week number not yet submitted
       const submittedWeeks = new Set(mapped.map((p) => p.weekNumber));
       let nextWeek = 1;
@@ -192,13 +207,44 @@ const WeeklyPlans = () => {
         return;
       }
 
-      const fd = new FormData();
-      fd.append('week_number', String(formData.weekNumber));
-      fd.append('plan_description', formData.tasks);
-      if (formData.presentation) {
-        fd.append('presentation', formData.presentation);
+      if (reviseFromPlan) {
+        const isSupervisorRejected = reviseFromPlan.status === "Rejected";
+        if (isSupervisorRejected) {
+          const fd = new FormData();
+          fd.append("plan_description", formData.tasks);
+          if (formData.presentation) {
+            fd.append("attachments", formData.presentation);
+          }
+          await api.post(`/progress/plan/${reviseFromPlan.id}/resubmit`, fd);
+        } else {
+          await api.patch(`/progress/plan/${reviseFromPlan.id}`, {
+            plan_description: formData.tasks,
+          });
+        }
+        await loadPlansAndProfile();
+        setReviseFromPlan(null);
+        setFormData({
+          weekNumber: formData.weekNumber,
+          tasks: "",
+          presentation: null,
+        });
+        closeSubmitModal();
+        setToast({
+          show: true,
+          message: isSupervisorRejected
+            ? "✅ Revised plan submitted"
+            : "✅ Updated plan sent back to your Team Leader",
+        });
+        return;
       }
-      await api.post('/progress/submit', fd);
+
+      const fd = new FormData();
+      fd.append("week_number", String(formData.weekNumber));
+      fd.append("plan_description", formData.tasks);
+      if (formData.presentation) {
+        fd.append("presentation", formData.presentation);
+      }
+      await api.post("/progress/submit", fd);
       await loadPlansAndProfile();
       setReviseFromPlan(null);
       // Next week is recalculated by loadPlansAndProfile via the submittedWeeks logic
@@ -232,7 +278,11 @@ const WeeklyPlans = () => {
       <StudentPageHero
         badge="Weekly plans"
         title="Weekly Plans"
-        description="Submit your weekly tasks and track supervisor feedback."
+        description={
+          teamChannelMessage
+            ? "Submit your weekly plan and daily check-ins; your Team Leader reviews them before the supervisor."
+            : "Submit your weekly tasks and track supervisor feedback."
+        }
         action={
           <button
             type="button"
@@ -248,6 +298,25 @@ const WeeklyPlans = () => {
           </button>
         }
       />
+
+      {/* Team workflow: member submits here → Team Leader → supervisor */}
+      {teamChannelMessage && (
+        <div className="flex items-start gap-3 rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-slate-800 shadow-sm dark:border-primary-900/50 dark:bg-primary-900/20 dark:text-slate-200">
+          <span className="text-lg shrink-0" aria-hidden>
+            👑
+          </span>
+          <div className="min-w-0 space-y-1">
+            <p className="font-semibold text-slate-900 dark:text-slate-100">Team workflow</p>
+            <p className="text-sm leading-relaxed">{teamChannelMessage}</p>
+            <Link
+              href="/student/team"
+              className="inline-block mt-1 text-sm font-semibold text-primary-600 hover:underline dark:text-primary-400"
+            >
+              Open Team tab (Collect Plans is for your Team Leader)
+            </Link>
+          </div>
+        </div>
+      )}
 
       {missedWeeks.length > 0 && (
         <div
@@ -374,6 +443,22 @@ const WeeklyPlans = () => {
                   )}>
                     {plan.status}
                   </span>
+                  {teamChannelMessage && plan.tlStatus === "PENDING" && plan.status === "Pending" && (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      Awaiting Team Leader
+                    </span>
+                  )}
+                  {/* TL status badge */}
+                  {plan.tlStatus && plan.tlStatus !== "PENDING" && (
+                    <span className={cn(
+                      "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                      plan.tlStatus === "APPROVED"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
+                    )}>
+                      👑 {plan.tlStatus === "APPROVED" ? "TL ✓" : "TL: Revise"}
+                    </span>
+                  )}
                 </div>
               </div>
               <p className="text-sm text-text-body line-clamp-2">{plan.tasks}</p>
@@ -415,47 +500,58 @@ const WeeklyPlans = () => {
                     </p>
                   </div>
 
-                  {selectedPlan.status === 'Approved' && profile?.placementStartDate && (
+                  {profile?.placementStartDate && (
                     <div className="rounded-xl border border-border-default bg-bg-secondary/40 px-4 py-3">
                       <p className="mb-1 text-xs font-bold uppercase tracking-tight text-text-muted">Daily check-ins</p>
-                      <p className="mb-3 text-xs text-text-muted">
-                        Tap a day when you complete work for this internship week. Your supervisor sees activity on
-                        Attendance.
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-                        {getInternshipWeekDateStrings(profile.placementStartDate, selectedPlan.weekNumber).map(
-                          (ymd) => {
-                            const done =
-                              selectedPlan.daySubmissions?.some((d) => d.workDate === ymd) ?? false;
-                            const busy = dayToggleBusy === `${selectedPlan.id}-${ymd}`;
-                            return (
-                              <button
-                                key={ymd}
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void togglePlanDay(selectedPlan.id, ymd, done);
-                                }}
-                                disabled={!!dayToggleBusy}
-                                className={cn(
-                                  'rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors',
-                                  done
-                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
-                                    : 'border-border-default bg-white text-text-body hover:border-primary-300',
-                                  busy && 'opacity-60',
-                                )}
-                              >
-                                <span className="mb-0.5 block text-[10px] uppercase text-text-muted">
-                                  {new Date(`${ymd}T12:00:00.000Z`).toLocaleDateString(undefined, {
-                                    weekday: 'short',
-                                  })}
-                                </span>
-                                <span className="font-semibold">{ymd.slice(5)}</span>
-                              </button>
-                            );
-                          },
-                        )}
-                      </div>
+                      {selectedPlan.status === "Approved" || selectedPlan.tlStatus === "APPROVED" ? (
+                        <>
+                          <p className="mb-3 text-xs text-text-muted">
+                            {teamChannelMessage
+                              ? "Tap the days you worked. Your Team Leader sees these as part of the team workflow before your supervisor."
+                              : "Tap a day when you complete work for this internship week. Your supervisor sees activity on Attendance."}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                            {getInternshipWeekDateStrings(profile.placementStartDate, selectedPlan.weekNumber).map(
+                              (ymd) => {
+                                const done =
+                                  selectedPlan.daySubmissions?.some((d) => d.workDate === ymd) ?? false;
+                                const busy = dayToggleBusy === `${selectedPlan.id}-${ymd}`;
+                                return (
+                                  <button
+                                    key={ymd}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void togglePlanDay(selectedPlan.id, ymd, done);
+                                    }}
+                                    disabled={!!dayToggleBusy}
+                                    className={cn(
+                                      'rounded-lg border px-2 py-2 text-left text-xs font-medium transition-colors',
+                                      done
+                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
+                                        : 'border-border-default bg-white text-text-body hover:border-primary-300',
+                                      busy && 'opacity-60',
+                                    )}
+                                  >
+                                    <span className="mb-0.5 block text-[10px] uppercase text-text-muted">
+                                      {new Date(`${ymd}T12:00:00.000Z`).toLocaleDateString(undefined, {
+                                        weekday: 'short',
+                                      })}
+                                    </span>
+                                    <span className="font-semibold">{ymd.slice(5)}</span>
+                                  </button>
+                                );
+                              },
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-xs text-text-muted leading-relaxed">
+                          {teamChannelMessage
+                            ? "After your Team Leader approves this weekly plan, you can log daily work here."
+                            : "Daily check-ins unlock after your supervisor approves this weekly plan."}
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -489,6 +585,29 @@ const WeeklyPlans = () => {
                       )}>
                         {selectedPlan.feedback}
                       </p>
+                    </div>
+                  )}
+
+                  {/* Team Leader feedback */}
+                  {selectedPlan.tlStatus && selectedPlan.tlStatus !== "PENDING" && (
+                    <div className={cn(
+                      "p-4 rounded-xl border",
+                      selectedPlan.tlStatus === "APPROVED"
+                        ? "bg-emerald-50 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/50"
+                        : "bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-900/50"
+                    )}>
+                      <p className="text-xs text-text-muted uppercase font-bold tracking-tight mb-2">
+                        👑 Team Leader Review
+                      </p>
+                      <p className={cn(
+                        "text-sm font-semibold mb-1",
+                        selectedPlan.tlStatus === "APPROVED" ? "text-emerald-700 dark:text-emerald-300" : "text-orange-700 dark:text-orange-300"
+                      )}>
+                        {selectedPlan.tlStatus === "APPROVED" ? "✅ Approved by Team Leader" : "🔄 Revision Requested"}
+                      </p>
+                      {selectedPlan.tlComment && (
+                        <p className="text-sm text-slate-700 dark:text-slate-300">{selectedPlan.tlComment}</p>
+                      )}
                     </div>
                   )}
 
@@ -531,6 +650,28 @@ const WeeklyPlans = () => {
                     >
                       <History className="w-5 h-5" />
                       Revise and Resubmit
+                    </button>
+                  )}
+
+                  {/* TL requested revision — resubmit to Team Leader */}
+                  {selectedPlan.tlStatus === 'REVISION_REQUESTED' && selectedPlan.status !== 'Rejected' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditPendingPlan(null);
+                        setReviseFromPlan(selectedPlan);
+                        setFormData({
+                          weekNumber: selectedPlan.weekNumber,
+                          tasks: selectedPlan.tasks,
+                          presentation: null,
+                        });
+                        setShowSubmitForm(true);
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-orange-400 bg-orange-50 px-5 py-3 text-sm font-semibold text-orange-700 hover:bg-orange-100 transition-colors dark:border-orange-600 dark:bg-orange-900/20 dark:text-orange-300"
+                    >
+                      <History className="w-5 h-5" />
+                      Revise and Resubmit to Team Leader
                     </button>
                   )}
                 </div>
@@ -605,7 +746,9 @@ const WeeklyPlans = () => {
                         ? `You’re submitting v${reviseFromPlan.version + 1} for Week ${reviseFromPlan.weekNumber}. Update your tasks, then send for review.`
                         : editPendingPlan
                           ? 'Update your tasks or presentation while your plan is still awaiting supervisor approval.'
-                          : 'Outline what you’ll focus on this week. Your supervisor will review and may leave feedback.'}
+                          : teamChannelMessage
+                            ? 'Outline what you will focus on this week. Your Team Leader reviews it first; after the team plan is forwarded, your supervisor will review as usual.'
+                            : 'Outline what you’ll focus on this week. Your supervisor will review and may leave feedback.'}
                     </p>
                   </div>
                   <button
@@ -734,11 +877,25 @@ const WeeklyPlans = () => {
 
       <ConfirmDialog
         open={confirmSubmit !== null}
-        title={editPendingPlan ? "Update plan?" : "Submit weekly plan?"}
+        title={
+          editPendingPlan
+            ? "Update plan?"
+            : reviseFromPlan
+              ? reviseFromPlan.status === "Rejected"
+                ? "Resubmit revised plan?"
+                : "Send update to Team Leader?"
+              : "Submit weekly plan?"
+        }
         message={
           editPendingPlan
             ? "Your changes will be saved and sent to your supervisor for review."
-            : `You're submitting Week ${formData.weekNumber} plan. Your supervisor will be notified to review it.`
+            : reviseFromPlan
+              ? reviseFromPlan.status === "Rejected"
+                ? "Your supervisor will be notified to review this new version."
+                : "Your Team Leader will be notified to review your updated week plan."
+              : teamChannelMessage
+                ? `You are submitting Week ${formData.weekNumber} for Team Leader review first, then your supervisor.`
+                : `You're submitting Week ${formData.weekNumber} plan. Your supervisor will be notified to review it.`
         }
         confirmLabel={editPendingPlan ? "Save changes" : "Submit plan"}
         variant="confirm"

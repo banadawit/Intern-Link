@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, Mail, MapPin, Users, Briefcase, Search, Calendar } from "lucide-react";
+import { Building2, Mail, MapPin, Users, Briefcase, Search, Send } from "lucide-react";
 import { format } from "date-fns";
+import Link from "next/link";
 import type { HodCompanyRow } from "./types";
 import { cn } from "@/lib/utils";
 
-type Props = { companies: HodCompanyRow[] };
+type Props = { companies: HodCompanyRow[]; hodInvitedIds: Set<number> };
 
-export default function HodCompanyDirectory({ companies }: Props) {
+export default function HodCompanyDirectory({ companies, hodInvitedIds }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "placements" | "recent">("name");
 
@@ -146,12 +147,32 @@ export default function HodCompanyDirectory({ companies }: Props) {
 
               {/* Card footer */}
               <div className="border-t border-slate-100 px-5 py-3 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Verified
-                  </span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">ID: {company.id}</span>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {company.approval_status === "APPROVED" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        Verified
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        Pending
+                      </span>
+                    )}
+                    {hodInvitedIds.has(company.id) && (
+                      <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">
+                        Invited by you
+                      </span>
+                    )}
+                  </div>
+                  <Link
+                    href={`/hod/placements?companyId=${company.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-50 transition-colors dark:border-primary-800 dark:bg-slate-900 dark:text-primary-400 dark:hover:bg-primary-900/20"
+                  >
+                    <Send className="h-3 w-3" />
+                    Send proposal
+                  </Link>
                 </div>
               </div>
             </div>

@@ -19,4 +19,7 @@ router.post('/open-letter', authorize([Role.STUDENT]), studentCtrl.submitOpenLet
 // Weekly presentation upload
 router.post('/upload-presentation', authorize([Role.STUDENT]), uploadDocument.single('file'), studentCtrl.uploadWeeklyPresentation);
 
+// Student: view their team
+router.get('/my-team', authorize([Role.STUDENT]), studentCtrl.getMyTeam);
+
 export default router;

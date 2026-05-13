@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api/client";
 import {
   AlertCircle, UsersRound, Plus, Trash2, UserPlus,
-  UserMinus, Users, X, RefreshCw, UserSquare2,
+  UserMinus, Users, X, RefreshCw, UserSquare2, Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import StudentPicker from "@/components/supervisor/StudentPicker";
@@ -12,6 +12,7 @@ import StudentPicker from "@/components/supervisor/StudentPicker";
 type Team = {
   id: number;
   name: string;
+  managerId: number | null;
   members: { student: { id: number; user: { full_name: string; email: string } } }[];
 };
 
@@ -145,6 +146,21 @@ export default function SupervisorTeamsPage() {
     }
   };
 
+  // Assign team leader
+  const [assigningManager, setAssigningManager] = useState<number | null>(null);
+
+  const assignManager = async (teamId: number, studentId: number) => {
+    setAssigningManager(teamId);
+    try {
+      await api.patch(`/supervisor/teams/${teamId}/manager`, { studentId });
+      await load();
+    } catch {
+      setError("Failed to assign team leader.");
+    } finally {
+      setAssigningManager(null);
+    }
+  };
+
   const availableFor = (team: Team) => {
     const assigned = new Set(team.members.map((m) => m.student.id));
     return students.filter((s) => !assigned.has(s.student.id));
@@ -247,6 +263,11 @@ export default function SupervisorTeamsPage() {
                       <h2 className="truncate font-bold text-slate-900 dark:text-slate-100">{team.name}</h2>
                       <p className="text-xs text-slate-400 dark:text-slate-500">
                         {team.members.length} member{team.members.length !== 1 ? "s" : ""}
+                        {team.managerId && (
+                          <span className="ml-1.5 font-semibold text-primary-600 dark:text-primary-400">
+                            · 👑 TL: {team.members.find((m) => m.student.id === team.managerId)?.student.user.full_name ?? "—"}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -298,22 +319,43 @@ export default function SupervisorTeamsPage() {
                             {initials(m.student.user.full_name)}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                              {m.student.user.full_name}
-                            </p>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                {m.student.user.full_name}
+                              </p>
+                              {team.managerId === m.student.id && (
+                                <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 inline-flex items-center gap-0.5">
+                                  <Crown className="h-2.5 w-2.5" /> TL
+                                </span>
+                              )}
+                            </div>
                             <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                               {m.student.user.email}
                             </p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => void removeMember(team.id, m.student.id)}
-                          className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                          aria-label="Remove member"
-                        >
-                          <UserMinus className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {team.managerId !== m.student.id && (
+                            <button
+                              type="button"
+                              title="Set as Team Leader"
+                              disabled={assigningManager === team.id}
+                              onClick={() => void assignManager(team.id, m.student.id)}
+                              className="rounded-lg p-1.5 text-slate-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+                              aria-label="Set as team leader"
+                            >
+                              <Crown className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => void removeMember(team.id, m.student.id)}
+                            className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                            aria-label="Remove member"
+                          >
+                            <UserMinus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
