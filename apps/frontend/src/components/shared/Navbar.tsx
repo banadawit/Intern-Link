@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../theme/ThemeToggle';
+import LanguageSwitcher from '../common/LanguageSwitcher';
+import { useTranslations } from 'next-intl';
 
 const Navbar = () => {
+  const t = useTranslations('Navbar');
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -38,10 +41,10 @@ const Navbar = () => {
   }, [isMobileMenuOpen]);
 
   const navLinks = [
-    { href: "#features", label: "Features" },
-    { href: "#how-it-works", label: "How it Works" },
-    { href: "#stats", label: "Impact" },
-    { href: "#testimonials", label: "Testimonials" },
+    { href: "#features", label: t('features') },
+    { href: "#how-it-works", label: t('howItWorks') },
+    { href: "#stats", label: t('impact') },
+    { href: "#testimonials", label: t('testimonials') },
   ];
 
   const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -118,21 +121,24 @@ const Navbar = () => {
                   href="/login" 
                   className="text-sm font-semibold text-slate-700 hover:text-primary-600 transition-all duration-300 relative group dark:text-slate-200"
                 >
-                  Sign in
+                  {t('login')}
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary-600 transition-all duration-300 group-hover:w-full" />
                 </Link>
                 <Link 
                   href="/register" 
                   className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-2 text-xs font-semibold text-white shadow-soft transition-all duration-300 hover:shadow-lg hover:from-primary-700 hover:to-primary-800 active:scale-95 sm:px-5 sm:py-2.5 sm:text-sm"
                 >
-                  <span className="relative z-10">Get Started</span>
+                  <span className="relative z-10">{t('getStarted')}</span>
                   <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-primary-600 translate-y-full transition-transform duration-300 group-hover:translate-y-0" />
                 </Link>
               </div>
             </div>
 
-            {/* Theme toggle + mobile controls on right */}
+            {/* Theme toggle + language switcher + mobile controls on right */}
             <div className="flex items-center gap-2 sm:gap-3">
+              <div className="hidden md:block">
+                <LanguageSwitcher />
+              </div>
               <div className="hidden md:block">
                 <ThemeToggle variant="inline" />
               </div>
@@ -250,14 +256,14 @@ const Navbar = () => {
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="block w-full text-center rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
-                      Sign In
+                      {t('login')}
                     </Link>
                     <Link
                       href="/register"
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="block w-full text-center rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-3 text-sm font-semibold text-white shadow-soft hover:shadow-lg transition-all"
                     >
-                      Create Account
+                      {t('getStarted')}
                     </Link>
                   </div>
 

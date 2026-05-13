@@ -9,17 +9,22 @@ import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from '
 import api from '@/lib/api/client';
 import { mapEvaluationApi, type EvaluationWithMeta } from '@/lib/api/mappers';
 import { format } from 'date-fns';
+import { useTranslations } from 'next-intl';
 
 const ScoreCard = ({
   label,
   score,
   color,
   icon: Icon,
+  outOf100,
+  performanceScore,
 }: {
   label: string;
   score: number;
   color: string;
   icon: React.ComponentType<{ className?: string }>;
+  outOf100: string;
+  performanceScore: string;
 }) => {
   const data = [{ name: label, value: score, fill: color }];
 
@@ -37,18 +42,19 @@ const ScoreCard = ({
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-4xl font-black text-text-heading">{score}</span>
-          <span className="text-xs text-text-muted font-bold uppercase tracking-widest">/ 100</span>
+          <span className="text-xs text-text-muted font-bold uppercase tracking-widest">{outOf100}</span>
         </div>
       </div>
       <div>
         <h4 className="text-lg font-bold text-text-heading">{label}</h4>
-        <p className="text-sm text-text-muted">Performance evaluation score</p>
+        <p className="text-sm text-text-muted">{performanceScore}</p>
       </div>
     </div>
   );
 };
 
 const FinalEvaluation = () => {
+  const t = useTranslations('StudentPortal.evaluation');
   const [evaluation, setEvaluation] = useState<EvaluationWithMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -77,7 +83,7 @@ const FinalEvaluation = () => {
   if (loading) {
     return (
       <p className="text-sm text-text-muted py-8" role="status">
-        Loading evaluation…
+        {t('loading')}
       </p>
     );
   }
@@ -89,9 +95,9 @@ const FinalEvaluation = () => {
           <Clock className="w-12 h-12" />
         </div>
         <div className="max-w-md">
-          <h2 className="text-2xl font-bold mb-2">Evaluation Pending</h2>
+          <h2 className="text-2xl font-bold mb-2">{t('pending')}</h2>
           <p className="text-text-muted">
-            Your final evaluation will appear here after your supervisor submits it in the system.
+            {t('pendingDesc')}
           </p>
         </div>
       </div>
@@ -101,9 +107,9 @@ const FinalEvaluation = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <StudentPageHero
-        badge="Final evaluation"
-        title="Final Evaluation"
-        description="Review your performance scores and download your final internship report."
+        badge={t('badge')}
+        title={t('title')}
+        description={t('description')}
         action={
           <button 
             type="button" 
@@ -111,29 +117,29 @@ const FinalEvaluation = () => {
             className="btn-primary flex w-full items-center justify-center gap-2 sm:w-auto"
           >
             <Download className="h-5 w-5" />
-            View Final Report
+            {t('viewFinalReport')}
           </button>
         }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <ScoreCard label="Technical Skills" score={evaluation.technical_skills} color="#0D9488" icon={TrendingUp} />
-        <ScoreCard label="Problem Solving" score={evaluation.problem_solving} color="#6366F1" icon={TrendingUp} />
-        <ScoreCard label="Communication" score={evaluation.communication} color="#14B8A6" icon={Award} />
-        <ScoreCard label="Team Collaboration" score={evaluation.team_collaboration} color="#22C55E" icon={Award} />
-        <ScoreCard label="Time Management" score={evaluation.time_management} color="#F59E0B" icon={TrendingUp} />
-        <ScoreCard label="Adaptability" score={evaluation.adaptability} color="#F97316" icon={Award} />
-        <ScoreCard label="Professionalism" score={evaluation.professionalism} color="#8B5CF6" icon={ShieldCheck} />
-        <ScoreCard label="Initiative & Creativity" score={evaluation.initiative_creativity} color="#EC4899" icon={TrendingUp} />
-        <ScoreCard label="Attendance & Punctuality" score={evaluation.attendance_punctuality} color="#06B6D4" icon={Award} />
-        <ScoreCard label="Task Completion Quality" score={evaluation.task_completion_quality} color="#EF4444" icon={ShieldCheck} />
+        <ScoreCard label="Technical Skills" score={evaluation.technical_skills} color="#0D9488" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Problem Solving" score={evaluation.problem_solving} color="#6366F1" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Communication" score={evaluation.communication} color="#14B8A6" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Team Collaboration" score={evaluation.team_collaboration} color="#22C55E" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Time Management" score={evaluation.time_management} color="#F59E0B" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Adaptability" score={evaluation.adaptability} color="#F97316" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Professionalism" score={evaluation.professionalism} color="#8B5CF6" icon={ShieldCheck} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Initiative & Creativity" score={evaluation.initiative_creativity} color="#EC4899" icon={TrendingUp} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Attendance & Punctuality" score={evaluation.attendance_punctuality} color="#06B6D4" icon={Award} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
+        <ScoreCard label="Task Completion Quality" score={evaluation.task_completion_quality} color="#EF4444" icon={ShieldCheck} outOf100={t('outOf100')} performanceScore={t('performanceScore')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="card p-8 lg:col-span-2">
           <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-primary-base" />
-            Supervisor Comments
+            {t('supervisorComments')}
           </h3>
           <div className="p-6 bg-bg-secondary rounded-2xl border border-border-default italic text-text-body leading-relaxed">
             &ldquo;{evaluation.comments}&rdquo;
@@ -158,20 +164,20 @@ const FinalEvaluation = () => {
           <div>
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-primary-base" />
-              Certificate Info
+              {t('certificateInfo')}
             </h3>
             <div className="space-y-4">
               <div className="flex justify-between text-sm">
-                <span className="text-text-muted">Evaluated</span>
+                <span className="text-text-muted">{t('evaluated')}</span>
                 <span className="font-bold">{format(new Date(evaluation.evaluatedAt), 'MMM d, yyyy')}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-text-muted">Organization</span>
+                <span className="text-text-muted">{t('organization')}</span>
                 <span className="font-bold truncate max-w-[140px]">{evaluation.companyName}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-text-muted">Status</span>
-                <span className={cn('font-bold text-status-success dark:text-green-300')}>Recorded</span>
+                <span className="text-text-muted">{t('status')}</span>
+                <span className={cn('font-bold text-status-success dark:text-green-300')}>{t('recorded')}</span>
               </div>
             </div>
           </div>
@@ -180,7 +186,7 @@ const FinalEvaluation = () => {
             className="w-full mt-8 py-3 rounded-xl border border-border-default hover:bg-bg-tertiary transition-all flex items-center justify-center gap-2 text-sm font-bold"
           >
             <ExternalLink className="w-4 h-4" />
-            Verify on Blockchain
+            {t('verifyBlockchain')}
           </button>
         </div>
       </div>

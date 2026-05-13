@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useTranslations } from 'next-intl';
 
 // Types
 type PasswordStatus = 'idle' | 'validating' | 'valid' | 'invalid' | 'expired';
@@ -36,6 +37,7 @@ const ResetPasswordPage = () => {
   const params = useParams();
   const router = useRouter();
   const { resetPassword } = useAuth();
+  const t = useTranslations('Auth.resetPassword');
   const token = params?.token as string;
   
   const [tokenStatus, setTokenStatus] = useState<PasswordStatus>('validating');
@@ -90,11 +92,11 @@ const ResetPasswordPage = () => {
   const allRequirementsMet = Object.values(requirements).every(Boolean);
   
   const strengthConfig = {
-    0: { label: 'Very Weak', color: 'bg-red-500', textColor: 'text-red-500', message: 'Enter a password' },
-    1: { label: 'Weak', color: 'bg-orange-500', textColor: 'text-orange-500', message: 'Too short' },
-    2: { label: 'Fair', color: 'bg-yellow-500', textColor: 'text-yellow-500', message: 'Could be stronger' },
-    3: { label: 'Good', color: 'bg-primary-500', textColor: 'text-primary-500', message: 'Almost there' },
-    4: { label: 'Strong', color: 'bg-emerald-500', textColor: 'text-emerald-500', message: 'Excellent!' },
+    0: { label: t('strength.weak'), color: 'bg-red-500', textColor: 'text-red-500', message: t('strengthMsg.enterPassword') },
+    1: { label: t('strength.weak'), color: 'bg-orange-500', textColor: 'text-orange-500', message: t('strengthMsg.tooShort') },
+    2: { label: t('strength.fair'), color: 'bg-yellow-500', textColor: 'text-yellow-500', message: t('strengthMsg.couldBeStronger') },
+    3: { label: t('strength.good'), color: 'bg-primary-500', textColor: 'text-primary-500', message: t('strengthMsg.almostThere') },
+    4: { label: t('strength.strong'), color: 'bg-emerald-500', textColor: 'text-emerald-500', message: t('strengthMsg.excellent') },
   };
 
   const passwordsMatch = formData.password === formData.confirmPassword;
@@ -131,16 +133,16 @@ const ResetPasswordPage = () => {
           <div className="h-16 w-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-6">
             <Loader2 className="h-8 w-8 text-primary-600 animate-spin" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Validating reset link</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{t('validatingTitle')}</h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Please wait while we verify your password reset request...
+            {t('validatingSubtitle')}
           </p>
         </div>
         
         <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 dark:bg-slate-900 dark:border-slate-800">
           <div className="flex items-center justify-center gap-3">
             <Key className="h-5 w-5 text-primary-600 animate-pulse" />
-            <span className="text-sm text-slate-600 dark:text-slate-300">Checking security token...</span>
+            <span className="text-sm text-slate-600 dark:text-slate-300">{t('checkingToken')}</span>
           </div>
         </div>
       </div>
@@ -160,12 +162,12 @@ const ResetPasswordPage = () => {
             )}
           </div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-            {tokenStatus === 'expired' ? 'Reset link expired' : 'Invalid reset link'}
+            {tokenStatus === 'expired' ? t('expiredTitle') : t('invalidTitle')}
           </h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             {tokenStatus === 'expired' 
-              ? 'This password reset link has expired. Please request a new one.'
-              : 'The password reset link you used is invalid or has already been used.'}
+              ? t('expiredSubtitle')
+              : t('invalidSubtitle')}
           </p>
         </div>
 
@@ -173,8 +175,8 @@ const ResetPasswordPage = () => {
           <div className="flex items-start gap-3 text-red-700">
             <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium">What happened?</p>
-              <p className="text-xs text-red-600 mt-1">{tokenError || 'Reset links expire after 1 hour for security reasons.'}</p>
+              <p className="text-sm font-medium">{t('whatHappened')}</p>
+              <p className="text-xs text-red-600 mt-1">{tokenError || t('expiredReason')}</p>
             </div>
           </div>
         </div>
@@ -184,14 +186,14 @@ const ResetPasswordPage = () => {
             href="/forgot-password"
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
           >
-            Request New Reset Link
+            {t('requestNewLink')}
           </Link>
           <Link
             href="/login"
             className="flex items-center justify-center gap-2 text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors dark:text-slate-400"
           >
             <Shield className="h-4 w-4" />
-            Back to Login
+            {t('backToLogin')}
           </Link>
         </div>
       </div>
@@ -206,20 +208,20 @@ const ResetPasswordPage = () => {
           <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-6">
             <CheckCircle2 className="h-8 w-8 text-emerald-600 animate-bounce" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Password Reset Successfully!</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{t('successTitle')}</h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Your password has been updated. Redirecting you to login...
+            {t('successSubtitle')}
           </p>
         </div>
 
         <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3 text-emerald-700">
             <ShieldCheck className="h-5 w-5 flex-shrink-0" />
-            <p className="text-sm font-medium">Your account is now more secure</p>
+            <p className="text-sm font-medium">{t('accountMoreSecure')}</p>
           </div>
           <div className="flex items-center gap-3 text-emerald-600">
             <Check className="h-5 w-5 flex-shrink-0" />
-            <p className="text-sm">You can now log in with your new password</p>
+            <p className="text-sm">{t('canLoginWithNewPassword')}</p>
           </div>
         </div>
 
@@ -234,7 +236,7 @@ const ResetPasswordPage = () => {
           href="/login"
           className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700"
         >
-          Go to Login
+          {t('goToLogin')}
         </Link>
       </div>
     );
@@ -248,9 +250,9 @@ const ResetPasswordPage = () => {
         <div className="h-12 w-12 rounded-xl bg-primary-50 flex items-center justify-center mb-4 mx-auto lg:mx-0">
           <Key className="h-6 w-6 text-primary-600" />
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Set New Password</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">{t('title')}</h1>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Create a strong password for your account
+          {t('subtitle')}
         </p>
       </div>
 
@@ -258,7 +260,7 @@ const ResetPasswordPage = () => {
       <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 dark:bg-slate-900 dark:border-slate-800">
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <Shield className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>This link is valid for one-time use only</span>
+          <span>{t('oneTimeUse')}</span>
         </div>
       </div>
 
@@ -266,7 +268,7 @@ const ResetPasswordPage = () => {
         {/* New Password Field */}
         <div className="space-y-3">
           <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            New Password
+            {t('newPassword')}
           </label>
           <div className="relative group">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
@@ -274,7 +276,7 @@ const ResetPasswordPage = () => {
               type={showPassword ? 'text' : 'password'}
               required
               className="w-full pl-10 pr-12 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
-              placeholder="Enter your new password"
+              placeholder={t('newPasswordPlaceholder')}
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
@@ -293,7 +295,7 @@ const ResetPasswordPage = () => {
           {/* Password Requirements Checklist */}
           {touched.password && formData.password && (
             <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100 dark:bg-slate-900 dark:border-slate-800">
-              <p className="text-xs font-semibold text-slate-600 mb-2 dark:text-slate-300">Password requirements:</p>
+              <p className="text-xs font-semibold text-slate-600 mb-2 dark:text-slate-300">{t('requirementsTitle')}</p>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(requirements).map(([key, met]) => (
                   <div key={key} className="flex items-center gap-2">
@@ -303,11 +305,11 @@ const ResetPasswordPage = () => {
                       <XCircle className="h-3 w-3 text-slate-300 dark:text-slate-600" />
                     )}
                     <span className={`text-xs ${met ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
-                      {key === 'length' && 'At least 8 characters'}
-                      {key === 'uppercase' && 'Uppercase letter (A-Z)'}
-                      {key === 'lowercase' && 'Lowercase letter (a-z)'}
-                      {key === 'number' && 'Number (0-9)'}
-                      {key === 'special' && 'Special character (!@#$%)'}
+                      {key === 'length' && t('requirements.length')}
+                      {key === 'uppercase' && t('requirements.uppercase')}
+                      {key === 'lowercase' && t('requirements.lowercase')}
+                      {key === 'number' && t('requirements.number')}
+                      {key === 'special' && t('requirements.special')}
                     </span>
                   </div>
                 ))}
@@ -320,7 +322,7 @@ const ResetPasswordPage = () => {
         {formData.password && (
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Password Strength</span>
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{t('strength.label')}</span>
               <span className={`text-xs font-bold ${strengthConfig[strength].textColor}`}>
                 {strengthConfig[strength].label}
               </span>
@@ -340,7 +342,7 @@ const ResetPasswordPage = () => {
         {/* Confirm Password Field */}
         <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Confirm Password
+            {t('confirmPassword')}
           </label>
           <div className="relative group">
             <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-primary-500 transition-colors dark:text-slate-500" />
@@ -353,7 +355,7 @@ const ResetPasswordPage = () => {
                   ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
                   : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
                 }`}
-              placeholder="Confirm your new password"
+              placeholder={t('confirmPasswordPlaceholder')}
               value={formData.confirmPassword}
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               onBlur={() => setTouched(prev => ({ ...prev, confirm: true }))}
@@ -372,14 +374,14 @@ const ResetPasswordPage = () => {
           {touched.confirm && formData.confirmPassword && !passwordsMatch && (
             <p className="text-xs text-red-600 flex items-center gap-1 mt-1 animate-slide-down">
               <AlertCircle className="h-3 w-3" />
-              Passwords do not match
+              {t('passwordsDoNotMatch')}
             </p>
           )}
           
           {touched.confirm && passwordsMatch && formData.confirmPassword && (
             <p className="text-xs text-emerald-600 flex items-center gap-1 mt-1 animate-slide-down">
               <Check className="h-3 w-3" />
-              Passwords match
+              {t('passwordsMatch')}
             </p>
           )}
         </div>
@@ -393,12 +395,12 @@ const ResetPasswordPage = () => {
           {isLoading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Updating password...
+              {t('resetting')}
             </>
           ) : (
             <>
               <Key className="h-4 w-4" />
-              Reset Password
+              {t('resetPassword')}
             </>
           )}
         </button>
@@ -411,7 +413,7 @@ const ResetPasswordPage = () => {
           className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-primary-600 transition-colors dark:text-slate-400"
         >
           <Shield className="h-4 w-4" />
-          Back to Login
+          {t('backToLogin')}
         </Link>
       </div>
 

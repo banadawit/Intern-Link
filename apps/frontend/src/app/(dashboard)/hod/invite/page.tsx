@@ -5,6 +5,7 @@ import { Clock, CheckCircle2, XCircle, RefreshCw, Mail } from "lucide-react";
 import api from "@/lib/api/client";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodInviteCompanyForm from "@/components/hod/HodInviteCompanyForm";
+import { useTranslations } from "next-intl";
 
 type InvitedCompany = {
   id: number;
@@ -40,6 +41,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function HodInvitePage() {
+  const t = useTranslations("HodPortal.invite");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteCompanyName, setInviteCompanyName] = useState("");
   const [submitting, setSubmitting] = useState(false);

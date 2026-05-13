@@ -4,18 +4,15 @@ import React, { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Sidebar from "@/app/(dashboard)/admin/Sidebar";
 
-type ViewKey = "dashboard" | "pending" | "approved" | "rejected" | "suspended" | "audit-log" | "settings";
+import type { ViewKey } from "@/app/(dashboard)/admin/Sidebar";
 
 function pathnameToView(pathname: string): ViewKey {
-  if (pathname.includes("/pending")) return "pending";
-  if (pathname.includes("/approved")) return "approved";
-  if (pathname.includes("/rejected")) return "rejected";
+  if (pathname.includes("/pending") || pathname.includes("/approvals") || pathname.includes("/approved") || pathname.includes("/rejected") || pathname.includes("/suspended")) return "approvals";
+  if (pathname.includes("/organizations")) return "organizations";
   if (pathname.includes("/audit-log")) return "audit-log";
   if (pathname.includes("/settings")) return "settings";
-  if (pathname.includes("/suspended")) return "suspended";
   return "dashboard";
 }
-
 /**
  * Bridges the legacy CRA `App.tsx` router to the Next-based admin `Sidebar` props.
  * (The main product uses `/admin` in the App Router; this exists so `src/App.tsx` typechecks.)

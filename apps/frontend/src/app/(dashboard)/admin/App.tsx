@@ -16,6 +16,7 @@ import OrganizationsView from "./OrganizationsView";
 import api from "@/lib/api/client";
 import NotificationBell from "@/components/shared/NotificationBell";
 import ThemeToggle from "@/components/theme/ThemeToggle";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import {
   mapUniversityToProposal,
   mapCompanyToProposal,
@@ -233,6 +234,7 @@ export default function App() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Top bar — matches other dashboards */}
         <div className="flex items-center justify-end gap-2 border-b border-border-default bg-bg-main/95 dark:bg-slate-900/95 dark:border-slate-700 px-4 py-3 backdrop-blur-sm sm:px-6 lg:px-8">
+          <LanguageSwitcher />
           <ThemeToggle variant="inline" className="px-2.5 py-2 [&>span]:hidden" />
           <NotificationBell />
         </div>

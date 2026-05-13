@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import type { HodProposalRow } from "./types";
+import { useTranslations } from "next-intl";
 
 type Props = {
   openLetters: HodProposalRow[];
@@ -11,10 +12,12 @@ type Props = {
 };
 
 export default function HodOpenLettersPanel({ openLetters, submitting, onApprove, onReject }: Props) {
+  const t = useTranslations("HodPortal.openLetters");
+
   return (
     <section
       className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
-      aria-label="Open letter proposals list"
+      aria-label={t("ariaLabel")}
     >
       <div className="space-y-2">
         {openLetters.map((p) => (
@@ -43,7 +46,7 @@ export default function HodOpenLettersPanel({ openLetters, submitting, onApprove
                   className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
                   onClick={() => onApprove(p.id)}
                 >
-                  Accept
+                  {t("accept")}
                 </button>
                 <button
                   type="button"
@@ -51,13 +54,13 @@ export default function HodOpenLettersPanel({ openLetters, submitting, onApprove
                   className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   onClick={() => onReject(p.id)}
                 >
-                  Reject
+                  {t("reject")}
                 </button>
               </div>
             )}
           </div>
         ))}
-        {openLetters.length === 0 && <p className="text-sm text-slate-500">No open letter items.</p>}
+        {openLetters.length === 0 && <p className="text-sm text-slate-500">{t("noItems")}</p>}
       </div>
     </section>
   );

@@ -23,11 +23,14 @@ import LogoutModal from "@/components/common/LogoutModal";
 import SupportLink from "@/components/shared/SupportLink";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
+import { useTranslations } from "next-intl";
 
 const StudentSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const t = useTranslations('StudentPortal');
+  const tCommon = useTranslations('Common');
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const [isTeamLeader, setIsTeamLeader] = useState(false);
@@ -65,15 +68,15 @@ const StudentSidebar = () => {
       .slice(0, 2) ?? "JD";
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/student", badge: 0 },
-    { icon: ClipboardList, label: "Plans", path: "/student/plans", badge: 0 },
+    { icon: LayoutDashboard, label: t('nav.dashboard'),       path: "/student",                  badge: 0 },
+    { icon: ClipboardList,   label: t('nav.plans'),           path: "/student/plans",            badge: 0 },
     { icon: isTeamLeader ? Crown : UsersRound, label: "Team", path: "/student/team", badge: 0, isLeaderItem: isTeamLeader },
-    { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
-    { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
-    { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation", badge: 0 },
-    { icon: Activity, label: "Activity", path: "/student/settings/activity", badge: 0 },
-    { icon: Settings, label: "Settings", path: "/student/settings", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/student/common", badge: 0 },
+    { icon: MessagesSquare,  label: t('nav.messages'),        path: "/student/chat",             badge: unreadCount },
+    { icon: Building,        label: t('nav.requestCompany'),  path: "/student/request-company",  badge: 0 },
+    { icon: FileCheck,       label: t('nav.finalEvaluation'), path: "/student/evaluation",       badge: 0 },
+    { icon: Activity,        label: t('nav.activity'),        path: "/student/settings/activity",badge: 0 },
+    { icon: Settings,        label: t('nav.settings'),        path: "/student/settings",         badge: 0 },
+    { icon: MessageSquare,   label: t('nav.commonFeed'),      path: "/student/common",           badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>
@@ -93,11 +96,11 @@ const StudentSidebar = () => {
         <div className="rounded-xl bg-primary-base p-2.5 shadow-sm shadow-primary-900/10">
           <GraduationCap className="h-6 w-6 text-white" />
         </div>
-        <div className="min-w-0">
-          <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">StudentPortal</span>
+        <div className="min-w-0 flex-1">
+          <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">{t('title')}</span>
           {universityName
             ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{universityName}</span>
-            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">Internship workspace</span>
+            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">{t('internshipWorkspace')}</span>
           }
         </div>
       </div>
@@ -154,7 +157,7 @@ const StudentSidebar = () => {
                 <Crown className="h-3 w-3" /> Team Leader
               </span>
             ) : (
-              <p className="truncate text-xs text-text-muted dark:text-slate-400">Student</p>
+              <p className="truncate text-xs text-text-muted dark:text-slate-400">{tCommon('student')}</p>
             )}
           </div>
         </div>
@@ -165,7 +168,7 @@ const StudentSidebar = () => {
           className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          Logout
+          {tCommon('logout')}
         </button>
       </div>
 

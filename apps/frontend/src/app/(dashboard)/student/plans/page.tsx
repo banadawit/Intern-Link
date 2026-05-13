@@ -6,10 +6,12 @@ import { ClipboardList, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import WeeklyPlans from "../WeeklyPlans";
 import DailyPlanView from "../DailyPlanView";
+import { useTranslations } from "next-intl";
 
 type Tab = "weekly" | "daily";
 
 export default function StudentPlansPage() {
+  const t = useTranslations("StudentPortal.plans");
   const [activeTab, setActiveTab] = useState<Tab>("weekly");
 
   return (
@@ -27,7 +29,7 @@ export default function StudentPlansPage() {
           )}
         >
           <ClipboardList className="h-4 w-4 shrink-0" />
-          Weekly Plans
+          {t("weeklyPlans")}
         </button>
         <button
           type="button"
@@ -40,23 +42,23 @@ export default function StudentPlansPage() {
           )}
         >
           <Calendar className="h-4 w-4 shrink-0" />
-          Daily Plan
+          {t("dailyPlan")}
         </button>
       </div>
 
       {/* Tab content */}
       {activeTab === "weekly" && (
-        <Suspense fallback={<div className="py-12 text-center text-sm text-text-muted">Loading weekly plans…</div>}>
+        <Suspense fallback={<div className="py-12 text-center text-sm text-text-muted">{t("loadingWeekly")}</div>}>
           <div className="mb-6 rounded-2xl border border-primary-100 bg-primary-50/80 p-4 sm:p-5 dark:border-primary-800 dark:bg-primary-900/20">
-            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">AI assistant</h2>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{t("aiAssistant")}</h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Use the full chat to draft tasks, goals, and deliverables for your week.
+              {t("aiAssistantDesc")}
             </p>
             <Link
               href="/student/ai"
               className="mt-3 inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
             >
-              Open AI chat
+              {t("openAiChat")}
             </Link>
           </div>
           <WeeklyPlans />
@@ -64,7 +66,7 @@ export default function StudentPlansPage() {
       )}
 
       {activeTab === "daily" && (
-        <Suspense fallback={<div className="py-12 text-center text-sm text-text-muted">Loading daily plans…</div>}>
+        <Suspense fallback={<div className="py-12 text-center text-sm text-text-muted">{t("loadingDaily")}</div>}>
           <DailyPlanView />
         </Suspense>
       )}

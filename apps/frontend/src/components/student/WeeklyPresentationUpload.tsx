@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import FileUpload from '../shared/FileUpload';
 import { uploadWeeklyPresentation } from '@/lib/api/fileUpload';
+import { useTranslations } from 'next-intl';
 
 interface WeeklyPresentationUploadProps {
   weeklyPlanId: number;
@@ -19,6 +20,7 @@ export default function WeeklyPresentationUpload({
   currentPresentationUrl,
   onUploadSuccess,
 }: WeeklyPresentationUploadProps) {
+  const t = useTranslations('StudentPortal.weeklyPresentation');
   const [uploading, setUploading] = useState(false);
 
   const handleUpload = async (file: File) => {
@@ -45,13 +47,13 @@ export default function WeeklyPresentationUpload({
     <div className="space-y-4">
       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
         <h3 className="text-sm font-medium text-green-900 mb-2">
-          Weekly Presentation Guidelines
+          {t('guidelinesTitle')}
         </h3>
         <ul className="text-sm text-green-700 space-y-1">
-          <li>• Accepted formats: PDF, PPT, PPTX</li>
-          <li>• Maximum file size: 10MB</li>
-          <li>• Include weekly progress and learnings</li>
-          <li>• You can re-upload to replace previous submission</li>
+          <li>• {t('formats')}</li>
+          <li>• {t('maxSize')}</li>
+          <li>• {t('includeProgress')}</li>
+          <li>• {t('canReupload')}</li>
         </ul>
       </div>
 
@@ -59,8 +61,8 @@ export default function WeeklyPresentationUpload({
         accept=".pdf,.ppt,.pptx"
         maxSize={10}
         onUpload={handleUpload}
-        label="Upload Weekly Presentation"
-        description="Upload your weekly progress presentation"
+        label={t('uploadTitle')}
+        description={t('uploadDesc')}
         currentFileUrl={currentPresentationUrl}
         disabled={uploading}
         fileType="document"
@@ -69,7 +71,7 @@ export default function WeeklyPresentationUpload({
       {currentPresentationUrl && (
         <div className="text-sm text-gray-600">
           <p>
-            Note: Uploading a new presentation will replace the previous one.
+            {t('replaceNote')}
           </p>
         </div>
       )}

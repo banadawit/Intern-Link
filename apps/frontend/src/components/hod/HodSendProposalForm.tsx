@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Send, Search, ChevronDown, X, Building, GraduationCap, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { HodCompanyRow, HodStudentRow } from "./types";
+import { useTranslations } from "next-intl";
 
 // ─── Company searchable picker (single select) ────────────────────────────────
 
@@ -13,10 +14,14 @@ function CompanyPicker({
   items,
   value,
   onChange,
+  searchPlaceholder,
+  noResultsText,
 }: {
   items: PickerItem[];
   value: string;
   onChange: (v: string) => void;
+  searchPlaceholder: string;
+  noResultsText: string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -68,7 +73,7 @@ function CompanyPicker({
           </>
         ) : (
           <>
-            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">Search company…</span>
+            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">{searchPlaceholder}</span>
             <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform dark:text-slate-500", open && "rotate-180")} />
           </>
         )}
@@ -88,7 +93,7 @@ function CompanyPicker({
           </div>
           <ul className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-4 py-3 text-center text-sm text-slate-400 dark:text-slate-500">No results.</li>
+              <li className="px-4 py-3 text-center text-sm text-slate-400 dark:text-slate-500">{noResultsText}</li>
             ) : (
               filtered.map((item) => (
                 <li key={item.id}>
@@ -121,10 +126,22 @@ function StudentMultiPicker({
   students,
   selectedIds,
   onChange,
+  selectPlaceholder,
+  searchPlaceholder,
+  noStudentsText,
+  deselectAllText,
+  selectAllText,
+  selectedCountText,
 }: {
   students: HodStudentRow[];
   selectedIds: Set<number>;
   onChange: (ids: Set<number>) => void;
+  selectPlaceholder: string;
+  searchPlaceholder: string;
+  noStudentsText: string;
+  deselectAllText: string;
+  selectAllText: string;
+  selectedCountText: string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -157,12 +174,10 @@ function StudentMultiPicker({
 
   const toggleAll = () => {
     if (selectedIds.size === filtered.length && filtered.length > 0) {
-      // deselect all filtered
       const next = new Set(selectedIds);
       filtered.forEach((s) => next.delete(s.id));
       onChange(next);
     } else {
-      // select all filtered
       const next = new Set(selectedIds);
       filtered.forEach((s) => next.add(s.id));
       onChange(next);
@@ -195,7 +210,7 @@ function StudentMultiPicker({
         <GraduationCap className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
         {selectedIds.size === 0 ? (
           <>
-            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">Select students…</span>
+            <span className="flex-1 truncate text-left text-slate-400 dark:text-slate-500">{selectPlaceholder}</span>
             <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform dark:text-slate-500", open && "rotate-180")} />
           </>
         ) : (
@@ -228,7 +243,7 @@ function StudentMultiPicker({
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search students…"
+              placeholder={searchPlaceholder}
               className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none dark:text-slate-200 dark:placeholder:text-slate-500"
             />
           </div>
@@ -248,13 +263,13 @@ function StudentMultiPicker({
               )}>
                 {allFilteredSelected && <Check className="h-3 w-3 text-white" />}
               </div>
-              {allFilteredSelected ? "Deselect all" : `Select all (${filtered.length})`}
+              {allFilteredSelected ? deselectAllText : selectAllText.replace("{count}", String(filtered.length))}
             </button>
           )}
 
           <ul className="max-h-56 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-4 py-3 text-center text-sm text-slate-400 dark:text-slate-500">No students found.</li>
+              <li className="px-4 py-3 text-center text-sm text-slate-400 dark:text-slate-500">{noStudentsText}</li>
             ) : (
               filtered.map((s) => {
                 const checked = selectedIds.has(s.id);
@@ -291,7 +306,7 @@ function StudentMultiPicker({
           {selectedIds.size > 0 && (
             <div className="border-t border-slate-100 px-4 py-2 dark:border-slate-700">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {selectedIds.size} student{selectedIds.size !== 1 ? "s" : ""} selected
+                {selectedCountText.replace("{count}", String(selectedIds.size))}
               </p>
             </div>
           )}
@@ -332,6 +347,8 @@ export default function HodSendProposalForm({
   onOutcomes,
   onSubmit,
 }: Props) {
+  const t = useTranslations("HodPortal.sendProposal");
+
   const companyItems: PickerItem[] = companies.map((c) => ({
     id: c.id,
     label: c.name,
@@ -340,45 +357,53 @@ export default function HodSendProposalForm({
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Send placement proposal</h2>
+      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("title")}</h2>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Select one or more approved students and a verified company. A separate proposal is sent for each student.
+        {t("description")}
       </p>
 
       <form onSubmit={onSubmit} className="mt-5 grid gap-5 sm:grid-cols-2">
         {/* Student multi-picker */}
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Students <span className="text-red-500">*</span>
+            {t("studentsLabel")} <span className="text-red-500">*</span>
           </label>
           <StudentMultiPicker
             students={approvedStudents}
             selectedIds={selectedStudentIds}
             onChange={onStudentIds}
+            selectPlaceholder={t("selectStudents")}
+            searchPlaceholder={t("searchStudents")}
+            noStudentsText={t("noStudentsFound")}
+            deselectAllText={t("deselectAll")}
+            selectAllText={t("selectAll")}
+            selectedCountText={t("selectedCount")}
           />
           {approvedStudents.length === 0 && (
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">No approved students available.</p>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{t("noStudentsAvailable")}</p>
           )}
         </div>
 
         {/* Company picker */}
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Company <span className="text-red-500">*</span>
+            {t("companyLabel")} <span className="text-red-500">*</span>
           </label>
           <CompanyPicker
             items={companyItems}
             value={proposalCompanyId}
             onChange={onCompanyId}
+            searchPlaceholder={t("searchCompany")}
+            noResultsText={t("noResults")}
           />
           {companyItems.length === 0 && (
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">No verified companies yet.</p>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{t("noCompaniesAvailable")}</p>
           )}
         </div>
 
         {/* Duration */}
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">Duration (weeks)</label>
+          <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">{t("durationLabel")}</label>
           <input
             type="number"
             min={1}
@@ -391,12 +416,12 @@ export default function HodSendProposalForm({
 
         {/* Expected outcomes */}
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">Expected outcomes</label>
+          <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">{t("outcomesLabel")}</label>
           <textarea
             value={proposalOutcomes}
             onChange={(e) => onOutcomes(e.target.value)}
             rows={3}
-            placeholder="Describe the expected learning outcomes for this internship…"
+            placeholder={t("outcomesPlaceholder")}
             className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </div>
@@ -410,10 +435,10 @@ export default function HodSendProposalForm({
           >
             <Send className="h-4 w-4" />
             {submitting
-              ? "Sending…"
+              ? t("sending")
               : selectedStudentIds.size > 1
-                ? `Send ${selectedStudentIds.size} proposals`
-                : "Send proposal"}
+                ? t("sendProposals", { count: selectedStudentIds.size })
+                : t("sendProposal")}
           </button>
         </div>
       </form>

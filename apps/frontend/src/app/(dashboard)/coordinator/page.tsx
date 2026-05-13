@@ -15,12 +15,14 @@ import {
 import api from "@/lib/api/client";
 import CoordinatorPageHero from "./CoordinatorPageHero";
 import type { CoordinatorDashboardStats } from "@/components/coordinator/types";
+import { useTranslations } from "next-intl";
 
 export default function CoordinatorDashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<CoordinatorDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations("CoordinatorPortal.dashboard");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -29,12 +31,12 @@ export default function CoordinatorDashboardPage() {
       const { data } = await api.get<{ success: boolean; data: CoordinatorDashboardStats }>("/coordinator-portal/dashboard-stats");
       setStats(data.data);
     } catch {
-      setError("Could not load dashboard.");
+      setError(t("couldNotLoad"));
       setStats(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -56,16 +58,16 @@ export default function CoordinatorDashboardPage() {
   }
 
   const shortcuts = [
-    { href: "/coordinator/hods", label: "HOD management", desc: "Approve HOD accounts and view all heads" },
-    { href: "/coordinator/approvals", label: "Approvals history", desc: "View approved and rejected HODs" },
+    { href: "/coordinator/hods", label: t("shortcuts.hodManagement"), desc: t("shortcuts.hodManagementDesc") },
+    { href: "/coordinator/approvals", label: t("shortcuts.approvalsHistory"), desc: t("shortcuts.approvalsHistoryDesc") },
   ];
 
   return (
     <div className="space-y-8 pb-8">
       <CoordinatorPageHero
-        badge="University coordinator"
-        title={`Welcome back, ${user?.fullName ?? "Coordinator"}`}
-        description="Oversee HOD access, placements, and company activity for your institution."
+        badge={t("badge")}
+        title={t("welcomeBack", { name: user?.fullName ?? t("coordinatorFallback") })}
+        description={t("description")}
         action={
           <button
             type="button"
@@ -74,7 +76,7 @@ export default function CoordinatorDashboardPage() {
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
@@ -92,27 +94,27 @@ export default function CoordinatorDashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
               {
-                label: "HODs pending",
+                label: t("statHodsPending"),
                 value: String(stats.hods.pending),
-                sub: `${stats.hods.approved} approved, ${stats.hods.rejected} rejected`,
+                sub: t("statHodsApprovedRejected", { approved: stats.hods.approved, rejected: stats.hods.rejected }),
                 icon: Users,
               },
               {
-                label: "Students (university)",
+                label: t("statStudentsUniversity"),
                 value: String(stats.students.total),
-                sub: `${stats.students.hodApprovalPending} awaiting HOD approval`,
+                sub: t("statStudentsAwaitingHod", { count: stats.students.hodApprovalPending }),
                 icon: Users,
               },
               {
-                label: "Pending proposals",
+                label: t("statPendingProposals"),
                 value: String(stats.proposalsPending),
-                sub: "Internship proposals awaiting response",
+                sub: t("statPendingProposalsSub"),
                 icon: Send,
               },
               {
-                label: "Active placements",
+                label: t("statActivePlacements"),
                 value: String(stats.activeAssignments),
-                sub: `${stats.reportsCount} final reports on file`,
+                sub: t("statActivePlacementsSub", { count: stats.reportsCount }),
                 icon: Briefcase,
               },
             ].map((c) => (
@@ -137,11 +139,11 @@ export default function CoordinatorDashboardPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900">
               <div className="mb-4 flex items-center justify-between gap-2">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recent notifications</h2>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("recentNotifications")}</h2>
                 <Bell className="h-5 w-5 text-slate-400 dark:text-slate-500" aria-hidden />
               </div>
               {stats.recentNotifications.length === 0 ? (
-                <p className="text-sm text-slate-500 dark:text-slate-400">No notifications yet.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t("noNotifications")}</p>
               ) : (
                 <ul className="space-y-2">
                   {stats.recentNotifications.map((n) => (
@@ -158,7 +160,7 @@ export default function CoordinatorDashboardPage() {
                           onClick={() => void markRead(n.id)}
                           className="shrink-0 text-xs font-medium text-primary-600 hover:underline"
                         >
-                          Mark read
+                          {t("markRead")}
                         </button>
                       )}
                     </li>
@@ -168,7 +170,7 @@ export default function CoordinatorDashboardPage() {
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900">
-              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-slate-100">Quick links</h2>
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-slate-100">{t("quickLinks")}</h2>
               <ul className="space-y-2">
                 {shortcuts.map((s) => (
                   <li key={s.href}>
