@@ -3,7 +3,12 @@ import { Role } from '@prisma/client';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import prisma from '../config/db';
 import * as ai from '../services/ai.service';
+import * as aiCache from '../services/aiCache.service';
 import * as aiHistory from '../services/aiChatHistory.service';
+import {
+    getPeerStudentIdsWithTeamLeaderForCompany,
+    weeklyPlanWhereVisibleToSupervisor,
+} from '../utils/supervisorWeeklyPlanFilter';
 
 const MAX_PLAN_CHARS = 16000;
 
@@ -78,6 +83,45 @@ function safeMessage(err: unknown): string {
         return err.message;
     }
     return 'AI request failed.';
+}
+
+async function supervisorCanAccessStudent(supervisorUserId: number, studentId: number): Promise<boolean> {
+    const sup = await prisma.supervisor.findUnique({ where: { userId: supervisorUserId } });
+    if (!sup) return false;
+    const a = await prisma.internshipAssignment.findFirst({
+        where: { companyId: sup.companyId, studentId, status: 'ACTIVE' },
+    });
+    return Boolean(a);
+}
+
+async function hodCanAccessStudent(hodUserId: number, studentId: number): Promise<boolean> {
+    const hod = await prisma.hodProfile.findUnique({ where: { userId: hodUserId } });
+    const student = await prisma.student.findUnique({
+        where: { id: studentId },
+        select: { universityId: true, department: true, hodId: true },
+    });
+    if (!hod || !student) return false;
+    if (student.universityId !== hod.universityId) return false;
+    return (
+        student.hodId === hod.id ||
+        (student.department ?? '').trim().toLowerCase() === hod.department.trim().toLowerCase()
+    );
+}
+
+async function buildStudentSummaryForHod(studentId: number): Promise<string> {
+    const s = await prisma.student.findUnique({
+        where: { id: studentId },
+        include: { user: { select: { full_name: true, email: true } } },
+    });
+    if (!s) return 'Unknown student.';
+    return [
+        `Name: ${s.user.full_name}`,
+        `Email: ${s.user.email}`,
+        `Department: ${s.department ?? 'n/a'}`,
+        `Internship status: ${s.internship_status}`,
+        `HOD approval status: ${s.hod_approval_status}`,
+        `Student code: ${s.studentId ?? 'n/a'}`,
+    ].join('\n');
 }
 
 export const postGeneratePlan = async (req: AuthRequest, res: Response) => {
@@ -284,10 +328,14 @@ export const postChat = async (req: AuthRequest, res: Response) => {
                         where: { companyId: sup.companyId, status: 'PENDING' },
                     });
 
+                    const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(sup.companyId);
+                    const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
+
                     const pendingPlans = await prisma.weeklyPlan.count({
                         where: {
                             status: { in: ['PENDING', 'RESUBMITTED'] },
                             student: { assignments: { some: { companyId: sup.companyId, status: 'ACTIVE' } } },
+                            ...supervisorWeeklyVisibility,
                         },
                     });
 
@@ -412,5 +460,312 @@ export const deleteChatHistory = async (req: AuthRequest, res: Response) => {
     } catch (err: unknown) {
         console.error('deleteChatHistory:', err);
         res.status(500).json({ success: false, message: 'Failed to clear chat history' });
+    }
+};
+
+/** Cached weekly plan: DB first, then AI once per student. */
+export const postCachedStudentPlan = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ai.isAiConfigured()) {
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
+        }
+        const uid = req.user?.userId;
+        if (uid == null) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+        const student = await prisma.student.findUnique({ where: { userId: uid } });
+        if (!student) {
+            return res.status(404).json({ success: false, message: 'Student profile not found' });
+        }
+
+        const { field, week, skills, internshipType } = req.body ?? {};
+        if (typeof field !== 'string' || !field.trim()) {
+            return res.status(400).json({ success: false, message: 'field is required' });
+        }
+        if (typeof skills !== 'string' || !skills.trim()) {
+            return res.status(400).json({ success: false, message: 'skills is required' });
+        }
+        if (typeof internshipType !== 'string' || !internshipType.trim()) {
+            return res.status(400).json({ success: false, message: 'internshipType is required' });
+        }
+        const w = parseInt(String(week), 10);
+        if (Number.isNaN(w) || w < 1 || w > 104) {
+            return res.status(400).json({ success: false, message: 'week must be a number between 1 and 104' });
+        }
+
+        const studentIdKey = String(student.id);
+        const input = {
+            field: field.trim().slice(0, 500),
+            week: w,
+            skills: skills.trim().slice(0, 2000),
+            internshipType: internshipType.trim().slice(0, 500),
+        };
+        const { result, cached } = await aiCache.getStudentPlan(studentIdKey, input);
+        res.json({ success: true, data: result, cached });
+    } catch (err: unknown) {
+        res.status(aiErrorStatus(err)).json({ success: false, message: safeMessage(err) });
+    }
+};
+
+/** Always calls AI and overwrites cached weekly plan for this student. */
+export const postRegenerateStudentPlan = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ai.isAiConfigured()) {
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
+        }
+        const uid = req.user?.userId;
+        if (uid == null) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+        const student = await prisma.student.findUnique({ where: { userId: uid } });
+        if (!student) {
+            return res.status(404).json({ success: false, message: 'Student profile not found' });
+        }
+
+        const { field, week, skills, internshipType } = req.body ?? {};
+        if (typeof field !== 'string' || !field.trim()) {
+            return res.status(400).json({ success: false, message: 'field is required' });
+        }
+        if (typeof skills !== 'string' || !skills.trim()) {
+            return res.status(400).json({ success: false, message: 'skills is required' });
+        }
+        if (typeof internshipType !== 'string' || !internshipType.trim()) {
+            return res.status(400).json({ success: false, message: 'internshipType is required' });
+        }
+        const w = parseInt(String(week), 10);
+        if (Number.isNaN(w) || w < 1 || w > 104) {
+            return res.status(400).json({ success: false, message: 'week must be a number between 1 and 104' });
+        }
+
+        const studentIdKey = String(student.id);
+        const input = {
+            field: field.trim().slice(0, 500),
+            week: w,
+            skills: skills.trim().slice(0, 2000),
+            internshipType: internshipType.trim().slice(0, 500),
+        };
+        const { result, cached } = await aiCache.regenerateStudentPlan(studentIdKey, input);
+        res.json({ success: true, data: result, cached });
+    } catch (err: unknown) {
+        res.status(aiErrorStatus(err)).json({ success: false, message: safeMessage(err) });
+    }
+};
+
+/** Cached supervisor feedback: keyed by student + week. */
+export const postCachedSupervisorFeedback = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ai.isAiConfigured()) {
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
+        }
+        const uid = req.user?.userId;
+        if (uid == null) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const { studentId: rawStudentId, plan, studentName, week } = req.body ?? {};
+        const studentIdInt =
+            typeof rawStudentId === 'number' && Number.isInteger(rawStudentId)
+                ? rawStudentId
+                : parseInt(String(rawStudentId ?? ''), 10);
+        if (Number.isNaN(studentIdInt) || studentIdInt < 1) {
+            return res.status(400).json({ success: false, message: 'studentId must be a positive integer' });
+        }
+        if (typeof plan !== 'string' || !plan.trim()) {
+            return res.status(400).json({ success: false, message: 'plan is required' });
+        }
+        if (plan.length > MAX_PLAN_CHARS) {
+            return res.status(400).json({ success: false, message: `plan must be at most ${MAX_PLAN_CHARS} characters` });
+        }
+        const w = parseInt(String(week), 10);
+        if (Number.isNaN(w) || w < 1 || w > 104) {
+            return res.status(400).json({ success: false, message: 'week must be a number between 1 and 104' });
+        }
+
+        const allowed = await supervisorCanAccessStudent(uid, studentIdInt);
+        if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Not allowed to access this student' });
+        }
+
+        const feedbackInput = {
+            plan: plan.trim(),
+            studentName: typeof studentName === 'string' ? studentName.trim().slice(0, 200) : undefined,
+            week: w,
+        };
+
+        const studentIdKey = String(studentIdInt);
+        const { result, cached } = await aiCache.getSupervisorFeedback(studentIdKey, w, feedbackInput);
+        res.json({ success: true, data: result, cached });
+    } catch (err: unknown) {
+        res.status(aiErrorStatus(err)).json({ success: false, message: safeMessage(err) });
+    }
+};
+
+export const postRegenerateSupervisorFeedback = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ai.isAiConfigured()) {
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
+        }
+        const uid = req.user?.userId;
+        if (uid == null) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const { studentId: rawStudentId, plan, studentName, week } = req.body ?? {};
+        const studentIdInt =
+            typeof rawStudentId === 'number' && Number.isInteger(rawStudentId)
+                ? rawStudentId
+                : parseInt(String(rawStudentId ?? ''), 10);
+        if (Number.isNaN(studentIdInt) || studentIdInt < 1) {
+            return res.status(400).json({ success: false, message: 'studentId must be a positive integer' });
+        }
+        if (typeof plan !== 'string' || !plan.trim()) {
+            return res.status(400).json({ success: false, message: 'plan is required' });
+        }
+        if (plan.length > MAX_PLAN_CHARS) {
+            return res.status(400).json({ success: false, message: `plan must be at most ${MAX_PLAN_CHARS} characters` });
+        }
+        const w = parseInt(String(week), 10);
+        if (Number.isNaN(w) || w < 1 || w > 104) {
+            return res.status(400).json({ success: false, message: 'week must be a number between 1 and 104' });
+        }
+
+        const allowed = await supervisorCanAccessStudent(uid, studentIdInt);
+        if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Not allowed to access this student' });
+        }
+
+        const feedbackInput = {
+            plan: plan.trim(),
+            studentName: typeof studentName === 'string' ? studentName.trim().slice(0, 200) : undefined,
+            week: w,
+        };
+
+        const studentIdKey = String(studentIdInt);
+        const { result, cached } = await aiCache.regenerateSupervisorFeedback(studentIdKey, w, feedbackInput);
+        res.json({ success: true, data: result, cached });
+    } catch (err: unknown) {
+        res.status(aiErrorStatus(err)).json({ success: false, message: safeMessage(err) });
+    }
+};
+
+/** Cached HOD suggestion: one row per student (text). */
+export const postCachedHodSuggestion = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ai.isAiConfigured()) {
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
+        }
+        const uid = req.user?.userId;
+        if (uid == null) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const { studentId: rawStudentId, context } = req.body ?? {};
+        const studentIdInt =
+            typeof rawStudentId === 'number' && Number.isInteger(rawStudentId)
+                ? rawStudentId
+                : parseInt(String(rawStudentId ?? ''), 10);
+        if (Number.isNaN(studentIdInt) || studentIdInt < 1) {
+            return res.status(400).json({ success: false, message: 'studentId must be a positive integer' });
+        }
+
+        const allowed = await hodCanAccessStudent(uid, studentIdInt);
+        if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Not allowed to access this student' });
+        }
+
+        let contextText = await buildStudentSummaryForHod(studentIdInt);
+        if (typeof context === 'string' && context.trim()) {
+            contextText += `\n\nHOD notes / question:\n${context.trim().slice(0, 8000)}`;
+        }
+
+        const studentIdKey = String(studentIdInt);
+        const { text, cached } = await aiCache.getHodSuggestion(studentIdKey, contextText);
+        res.json({ success: true, data: { content: text }, cached });
+    } catch (err: unknown) {
+        res.status(aiErrorStatus(err)).json({ success: false, message: safeMessage(err) });
+    }
+};
+
+export const postRegenerateHodSuggestion = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ai.isAiConfigured()) {
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
+        }
+        const uid = req.user?.userId;
+        if (uid == null) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const { studentId: rawStudentId, context } = req.body ?? {};
+        const studentIdInt =
+            typeof rawStudentId === 'number' && Number.isInteger(rawStudentId)
+                ? rawStudentId
+                : parseInt(String(rawStudentId ?? ''), 10);
+        if (Number.isNaN(studentIdInt) || studentIdInt < 1) {
+            return res.status(400).json({ success: false, message: 'studentId must be a positive integer' });
+        }
+
+        const allowed = await hodCanAccessStudent(uid, studentIdInt);
+        if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Not allowed to access this student' });
+        }
+
+        let contextText = await buildStudentSummaryForHod(studentIdInt);
+        if (typeof context === 'string' && context.trim()) {
+            contextText += `\n\nHOD notes / question:\n${context.trim().slice(0, 8000)}`;
+        }
+
+        const studentIdKey = String(studentIdInt);
+        const { text, cached } = await aiCache.regenerateHodSuggestion(studentIdKey, contextText);
+        res.json({ success: true, data: { content: text }, cached });
+    } catch (err: unknown) {
+        res.status(aiErrorStatus(err)).json({ success: false, message: safeMessage(err) });
+    }
+};
+
+/** Cached coordinator report: one row per coordinator user (text). */
+export const postCachedCoordinatorReport = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ai.isAiConfigured()) {
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
+        }
+        const uid = req.user?.userId;
+        if (uid == null) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const { context } = req.body ?? {};
+        const ctx =
+            typeof context === 'string' && context.trim()
+                ? context.trim().slice(0, MAX_PLAN_CHARS)
+                : 'Generate a concise coordinator operations checklist for the Intern-Link placement cycle (placements, supervisor engagement, student support).';
+
+        const { text, cached } = await aiCache.getCoordinatorReport(uid, ctx);
+        res.json({ success: true, data: { content: text }, cached });
+    } catch (err: unknown) {
+        res.status(aiErrorStatus(err)).json({ success: false, message: safeMessage(err) });
+    }
+};
+
+export const postRegenerateCoordinatorReport = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!ai.isAiConfigured()) {
+            return res.status(503).json({ success: false, message: 'AI is not configured. Set GROQ_API_KEY on the server.' });
+        }
+        const uid = req.user?.userId;
+        if (uid == null) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const { context } = req.body ?? {};
+        const ctx =
+            typeof context === 'string' && context.trim()
+                ? context.trim().slice(0, MAX_PLAN_CHARS)
+                : 'Generate a concise coordinator operations checklist for the Intern-Link placement cycle (placements, supervisor engagement, student support).';
+
+        const { text, cached } = await aiCache.regenerateCoordinatorReport(uid, ctx);
+        res.json({ success: true, data: { content: text }, cached });
+    } catch (err: unknown) {
+        res.status(aiErrorStatus(err)).json({ success: false, message: safeMessage(err) });
     }
 };

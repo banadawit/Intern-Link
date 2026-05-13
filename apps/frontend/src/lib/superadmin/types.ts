@@ -41,15 +41,16 @@ export interface WeeklyPlan {
   weekNumber: number;
   tasks: string;
   presentationUrl?: string;
-  /** Original filename when uploaded in the student UI (for display with blob URLs). */
   presentationFileName?: string;
   status: PlanStatus;
   feedback?: string;
   submittedAt: string;
   reviewedAt?: string;
   version: number;
-  /** Daily check-ins (after supervisor approves the plan). */
-  daySubmissions?: { workDate: string }[];
+  daySubmissions?: { workDate: string; notes?: string }[];
+  /** Team Leader review */
+  tlStatus?: string;
+  tlComment?: string;
 }
 
 export interface Post {

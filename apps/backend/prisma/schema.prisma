@@ -321,6 +321,10 @@ model WeeklyPlan {
   version          Int                       @default(1)
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
   attachments      Json                      @default("[]")
+  /// Team Leader review
+  tl_status        String                    @default("PENDING")
+  tl_comment       String?                   @db.Text
+  tl_reviewed_at   DateTime?
   student          Student                   @relation(fields: [studentId], references: [id])
   daySubmissions   WeeklyPlanDaySubmission[]
   presentation     WeeklyPresentation?
@@ -337,6 +341,10 @@ model WeeklyPlanDaySubmission {
   status         String     @default("PENDING")
   supervisorNote String?    @db.Text
   reviewedAt     DateTime?
+  /// Team Leader review
+  tl_status      String     @default("PENDING")
+  tl_comment     String?    @db.Text
+  tl_reviewed_at DateTime?
   weeklyPlan     WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
 
   @@unique([weeklyPlanId, workDate])
@@ -617,11 +625,17 @@ model TeamWeeklyPlan {
   submittedById    Int
   week_number      Int
   plan_description String           @db.Text
+  /// Supervisor-facing status: PENDING | APPROVED | REJECTED | RESUBMITTED
   status           String           @default("PENDING")
   feedback         String?          @db.Text
   reviewed_at      DateTime?
   submitted_at     DateTime         @default(now())
   version          Int              @default(1)
+  /// TL review of the compiled team plan before it reaches the supervisor
+  /// Values: PENDING | APPROVED | REVISION_REQUESTED
+  tl_status        String           @default("PENDING")
+  tl_comment       String?          @db.Text
+  tl_reviewed_at   DateTime?
   team             Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
   project          Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   submittedBy      Student          @relation("TeamPlanSubmitter", fields: [submittedById], references: [id])
@@ -661,4 +675,40 @@ model ChatMessage {
 
   @@index([senderId, receiverId, created_at])
   @@index([receiverId, is_read])
+}
+
+/// Cached AI weekly plan (JSON string: tasks, goals, deliverables). `studentId` = `Student.id` as decimal string.
+model StudentPlan {
+  id        String   @id @default(uuid()) @db.Uuid
+  studentId String   @unique
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+/// Cached AI supervisor feedback (JSON string). `studentId` = `Student.id` as string.
+model SupervisorFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  studentId String
+  week      Int
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, week])
+  @@index([studentId])
+}
+
+/// Cached AI HOD suggestion (plain text). `studentId` = `Student.id` as string.
+model HodSuggestion {
+  id        String   @id @default(uuid()) @db.Uuid
+  studentId String   @unique
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+/// Cached AI coordinator report (plain text). `coordinatorUserId` = `User.id` of the coordinator (cache scope).
+model CoordinatorReport {
+  id                  String   @id @default(uuid()) @db.Uuid
+  coordinatorUserId   Int      @unique
+  content             String   @db.Text
+  createdAt           DateTime @default(now())
 }

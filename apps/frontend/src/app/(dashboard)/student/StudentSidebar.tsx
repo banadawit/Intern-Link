@@ -13,6 +13,7 @@ import {
   Settings,
   Activity,
   UsersRound,
+  Crown,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ const StudentSidebar = () => {
   const { user, logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
+  const [isTeamLeader, setIsTeamLeader] = useState(false);
   const { unreadCount, fetchUnread } = useChatStore();
 
   useEffect(() => {
@@ -37,6 +39,10 @@ const StudentSidebar = () => {
         const profile = (data as { success?: boolean; data?: { university?: { name: string } } })?.data ?? data as { university?: { name: string } };
         if (profile?.university?.name) setUniversityName(profile.university.name);
       })
+      .catch(() => {});
+    // Check if this student is a Team Leader
+    api.get<{ success: boolean; data: { isManager?: boolean } | null }>("/progress/team-plans/my")
+      .then(({ data }) => { setIsTeamLeader(data.data?.isManager ?? false); })
       .catch(() => {});
     void fetchUnread();
     const interval = setInterval(() => void fetchUnread(), 10000);
@@ -61,7 +67,7 @@ const StudentSidebar = () => {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/student", badge: 0 },
     { icon: ClipboardList, label: "Plans", path: "/student/plans", badge: 0 },
-    { icon: UsersRound, label: "Team", path: "/student/team", badge: 0 },
+    { icon: isTeamLeader ? Crown : UsersRound, label: "Team", path: "/student/team", badge: 0, isLeaderItem: isTeamLeader },
     { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
     { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
     { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation", badge: 0 },
@@ -107,10 +113,20 @@ const StudentSidebar = () => {
               : item.path === "/student/settings"
                 ? pathname === "/student/settings" || pathname === "/student/settings/alerts"
                 : pathname?.startsWith(item.path) ?? false;
+          const isLeaderItem = 'isLeaderItem' in item && item.isLeaderItem;
           return (
-            <Link key={item.path} href={item.path} className={linkClass(!!active)}>
-              <item.icon className="h-5 w-5 shrink-0" />
+            <Link key={item.path} href={item.path} className={cn(
+              linkClass(!!active),
+              isLeaderItem && !active && "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
+              isLeaderItem && active && "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-800"
+            )}>
+              <item.icon className={cn("h-5 w-5 shrink-0", isLeaderItem && "text-amber-500")} />
               <span className="whitespace-nowrap flex-1">{item.label}</span>
+              {isLeaderItem && (
+                <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-300">
+                  TL
+                </span>
+              )}
               {item.badge > 0 && (
                 <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-rose-700 ring-1 ring-rose-200/80">
                   {item.badge > 99 ? "99+" : item.badge}
@@ -123,12 +139,23 @@ const StudentSidebar = () => {
 
       <div className="mt-auto hidden border-t border-border-default lg:block dark:border-slate-700">
         <div className="flex items-center gap-3 p-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary-base ring-2 ring-white shadow-sm dark:ring-slate-800 dark:bg-teal-900/40 dark:text-teal-400">
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-bold text-primary-base ring-2 ring-white shadow-sm dark:ring-slate-800 dark:bg-teal-900/40 dark:text-teal-400">
             {initials}
+            {isTeamLeader && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 ring-2 ring-white dark:ring-slate-900">
+                <Crown className="h-2.5 w-2.5 text-white" />
+              </span>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-text-heading dark:text-slate-100">{displayName}</p>
-            <p className="truncate text-xs text-text-muted dark:text-slate-400">Student</p>
+            {isTeamLeader ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                <Crown className="h-3 w-3" /> Team Leader
+              </span>
+            ) : (
+              <p className="truncate text-xs text-text-muted dark:text-slate-400">Student</p>
+            )}
           </div>
         </div>
         <SupportLink />
@@ -144,10 +171,20 @@ const StudentSidebar = () => {
 
       <div className="flex items-center justify-between gap-2 border-t border-border-default px-3 py-3 lg:hidden dark:border-slate-700">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-bold text-primary-base dark:bg-teal-900/40 dark:text-teal-400">
+          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-bold text-primary-base dark:bg-teal-900/40 dark:text-teal-400">
             {initials}
+            {isTeamLeader && (
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 ring-2 ring-white dark:ring-slate-900">
+                <Crown className="h-2 w-2 text-white" />
+              </span>
+            )}
           </div>
-          <span className="truncate text-sm font-semibold text-text-heading dark:text-slate-100">{displayName}</span>
+          <div className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-text-heading dark:text-slate-100">{displayName}</span>
+            {isTeamLeader && (
+              <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Team Leader</span>
+            )}
+          </div>
         </div>
         <button
           type="button"
