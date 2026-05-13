@@ -21,7 +21,7 @@ export default function HodInviteCompanyForm({
 }: Props) {
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900"
       aria-label="Company invitation form"
     >
       <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
@@ -31,7 +31,7 @@ export default function HodInviteCompanyForm({
           placeholder="Company email"
           value={inviteEmail}
           onChange={(e) => onEmail(e.target.value)}
-          className="min-w-[200px] flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          className="min-w-[200px] flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
         <input
           type="text"
@@ -39,7 +39,7 @@ export default function HodInviteCompanyForm({
           placeholder="Company name"
           value={inviteCompanyName}
           onChange={(e) => onCompanyName(e.target.value)}
-          className="min-w-[200px] flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          className="min-w-[200px] flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
         <button
           type="submit"
