@@ -25,6 +25,7 @@ import '../../../universal/data/repositories/chat_repository.dart';
 
 import '../../../supervisor/data/repositories/supervisor_repository.dart';
 import '../../../supervisor/domain/entities/supervisor_entities.dart';
+import '../../../supervisor/presentation/providers/supervisor_providers.dart';
 import '../../../plans/domain/entities/weekly_plan.dart';
 import '../../../plans/presentation/screens/plans_screen.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
@@ -6144,35 +6145,57 @@ class _SupervisorStudentsTab extends ConsumerWidget {
     SupervisorStudent student,
     WidgetRef ref,
   ) {
-    final techCtrl = TextEditingController();
-    final softCtrl = TextEditingController();
+    final technicalSkillsCtrl = TextEditingController();
+    final problemSolvingCtrl = TextEditingController();
+    final communicationCtrl = TextEditingController();
+    final teamCollaborationCtrl = TextEditingController();
+    final timeManagementCtrl = TextEditingController();
+    final adaptabilityCtrl = TextEditingController();
+    final professionalismCtrl = TextEditingController();
+    final initiativeCreativityCtrl = TextEditingController();
+    final attendancePunctualityCtrl = TextEditingController();
+    final taskCompletionQualityCtrl = TextEditingController();
     final commentCtrl = TextEditingController();
+
+    Widget scoreField(TextEditingController controller, String label) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(labelText: label),
+        ),
+      );
+    }
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Evaluate ${student.fullName}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: techCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Technical Score (0-100)',
-              ),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                scoreField(technicalSkillsCtrl, 'Technical Skills (0-100)'),
+                scoreField(problemSolvingCtrl, 'Problem Solving (0-100)'),
+                scoreField(communicationCtrl, 'Communication (0-100)'),
+                scoreField(teamCollaborationCtrl, 'Team Collaboration (0-100)'),
+                scoreField(timeManagementCtrl, 'Time Management (0-100)'),
+                scoreField(adaptabilityCtrl, 'Adaptability (0-100)'),
+                scoreField(professionalismCtrl, 'Professionalism (0-100)'),
+                scoreField(initiativeCreativityCtrl, 'Initiative & Creativity (0-100)'),
+                scoreField(attendancePunctualityCtrl, 'Attendance & Punctuality (0-100)'),
+                scoreField(taskCompletionQualityCtrl, 'Task Completion Quality (0-100)'),
+                TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Final Comments'),
+                ),
+              ],
             ),
-            TextField(
-              controller: softCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Soft Skills Score (0-100)',
-              ),
-            ),
-            TextField(
-              controller: commentCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Final Comments'),
-            ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -6181,12 +6204,18 @@ class _SupervisorStudentsTab extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () async {
-              await ref
-                  .read(supervisorRepositoryProvider)
-                  .submitEvaluation(
+              await ref.read(supervisorActionsProvider.notifier).submitEvaluation(
                     studentId: student.id,
-                    technicalScore: double.parse(techCtrl.text),
-                    softSkillScore: double.parse(softCtrl.text),
+                    technicalSkills: double.parse(technicalSkillsCtrl.text),
+                    problemSolving: double.parse(problemSolvingCtrl.text),
+                    communication: double.parse(communicationCtrl.text),
+                    teamCollaboration: double.parse(teamCollaborationCtrl.text),
+                    timeManagement: double.parse(timeManagementCtrl.text),
+                    adaptability: double.parse(adaptabilityCtrl.text),
+                    professionalism: double.parse(professionalismCtrl.text),
+                    initiativeCreativity: double.parse(initiativeCreativityCtrl.text),
+                    attendancePunctuality: double.parse(attendancePunctualityCtrl.text),
+                    taskCompletionQuality: double.parse(taskCompletionQualityCtrl.text),
                     comments: commentCtrl.text,
                   );
               if (ctx.mounted) Navigator.pop(ctx);
