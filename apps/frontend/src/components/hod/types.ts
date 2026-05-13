@@ -47,5 +47,13 @@ export type HodReportRow = {
   pdf_url: string;
   stamped: boolean;
   generated_at: string;
-  student: { user: { full_name: string; email: string } };
+  student: {
+    user: { full_name: string; email: string };
+    finalEvaluation: {
+      technical_score: number;
+      soft_skill_score: number;
+      comments: string | null;
+      evaluated_at: string;
+    } | null;
+  };
 };

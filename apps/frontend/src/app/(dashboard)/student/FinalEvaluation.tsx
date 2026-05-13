@@ -57,11 +57,11 @@ const FinalEvaluation = () => {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.get<{ evaluation: Parameters<typeof mapEvaluationApi>[0] | null }>(
+        const res = await api.get<{ success: boolean; data: { evaluation: Parameters<typeof mapEvaluationApi>[0] | null } }>(
           '/reports/my-evaluation'
         );
         if (cancelled) return;
-        if (data.evaluation) setEvaluation(mapEvaluationApi(data.evaluation));
+        if (res.data.data?.evaluation) setEvaluation(mapEvaluationApi(res.data.data.evaluation));
         else setEvaluation(null);
       } catch {
         if (!cancelled) setEvaluation(null);
