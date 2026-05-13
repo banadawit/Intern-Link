@@ -22,9 +22,11 @@ router.get('/audit-logs', adminCtrl.getAuditLogs);
 // Institution Approvals
 router.get('/pending-universities', adminCtrl.getPendingUniversities);
 router.patch('/university-status/:id', adminCtrl.updateUniversityStatus);
+router.delete('/universities/:id', adminCtrl.deleteUniversity);
 
 router.get('/pending-companies', adminCtrl.getPendingCompanies);
 router.patch('/company-status/:id', adminCtrl.updateCompanyStatus);
+router.delete('/companies/:id', adminCtrl.deleteCompany);
 
 // ── Admin Manual Creation (Universities & Companies) ──────────────────────────
 // POST /admin/universities — create university + optional coordinator (sends setup link)

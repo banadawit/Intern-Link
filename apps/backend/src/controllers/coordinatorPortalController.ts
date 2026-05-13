@@ -167,30 +167,6 @@ export const getAssignmentsOverview = async (req: AuthRequest, res: Response) =>
     }
 };
 
-// GET /coordinator-portal/reports/overview
-export const getReportsOverview = async (req: AuthRequest, res: Response) => {
-    try {
-        const coord = await getCoordinator(req.user!.userId);
-        if (!coord?.universityId) return sendError(res, 'Not linked to a university.', 403);
-
-        const reports = await prisma.report.findMany({
-            where: { student: { universityId: coord.universityId } },
-            orderBy: { generated_at: 'desc' },
-            include: {
-                student: {
-                    select: {
-                        department: true,
-                        user: { select: { full_name: true, email: true } },
-                    },
-                },
-            },
-        });
-        return sendSuccess(res, reports);
-    } catch (e: any) {
-        return sendError(res, e.message);
-    }
-};
-
 // GET /coordinator-portal/students
 // Returns all students of the coordinator's university with full profile,
 // sorted by department so the mobile app can group them.

@@ -13,6 +13,5 @@ router.get('/companies', ctrl.getCompanies);
 router.get('/students', ctrl.getStudents);
 router.get('/proposals/overview', ctrl.getProposalsOverview);
 router.get('/assignments/overview', ctrl.getAssignmentsOverview);
-router.get('/reports/overview', ctrl.getReportsOverview);
 
 export default router;

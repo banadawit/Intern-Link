@@ -23,7 +23,7 @@ interface Props {
   logs: AuditLogEntry[];
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 const AuditLog = ({ logs }: Props) => {
   const t = useTranslations("AdminPortal.audit");
@@ -227,7 +227,7 @@ const AuditLog = ({ logs }: Props) => {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {filtered.length > 0 && (
         <div className="flex flex-col items-center gap-3 pb-6">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {t("paginationRange", {
