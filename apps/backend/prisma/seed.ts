@@ -173,8 +173,33 @@ async function main() {
   } else {
     await prisma.user.update({
       where: { email: hodEmail },
-      data: { password_hash: hodHash },
+      data: {
+        password_hash: hodHash,
+        verification_status: 'APPROVED',
+        institution_access_approval: 'APPROVED',
+      },
     });
+    // Repair missing HOD profile
+    const hodUser = await prisma.user.findUnique({ where: { email: hodEmail } });
+    if (hodUser) {
+      const existingProfile = await prisma.hodProfile.findUnique({ where: { userId: hodUser.id } });
+      if (!existingProfile) {
+        await prisma.hodProfile.create({
+          data: {
+            userId: hodUser.id,
+            universityId: demoUniversity.id,
+            department: 'Computer Science',
+          },
+        });
+        console.log('✅ HOD profile repaired (profile created)');
+      } else if (existingProfile.universityId !== demoUniversity.id) {
+        await prisma.hodProfile.update({
+          where: { userId: hodUser.id },
+          data: { universityId: demoUniversity.id },
+        });
+        console.log('✅ HOD profile repaired (university linked)');
+      }
+    }
     console.log(`HOD already exists: ${hodEmail} (demo password refreshed to ${hodPassword})`);
   }
 

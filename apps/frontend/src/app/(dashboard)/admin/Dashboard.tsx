@@ -224,7 +224,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
     if (pa.coordinators > 0) parts.push(t("coordinatorsCount", { count: pa.coordinators }));
     if (pa.supervisors > 0) parts.push(t("supervisorsCount", { count: pa.supervisors }));
     return parts.join(" · ");
-  }, [data, t]);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPending = (data?.pendingApprovals.total ?? 0) || pendingVerificationCount;
 

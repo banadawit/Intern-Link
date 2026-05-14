@@ -514,8 +514,11 @@ export const login = async (req: Request, res: Response) => {
             if (uni.approval_status !== 'APPROVED') {
                 return sendError(res, 'Your university’s verification proposal must be submitted and approved by an administrator before you can access the system.', 403, 'INSTITUTION_NOT_APPROVED');
             }
+            if (user.institution_access_approval === 'REJECTED') {
+                return sendError(res, 'Your coordinator registration has been rejected by an administrator. Please contact support for assistance.', 403, 'INSTITUTION_MEMBER_REJECTED');
+            }
             if (user.institution_access_approval !== 'APPROVED') {
-                return sendError(res, 'Your coordinator account must be individually approved by an administrator after your organization is verified.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
+                return sendError(res, 'Your coordinator account is pending administrator approval. You will be notified by email once reviewed.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
             }
         }
 
@@ -530,8 +533,11 @@ export const login = async (req: Request, res: Response) => {
             if (company.approval_status !== 'APPROVED') {
                 return sendError(res, 'Your company’s verification proposal must be submitted and approved by an administrator before you can access the system.', 403, 'INSTITUTION_NOT_APPROVED');
             }
+            if (user.institution_access_approval === 'REJECTED') {
+                return sendError(res, 'Your supervisor registration has been rejected by an administrator. Please contact support for assistance.', 403, 'INSTITUTION_MEMBER_REJECTED');
+            }
             if (user.institution_access_approval !== 'APPROVED') {
-                return sendError(res, 'Your supervisor account must be individually approved by an administrator after your organization is verified.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
+                return sendError(res, 'Your supervisor account is pending administrator approval. You will be notified by email once reviewed.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
             }
         }
 
@@ -555,8 +561,11 @@ export const login = async (req: Request, res: Response) => {
             if (uni.approval_status !== 'APPROVED') {
                 return sendError(res, 'Your university must be verified by an administrator before you can access the system.', 403, 'INSTITUTION_NOT_APPROVED');
             }
+            if (user.institution_access_approval === 'REJECTED') {
+                return sendError(res, 'Your HOD registration has been rejected by your university coordinator. Please contact your coordinator for assistance.', 403, 'INSTITUTION_MEMBER_REJECTED');
+            }
             if (user.institution_access_approval !== 'APPROVED') {
-                return sendError(res, 'Your HOD account is pending approval from your university coordinator.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
+                return sendError(res, 'Your HOD account is pending approval from your university coordinator. You will be notified by email once reviewed.', 403, 'INSTITUTION_MEMBER_NOT_APPROVED');
             }
         }
 
