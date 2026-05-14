@@ -13669,7 +13669,7 @@ class _HodOverviewTab extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 90,
+          height: 110,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: stats.weeklyPlacementTrend.map((p) {
