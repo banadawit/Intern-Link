@@ -249,8 +249,16 @@ async function testE2E() {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supToken}` },
             body: JSON.stringify({
                 studentId: studentProfile.id,
-                technical_score: 95,
-                soft_skill_score: 90,
+                technical_skills: 95,
+                problem_solving: 90,
+                communication: 88,
+                team_collaboration: 92,
+                time_management: 85,
+                adaptability: 87,
+                professionalism: 93,
+                initiative_creativity: 89,
+                attendance_punctuality: 96,
+                task_completion_quality: 91,
                 comments: 'Excellent performance throughout the internship.'
             })
         });

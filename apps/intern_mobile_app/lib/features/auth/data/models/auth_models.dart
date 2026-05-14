@@ -46,8 +46,10 @@ class RegisterPayload {
     this.studentId,
     this.position,
     this.universityId,
+    this.companyId,
     this.hodId,
     this.employeeId,
+    this.organizationRequestId,
     this.verificationFileBytes,
     this.verificationFileName,
   });
@@ -62,8 +64,10 @@ class RegisterPayload {
   final String? studentId;
   final String? position;
   final int? universityId;
+  final int? companyId;
   final int? hodId;
   final String? employeeId;
+  final int? organizationRequestId;
   /// Raw bytes of the verification document
   final List<int>? verificationFileBytes;
   final String? verificationFileName;

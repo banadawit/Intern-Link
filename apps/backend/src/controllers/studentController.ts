@@ -4,6 +4,7 @@ import prisma from '../config/db';
 import bcrypt from 'bcryptjs';
 import { getCurrentInternshipWeekFromStart } from '../utils/internshipWeek';
 import { sendSuccess, sendError } from '../utils/responseHelper';
+import { CloudinaryService } from '../services/cloudinary.service';
 
 // 1. COORDINATOR Task: Register a Student (SRS FR-4.2)
 export const registerStudent = async (req: AuthRequest, res: Response) => {
@@ -140,20 +141,20 @@ export const getMyTeam = async (req: AuthRequest, res: Response) => {
         if (!membership) return sendSuccess(res, null, 'Not in a team.');
 
         const team = membership.team;
-        const manager = team.members.find((m) => m.studentId === team.managerId);
+        const manager = undefined; // managerId not in schema
 
         return sendSuccess(res, {
             id: team.id,
             name: team.name,
-            managerId: team.managerId,
-            managerName: manager?.student.user.full_name ?? null,
+            managerId: null,
+            managerName: null,
             project: team.project ?? null,
-            isManager: team.managerId === student.id,
+            isManager: false,
             members: team.members.map((m) => ({
                 studentId: m.studentId,
                 fullName: m.student.user.full_name,
                 email: m.student.user.email,
-                isManager: m.studentId === team.managerId,
+                isManager: false,
                 isMe: m.studentId === student.id,
             })),
         });
@@ -182,8 +183,39 @@ export const submitOpenLetter = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'You already have an active internship placement.', 400);
         }
 
-        const { company_name, cover_letter } = req.body as { company_name?: string; cover_letter?: string };
+        const {
+            company_name,
+            cover_letter,
+            company_email,
+            company_address,
+        } = req.body as {
+            company_name?: string;
+            cover_letter?: string;
+            company_email?: string;
+            company_address?: string;
+        };
         if (!company_name?.trim()) return sendError(res, 'company_name is required.', 400);
+        if (!company_email?.trim()) return sendError(res, 'company_email is required.', 400);
+
+        // Upload stamp image if provided
+        const files = (req as any).files as Record<string, Express.Multer.File[]> | undefined;
+        let stampUrl: string | null = null;
+        let verificationDocUrl: string | null = null;
+
+        if (files?.stamp?.[0]) {
+            const upload = await CloudinaryService.uploadImage(files.stamp[0], {
+                fileType: 'COMPANY_STAMP',
+                folder: `internlink/open-letters/stamps`,
+            });
+            if (upload.success && upload.url) stampUrl = upload.url;
+        }
+        if (files?.verification_doc?.[0]) {
+            const upload = await CloudinaryService.uploadVerificationDoc(files.verification_doc[0], {
+                fileType: 'VERIFICATION_DOC',
+                folder: `internlink/open-letters/docs`,
+            });
+            if (upload.success && upload.url) verificationDocUrl = upload.url;
+        }
 
         // Find or create the company by name (open letters may target companies not yet in the system)
         let company = await prisma.company.findFirst({
@@ -191,11 +223,29 @@ export const submitOpenLetter = async (req: AuthRequest, res: Response) => {
         });
 
         if (!company) {
+            // Check if email is already taken by another company
+            const emailTaken = await prisma.company.findUnique({ where: { official_email: company_email.trim() } });
+            if (emailTaken) {
+                return sendError(res, `A company with email "${company_email.trim()}" already exists. If this is the same company, it may already be in the system.`, 400);
+            }
             company = await prisma.company.create({
                 data: {
                     name: company_name.trim(),
-                    official_email: `pending@${company_name.trim().toLowerCase().replace(/\s+/g, '')}.com`,
+                    official_email: company_email.trim(),
+                    address: company_address?.trim() ?? null,
+                    stamp_image_url: stampUrl,
+                    verification_doc: verificationDocUrl,
                     approval_status: 'PENDING',
+                },
+            });
+        } else {
+            // Update company details if student provided richer info
+            company = await prisma.company.update({
+                where: { id: company.id },
+                data: {
+                    ...(company_address?.trim() && !company.address ? { address: company_address.trim() } : {}),
+                    ...(stampUrl && !company.stamp_image_url ? { stamp_image_url: stampUrl } : {}),
+                    ...(verificationDocUrl && !company.verification_doc ? { verification_doc: verificationDocUrl } : {}),
                 },
             });
         }

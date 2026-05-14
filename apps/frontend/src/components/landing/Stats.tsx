@@ -2,20 +2,14 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Users, Building2, GraduationCap, FileText } from 'lucide-react';
 
-const stats = [
-  { id: 1, name: 'Active Students', value: '2,500+', target: 2500, icon: Users, color: 'primary' },
-  { id: 2, name: 'Industry Partners', value: '85+', target: 85, icon: Building2, color: 'success' },
-  { id: 3, name: 'University Departments', value: '12+', target: 12, icon: GraduationCap, color: 'warning' },
-  { id: 4, name: 'Reports Generated', value: '10k+', target: 10000, icon: FileText, color: 'info' },
-];
-
 const statColorStyles = {
-  primary: { box: 'bg-teal-50', icon: 'text-teal-600' },
-  success: { box: 'bg-green-50', icon: 'text-green-600' },
+  primary: { box: 'bg-teal-50',   icon: 'text-teal-600'   },
+  success: { box: 'bg-green-50',  icon: 'text-green-600'  },
   warning: { box: 'bg-yellow-50', icon: 'text-yellow-600' },
-  info: { box: 'bg-blue-50', icon: 'text-blue-600' },
+  info:    { box: 'bg-blue-50',   icon: 'text-blue-600'   },
 } as const;
 
 const CountUp = ({ target, suffix }: { target: number; suffix: string }) => {
@@ -26,19 +20,12 @@ const CountUp = ({ target, suffix }: { target: number; suffix: string }) => {
   useEffect(() => {
     if (isInView) {
       let start = 0;
-      const duration = 2000;
-      const step = target / (duration / 16);
-      
+      const step = target / (2000 / 16);
       const timer = setInterval(() => {
         start += step;
-        if (start >= target) {
-          setCount(target);
-          clearInterval(timer);
-        } else {
-          setCount(Math.floor(start));
-        }
+        if (start >= target) { setCount(target); clearInterval(timer); }
+        else setCount(Math.floor(start));
       }, 16);
-      
       return () => clearInterval(timer);
     }
   }, [isInView, target]);
@@ -47,28 +34,34 @@ const CountUp = ({ target, suffix }: { target: number; suffix: string }) => {
 };
 
 const Stats = () => {
+  const t = useTranslations('Stats');
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true });
 
+  const stats = [
+    { id: 1, labelKey: 'activeStudents',       value: '2,500+', target: 2500,  icon: Users,         color: 'primary'  as const },
+    { id: 2, labelKey: 'industryPartners',      value: '85+',    target: 85,    icon: Building2,     color: 'success'  as const },
+    { id: 3, labelKey: 'universityDepartments', value: '12+',    target: 12,    icon: GraduationCap, color: 'warning'  as const },
+    { id: 4, labelKey: 'reportsGenerated',      value: '10k+',   target: 10000, icon: FileText,      color: 'info'     as const },
+  ];
+
   return (
-    <section className="bg-gradient-to-b from-teal-50 to-white py-20 sm:py-24 lg:py-28 dark:from-slate-900 dark:to-slate-950">
+    <section id="stats" className="bg-gradient-to-b from-teal-50 to-white py-20 sm:py-24 lg:py-28 dark:from-slate-900 dark:to-slate-950">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <span className="mb-4 inline-flex items-center rounded-full bg-teal-100 px-3 py-1 text-sm font-medium text-teal-700">
-            Real-Time Impact
+            {t('badge')}
           </span>
           <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl dark:text-slate-100">
-            Trusted by the Academic Community
+            {t('title')}
           </h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-slate-300">
-            InternLink is rapidly becoming the standard for internship management
-          </p>
+          <p className="mt-4 text-lg text-slate-600 dark:text-slate-300">{t('subtitle')}</p>
         </div>
 
         <div ref={ref} className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
-            const styles = statColorStyles[stat.color as keyof typeof statColorStyles] || statColorStyles.primary;
+            const styles = statColorStyles[stat.color];
             return (
               <motion.div
                 key={stat.id}
@@ -83,7 +76,7 @@ const Stats = () => {
                 <p className="mb-1 text-3xl font-bold text-slate-900 dark:text-slate-100">
                   <CountUp target={stat.target} suffix={stat.value.includes('+') ? '+' : ''} />
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{stat.name}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t(stat.labelKey)}</p>
               </motion.div>
             );
           })}

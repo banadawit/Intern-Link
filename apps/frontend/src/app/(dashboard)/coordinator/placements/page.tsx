@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import api from "@/lib/api/client";
 import CoordinatorPageHero from "../CoordinatorPageHero";
+import { useTranslations } from "next-intl";
 
 type ProposalRow = {
   id: number;
@@ -28,6 +29,7 @@ export default function CoordinatorPlacementsPage() {
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations("CoordinatorPortal.placements");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,13 +42,13 @@ export default function CoordinatorPlacementsPage() {
       setProposals(p.data);
       setAssignments(a.data);
     } catch {
-      setError("Could not load placement data.");
+      setError(t("couldNotLoad"));
       setProposals([]);
       setAssignments([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -55,9 +57,9 @@ export default function CoordinatorPlacementsPage() {
   return (
     <div className="space-y-8 pb-8">
       <CoordinatorPageHero
-        badge="Placements"
-        title="Placements overview"
-        description="Track internship proposals and active assignments for students at your university."
+        badge={t("badge")}
+        title={t("title")}
+        description={t("description")}
         action={
           <button
             type="button"
@@ -66,7 +68,7 @@ export default function CoordinatorPlacementsPage() {
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
@@ -82,17 +84,17 @@ export default function CoordinatorPlacementsPage() {
       ) : (
         <>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="text-lg font-bold text-slate-900">Proposals</h2>
-            <p className="mb-4 text-sm text-slate-500">All proposals initiated under your university.</p>
+            <h2 className="text-lg font-bold text-slate-900">{t("proposalsTitle")}</h2>
+            <p className="mb-4 text-sm text-slate-500">{t("proposalsSubtitle")}</p>
             <div className="overflow-x-auto rounded-xl border border-slate-100">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="border-b border-slate-100 bg-slate-50/80">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Student</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Company</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Type</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Submitted</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colStudent")}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colCompany")}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colType")}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colStatus")}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colSubmitted")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -110,23 +112,23 @@ export default function CoordinatorPlacementsPage() {
                 </tbody>
               </table>
               {proposals.length === 0 && (
-                <p className="py-8 text-center text-sm text-slate-500">No proposals yet.</p>
+                <p className="py-8 text-center text-sm text-slate-500">{t("noProposals")}</p>
               )}
             </div>
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="text-lg font-bold text-slate-900">Assignments</h2>
-            <p className="mb-4 text-sm text-slate-500">Placements for your university&apos;s students.</p>
+            <h2 className="text-lg font-bold text-slate-900">{t("assignmentsTitle")}</h2>
+            <p className="mb-4 text-sm text-slate-500">{t("assignmentsSubtitle")}</p>
             <div className="overflow-x-auto rounded-xl border border-slate-100">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="border-b border-slate-100 bg-slate-50/80">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Student</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Dept</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Company</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Start</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colStudent")}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colDept")}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colCompany")}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colStatus")}</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">{t("colStart")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -144,7 +146,7 @@ export default function CoordinatorPlacementsPage() {
                 </tbody>
               </table>
               {assignments.length === 0 && (
-                <p className="py-8 text-center text-sm text-slate-500">No assignments yet.</p>
+                <p className="py-8 text-center text-sm text-slate-500">{t("noAssignments")}</p>
               )}
             </div>
           </section>

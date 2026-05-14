@@ -2,19 +2,9 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
-  Building,
-  Briefcase,
-  Search,
-  CheckCircle2,
-  XCircle,
-  Ban,
-  RotateCcw,
-  Loader2,
-  Filter,
-  UserCheck,
-  User,
-  CheckCircle,
-  FileText,
+  Building, Briefcase, Search, CheckCircle2, XCircle, Ban, RotateCcw,
+  Loader2, Filter, UserCheck, User, CheckCircle, FileText, Trash2,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -24,6 +14,7 @@ import api from "@/lib/api/client";
 import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 type OrgTab = "universities" | "companies" | "coordinators" | "supervisors";
+const PAGE_SIZE = 10;
 
 const STATUS_CONFIG = {
   Pending:   { bg: "bg-amber-50",   text: "text-amber-700",   ring: "ring-amber-200"   },
@@ -40,29 +31,98 @@ interface Props {
 }
 
 interface PersonUser {
-  id: number;
-  full_name: string;
-  email: string;
-  created_at: string;
-  institution_access_approval?: string;
+  id: number; full_name: string; email: string;
+  created_at: string; institution_access_approval?: string;
 }
-
 interface CoordinatorRow {
-  id: number;
-  userId: number;
+  id: number; userId: number;
   university: { id: number; name: string } | null;
   pending_university_name?: string | null;
   user: PersonUser;
 }
-
 interface SupervisorRow {
-  id: number;
-  userId: number;
+  id: number; userId: number;
   company: { id: number; name: string };
   user: PersonUser;
 }
-
 type PersonStatus = "approved" | "rejected" | "suspended";
+
+// ── Pagination helper ─────────────────────────────────────────────────────────
+function Pagination({ page, total, pageSize, onChange }: {
+  page: number; total: number; pageSize: number; onChange: (p: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between px-1 pt-2">
+      <p className="text-xs text-slate-400">
+        Page {page} of {totalPages} &middot; {total} total
+      </p>
+      <div className="flex items-center gap-1">
+        <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)}
+          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1)
+          .filter((n) => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+          .reduce<(number | "…")[]>((acc, n, i, arr) => {
+            if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push("…");
+            acc.push(n);
+            return acc;
+          }, [])
+          .map((n, i) =>
+            n === "…" ? (
+              <span key={`ellipsis-${i}`} className="px-1 text-xs text-slate-400">…</span>
+            ) : (
+              <button key={n} type="button" onClick={() => onChange(n as number)}
+                className={cn("min-w-[28px] rounded-lg px-2 py-1 text-xs font-semibold transition-colors",
+                  page === n ? "bg-teal-600 text-white" : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700")}>
+                {n}
+              </button>
+            )
+          )}
+        <button type="button" disabled={page >= totalPages} onClick={() => onChange(page + 1)}
+          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Delete confirmation dialog ────────────────────────────────────────────────
+function DeleteConfirm({ name, onConfirm, onCancel, loading }: {
+  name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <button type="button" className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-red-100 p-2.5 text-red-600"><Trash2 className="h-5 w-5" /></div>
+          <div>
+            <p className="font-bold text-slate-900 dark:text-slate-100">Delete permanently?</p>
+            <p className="text-xs text-slate-500 mt-0.5">This cannot be undone.</p>
+          </div>
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          You are about to delete <span className="font-semibold">{name}</span> and all associated data (users, proposals, reports).
+        </p>
+        <div className="flex gap-2 justify-end">
+          <button type="button" onClick={onCancel} disabled={loading}
+            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors">
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function usePersonList<T>(endpoint: string) {
   const [data, setData] = useState<T[]>([]);
@@ -72,9 +132,7 @@ function usePersonList<T>(endpoint: string) {
     try {
       const { data: res } = await api.get<T[]>(endpoint);
       setData(res);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [endpoint]);
   useEffect(() => { void load(); }, [load]);
   return { data, loading };
@@ -82,36 +140,24 @@ function usePersonList<T>(endpoint: string) {
 
 function statusBadge(status: PersonStatus) {
   if (status === "approved")
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-        <CheckCircle className="w-3 h-3" /> Approved
-      </span>
-    );
+    return <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200"><CheckCircle className="w-3 h-3" /> Approved</span>;
   if (status === "rejected")
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-200">
-        <XCircle className="w-3 h-3" /> Rejected
-      </span>
-    );
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-300">
-      <Ban className="w-3 h-3" /> Suspended
-    </span>
-  );
+    return <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-200"><XCircle className="w-3 h-3" /> Rejected</span>;
+  return <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-300"><Ban className="w-3 h-3" /> Suspended</span>;
 }
 
 function CoordinatorsPanel() {
   type StatusFilter = "all" | PersonStatus;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data: approved, loading: l1 } = usePersonList<CoordinatorRow>("/admin/approved-coordinators");
   const { data: rejected, loading: l2 } = usePersonList<CoordinatorRow>("/admin/rejected-coordinators");
   const { data: suspended, loading: l3 } = usePersonList<CoordinatorRow>("/admin/suspended-coordinators");
-
   const loading = l1 || l2 || l3;
 
-  const rows = useMemo(() => {
+  const filtered = useMemo(() => {
     const all: (CoordinatorRow & { _status: PersonStatus })[] = [
       ...approved.map((r) => ({ ...r, _status: "approved" as PersonStatus })),
       ...rejected.map((r) => ({ ...r, _status: "rejected" as PersonStatus })),
@@ -125,19 +171,21 @@ function CoordinatorsPanel() {
     });
   }, [approved, rejected, suspended, statusFilter, search]);
 
+  const rows = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search coordinators…"
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20" />
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="h-4 w-4 text-slate-400 shrink-0" />
           {(["all", "approved", "rejected", "suspended"] as StatusFilter[]).map((s) => (
-            <button key={s} type="button" onClick={() => setStatusFilter(s)}
+            <button key={s} type="button" onClick={() => { setStatusFilter(s); setPage(1); }}
               className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all capitalize",
                 statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700")}>
               {s}
@@ -145,7 +193,6 @@ function CoordinatorsPanel() {
           ))}
         </div>
       </div>
-
       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
         {loading ? (
           <div className="flex min-h-[20vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>
@@ -186,6 +233,7 @@ function CoordinatorsPanel() {
           </div>
         )}
       </div>
+      <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
     </div>
   );
 }
@@ -194,14 +242,14 @@ function SupervisorsPanel() {
   type StatusFilter = "all" | PersonStatus;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data: approved, loading: l1 } = usePersonList<SupervisorRow>("/admin/approved-supervisors");
   const { data: rejected, loading: l2 } = usePersonList<SupervisorRow>("/admin/rejected-supervisors");
   const { data: suspended, loading: l3 } = usePersonList<SupervisorRow>("/admin/suspended-supervisors");
-
   const loading = l1 || l2 || l3;
 
-  const rows = useMemo(() => {
+  const filtered = useMemo(() => {
     const all: (SupervisorRow & { _status: PersonStatus })[] = [
       ...approved.map((r) => ({ ...r, _status: "approved" as PersonStatus })),
       ...rejected.map((r) => ({ ...r, _status: "rejected" as PersonStatus })),
@@ -215,19 +263,21 @@ function SupervisorsPanel() {
     });
   }, [approved, rejected, suspended, statusFilter, search]);
 
+  const rows = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search supervisors…"
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20" />
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Filter className="h-4 w-4 text-slate-400 shrink-0" />
           {(["all", "approved", "rejected", "suspended"] as StatusFilter[]).map((s) => (
-            <button key={s} type="button" onClick={() => setStatusFilter(s)}
+            <button key={s} type="button" onClick={() => { setStatusFilter(s); setPage(1); }}
               className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all capitalize",
                 statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700")}>
               {s}
@@ -235,7 +285,6 @@ function SupervisorsPanel() {
           ))}
         </div>
       </div>
-
       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
         {loading ? (
           <div className="flex min-h-[20vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>
@@ -274,15 +323,20 @@ function SupervisorsPanel() {
           </div>
         )}
       </div>
+      <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
     </div>
   );
 }
 
-export default function OrganizationsView({ proposals, loading, onReview }: Props) {
+
+export default function OrganizationsView({ proposals, loading, onReview, onActionComplete }: Props) {
   const [tab, setTab] = useState<OrgTab>("universities");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Approved" | "Rejected" | "Suspended">("All");
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; kind: "uni" | "com" } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -294,6 +348,8 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
     });
   }, [proposals, tab, search, statusFilter]);
 
+  const paginated = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+
   const counts = useMemo(() => {
     const byType = (type: "University" | "Company") => proposals.filter((p) => p.organizationType === type);
     return {
@@ -304,12 +360,31 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
     };
   }, [proposals]);
 
-  const tabs: Array<{ id: OrgTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number; pending?: number }> = [
+  const orgTabs: Array<{ id: OrgTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number; pending?: number }> = [
     { id: "universities", label: "Universities", icon: Building,  count: counts.universities, pending: counts.uniPending },
     { id: "companies",    label: "Companies",    icon: Briefcase, count: counts.companies,    pending: counts.compPending },
     { id: "coordinators", label: "Coordinators", icon: UserCheck },
     { id: "supervisors",  label: "Supervisors",  icon: Briefcase },
   ];
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      const numericId = deleteTarget.id.replace(/^(uni|com)-/, "");
+      const endpoint = deleteTarget.kind === "uni"
+        ? `/admin/universities/${numericId}`
+        : `/admin/companies/${numericId}`;
+      await api.delete(endpoint);
+      setDeleteTarget(null);
+      onActionComplete();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Delete failed.";
+      alert(msg);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -319,11 +394,10 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
         description="Manage all universities, companies, coordinators, and supervisors on the platform."
       />
 
-      {/* Tab bar */}
       <div className="flex gap-1 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-1">
-        {tabs.map((t) => (
+        {orgTabs.map((t) => (
           <button key={t.id} type="button"
-            onClick={() => { setTab(t.id); setSearch(""); setStatusFilter("All"); }}
+            onClick={() => { setTab(t.id); setSearch(""); setStatusFilter("All"); setPage(1); }}
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
               tab === t.id
@@ -347,24 +421,22 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
         ))}
       </div>
 
-      {/* Coordinators / Supervisors panels */}
       {tab === "coordinators" && <CoordinatorsPanel />}
       {tab === "supervisors" && <SupervisorsPanel />}
 
-      {/* Universities / Companies table */}
       {(tab === "universities" || tab === "companies") && (
         <>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 placeholder={`Search ${tab}…`}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20" />
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <Filter className="h-4 w-4 text-slate-400 shrink-0" />
               {(["All", "Pending", "Approved", "Rejected", "Suspended"] as const).map((s) => (
-                <button key={s} type="button" onClick={() => setStatusFilter(s)}
+                <button key={s} type="button" onClick={() => { setStatusFilter(s); setPage(1); }}
                   className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all",
                     statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700")}>
                   {s}
@@ -378,7 +450,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
               <div className="flex min-h-[30vh] items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
               </div>
-            ) : filtered.length === 0 ? (
+            ) : paginated.length === 0 ? (
               <div className="flex min-h-[20vh] items-center justify-center text-sm text-slate-400">
                 No {tab} match your filters.
               </div>
@@ -397,8 +469,9 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {filtered.map((p) => {
+                    {paginated.map((p) => {
                       const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.Pending;
+                      const kind: "uni" | "com" = p.organizationType === "University" ? "uni" : "com";
                       return (
                         <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                           <td className="px-6 py-4">
@@ -423,11 +496,9 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                             {format(new Date(p.submittedAt), "MMM d, yyyy")}
                           </td>
                           <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1">
                               {p.documents?.[0] ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setDocUrl(p.documents[0])}
+                                <button type="button" onClick={() => setDocUrl(p.documents[0])}
                                   className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
                                   <FileText className="h-3 w-3" /> Verification doc
                                 </button>
@@ -435,9 +506,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                                 <span className="text-xs text-slate-400 italic">No doc</span>
                               )}
                               {p.stampImageUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => setDocUrl(p.stampImageUrl!)}
+                                <button type="button" onClick={() => setDocUrl(p.stampImageUrl!)}
                                   className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
                                   <FileText className="h-3 w-3" /> Stamp
                                 </button>
@@ -445,7 +514,7 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
                               <button type="button" onClick={() => onReview(p)}
                                 className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                                 Review
@@ -479,7 +548,13 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
                                   className="inline-flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors">
                                   <XCircle className="h-3.5 w-3.5" /> Reject
                                 </button>
-                              )}                            </div>
+                              )}
+                              <button type="button"
+                                onClick={() => setDeleteTarget({ id: p.id, name: p.organizationName, kind })}
+                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors">
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -490,17 +565,25 @@ export default function OrganizationsView({ proposals, loading, onReview }: Prop
             )}
           </div>
 
-          <p className="text-xs text-slate-400 text-right">
-            Showing {filtered.length} of {proposals.filter((p) => tab === "universities" ? p.organizationType === "University" : p.organizationType === "Company").length} {tab}
-          </p>
+          <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
         </>
       )}
+
       <PdfViewerModal
         isOpen={!!docUrl}
         pdfUrl={docUrl ?? ""}
         title="Verification Document"
         onClose={() => setDocUrl(null)}
       />
+
+      {deleteTarget && (
+        <DeleteConfirm
+          name={deleteTarget.name}
+          loading={deleteLoading}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }

@@ -10,21 +10,24 @@ import {
   FileCheck,
   ChevronRight,
 } from "lucide-react";
-
-const links = [
-  { href: "/hod/students", label: "Student approvals", desc: "Review department registrations", icon: Users },
-  { href: "/hod/companies", label: "Companies", desc: "Verified company directory", icon: Building2 },
-  { href: "/hod/placements", label: "Placements", desc: "Send proposals and track status", icon: Send },
-  { href: "/hod/invite", label: "Invite company", desc: "Email a company to join InternLink", icon: Mail },
-  { href: "/hod/open-letters", label: "Open letters", desc: "External internship requests", icon: FileCheck },
-  { href: "/hod/reports", label: "Final reports", desc: "Stamped PDFs and downloads", icon: FileText },
-];
+import { useTranslations } from "next-intl";
 
 export default function HodQuickLinks() {
+  const t = useTranslations("HodPortal.quickLinks");
+
+  const links = [
+    { href: "/hod/students", label: t("studentApprovals"), desc: t("studentApprovalsDesc"), icon: Users },
+    { href: "/hod/companies", label: t("companies"), desc: t("companiesDesc"), icon: Building2 },
+    { href: "/hod/placements", label: t("placements"), desc: t("placementsDesc"), icon: Send },
+    { href: "/hod/invite", label: t("inviteCompany"), desc: t("inviteCompanyDesc"), icon: Mail },
+    { href: "/hod/open-letters", label: t("openLetters"), desc: t("openLettersDesc"), icon: FileCheck },
+    { href: "/hod/reports", label: t("finalReports"), desc: t("finalReportsDesc"), icon: FileText },
+  ];
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Department tools</h2>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Jump to a section from the sidebar or below.</p>
+      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("title")}</h2>
+      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("subtitle")}</p>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {links.map((item) => (
           <li key={item.href}>

@@ -16,6 +16,7 @@ import CoordinatorPageHero from "../CoordinatorPageHero";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import SuccessToast from "@/components/shared/SuccessToast";
 import PdfViewerModal from "@/components/shared/PdfViewerModal";
+import { useTranslations } from "next-intl";
 
 interface PendingHod {
   id: number;
@@ -41,6 +42,7 @@ export default function CoordinatorHodsPage() {
   const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const t = useTranslations("CoordinatorPortal.hods");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,11 +52,11 @@ export default function CoordinatorHodsPage() {
       setHods(data);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || "Could not load pending HoD accounts.");
+      setError(msg || t("couldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -64,10 +66,10 @@ export default function CoordinatorHodsPage() {
     try {
       await api.patch("/coordinator/verify-hod", { userId, status: "APPROVED" });
       setConfirmApprove(null);
-      setToast({ show: true, message: "✅ Head of Department approved successfully" });
+      setToast({ show: true, message: t("approvedToast") });
       await load();
     } catch {
-      setError("Failed to approve HoD.");
+      setError(t("failedApprove"));
     } finally {
       setActionLoading(null);
     }
@@ -84,10 +86,10 @@ export default function CoordinatorHodsPage() {
         reason: rejectReason.reason,
       });
       setRejectReason(null);
-      setToast({ show: true, message: "HOD registration rejected" });
+      setToast({ show: true, message: t("rejectedToast") });
       await load();
     } catch {
-      setError("Failed to reject HoD.");
+      setError(t("failedReject"));
     } finally {
       setActionLoading(null);
     }
@@ -97,9 +99,9 @@ export default function CoordinatorHodsPage() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <CoordinatorPageHero
-        badge="HoD Approvals"
-        title="Pending Head of Department Approvals"
-        description="Review and approve Head of Department registrations for your university."
+        badge={t("badge")}
+        title={t("title")}
+        description={t("description")}
         action={
           <button
             type="button"
@@ -108,7 +110,7 @@ export default function CoordinatorHodsPage() {
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60 transition-colors"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
@@ -129,11 +131,11 @@ export default function CoordinatorHodsPage() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-100 text-slate-500 text-xs uppercase tracking-wider">
-                  <th className="px-6 py-4 font-semibold">Head of Department</th>
-                  <th className="px-6 py-4 font-semibold">Department</th>
-                  <th className="px-6 py-4 font-semibold">Document</th>
-                  <th className="px-6 py-4 font-semibold">Submitted</th>
-                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                  <th className="px-6 py-4 font-semibold">{t("colHod")}</th>
+                  <th className="px-6 py-4 font-semibold">{t("colDepartment")}</th>
+                  <th className="px-6 py-4 font-semibold">{t("colDocument")}</th>
+                  <th className="px-6 py-4 font-semibold">{t("colSubmitted")}</th>
+                  <th className="px-6 py-4 font-semibold text-right">{t("colActions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -153,7 +155,7 @@ export default function CoordinatorHodsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-sm text-slate-700">
                         <Building className="w-4 h-4 text-slate-400" />
-                        {h.department || <span className="italic text-slate-400">Not provided</span>}
+                        {h.department || <span className="italic text-slate-400">{t("notProvided")}</span>}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -164,10 +166,10 @@ export default function CoordinatorHodsPage() {
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           <FileText className="w-4 h-4" />
-                          View Doc
+                          {t("viewDoc")}
                         </button>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">No document</span>
+                        <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">
@@ -185,7 +187,7 @@ export default function CoordinatorHodsPage() {
                           ) : (
                             <CheckCircle className="w-3.5 h-3.5" />
                           )}
-                          Approve
+                          {t("approve")}
                         </button>
                         <button
                           onClick={() => setRejectReason({ userId: h.user.id, reason: "" })}
@@ -193,7 +195,7 @@ export default function CoordinatorHodsPage() {
                           className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors"
                         >
                           <XCircle className="w-3.5 h-3.5" />
-                          Reject
+                          {t("reject")}
                         </button>
                       </div>
                     </td>
@@ -202,7 +204,7 @@ export default function CoordinatorHodsPage() {
                 {!loading && hods.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                      No pending HoD approvals.
+                      {t("noPending")}
                     </td>
                   </tr>
                 )}
@@ -216,14 +218,14 @@ export default function CoordinatorHodsPage() {
       {rejectReason && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Reject Head of Department</h3>
+            <h3 className="text-lg font-bold text-slate-900">{t("rejectModalTitle")}</h3>
             <p className="text-sm text-slate-500">
-              Provide a reason for rejection. This will be sent to the HoD by email.
+              {t("rejectModalHint")}
             </p>
             <textarea
               value={rejectReason.reason}
               onChange={(e) => setRejectReason({ ...rejectReason, reason: e.target.value })}
-              placeholder="e.g., Staff ID document is unclear or invalid..."
+              placeholder={t("rejectPlaceholder")}
               rows={3}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none"
             />
@@ -232,14 +234,14 @@ export default function CoordinatorHodsPage() {
                 onClick={() => setRejectReason(null)}
                 className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
               >
-                Cancel
+                {t("cancel")}
               </button>
               <button
                 onClick={handleReject}
                 disabled={actionLoading !== null}
                 className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
               >
-                {actionLoading !== null ? "Rejecting…" : "Confirm Reject"}
+                {actionLoading !== null ? t("rejecting") : t("confirmReject")}
               </button>
             </div>
           </div>
@@ -248,9 +250,9 @@ export default function CoordinatorHodsPage() {
 
       <ConfirmDialog
         open={confirmApprove !== null}
-        title="Approve Head of Department?"
-        message="This will grant the HOD access to InternLink and allow them to manage students in their department. They will be notified by email."
-        confirmLabel="Approve HOD"
+        title={t("confirmApproveTitle")}
+        message={t("confirmApproveMessage")}
+        confirmLabel={t("confirmApproveLabel")}
         variant="success"
         loading={actionLoading !== null}
         onConfirm={() => confirmApprove !== null && void handleApprove(confirmApprove)}
@@ -265,7 +267,7 @@ export default function CoordinatorHodsPage() {
       <PdfViewerModal
         isOpen={!!docUrl}
         pdfUrl={docUrl ?? ""}
-        title="Verification Document"
+        title={t("verificationDocTitle")}
         onClose={() => setDocUrl(null)}
       />
     </div>

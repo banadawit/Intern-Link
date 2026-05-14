@@ -295,6 +295,17 @@ export const flagStudent = async (req: AuthRequest, res: Response) => {
             data: { flag_type: flagType, flag_note: note?.trim() ?? null },
         });
 
+        // Notify the student
+        const student = await prisma.student.findUnique({ where: { id: studentId }, select: { userId: true } });
+        if (student) {
+            const label = flagType === 'LOW_PERFORMANCE' ? 'Low Performance' : 'Inactive';
+            const noteText = note?.trim() ? ` Note from your HOD: "${note.trim()}"` : '';
+            await sendNotification(
+                student.userId,
+                `⚠️ Your profile has been flagged as ${label} by your Head of Department.${noteText} Please contact them for more information.`
+            );
+        }
+
         return sendSuccess(res, { studentId, flagType, note: note?.trim() ?? null });
     } catch (e: any) {
         return sendError(res, e.message);
@@ -656,7 +667,7 @@ export const getReportsSummary = async (req: AuthRequest, res: Response) => {
             }),
             prisma.finalEvaluation.findMany({
                 where: { studentId: { in: deptIds } },
-                select: { technical_score: true, soft_skill_score: true },
+                select: { technical_skills: true, problem_solving: true, communication: true, team_collaboration: true, time_management: true, adaptability: true, professionalism: true, initiative_creativity: true, attendance_punctuality: true, task_completion_quality: true },
             }),
             prisma.student.findMany({
                 where: { id: { in: deptIds } },
@@ -672,20 +683,18 @@ export const getReportsSummary = async (req: AuthRequest, res: Response) => {
             }
         }
 
+        const avg10 = (e: any) => [e.technical_skills, e.problem_solving, e.communication, e.team_collaboration, e.time_management, e.adaptability, e.professionalism, e.initiative_creativity, e.attendance_punctuality, e.task_completion_quality].reduce((s: number, v: any) => s + Number(v), 0) / 10;
         const avgTech = evaluations.length > 0
-            ? evaluations.reduce((sum, e) => sum + Number(e.technical_score), 0) / evaluations.length
+            ? evaluations.reduce((sum, e) => sum + avg10(e), 0) / evaluations.length
             : null;
-        const avgSoft = evaluations.length > 0
-            ? evaluations.reduce((sum, e) => sum + Number(e.soft_skill_score), 0) / evaluations.length
-            : null;
+        const avgSoft = avgTech; // same overall average
 
         const studentsPlaced = students.filter((s) => s.internship_status === 'PLACED').length;
 
         return sendSuccess(res, {
             totalWeeklyReports: weeklyReports.length,
             attendance,
-            averageTechnicalScore: avgTech !== null ? Math.round(avgTech * 100) / 100 : null,
-            averageSoftSkillScore: avgSoft !== null ? Math.round(avgSoft * 100) / 100 : null,
+            averageScore: avgTech !== null ? Math.round(avgTech * 100) / 100 : null,
             studentsWithFinalReport: finalReports.length,
             studentsPlaced,
         });

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dio/dio.dart';
 
 import '../../../../app/desktop_layout.dart';
 import '../../../../app/router/app_routes.dart';
@@ -96,7 +97,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   int? _selectedUniversityId;       // HOD/Student university picker
   String? _selectedUniversityName;  // HOD/Student university picker
   int? _coordinatorUniversityId;    // Coordinator: ID of selected existing university (null = new request)
+  int? _selectedCompanyId;          // Supervisor: ID of selected existing company
   int? _selectedHodId;
+  int? _organizationRequestId;
   bool _agreedToTerms = false;
   bool _uniSearchOpen = false;
   final _uniSearchCtrl = TextEditingController();
@@ -152,9 +155,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       _animStep(() => _step = 2);
     } else if (_step == 2) {
       setState(() => _step2Touched = true);
-      if (_step2Key.currentState!.validate()) {
-        _animStep(() => _step = 3);
-      }
+      if (!_step2Key.currentState!.validate()) return;
+
+      _animStep(() => _step = 3);
     }
   }
 
@@ -168,8 +171,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   Future<void> _submit() async {
     setState(() => _step3Touched = true);
-    if (_role == RegistrationRole.coordinator && _coordinatorUniversityId == null) {
-      _showSnack('Please select a university from the dropdown before uploading or continuing.');
+    if (_role == RegistrationRole.coordinator && _coordinatorUniversityId == null && _organizationRequestId == null) {
+      _showSnack('Please select a university or submit a request first.');
       return;
     }
     if (!_step3Key.currentState!.validate()) return;
@@ -193,7 +196,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       universityId: _role == RegistrationRole.coordinator
           ? _coordinatorUniversityId
           : _selectedUniversityId,
+      companyId: _selectedCompanyId,
       hodId: _selectedHodId,
+      organizationRequestId: _organizationRequestId,
       employeeId: _employeeIdCtrl.text.trim().isEmpty ? null : _employeeIdCtrl.text.trim(),
       verificationFileBytes: _verificationFileBytes,
       verificationFileName: _verificationFileName,
@@ -610,8 +615,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   };
 
   List<Widget> _buildRoleFields(bool isDark, Color primary, bool isLoading) {
+    bool orgSelected = switch (_role) {
+      RegistrationRole.coordinator => _coordinatorUniversityId != null,
+      _ => _selectedUniversityId != null,
+    } || _organizationRequestId != null;
+
+    final orgType = switch (_role) {
+      RegistrationRole.supervisor => 'company',
+      _ => 'university',
+    };
+
     final filePicker = _buildFilePicker(isDark, primary,
-      enabled: !(_role == RegistrationRole.coordinator && _coordinatorUniversityId == null),
+      enabled: orgSelected,
+      disabledMessage: 'Select a $orgType first to enable upload',
     );
 
     switch (_role) {
@@ -625,6 +641,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             isDark: isDark,
             primary: primary,
             enabled: !isLoading,
+            requesterEmail: _emailCtrl.text,
             onUniversitySelected: (id) => setState(() => _coordinatorUniversityId = id),
           ),
           const SizedBox(height: 20),
@@ -635,30 +652,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
       case RegistrationRole.supervisor:
         return [
-          _FieldLabel('Company Name *'),
+          _FieldLabel('Company/Organization Name *'),
           const SizedBox(height: 8),
-          _CompanySearchPicker(
-            nameCtrl: _companyCtrl,
+          _InputField(
+            controller: _companyCtrl,
+            hint: 'e.g., Tech Solutions Inc.',
+            icon: Icons.business_rounded,
             isDark: isDark,
             primary: primary,
             enabled: !isLoading,
+            validator: (v) => (v ?? '').trim().isEmpty ? 'Company name is required' : null,
           ),
           const SizedBox(height: 16),
-          _FieldLabel('Position *'),
+          _FieldLabel('Role/Position *'),
           const SizedBox(height: 8),
           _InputField(
             controller: _positionCtrl,
-            hint: 'e.g., HR Manager',
+            hint: 'e.g., Senior Engineer',
             icon: Icons.work_outline_rounded,
             isDark: isDark,
             primary: primary,
             enabled: !isLoading,
             validator: (v) => (v ?? '').trim().isEmpty ? 'Position is required' : null,
           ),
-          const SizedBox(height: 20),
-          _FieldLabel('Official Company Letter with Stamp *'),
-          const SizedBox(height: 8),
-          filePicker,
         ];
 
       case RegistrationRole.hod:
@@ -672,14 +688,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             isOpen: _uniSearchOpen,
             isDark: isDark,
             primary: primary,
+            requesterEmail: _emailCtrl.text.trim(),
             onToggle: () => setState(() => _uniSearchOpen = !_uniSearchOpen),
             onSelect: (u) => setState(() {
               _selectedUniversityId = u.id;
               _selectedUniversityName = u.name;
               _uniSearchOpen = false;
               _uniSearchCtrl.clear();
+              _organizationRequestId = null;
             }),
-            validator: (_) => _selectedUniversityId == null ? 'Please select a university' : null,
+            validator: (_) => (_selectedUniversityId == null && _organizationRequestId == null) 
+                ? 'Please select a university' : null,
           ),
           const SizedBox(height: 16),
           _FieldLabel('Department *'),
@@ -721,6 +740,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             isOpen: _uniSearchOpen,
             isDark: isDark,
             primary: primary,
+            requesterEmail: _emailCtrl.text.trim(),
             onToggle: () => setState(() => _uniSearchOpen = !_uniSearchOpen),
             onSelect: (u) => setState(() {
               _selectedUniversityId = u.id;
@@ -728,8 +748,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               _selectedHodId = null;
               _uniSearchOpen = false;
               _uniSearchCtrl.clear();
+              _organizationRequestId = null;
             }),
-            validator: (_) => _selectedUniversityId == null ? 'Please select a university' : null,
+            validator: (_) => (_selectedUniversityId == null && _organizationRequestId == null)
+                ? 'Please select a university' : null,
           ),
           const SizedBox(height: 16),
           _FieldLabel('Department *'),
@@ -775,11 +797,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     }
   }
 
-  Widget _buildFilePicker(bool isDark, Color primary, {required bool enabled}) {
+  Widget _buildFilePicker(bool isDark, Color primary, {required bool enabled, String? disabledMessage}) {
     return _FilePicker(
       isDark: isDark,
       primary: primary,
       enabled: enabled,
+      disabledMessage: disabledMessage,
       fileName: _verificationFileName,
       onPicked: (bytes, name) => setState(() {
         _verificationFileBytes = bytes;
@@ -803,12 +826,14 @@ class _FilePicker extends StatelessWidget {
     required this.fileName,
     required this.onPicked,
     required this.onRemoved,
+    this.disabledMessage,
   });
 
   final bool isDark;
   final Color primary;
   final bool enabled;
   final String? fileName;
+  final String? disabledMessage;
   final void Function(List<int> bytes, String name) onPicked;
   final VoidCallback onRemoved;
 
@@ -930,7 +955,7 @@ class _FilePicker extends StatelessWidget {
               Icon(Icons.upload_rounded, size: 32, color: enabled ? Colors.grey.shade400 : Colors.grey.shade300),
               const SizedBox(height: 10),
               Text(
-                enabled ? 'Click to upload or take a photo' : 'Select a university first to enable upload',
+                enabled ? 'Click to upload or take a photo' : (disabledMessage ?? 'Select a university first to enable upload'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
@@ -1088,6 +1113,7 @@ class _UniversityPicker extends ConsumerStatefulWidget {
     required this.primary,
     required this.onToggle,
     required this.onSelect,
+    required this.requesterEmail,
     this.validator,
   });
 
@@ -1099,6 +1125,7 @@ class _UniversityPicker extends ConsumerStatefulWidget {
   final Color primary;
   final VoidCallback onToggle;
   final void Function(_University) onSelect;
+  final String requesterEmail;
   final String? Function(String?)? validator;
 
   @override
@@ -1201,32 +1228,47 @@ class _UniversityPickerState extends ConsumerState<_UniversityPicker> {
                           .where((u) => u.name.toLowerCase().contains(query))
                           .toList();
                       if (filtered.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Text('No universities found',
-                              style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+                        return Column(
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text('No universities found',
+                                  style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+                            ),
+                            const Divider(height: 1),
+                            _buildRequestOption(),
+                          ],
                         );
                       }
                       return ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 200),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          itemBuilder: (ctx, i) {
-                            final u = filtered[i];
-                            final isSelected = u.id == widget.selectedId;
-                            return ListTile(
-                              dense: true,
-                              title: Text(u.name,
-                                  style: TextStyle(
-                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                      color: isSelected ? widget.primary : null)),
-                              trailing: isSelected
-                                  ? Icon(Icons.check_rounded, color: widget.primary, size: 18)
-                                  : null,
-                              onTap: () => widget.onSelect(u),
-                            );
-                          },
+                        constraints: const BoxConstraints(maxHeight: 250),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: filtered.length,
+                                itemBuilder: (ctx, i) {
+                                  final u = filtered[i];
+                                  final isSelected = u.id == widget.selectedId;
+                                  return ListTile(
+                                    dense: true,
+                                    title: Text(u.name,
+                                        style: TextStyle(
+                                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                            color: isSelected ? widget.primary : null)),
+                                    trailing: isSelected
+                                        ? Icon(Icons.check_rounded, color: widget.primary, size: 18)
+                                        : null,
+                                    onTap: () => widget.onSelect(u),
+                                  );
+                                },
+                              ),
+                            ),
+                            const Divider(height: 1),
+                            _buildRequestOption(),
+                          ],
                         ),
                       );
                     },
@@ -1236,6 +1278,47 @@ class _UniversityPickerState extends ConsumerState<_UniversityPicker> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRequestOption() {
+    return ListTile(
+      dense: true,
+      leading: Icon(Icons.add_circle_outline_rounded, color: widget.primary, size: 18),
+      title: const Text('Can\'t find your organization? Request to add it',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      onTap: () async {
+        widget.onToggle(); // Close the picker
+        final result = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (ctx) => _RequestOrganizationDialog(
+            type: 'UNIVERSITY',
+            isDark: widget.isDark,
+            primary: widget.primary,
+            requesterEmail: widget.requesterEmail,
+          ),
+        );
+        if (result != null && mounted) {
+          final requestId = result['id'] as int?;
+          final fileBytes = result['fileBytes'] as List<int>?;
+          final fileName = result['fileName'] as String?;
+
+          final parent = context.findAncestorStateOfType<_RegisterScreenState>();
+          if (parent != null) {
+            parent.setState(() {
+              parent._organizationRequestId = requestId;
+              parent._selectedUniversityId = null;
+              parent._selectedUniversityName = 'Request Pending...';
+              if (fileBytes != null && parent._verificationFileBytes == null) {
+                parent._verificationFileBytes = fileBytes;
+                parent._verificationFileName = fileName;
+              }
+              parent._agreedToTerms = true;
+            });
+            Future.microtask(() => parent._submit());
+          }
+        }
+      },
     );
   }
 }
@@ -1605,6 +1688,7 @@ class _CoordinatorUniversityPicker extends StatefulWidget {
     required this.isDark,
     required this.primary,
     required this.enabled,
+    required this.requesterEmail,
     this.onUniversitySelected,
   });
 
@@ -1612,6 +1696,7 @@ class _CoordinatorUniversityPicker extends StatefulWidget {
   final bool isDark;
   final Color primary;
   final bool enabled;
+  final String requesterEmail;
   final ValueChanged<int?>? onUniversitySelected; // null = new request, int = existing ID
 
   @override
@@ -1713,55 +1798,137 @@ class _CoordinatorUniversityPickerState extends State<_CoordinatorUniversityPick
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: Column(
-            children: _suggestions.map((u) {
-              final name = u['name']?.toString() ?? '';
-              final address = u['address']?.toString() ?? '';
-              final id = u['id'] is int ? u['id'] as int : int.tryParse(u['id']?.toString() ?? '');
-              return InkWell(
-                onTap: () {
-                  widget.nameCtrl.text = name;
-                  setState(() { _selectedName = name; _showDropdown = false; _duplicateWarning = null; });
-                  // Notify parent of selected university ID
-                  widget.onUniversitySelected?.call(id);
+            children: [
+              ..._suggestions.map((u) {
+                final name = u['name']?.toString() ?? '';
+                final address = u['address']?.toString() ?? '';
+                final id = u['id'] is int ? u['id'] as int : int.tryParse(u['id']?.toString() ?? '');
+                return InkWell(
+                  onTap: () {
+                    widget.nameCtrl.text = name;
+                    setState(() { _selectedName = name; _showDropdown = false; _duplicateWarning = null; });
+                    widget.onUniversitySelected?.call(id);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(children: [
+                      Icon(Icons.account_balance_rounded, size: 16, color: widget.primary),
+                      const SizedBox(width: 10),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        if (address.isNotEmpty)
+                          Text(address, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                      ])),
+                      if (_selectedName == name)
+                        Icon(Icons.check_rounded, size: 16, color: widget.primary),
+                    ]),
+                  ),
+                );
+              }),
+              const Divider(height: 1),
+              ListTile(
+                dense: true,
+                leading: Icon(Icons.add_circle_outline_rounded, color: widget.primary, size: 18),
+                title: Text('Can\'t find your organization? Request to add it', 
+                  style: TextStyle(color: widget.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                onTap: () async {
+                  setState(() => _showDropdown = false);
+                  final result = await showDialog<Map<String, dynamic>>(
+                    context: context,
+                    builder: (ctx) => _RequestOrganizationDialog(
+                      type: 'UNIVERSITY',
+                      isDark: widget.isDark,
+                      primary: widget.primary,
+                      requesterEmail: widget.requesterEmail,
+                    ),
+                  );
+                  if (result != null && mounted) {
+                    final requestId = result['id'] as int?;
+                    final fileBytes = result['fileBytes'] as List<int>?;
+                    final fileName = result['fileName'] as String?;
+                    
+                    final parent = context.findAncestorStateOfType<_RegisterScreenState>();
+                    if (parent != null) {
+                      parent.setState(() {
+                        parent._organizationRequestId = requestId;
+                        parent._coordinatorUniversityId = null;
+                        parent._uniNameCtrl.text = 'Request Pending...';
+                        if (fileBytes != null && parent._verificationFileBytes == null) {
+                          parent._verificationFileBytes = fileBytes;
+                          parent._verificationFileName = fileName;
+                        }
+                        parent._agreedToTerms = true; // Auto-agree after request
+                      });
+                      // Auto-submit registration
+                      Future.microtask(() => parent._submit());
+                    }
+                    setState(() {
+                      _selectedName = 'Request Pending...';
+                      widget.nameCtrl.text = 'Request Pending...';
+                      _duplicateWarning = '✅ Request submitted! Finalizing registration...';
+                    });
+                    widget.onUniversitySelected?.call(null);
+                  }
                 },
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Row(children: [
-                    Icon(Icons.account_balance_rounded, size: 16, color: widget.primary),
-                    const SizedBox(width: 10),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                      if (address.isNotEmpty)
-                        Text(address, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
-                    ])),
-                    if (_selectedName == name)
-                      Icon(Icons.check_rounded, size: 16, color: widget.primary),
-                  ]),
-                ),
-              );
-            }).toList(),
+              ),
+            ],
           ),
         ),
 
-      // "Not found" option
+      // "Not found" option when no suggestions
       if (_showDropdown && _suggestions.isEmpty && widget.nameCtrl.text.trim().length >= 2)
         Container(
           margin: const EdgeInsets.only(top: 4),
-          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2)),
           ),
-          child: Row(children: [
-            Icon(Icons.info_outline_rounded, size: 16, color: Colors.orange.shade600),
-            const SizedBox(width: 8),
-            Expanded(child: Text(
-              'University not found. You can type the full name and submit — admin will review.',
-              style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
-            )),
-          ]),
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.add_circle_outline_rounded, color: widget.primary, size: 18),
+            title: Text('Can\'t find your organization? Request to add it', 
+              style: TextStyle(color: widget.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+            onTap: () async {
+              setState(() => _showDropdown = false);
+              final result = await showDialog<Map<String, dynamic>>(
+                context: context,
+                builder: (ctx) => _RequestOrganizationDialog(
+                  type: 'UNIVERSITY',
+                  isDark: widget.isDark,
+                  primary: widget.primary,
+                  requesterEmail: widget.requesterEmail,
+                ),
+              );
+              if (result != null && mounted) {
+                final requestId = result['id'] as int?;
+                final fileBytes = result['fileBytes'] as List<int>?;
+                final fileName = result['fileName'] as String?;
+
+                final parent = context.findAncestorStateOfType<_RegisterScreenState>();
+                if (parent != null) {
+                  parent.setState(() {
+                    parent._organizationRequestId = requestId;
+                    parent._coordinatorUniversityId = null;
+                    parent._uniNameCtrl.text = 'Request Pending...';
+                    if (fileBytes != null && parent._verificationFileBytes == null) {
+                      parent._verificationFileBytes = fileBytes;
+                      parent._verificationFileName = fileName;
+                    }
+                    parent._agreedToTerms = true;
+                  });
+                  Future.microtask(() => parent._submit());
+                }
+                setState(() {
+                  _selectedName = 'Request Pending...';
+                  widget.nameCtrl.text = 'Request Pending...';
+                  _duplicateWarning = '✅ Request submitted! Finalizing registration...';
+                });
+                widget.onUniversitySelected?.call(null);
+              }
+            },
+          ),
         ),
 
       // Duplicate warning
@@ -1776,6 +1943,72 @@ class _CoordinatorUniversityPickerState extends State<_CoordinatorUniversityPick
           ),
           child: Text(_duplicateWarning!, style: TextStyle(fontSize: 12, color: Colors.amber.shade800, fontWeight: FontWeight.w600)),
         ),
+
+      // Explicit "Not Found" option when no selection and text is not empty
+      if (_selectedName == null && (context.findAncestorStateOfType<_RegisterScreenState>())?._organizationRequestId == null && widget.nameCtrl.text.trim().length >= 2)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: InkWell(
+            onTap: () async {
+              setState(() => _showDropdown = false);
+              final result = await showDialog<Map<String, dynamic>>(
+                context: context,
+                builder: (ctx) => _RequestOrganizationDialog(
+                  type: 'UNIVERSITY',
+                  isDark: widget.isDark,
+                  primary: widget.primary,
+                  requesterEmail: widget.requesterEmail,
+                ),
+              );
+              if (result != null && mounted) {
+                final requestId = result['id'] as int?;
+                final fileBytes = result['fileBytes'] as List<int>?;
+                final fileName = result['fileName'] as String?;
+
+                final parent = context.findAncestorStateOfType<_RegisterScreenState>();
+                if (parent != null) {
+                  parent.setState(() {
+                    parent._organizationRequestId = requestId;
+                    parent._coordinatorUniversityId = null;
+                    parent._uniNameCtrl.text = 'Request Pending...';
+                    if (fileBytes != null && parent._verificationFileBytes == null) {
+                      parent._verificationFileBytes = fileBytes;
+                      parent._verificationFileName = fileName;
+                    }
+                    parent._agreedToTerms = true;
+                  });
+                  Future.microtask(() => parent._submit());
+                }
+                setState(() {
+                  _selectedName = 'Request Pending...';
+                  widget.nameCtrl.text = 'Request Pending...';
+                  _duplicateWarning = '✅ Request submitted! Finalizing registration...';
+                });
+                widget.onUniversitySelected?.call(null);
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: widget.primary.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.add_circle_outline_rounded, color: widget.primary, size: 18),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('Can\'t find your organization? Request to add it',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 12, color: widget.primary),
+                ],
+              ),
+            ),
+          ),
+        ),
     ]);
   }
 }
@@ -1789,12 +2022,16 @@ class _CompanySearchPicker extends StatefulWidget {
     required this.isDark,
     required this.primary,
     required this.enabled,
+    required this.requesterEmail,
+    this.onCompanySelected,
   });
 
   final TextEditingController nameCtrl;
   final bool isDark;
   final Color primary;
   final bool enabled;
+  final String requesterEmail;
+  final ValueChanged<int?>? onCompanySelected;
 
   @override
   State<_CompanySearchPicker> createState() => _CompanySearchPickerState();
@@ -1862,6 +2099,7 @@ class _CompanySearchPickerState extends State<_CompanySearchPicker> {
         enabled: widget.enabled,
         onChanged: (v) {
           setState(() { _selectedName = null; _duplicateWarning = null; });
+          widget.onCompanySelected?.call(null);
           _search(v);
         },
         onEditingComplete: () => _checkDuplicate(widget.nameCtrl.text),
@@ -1891,51 +2129,135 @@ class _CompanySearchPickerState extends State<_CompanySearchPicker> {
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: Column(
-            children: _suggestions.map((c) {
-              final name = c['name']?.toString() ?? '';
-              final address = c['address']?.toString() ?? '';
-              return InkWell(
-                onTap: () {
-                  widget.nameCtrl.text = name;
-                  setState(() { _selectedName = name; _showDropdown = false; _duplicateWarning = null; });
+            children: [
+              ..._suggestions.map((c) {
+                final name = c['name']?.toString() ?? '';
+                final address = c['address']?.toString() ?? '';
+                final id = c['id'] is int ? c['id'] as int : int.tryParse(c['id']?.toString() ?? '');
+                return InkWell(
+                  onTap: () {
+                    widget.nameCtrl.text = name;
+                    setState(() { _selectedName = name; _showDropdown = false; _duplicateWarning = null; });
+                    widget.onCompanySelected?.call(id);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(children: [
+                      Icon(Icons.business_rounded, size: 16, color: widget.primary),
+                      const SizedBox(width: 10),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        if (address.isNotEmpty)
+                          Text(address, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
+                      ])),
+                      if (_selectedName == name)
+                        Icon(Icons.check_rounded, size: 16, color: widget.primary),
+                    ]),
+                  ),
+                );
+              }),
+              const Divider(height: 1),
+              ListTile(
+                dense: true,
+                leading: Icon(Icons.add_circle_outline_rounded, color: widget.primary, size: 18),
+                title: Text('Can\'t find your organization? Request to add it', 
+                  style: TextStyle(color: widget.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                onTap: () async {
+                  setState(() => _showDropdown = false);
+                  final result = await showDialog<Map<String, dynamic>>(
+                    context: context,
+                    builder: (ctx) => _RequestOrganizationDialog(
+                      type: 'COMPANY',
+                      isDark: widget.isDark,
+                      primary: widget.primary,
+                      requesterEmail: widget.requesterEmail,
+                    ),
+                  );
+                  if (result != null && mounted) {
+                    final requestId = result['id'] as int?;
+                    final fileBytes = result['fileBytes'] as List<int>?;
+                    final fileName = result['fileName'] as String?;
+
+                    final parent = context.findAncestorStateOfType<_RegisterScreenState>();
+                    if (parent != null) {
+                      parent.setState(() {
+                        parent._organizationRequestId = requestId;
+                        parent._selectedCompanyId = null;
+                        parent._companyCtrl.text = 'Request Pending...';
+                        if (fileBytes != null && parent._verificationFileBytes == null) {
+                          parent._verificationFileBytes = fileBytes;
+                          parent._verificationFileName = fileName;
+                        }
+                        parent._agreedToTerms = true;
+                      });
+                      Future.microtask(() => parent._submit());
+                    }
+                    setState(() {
+                      _selectedName = 'Request Pending...';
+                      widget.nameCtrl.text = 'Request Pending...';
+                      _duplicateWarning = '✅ Request submitted! Finalizing registration...';
+                    });
+                    widget.onCompanySelected?.call(null);
+                  }
                 },
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Row(children: [
-                    Icon(Icons.business_rounded, size: 16, color: widget.primary),
-                    const SizedBox(width: 10),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                      if (address.isNotEmpty)
-                        Text(address, style: TextStyle(fontSize: 11, color: Colors.grey.shade500), overflow: TextOverflow.ellipsis),
-                    ])),
-                    if (_selectedName == name)
-                      Icon(Icons.check_rounded, size: 16, color: widget.primary),
-                  ]),
-                ),
-              );
-            }).toList(),
+              ),
+            ],
           ),
         ),
 
       if (_showDropdown && _suggestions.isEmpty && widget.nameCtrl.text.trim().length >= 2)
         Container(
           margin: const EdgeInsets.only(top: 4),
-          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: widget.isDark ? const Color(0xFF1E293B) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: widget.isDark ? Colors.white.withOpacity(0.1) : Colors.grey.withOpacity(0.2)),
           ),
-          child: Row(children: [
-            Icon(Icons.add_business_rounded, size: 16, color: Colors.blue.shade600),
-            const SizedBox(width: 8),
-            Expanded(child: Text(
-              'New company — will be created and submitted for admin review.',
-              style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
-            )),
-          ]),
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.add_circle_outline_rounded, color: widget.primary, size: 18),
+            title: Text('Can\'t find your organization? Request to add it', 
+              style: TextStyle(color: widget.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+            onTap: () async {
+              setState(() => _showDropdown = false);
+              final result = await showDialog<Map<String, dynamic>>(
+                context: context,
+                builder: (ctx) => _RequestOrganizationDialog(
+                  type: 'COMPANY',
+                  isDark: widget.isDark,
+                  primary: widget.primary,
+                  requesterEmail: widget.requesterEmail,
+                ),
+              );
+              if (result != null && mounted) {
+                final requestId = result['id'] as int?;
+                final fileBytes = result['fileBytes'] as List<int>?;
+                final fileName = result['fileName'] as String?;
+
+                final parent = context.findAncestorStateOfType<_RegisterScreenState>();
+                if (parent != null) {
+                  parent.setState(() {
+                    parent._organizationRequestId = requestId;
+                    parent._selectedCompanyId = null;
+                    parent._companyCtrl.text = 'Request Pending...';
+                    if (fileBytes != null && parent._verificationFileBytes == null) {
+                      parent._verificationFileBytes = fileBytes;
+                      parent._verificationFileName = fileName;
+                    }
+                    parent._agreedToTerms = true;
+                  });
+                  Future.microtask(() => parent._submit());
+                }
+                setState(() {
+                  _selectedName = 'Request Pending...';
+                  widget.nameCtrl.text = 'Request Pending...';
+                  _duplicateWarning = '✅ Request submitted! Finalizing registration...';
+                });
+                widget.onCompanySelected?.call(null);
+              }
+            },
+          ),
         ),
 
       if (_duplicateWarning != null)
@@ -1949,6 +2271,224 @@ class _CompanySearchPickerState extends State<_CompanySearchPicker> {
           ),
           child: Text(_duplicateWarning!, style: TextStyle(fontSize: 12, color: Colors.amber.shade800, fontWeight: FontWeight.w600)),
         ),
+
+      // Explicit "Not Found" option when no selection and text is not empty
+      if (_selectedName == null && (context.findAncestorStateOfType<_RegisterScreenState>())?._organizationRequestId == null && widget.nameCtrl.text.trim().length >= 2)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: InkWell(
+            onTap: () async {
+              setState(() => _showDropdown = false);
+              final result = await showDialog<Map<String, dynamic>>(
+                context: context,
+                builder: (ctx) => _RequestOrganizationDialog(
+                  type: 'COMPANY',
+                  isDark: widget.isDark,
+                  primary: widget.primary,
+                  requesterEmail: widget.requesterEmail,
+                ),
+              );
+              if (result != null && mounted) {
+                final requestId = result['id'] as int?;
+                final fileBytes = result['fileBytes'] as List<int>?;
+                final fileName = result['fileName'] as String?;
+
+                final parent = context.findAncestorStateOfType<_RegisterScreenState>();
+                if (parent != null) {
+                  parent.setState(() {
+                    parent._organizationRequestId = requestId;
+                    parent._selectedCompanyId = null;
+                    parent._companyCtrl.text = 'Request Pending...';
+                    if (fileBytes != null && parent._verificationFileBytes == null) {
+                      parent._verificationFileBytes = fileBytes;
+                      parent._verificationFileName = fileName;
+                    }
+                    parent._agreedToTerms = true;
+                  });
+                  Future.microtask(() => parent._submit());
+                }
+                setState(() {
+                  _selectedName = 'Request Pending...';
+                  widget.nameCtrl.text = 'Request Pending...';
+                  _duplicateWarning = '✅ Request submitted! Finalizing registration...';
+                });
+                widget.onCompanySelected?.call(null);
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: widget.primary.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.add_circle_outline_rounded, color: widget.primary, size: 18),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('Can\'t find your organization? Request to add it',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 12, color: widget.primary),
+                ],
+              ),
+            ),
+          ),
+        ),
     ]);
+  }
+}
+
+// ── Request Organization Dialog ──────────────────────────────────────────────
+class _RequestOrganizationDialog extends ConsumerStatefulWidget {
+  const _RequestOrganizationDialog({
+    required this.type,
+    required this.isDark,
+    required this.primary,
+    required this.requesterEmail,
+  });
+
+  final String type; // 'UNIVERSITY' or 'COMPANY'
+  final bool isDark;
+  final Color primary;
+  final String requesterEmail;
+
+  @override
+  ConsumerState<_RequestOrganizationDialog> createState() => _RequestOrganizationDialogState();
+}
+
+class _RequestOrganizationDialogState extends ConsumerState<_RequestOrganizationDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _websiteCtrl = TextEditingController();
+  List<int>? _fileBytes;
+  String? _fileName;
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_fileBytes == null) {
+      setState(() => _error = 'Verification document is required');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final dio = ref.read(apiClientProvider).dio;
+      
+      final fields = {
+        'name': _nameCtrl.text.trim(),
+        'type': widget.type,
+        'address': _addressCtrl.text.trim(),
+        'website': _websiteCtrl.text.trim(),
+        'requester_email': widget.requesterEmail,
+      };
+
+      final formData = FormData.fromMap({
+        ...fields,
+        'verification_doc': MultipartFile.fromBytes(_fileBytes!, filename: _fileName),
+      });
+
+      final res = await dio.post('/request', data: formData);
+      final data = res.data;
+      final responseData = data is Map ? data['data'] : null;
+      final requestId = responseData is Map ? responseData['id'] : null;
+
+      if (mounted) {
+        Navigator.pop(context, {
+          'id': requestId,
+          'fileBytes': _fileBytes,
+          'fileName': _fileName,
+        });
+      }
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message'] ?? 'Failed to submit request';
+      setState(() { _error = msg; _loading = false; });
+    } catch (e) {
+      setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Request New ${widget.type[0]}${widget.type.substring(1).toLowerCase()}',
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('If you can\'t find your organization, provide details and we will verify it.',
+                  style: theme.textTheme.bodySmall),
+              const SizedBox(height: 20),
+
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _Banner(message: _error!, isError: true),
+                ),
+
+              const _FieldLabel('Organization Name *'),
+              const SizedBox(height: 8),
+              _InputField(
+                controller: _nameCtrl,
+                hint: 'Official Name',
+                icon: Icons.business_rounded,
+                isDark: widget.isDark,
+                primary: widget.primary,
+                validator: (v) => (v ?? '').isEmpty ? 'Name is required' : null,
+              ),
+              const SizedBox(height: 16),
+
+              const _FieldLabel('Address'),
+              const SizedBox(height: 8),
+              _InputField(
+                controller: _addressCtrl,
+                hint: 'City, Country',
+                icon: Icons.location_on_rounded,
+                isDark: widget.isDark,
+                primary: widget.primary,
+              ),
+              const SizedBox(height: 16),
+
+              const _FieldLabel('Verification Document *'),
+              const SizedBox(height: 8),
+              _FilePicker(
+                isDark: widget.isDark,
+                primary: widget.primary,
+                enabled: true,
+                fileName: _fileName,
+                onPicked: (b, n) => setState(() { _fileBytes = b; _fileName = n; _error = null; }),
+                onRemoved: () => setState(() { _fileBytes = null; _fileName = null; }),
+              ),
+              const SizedBox(height: 24),
+
+              _PrimaryButton(
+                label: 'Submit Request',
+                isLoading: _loading,
+                enabled: !_loading,
+                primary: widget.primary,
+                onPressed: _submit,
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

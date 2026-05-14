@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import Link from "next/link";
 import {
@@ -14,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import LogoutModal from "@/components/common/LogoutModal";
+import { useTranslations } from "next-intl";
 
 export type ViewKey =
   | "dashboard"
@@ -34,6 +37,8 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
+  const t = useTranslations("AdminPortal");
+  const tCommon = useTranslations("Common");
 
   const handleLogout = () => {
     logout();
@@ -47,11 +52,11 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
     .toUpperCase()
     .slice(0, 2) ?? 'AD';
   const navItems: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; view: ViewKey }> = [
-    { icon: LayoutDashboard, label: "Dashboard",                view: "dashboard"     },
-    { icon: Clock,           label: "Pending Approvals",        view: "approvals"     },
-    { icon: Building2,       label: "Universities & Companies", view: "organizations" },
-    { icon: FileText,        label: "Activity History",         view: "audit-log"     },
-    { icon: Settings,        label: "Platform Settings",        view: "settings"      },
+    { icon: LayoutDashboard, label: t("nav.dashboard"), view: "dashboard" },
+    { icon: Clock, label: t("nav.pendingApprovals"), view: "approvals" },
+    { icon: Building2, label: t("nav.universitiesCompanies"), view: "organizations" },
+    { icon: FileText, label: t("nav.activityHistory"), view: "audit-log" },
+    { icon: Settings, label: t("nav.platformSettings"), view: "settings" },
   ];
 
   return (
@@ -64,14 +69,14 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
           <ShieldCheck className="h-6 w-6 text-white" />
         </div>
         <div className="min-w-0">
-          <span className="block truncate text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">Admin</span>
-          <span className="hidden text-xs text-slate-500 sm:block dark:text-slate-400">Verification & platform</span>
+          <span className="block truncate text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">{t("title")}</span>
+          <span className="hidden text-xs text-slate-500 sm:block dark:text-slate-400">{t("verificationPlatform")}</span>
         </div>
       </div>
 
       <nav
         className="flex gap-1 overflow-x-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex lg:flex-col lg:gap-1.5 lg:overflow-y-auto lg:p-4 lg:pt-3 [&::-webkit-scrollbar]:hidden"
-        aria-label="Admin navigation"
+        aria-label={t("navAria")}
       >
         {navItems.map((item) => (
           <button
@@ -101,7 +106,7 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
           className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 lg:w-full lg:gap-3 lg:px-4 lg:py-3 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-200"
         >
           <MessageSquare className="h-5 w-5 shrink-0" />
-          <span className="min-w-0 flex-1 whitespace-nowrap text-left">Common Feed</span>
+          <span className="min-w-0 flex-1 whitespace-nowrap text-left">{t("nav.commonFeed")}</span>
         </Link>
       </nav>
 
@@ -111,8 +116,8 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{user?.fullName ?? "Admin"}</p>
-            <p className="truncate text-xs text-slate-500 dark:text-slate-400">Admin</p>
+            <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{user?.fullName ?? t("title")}</p>
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{t("roleLabel")}</p>
           </div>
         </div>
         <button
@@ -121,7 +126,7 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
           className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          Logout
+          {tCommon("logout")}
         </button>
       </div>
 
@@ -130,13 +135,13 @@ const Sidebar = ({ activeView, onNavigate, pendingCount = 0, pendingCoordinatorC
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-50 text-xs font-bold text-teal-600 dark:bg-teal-900/30 dark:text-teal-200">
             {initials}
           </div>
-          <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.fullName ?? "Admin"}</span>
+          <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.fullName ?? t("title")}</span>
         </div>
         <button
           type="button"
           onClick={() => setShowLogout(true)}
           className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-          aria-label="Logout"
+          aria-label={t("logoutAria")}
         >
           <LogOut className="h-5 w-5" />
         </button>

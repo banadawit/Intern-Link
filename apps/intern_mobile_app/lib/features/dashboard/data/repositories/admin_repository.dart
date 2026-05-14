@@ -21,6 +21,10 @@ class AdminStats {
   final int totalUniversities;
    final int totalCompanies;
   final int pendingApprovals;
+  final int pendingCoordinators;
+  final int pendingSupervisors;
+  final int pendingHods;
+  final int pendingOrganizationRequests;
   final int totalEvaluations;
   final int totalReports;
 
@@ -29,6 +33,10 @@ class AdminStats {
     required this.totalUniversities,
     required this.totalCompanies,
     required this.pendingApprovals,
+    required this.pendingCoordinators,
+    required this.pendingSupervisors,
+    required this.pendingHods,
+    required this.pendingOrganizationRequests,
     required this.totalEvaluations,
     required this.totalReports,
   });
@@ -46,6 +54,10 @@ class AdminStats {
       totalUniversities: toInt(json['totalUniversities']),
       totalCompanies: toInt(json['totalCompanies']),
       pendingApprovals: toInt(json['pendingApprovals']),
+      pendingCoordinators: toInt(json['pendingCoordinators']),
+      pendingSupervisors: toInt(json['pendingSupervisors']),
+      pendingHods: toInt(json['pendingHods']),
+      pendingOrganizationRequests: toInt(json['pendingOrganizationRequests']),
       totalEvaluations: toInt(json['totalEvaluations']),
       totalReports: toInt(json['totalReports']),
     );
@@ -74,7 +86,13 @@ class AdminRepository {
         pendingApprovals: si(data['pendingUniversities']) +
             si(data['pendingCompanies']) +
             si(data['pendingCoordinators']) +
-            si(data['pendingSupervisors']),
+            si(data['pendingSupervisors']) +
+            si(data['pendingHods']) +
+            si(data['pendingOrganizationRequests']),
+        pendingCoordinators: si(data['pendingCoordinators']),
+        pendingSupervisors: si(data['pendingSupervisors']),
+        pendingHods: si(data['pendingHods']),
+        pendingOrganizationRequests: si(data['pendingOrganizationRequests']),
         totalEvaluations: si(data['totalEvaluations']),
         totalReports: si(data['totalReports']),
       );
@@ -126,8 +144,9 @@ class AdminRepository {
     });
   }
 
-  Future<void> approveCoordinator(int userId) async {
-    await apiClient.dio.post('/admin/coordinators/$userId/approve');
+  Future<void> approveCoordinator(int userId, {String? universityNameOverride}) async {
+    await apiClient.dio.post('/admin/coordinators/$userId/approve',
+        data: universityNameOverride != null ? {'universityNameOverride': universityNameOverride} : null);
   }
 
   Future<void> rejectCoordinator(int userId) async {
@@ -149,6 +168,47 @@ class AdminRepository {
   Future<List<dynamic>> getAllCompanies({String? status}) async {
     final response = await apiClient.dio.get('/admin/companies', queryParameters: status != null ? {'status': status} : null);
     return _deepList(response.data);
+  }
+
+  // --- ORGANIZATION REQUESTS (NEW FLOW) ---
+
+  Future<List<dynamic>> getOrganizationRequests() async {
+    final response = await apiClient.dio.get('/admin/requests');
+    return _deepList(response.data);
+  }
+
+  Future<void> markRequestAsViewed(int id) async {
+    await apiClient.dio.patch('/admin/requests/$id/view');
+  }
+
+  Future<void> approveOrganizationRequest(int id, {String? resolution}) async {
+    await apiClient.dio.post('/admin/requests/$id/approve', data: {if (resolution != null) 'resolution': resolution});
+  }
+
+  Future<void> rejectOrganizationRequest(int id, {String? reason}) async {
+    await apiClient.dio.post('/admin/requests/$id/reject', data: {
+      if (reason != null) 'reason': reason,
+    });
+  }
+
+  // --- MERGE DUPLICATES ---
+
+  Future<List<dynamic>> findDuplicateUniversities() async {
+    final response = await apiClient.dio.get('/admin/merge/duplicates/universities');
+    return _deepList(response.data);
+  }
+
+  Future<List<dynamic>> findDuplicateCompanies() async {
+    final response = await apiClient.dio.get('/admin/merge/duplicates/companies');
+    return _deepList(response.data);
+  }
+
+  Future<void> mergeUniversities(int sourceId, int targetId) async {
+    await apiClient.dio.post('/admin/merge/universities', data: {'sourceId': sourceId, 'targetId': targetId});
+  }
+
+  Future<void> mergeCompanies(int sourceId, int targetId) async {
+    await apiClient.dio.post('/admin/merge/companies', data: {'sourceId': sourceId, 'targetId': targetId});
   }
 
   // --- SYSTEM CONFIGURATION ---
@@ -267,6 +327,19 @@ class AdminRepository {
   }
 
   /// Send (or resend) a password setup link to an existing user by email.
+  Future<List<dynamic>> getPendingHods() async {
+    final res = await apiClient.dio.get('/admin/pending-hods');
+    return res.data as List<dynamic>;
+  }
+
+  Future<void> approveHod(int userId) async {
+    await apiClient.dio.post('/admin/hods/$userId/approve');
+  }
+
+  Future<void> rejectHod(int userId, {String? reason}) async {
+    await apiClient.dio.post('/admin/hods/$userId/reject', data: {'reason': reason});
+  }
+
   Future<void> sendSetupLink(String email) async {
     await apiClient.dio.post('/auth/send-setup-link', data: {'email': email});
   }
@@ -323,6 +396,10 @@ final pendingSupervisorsProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getPendingSupervisors();
 });
 
+final adminPendingHodsProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getPendingHods();
+});
+
 final allUsersProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getAllUsers();
 });
@@ -347,10 +424,22 @@ final verifiedCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getAllCompanies(status: 'APPROVED');
 });
 
+final organizationRequestsProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).getOrganizationRequests();
+});
+
 final systemConfigProvider = FutureProvider<Map<String, String>>((ref) {
   return ref.watch(adminRepositoryProvider).getConfig();
 });
 
 final adminAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) {
   return ref.watch(adminRepositoryProvider).getAnalytics();
+});
+
+final duplicateUniversitiesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).findDuplicateUniversities();
+});
+
+final duplicateCompaniesProvider = FutureProvider<List<dynamic>>((ref) {
+  return ref.watch(adminRepositoryProvider).findDuplicateCompanies();
 });

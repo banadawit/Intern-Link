@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   LogOut,
@@ -19,6 +19,7 @@ import SupportLink from "@/components/shared/SupportLink";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
 import { useCoordinatorStore } from "@/lib/store/coordinatorStore";
+import { useTranslations } from "next-intl";
 
 const CoordinatorSidebar = () => {
   const pathname = usePathname();
@@ -28,6 +29,7 @@ const CoordinatorSidebar = () => {
   const [universityName, setUniversityName] = useState<string | null>(null);
   const { unreadCount, fetchUnread } = useChatStore();
   const { pendingHodCount, fetchCounts } = useCoordinatorStore();
+  const t = useTranslations("CoordinatorPortal");
 
   useEffect(() => {
     // Fetch university name once
@@ -56,7 +58,7 @@ const CoordinatorSidebar = () => {
     router.push("/login");
   };
 
-  const displayName = user?.fullName ?? "Coordinator";
+  const displayName = user?.fullName ?? t("sidebar.roleLabel");
   const initials =
     user?.fullName
       ?.split(/\s+/)
@@ -66,11 +68,11 @@ const CoordinatorSidebar = () => {
       .slice(0, 2) ?? "CR";
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/coordinator", badge: 0 },
-    { icon: ClipboardCheck, label: "HOD management", path: "/coordinator/hods", badge: pendingHodCount },
-    { icon: History, label: "Approvals", path: "/coordinator/approvals", badge: 0 },
-    { icon: MessagesSquare, label: "Messages", path: "/coordinator/chat", badge: unreadCount },
-    { icon: MessageSquare, label: "Common Feed", path: "/coordinator/common-feed", badge: 0 },
+    { icon: LayoutDashboard, label: t("nav.dashboard"), path: "/coordinator", badge: 0 },
+    { icon: ClipboardCheck, label: t("nav.hodManagement"), path: "/coordinator/hods", badge: pendingHodCount },
+    { icon: History, label: t("nav.approvals"), path: "/coordinator/approvals", badge: 0 },
+    { icon: MessagesSquare, label: t("nav.messages"), path: "/coordinator/chat", badge: unreadCount },
+    { icon: MessageSquare, label: t("nav.commonFeed"), path: "/coordinator/common-feed", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>
@@ -92,11 +94,11 @@ const CoordinatorSidebar = () => {
         </div>
         <div className="min-w-0">
           <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">
-            University portal
+            {t("sidebar.portalTitle")}
           </span>
           {universityName
             ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{universityName}</span>
-            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">Coordinator</span>
+            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">{t("sidebar.roleLabel")}</span>
           }
         </div>
       </div>
@@ -131,7 +133,7 @@ const CoordinatorSidebar = () => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-text-heading dark:text-slate-100">{displayName}</p>
-            <p className="truncate text-xs text-text-muted dark:text-slate-400">Coordinator</p>
+            <p className="truncate text-xs text-text-muted dark:text-slate-400">{t("sidebar.roleLabel")}</p>
           </div>
         </div>
         <SupportLink />
@@ -141,7 +143,7 @@ const CoordinatorSidebar = () => {
           className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          Logout
+          {t("sidebar.logout")}
         </button>
       </div>
 
@@ -156,7 +158,7 @@ const CoordinatorSidebar = () => {
           type="button"
           onClick={() => setShowLogout(true)}
           className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-          aria-label="Logout"
+          aria-label={t("sidebar.logout")}
         >
           <LogOut className="h-5 w-5" />
         </button>

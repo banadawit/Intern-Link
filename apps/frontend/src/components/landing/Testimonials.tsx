@@ -2,18 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
-import { 
-  Star, 
-  Quote, 
-  ChevronLeft, 
-  ChevronRight,
-  Award,
-  CheckCircle2,
-  TrendingUp,
-  Users,
-  Calendar,
-  MessageSquare
-} from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { Star, Quote, ChevronLeft, ChevronRight, Award, CheckCircle2, TrendingUp, Users, MessageSquare } from 'lucide-react';
 
 const testimonials = [
   {
@@ -162,6 +152,7 @@ const TestimonialCard = ({ testimonial, index }: { testimonial: typeof testimoni
 };
 
 const Testimonials = () => {
+  const t = useTranslations('Testimonials');
   const headerRef = useRef(null);
   const isHeaderInView = useInView(headerRef, { once: true });
   const [activeCategory, setActiveCategory] = useState('all');
@@ -169,10 +160,10 @@ const Testimonials = () => {
   const itemsPerPage = 3;
   
   const categories = [
-    { id: 'all', label: 'All Reviews', icon: Star },
-    { id: 'coordinator', label: 'Coordinators', icon: Users },
-    { id: 'student', label: 'Students', icon: MessageSquare },
-    { id: 'supervisor', label: 'Supervisors', icon: CheckCircle2 }
+    { id: 'all', label: t('allReviews'), icon: Star },
+    { id: 'coordinator', label: t('coordinators'), icon: Users },
+    { id: 'student', label: t('students'), icon: MessageSquare },
+    { id: 'supervisor', label: t('supervisors'), icon: CheckCircle2 },
   ];
 
   const filteredTestimonials = activeCategory === 'all' 
@@ -217,14 +208,14 @@ const Testimonials = () => {
           </div>
           
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl dark:text-slate-100">
-            Trusted by{' '}
+            {t('title')}{' '}
             <span className="bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent">
-              Students & Professionals
+              {t('titleHighlight')}
             </span>
           </h2>
           
           <p className="mt-4 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-            Join hundreds of satisfied users who have transformed their internship management experience
+            {t('subtitle')}
           </p>
         </motion.div>
 
@@ -239,7 +230,7 @@ const Testimonials = () => {
             <div className="text-4xl font-bold text-slate-900 dark:text-slate-100">{overallRating}</div>
             <div>
               <StarRating rating={5} />
-              <p className="text-xs text-slate-500 dark:text-slate-400">Based on {testimonials.length} reviews</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t('basedOn', { count: testimonials.length })}</p>
             </div>
           </div>
           <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700" />
@@ -250,7 +241,7 @@ const Testimonials = () => {
               ))}
             </div>
             <span className="text-sm text-slate-600 dark:text-slate-300">
-              <span className="font-semibold text-primary-600">500+</span> active users
+              <span className="font-semibold text-primary-600">500+</span> {t('activeUsers')}
             </span>
           </div>
         </motion.div>
@@ -340,9 +331,9 @@ const Testimonials = () => {
         >
           <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-soft border border-slate-100 dark:bg-slate-900 dark:border-slate-700">
             <MessageSquare className="w-4 h-4 text-primary-600" />
-            <span className="text-sm text-slate-600 dark:text-slate-300">Share your experience</span>
+            <span className="text-sm text-slate-600 dark:text-slate-300">{t('shareExperience')}</span>
             <button className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors">
-              Write a review
+              {t('writeReview')}
             </button>
           </div>
         </motion.div>

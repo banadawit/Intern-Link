@@ -176,7 +176,7 @@ final coordinatorStatsProvider = FutureProvider<CoordinatorStats>((ref) {
   return ref.watch(coordinatorRepositoryProvider).getStats();
 });
 
-final pendingHodsProvider = FutureProvider<List<dynamic>>((ref) {
+final coordPendingHodsProvider = FutureProvider<List<dynamic>>((ref) {
   return ref.watch(coordinatorRepositoryProvider).getPendingHods();
 });
 
