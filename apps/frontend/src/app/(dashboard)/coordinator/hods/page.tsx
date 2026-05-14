@@ -28,6 +28,7 @@ interface PendingHod {
     full_name: string;
     email: string;
     verification_document: string | null;
+    document_viewed: boolean;
     created_at: string;
     institution_access_approval: string;
   };
@@ -42,6 +43,7 @@ export default function CoordinatorHodsPage() {
   const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [documentViewedIds, setDocumentViewedIds] = useState<Set<number>>(() => new Set());
   const t = useTranslations("CoordinatorPortal.hods");
 
   const load = useCallback(async () => {
@@ -162,11 +164,14 @@ export default function CoordinatorHodsPage() {
                       {h.user.verification_document ? (
                         <button
                           type="button"
-                          onClick={() => setDocUrl(h.user.verification_document)}
+                          onClick={() => handleViewDoc(h.userId, h.user.verification_document!)}
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           <FileText className="w-4 h-4" />
                           {t("viewDoc")}
+                          {(h.user.document_viewed || documentViewedIds.has(h.userId)) && (
+                            <CheckCircle className="w-3 h-3 text-emerald-500" />
+                          )}
                         </button>
                       ) : (
                         <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>
@@ -179,7 +184,18 @@ export default function CoordinatorHodsPage() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => setConfirmApprove(h.user.id)}
-                          disabled={actionLoading === h.user.id}
+                          disabled={
+                            actionLoading === h.user.id || 
+                            !h.user.verification_document || 
+                            (!h.user.document_viewed && !documentViewedIds.has(h.userId))
+                          }
+                          title={
+                            !h.user.verification_document 
+                              ? t("noDocTitle") 
+                              : (!h.user.document_viewed && !documentViewedIds.has(h.userId))
+                                ? t("viewFirstTitle")
+                                : ""
+                          }
                           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                         >
                           {actionLoading === h.user.id ? (
@@ -191,7 +207,10 @@ export default function CoordinatorHodsPage() {
                         </button>
                         <button
                           onClick={() => setRejectReason({ userId: h.user.id, reason: "" })}
-                          disabled={actionLoading === h.user.id}
+                          disabled={
+                            actionLoading === h.user.id || 
+                            (!!h.user.verification_document && !h.user.document_viewed && !documentViewedIds.has(h.userId))
+                          }
                           className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors"
                         >
                           <XCircle className="w-3.5 h-3.5" />
