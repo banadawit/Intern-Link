@@ -890,7 +890,7 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
         const rawId = req.params.userId;
         const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
         // Admin can override the university name when approving a new-university request
-        const { universityNameOverride } = req.body as { universityNameOverride?: string };
+        const { universityNameOverride } = (req.body ?? {}) as { universityNameOverride?: string };
 
         const coordinator = await prisma.coordinator.findUnique({
             where: { userId },
