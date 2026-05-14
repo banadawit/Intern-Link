@@ -333,7 +333,6 @@ export default function OrganizationsView({ proposals, loading, onReview, onActi
   const [tab, setTab] = useState<OrgTab>("universities");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Approved" | "Rejected" | "Suspended">("All");
-  const [docUrl, setDocUrl] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; kind: "uni" | "com" } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -498,18 +497,18 @@ export default function OrganizationsView({ proposals, loading, onReview, onActi
                           <td className="px-6 py-4">
                             <div className="flex flex-col gap-1">
                               {p.documents?.[0] ? (
-                                <button type="button" onClick={() => setDocUrl(p.documents[0])}
+                                <a href={p.documents[0]} target="_blank" rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
                                   <FileText className="h-3 w-3" /> Verification doc
-                                </button>
+                                </a>
                               ) : (
                                 <span className="text-xs text-slate-400 italic">No doc</span>
                               )}
                               {p.stampImageUrl && (
-                                <button type="button" onClick={() => setDocUrl(p.stampImageUrl!)}
+                                <a href={p.stampImageUrl} target="_blank" rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
                                   <FileText className="h-3 w-3" /> Stamp
-                                </button>
+                                </a>
                               )}
                             </div>
                           </td>
@@ -568,13 +567,6 @@ export default function OrganizationsView({ proposals, loading, onReview, onActi
           <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
         </>
       )}
-
-      <PdfViewerModal
-        isOpen={!!docUrl}
-        pdfUrl={docUrl ?? ""}
-        title="Verification Document"
-        onClose={() => setDocUrl(null)}
-      />
 
       {deleteTarget && (
         <DeleteConfirm

@@ -142,7 +142,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       { href: "/admin?view=audit-log", label: t("quickAuditLog"), icon: FileText, accent: "bg-slate-100 text-slate-700 ring-slate-200" },
       { href: "/admin?view=settings", label: t("quickSettings"), icon: CheckCircle2, accent: "bg-teal-50 text-teal-700 ring-teal-100" },
     ],
-    [t]
+    [t] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // Stable load function — never changes reference, reads page from ref
@@ -204,7 +204,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       { name: t("chartCompleted"), value: data.placementStats.completed },
       { name: t("chartPending"), value: data.placementStats.pending },
     ];
-  }, [data, t]);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const proposalPieData = useMemo(() => {
     if (!data) return [];
@@ -213,7 +213,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       { name: t("chartRejected"), value: data.proposalStats.rejected },
       { name: t("chartPending"), value: data.proposalStats.pending },
     ];
-  }, [data, t]);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pendingBreakdown = useMemo(() => {
     if (!data?.pendingApprovals) return "";

@@ -1131,8 +1131,8 @@ const RegisterPage = () => {
             )}
           </div>
 
-          {/* File Upload - Optional for coordinators, hidden for supervisors, required for others */}
-          {role !== 'supervisor' && (
+          {/* File Upload - Optional for coordinators and supervisors, required for others */}
+          {(
             <div className="space-y-2">
               <label className={`text-sm font-semibold ${
                 role === 'coordinator' && !formData.universityId 
@@ -1142,7 +1142,9 @@ const RegisterPage = () => {
                 {role === 'student' ? t('fileUploadStudent') : 
                  role === 'coordinator' ? t('fileUploadCoordinator') :
                  role === 'hod' ? t('fileUploadHod') :
-                 t('fileUploadSupervisor')} {role !== 'coordinator' && <span className="text-red-500">*</span>}
+                 role === 'supervisor' ? t('fileUploadSupervisor') :
+                 t('fileUploadSupervisor')} {(role !== 'coordinator' && role !== 'supervisor') && <span className="text-red-500">*</span>}
+                {role === 'supervisor' && <span className="ml-1 text-xs font-normal text-slate-400">(optional)</span>}
               </label>
               {/* Disabled state message for coordinators without selection */}
               {role === 'coordinator' && !formData.universityId && (
@@ -1186,8 +1188,11 @@ const RegisterPage = () => {
                       ? 'text-slate-500 dark:text-slate-500'
                       : 'text-slate-500 dark:text-slate-400'
                   }`}>PDF, JPG or PNG (max. 5MB)</p>
-                  {role !== 'coordinator' && (
+                  {role !== 'coordinator' && role !== 'supervisor' && (
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Official document with institutional stamp required</p>
+                  )}
+                  {role === 'supervisor' && (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Official company letter with stamp (optional but recommended)</p>
                   )}
                 </label>
               ) : (

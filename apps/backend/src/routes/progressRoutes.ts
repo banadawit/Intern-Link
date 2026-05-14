@@ -20,6 +20,12 @@ router.post(
     progressCtrl.submitWeeklyPlan,
 );
 
+// ── Student: daily check-ins ──────────────────────────────────────────────────
+router.get('/plan/:id/days', authorize([Role.STUDENT]), progressCtrl.getPlanDaySubmissions);
+router.post('/plan/:id/days', authorize([Role.STUDENT]), progressCtrl.submitPlanDay);
+router.patch('/plan/:id/days/:workDate', authorize([Role.STUDENT]), progressCtrl.updatePlanDay);
+router.delete('/plan/:id/days/:workDate', authorize([Role.STUDENT]), progressCtrl.deletePlanDay);
+
 // ── Student: update PENDING/REJECTED plan ─────────────────────────────────────
 router.patch(
     '/plan/:id',
@@ -39,10 +45,8 @@ router.post(
 // ── Student: remove a single attachment from a plan ───────────────────────────
 router.delete('/plan/:id/attachment', authorize([Role.STUDENT]), progressCtrl.removePlanAttachment);
 
-// ── Student: daily check-ins ──────────────────────────────────────────────────
-router.get('/plan/:id/days', authorize([Role.STUDENT]), progressCtrl.getPlanDaySubmissions);
-router.post('/plan/:id/days', authorize([Role.STUDENT]), progressCtrl.submitPlanDay);
-router.delete('/plan/:id/days/:workDate', authorize([Role.STUDENT]), progressCtrl.deletePlanDay);
+// ── Team Leader: delete all plans for a week across all team members ──────────
+router.delete('/team-week/:weekNumber', authorize([Role.STUDENT]), progressCtrl.deleteWeekForTeam);
 
 // ── Supervisor: review (approve / reject with feedback) ───────────────────────
 router.patch('/review/:id', authorize([Role.SUPERVISOR]), progressCtrl.reviewWeeklyPlan);
@@ -52,9 +56,11 @@ router.patch('/day-submission/:submissionId/review', authorize([Role.SUPERVISOR]
 // ── Team plans (team leader submits on behalf of team) ────────────────────────
 router.get('/team-plans/my', authorize([Role.STUDENT]), teamPlanCtrl.getMyTeamPlans);
 router.get('/team-plans/members', authorize([Role.STUDENT]), teamPlanCtrl.getTeamMembersPlans);
+router.get('/team-plans/members/daily', authorize([Role.STUDENT]), teamPlanCtrl.getTeamMembersDailyPlans);
 router.get('/team-plans/compiled-draft', authorize([Role.STUDENT]), teamPlanCtrl.getCompiledDraft);
 router.post('/team-plans', authorize([Role.STUDENT]), teamPlanCtrl.submitTeamWeeklyPlan);
 router.post('/team-plans/forward', authorize([Role.STUDENT]), teamPlanCtrl.forwardToSupervisor);
+router.post('/team-plans/forward-daily', authorize([Role.STUDENT]), teamPlanCtrl.forwardDailyToSupervisor);
 router.post('/team-plans/:planId/daily', authorize([Role.STUDENT]), teamPlanCtrl.submitTeamDailyPlan);
 // TL review of member plans
 router.patch('/team-plans/tl-review/weekly/:planId', authorize([Role.STUDENT]), teamPlanCtrl.tlReviewWeeklyPlan);

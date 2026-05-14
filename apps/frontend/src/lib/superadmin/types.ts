@@ -58,7 +58,7 @@ export interface WeeklyPlan {
   submittedAt: string;
   reviewedAt?: string;
   version: number;
-  daySubmissions?: { workDate: string; notes?: string }[];
+  daySubmissions?: { workDate: string; notes?: string; tl_status?: string; tl_comment?: string | null }[];
   /** Team Leader review */
   tlStatus?: string;
   tlComment?: string;
