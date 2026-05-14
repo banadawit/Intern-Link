@@ -44,6 +44,10 @@ export const verifyStudent = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Student not in your department.', 404);
         }
 
+        if (status === 'APPROVED' && !student.user.document_viewed) {
+            return sendError(res, 'Reviewer must view the uploaded document before approving.', 400);
+        }
+
         await prisma.student.update({
             where: { id: studentId },
             data: { hod_approval_status: status as ApprovalStatus },
@@ -234,6 +238,10 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Student is already approved.', 409);
         }
 
+        if (!student.user.document_viewed) {
+            return sendError(res, 'Reviewer must view the uploaded document before approving.', 400);
+        }
+
         await prisma.student.update({
             where: { id: studentId },
             data: { hod_approval_status: 'APPROVED' },
@@ -242,6 +250,15 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
         await prisma.user.update({
             where: { id: student.userId },
             data: { verification_status: 'APPROVED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'APPROVE_STUDENT',
+                targetId: studentId,
+                details: `Action: APPROVED Student ${student.user.full_name} | University: ${hod.university.name} | Department: ${hod.department}`,
+            },
         });
 
         // Notify the student that they've been approved
@@ -260,6 +277,41 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
         }).catch((e: any) => console.error('Approval email error:', e?.message));
 
         return sendSuccess(res, { studentId }, 'Student approved.');
+    } catch (e: any) {
+        return sendError(res, e.message);
+    }
+};
+
+export const markStudentViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const uid = req.user?.userId;
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
+
+        const studentId = parseInt(String(req.params.studentId), 10);
+        const student = await prisma.student.findUnique({
+            where: { id: studentId },
+        });
+
+        if (!student || student.universityId !== hod.universityId || !departmentsMatch(student.department, hod.department)) {
+            return sendError(res, 'Student not found in your department.', 404);
+        }
+
+        await prisma.user.update({
+            where: { id: student.userId },
+            data: { document_viewed: true },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: uid!, // Actually the HOD user ID
+                action: 'VIEWED_DOCUMENT',
+                targetId: student.userId,
+                details: `HOD viewed verification document for Student User ID ${student.userId}`,
+            },
+        });
+
+        return sendSuccess(res, { studentId }, 'Student document marked as viewed.');
     } catch (e: any) {
         return sendError(res, e.message);
     }
@@ -290,6 +342,15 @@ export const rejectStudent = async (req: AuthRequest, res: Response) => {
         await prisma.student.update({
             where: { id: studentId },
             data: { hod_approval_status: 'REJECTED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'REJECT_STUDENT',
+                targetId: studentId,
+                details: `Action: REJECTED Student ${student.user.full_name} | University: ${hod.university.name} | Department: ${hod.department}${reason ? ` | Reason: ${reason}` : ''}`,
+            },
         });
 
         await sendNotification(student.userId, `Your registration was not approved.${reason ? ` Reason: ${reason}` : ''}`);

@@ -95,6 +95,9 @@ export const register = async (req: Request, res: Response) => {
         if (roleUpper === 'COORDINATOR') {
             const universityId = parseInt(String(bodyUniversityId ?? ''), 10);
             const requestId = parseInt(String(req.body.organization_request_id ?? ''), 10);
+            const pendingUniversityName = typeof req.body.pending_university_name === 'string'
+                ? req.body.pending_university_name.trim()
+                : '';
 
             if (universityId && !isNaN(universityId)) {
                 const university = await prisma.university.findUnique({ where: { id: universityId } });
@@ -114,10 +117,12 @@ export const register = async (req: Request, res: Response) => {
                     return sendError(res, 'Organization request not found or invalid type.', 400);
                 }
                 coordinatorEnrollment = { requestId, universityName: request.name };
-                // Fallback: If no document was uploaded during registration, use the one from the request
                 if (!verificationDocUrl && request.verification_doc) {
                     verificationDocUrl = request.verification_doc;
                 }
+            } else if (pendingUniversityName) {
+                // New university request submitted directly from registration form
+                coordinatorEnrollment = { universityName: pendingUniversityName };
             } else {
                 return sendError(res, 'Please select a university or submit a new institution request.', 400);
             }

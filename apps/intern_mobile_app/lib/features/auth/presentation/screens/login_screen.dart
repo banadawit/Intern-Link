@@ -94,6 +94,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     context.go(route);
   }
 
+  void _handleDemoLogin(String role) {
+    final demoCredentials = {
+      'Admin': {'email': 'admin@internlink.com', 'pass': 'Admin@1234'},
+      'Coordinator': {'email': 'coordinator@haramaya.edu', 'pass': 'Coord123!'},
+      'HOD': {'email': 'hod@haramaya.edu', 'pass': 'Hod12345'},
+      'Supervisor': {'email': 'supervisor@company.com', 'pass': 'Super123!'},
+      'Student': {'email': 'student@haramaya.edu', 'pass': 'Student123!'},
+    };
+
+    final creds = demoCredentials[role];
+    if (creds != null) {
+      setState(() {
+        _emailCtrl.text = creds['email']!;
+        _passwordCtrl.text = creds['pass']!;
+        _touched = true;
+      });
+      HapticFeedback.mediumImpact();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -223,6 +243,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 isLoading: state.isLoading,
                                 onPressed: _submit,
                               ),
+                              const SizedBox(height: 16),
+
+                              // Demo Login
+                              _DemoLoginSelector(onSelected: _handleDemoLogin),
                             ],
                           ),
                         ),
@@ -441,6 +465,74 @@ class _Banner extends StatelessWidget {
               style: TextStyle(color: color, fontWeight: FontWeight.w500, fontSize: 13))),
         ],
       ),
+    );
+  }
+}
+
+class _DemoLoginSelector extends StatelessWidget {
+  const _DemoLoginSelector({required this.onSelected});
+  final void Function(String) onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'TESTING MODE',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: theme.colorScheme.onSurface.withOpacity(0.35),
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            const Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: [
+            _demoChip(context, 'Student', Icons.school_rounded),
+            _demoChip(context, 'Coordinator', Icons.account_balance_rounded),
+            _demoChip(context, 'HOD', Icons.library_books_rounded),
+            _demoChip(context, 'Supervisor', Icons.work_rounded),
+            _demoChip(context, 'Admin', Icons.settings_rounded),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _demoChip(BuildContext context, String label, IconData icon) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return ActionChip(
+      avatar: Icon(icon, size: 14, color: theme.colorScheme.primary),
+      label: Text(label),
+      labelStyle: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: theme.colorScheme.onSurface.withOpacity(0.8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      backgroundColor: isDark ? Colors.white.withOpacity(0.05) : theme.colorScheme.primary.withOpacity(0.05),
+      side: BorderSide(
+        color: theme.colorScheme.primary.withOpacity(0.1),
+      ),
+      onPressed: () => onSelected(label),
     );
   }
 }

@@ -40,10 +40,10 @@ class PlanCard extends StatelessWidget {
           // Main Card
           Positioned.fill(
             child: Container(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(40),
+                borderRadius: BorderRadius.circular(32),
                 boxShadow: [
                   BoxShadow(
                     color: statusColor.withOpacity(0.1),
@@ -55,8 +55,8 @@ class PlanCard extends StatelessWidget {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Spacer(),
                   Text(
                     plan.title.toUpperCase(),
                     style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -0.5),
@@ -67,6 +67,8 @@ class PlanCard extends StatelessWidget {
                   Text(
                     objectivesPreview,
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 13, height: 1.4),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 24),
                   Row(

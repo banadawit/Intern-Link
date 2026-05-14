@@ -51,6 +51,8 @@ interface RegisterData {
   // Role-specific fields
   universityName?: string;
   universityId?: number;
+  pendingUniversityName?: string;
+  universityAddress?: string;
   hodId?: number;
   companyName?: string;
   department?: string;
@@ -173,6 +175,8 @@ export const useAuth = create<AuthState>()(
         ...(data.role === 'coordinator' && {
           university_name: data.universityName,
           university_id: data.universityId,
+          pending_university_name: data.pendingUniversityName,
+          university_address: data.universityAddress,
           position: data.position,
         }),
         ...(data.role === 'hod' && {

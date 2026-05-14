@@ -159,6 +159,10 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
             return res.status(403).json({ error: 'You can only manage HoDs from your own university.' });
         }
 
+        if (status === 'APPROVED' && !hodProfile.user.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
+        }
+
         const rejectionReason = reason?.trim() || 'Your credentials could not be verified.';
 
         // Update user approval status
@@ -169,6 +173,15 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
                 ...(status === 'APPROVED'
                     ? { verification_status: 'APPROVED' }
                     : { verification_status: 'REJECTED' }),
+            },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: `${status}_HOD`,
+                targetId: userId,
+                details: `Action: ${status} HOD ${hodProfile.user.full_name} | University: ${hodProfile.university.name} | Department: ${hodProfile.department}${reason ? ` | Reason: ${reason}` : ''}`,
             },
         });
 
@@ -193,6 +206,52 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
             userId,
             status,
         });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const markHodViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const targetUserId = parseInt(Array.isArray(userId) ? userId[0] : userId, 10);
+        
+        // Ensure the coordinator is linked to a university
+        const coordinatorProfile = await prisma.coordinator.findUnique({
+            where: { userId: req.user!.userId },
+        });
+
+        if (!coordinatorProfile?.universityId) {
+            return res.status(403).json({ error: 'Your coordinator account is not linked to a university.' });
+        }
+
+        const hodProfile = await prisma.hodProfile.findUnique({
+            where: { userId: targetUserId },
+        });
+
+        if (!hodProfile) {
+            return res.status(404).json({ error: 'HoD profile not found.' });
+        }
+
+        if (hodProfile.universityId !== coordinatorProfile.universityId) {
+            return res.status(403).json({ error: 'You can only manage HoDs from your own university.' });
+        }
+
+        await prisma.user.update({
+            where: { id: targetUserId },
+            data: { document_viewed: true },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'VIEWED_DOCUMENT',
+                targetId: targetUserId,
+                details: `Coordinator viewed verification document for HOD User ID ${targetUserId}`,
+            },
+        });
+
+        res.json({ success: true, message: 'HoD document marked as viewed' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

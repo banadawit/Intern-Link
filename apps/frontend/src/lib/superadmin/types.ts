@@ -13,6 +13,7 @@ export interface VerificationProposal {
   stampImageUrl?: string; // company only
   rejectionReason?: string;
   reviewedAt?: string;
+  document_viewed: boolean;
 }
 
 export interface AuditLogEntry {
