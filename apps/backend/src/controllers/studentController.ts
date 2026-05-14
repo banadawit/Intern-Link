@@ -141,20 +141,20 @@ export const getMyTeam = async (req: AuthRequest, res: Response) => {
         if (!membership) return sendSuccess(res, null, 'Not in a team.');
 
         const team = membership.team;
-        const manager = team.members.find((m) => m.studentId === team.managerId);
+        const manager = undefined; // managerId not in schema
 
         return sendSuccess(res, {
             id: team.id,
             name: team.name,
-            managerId: team.managerId,
-            managerName: manager?.student.user.full_name ?? null,
+            managerId: null,
+            managerName: null,
             project: team.project ?? null,
-            isManager: team.managerId === student.id,
+            isManager: false,
             members: team.members.map((m) => ({
                 studentId: m.studentId,
                 fullName: m.student.user.full_name,
                 email: m.student.user.email,
-                isManager: m.studentId === team.managerId,
+                isManager: false,
                 isMe: m.studentId === student.id,
             })),
         });

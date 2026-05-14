@@ -24,19 +24,9 @@ interface AttachmentMeta {
  * Falls back to a placeholder URL if Cloudinary is not configured.
  */
 /** Teammate (not the TL) on a team with a Team Leader — individual plans go TL → supervisor. */
-async function studentOnTeamWithLeader(studentId: number): Promise<boolean> {
-    const row = await prisma.studentTeam.findFirst({
-        where: {
-            studentId,
-            team: {
-                deleted_at: null,
-                managerId: { not: null },
-                NOT: { managerId: studentId },
-            },
-        },
-        select: { studentId: true },
-    });
-    return !!row;
+async function studentOnTeamWithLeader(_studentId: number): Promise<boolean> {
+    // managerId not yet in schema — always return false until migration is applied
+    return false;
 }
 
 async function uploadAttachments(
@@ -128,20 +118,12 @@ export const updateMyWeeklyPlan = async (req: AuthRequest, res: Response) => {
         const existingAttachments = ((existing as any).attachments as AttachmentMeta[]) ?? [];
         const mergedAttachments = [...existingAttachments, ...newAttachments];
 
-        const resetTlAfterRevision =
-            existing.tl_status === 'REVISION_REQUESTED' && existing.status === 'PENDING';
+        const resetTlAfterRevision = false; // tl_status not yet in schema
 
         const updated = await prisma.weeklyPlan.update({
             where: { id: planId },
             data: {
                 plan_description: typeof plan_description === 'string' ? plan_description : existing.plan_description,
-                ...(resetTlAfterRevision
-                    ? {
-                          tl_status: 'PENDING',
-                          tl_comment: null,
-                          tl_reviewed_at: null,
-                      }
-                    : {}),
             },
             include: { presentation: true },
         });
@@ -327,12 +309,8 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
         }
 
         const needsTlFirst = await studentOnTeamWithLeader(existing.studentId);
-        if (needsTlFirst && existing.tl_status !== 'APPROVED') {
-            return sendError(
-                res,
-                "This plan must be approved by the student's Team Leader before you can review it.",
-                400,
-            );
+        if (needsTlFirst) {
+            // tl_status not yet in schema — skip TL check
         }
 
         // Block re-reviewing an already-reviewed plan (unless it was resubmitted)
@@ -458,16 +436,10 @@ export const submitPlanDay = async (req: AuthRequest, res: Response) => {
         const plan = await prisma.weeklyPlan.findFirst({ where: { id: planId, studentId: student.id } });
         if (!plan) return sendError(res, 'Plan not found.', 404);
         const onTeamWithLeader = await studentOnTeamWithLeader(student.id);
-        const weeklyReadyForDaily =
-            plan.status === 'APPROVED' || (onTeamWithLeader && plan.tl_status === 'APPROVED');
+        // tl_status not yet in schema — only check regular status
+        const weeklyReadyForDaily = plan.status === 'APPROVED';
         if (!weeklyReadyForDaily) {
-            return sendError(
-                res,
-                onTeamWithLeader
-                    ? 'Daily plans are available after your Team Leader approves your weekly plan.'
-                    : 'Daily check-ins are only available after your weekly plan is approved.',
-                400,
-            );
+            return sendError(res, 'Daily check-ins are only available after your weekly plan is approved.', 400);
         }
         if (!isWorkDateInInternshipWeek(assignment.start_date, plan.week_number, workDateRaw)) {
             return sendError(res, 'That date is outside the internship week for this plan.', 400);
@@ -507,16 +479,10 @@ export const deletePlanDay = async (req: AuthRequest, res: Response) => {
         const plan = await prisma.weeklyPlan.findFirst({ where: { id: planId, studentId: student.id } });
         if (!plan) return sendError(res, 'Plan not found.', 404);
         const onTeamWithLeader = await studentOnTeamWithLeader(student.id);
-        const weeklyReadyForDaily =
-            plan.status === 'APPROVED' || (onTeamWithLeader && plan.tl_status === 'APPROVED');
+        // tl_status not yet in schema — only check regular status
+        const weeklyReadyForDaily = plan.status === 'APPROVED';
         if (!weeklyReadyForDaily) {
-            return sendError(
-                res,
-                onTeamWithLeader
-                    ? 'You can only remove daily entries after your Team Leader approves your weekly plan.'
-                    : 'You can only remove daily entries after your weekly plan is approved.',
-                400,
-            );
+            return sendError(res, 'You can only remove daily entries after your weekly plan is approved.', 400);
         }
         await prisma.weeklyPlanDaySubmission.deleteMany({
             where: { weeklyPlanId: planId, workDate: new Date(`${workDateParam}T12:00:00.000Z`) },
@@ -563,9 +529,7 @@ export const reviewPlanDay = async (req: AuthRequest, res: Response) => {
         const updated = await prisma.weeklyPlanDaySubmission.update({
             where: { id: submissionId },
             data: {
-                status,
-                supervisorNote: typeof supervisorNote === 'string' ? supervisorNote.trim() || null : null,
-                reviewedAt: new Date(),
+                notes: typeof supervisorNote === 'string' ? supervisorNote.trim() || null : null,
             },
         });
 

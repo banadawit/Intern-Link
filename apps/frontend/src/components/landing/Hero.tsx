@@ -106,13 +106,6 @@ const Hero = () => {
           {/* Left Side: Content */}
           <div className="flex-1 text-center lg:text-left">
             <motion.div variants={itemVariants}>
-              <div className="mb-6 inline-flex items-center rounded-full bg-teal-50 px-4 py-1.5 text-sm font-medium text-teal-700 ring-1 ring-inset ring-teal-600/20 shadow-soft">
-                <span className="relative flex h-2 w-2 mr-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                </span>
-                Official Platform for Ethiopian Universities
-              </div>
             </motion.div>
 
             <motion.h1 
@@ -138,10 +131,6 @@ const Hero = () => {
             </motion.p>
 
             <motion.div variants={itemVariants} className="mt-5">
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                Live workflow for all major roles
-              </div>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={roleHighlights[activeRole].title}
