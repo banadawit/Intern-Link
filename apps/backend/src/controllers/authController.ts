@@ -252,49 +252,32 @@ export const register = async (req: Request, res: Response) => {
                     },
                 });
             } else if (roleUpper === 'SUPERVISOR') {
-                const companyId = parseInt(String(req.body.company_id ?? ''), 10);
-                const requestId = parseInt(String(req.body.organization_request_id ?? ''), 10);
-                let linkedCompanyId: number;
+                if (!supervisorCompanyName) {
+                    throw new Error('Company name is required.');
+                }
 
-                if (companyId && !isNaN(companyId)) {
-                    const company = await tx.company.findUnique({ where: { id: companyId } });
-                    if (!company || company.approval_status !== 'APPROVED') {
-                        throw new Error('Selected company is not approved or does not exist.');
+                let company = await tx.company.findFirst({
+                    where: {
+                        name: { equals: supervisorCompanyName, mode: 'insensitive' }
                     }
-                    linkedCompanyId = company.id;
-                } else if (requestId && !isNaN(requestId)) {
-                    const request = await tx.organizationRequest.findUnique({ where: { id: requestId } });
-                    if (!request || request.type !== 'COMPANY') {
-                        throw new Error('Organization request not found or invalid type.');
-                    }
-                    // Fallback: If no document was uploaded during registration, use the one from the request
-                    if (!verificationDocUrl && request.verification_doc) {
-                        verificationDocUrl = request.verification_doc;
-                    }
+                });
 
-                    const existingCompany = await tx.company.findFirst({ where: { name: request.name } });
-                    if (existingCompany) {
-                        linkedCompanyId = existingCompany.id;
-                    } else {
-                        const newCompany = await tx.company.create({
-                            data: {
-                                name: request.name,
-                                official_email: request.requester_email,
-                                approval_status: 'PENDING',
-                                verification_doc: request.verification_doc,
-                            },
-                        });
-                        linkedCompanyId = newCompany.id;
-                        supervisorNewCompanyMeta = { companyId: newCompany.id, companyName: newCompany.name };
-                    }
-                } else {
-                    throw new Error('Please select a company or submit a new organization request.');
+                if (!company) {
+                    company = await tx.company.create({
+                        data: {
+                            name: supervisorCompanyName,
+                            official_email: email, // Fallback to user email for now
+                            approval_status: 'PENDING',
+                            verification_doc: verificationDocUrl || null,
+                        },
+                    });
+                    supervisorNewCompanyMeta = { companyId: company.id, companyName: company.name };
                 }
 
                 await tx.supervisor.create({
                     data: {
                         userId: user.id,
-                        companyId: linkedCompanyId,
+                        companyId: company.id,
                         phone_number: position || null,
                     },
                 });

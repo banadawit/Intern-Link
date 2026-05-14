@@ -379,6 +379,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
             id: true,
             full_name: true,
             email: true,
+            verification_document: true,
             role: true,
             verification_status: true,
             institution_access_approval: true,

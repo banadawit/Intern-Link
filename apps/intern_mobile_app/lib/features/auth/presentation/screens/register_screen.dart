@@ -175,10 +175,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       _showSnack('Please select a university or submit a request first.');
       return;
     }
-    if (_role == RegistrationRole.supervisor && _selectedCompanyId == null && _organizationRequestId == null) {
-      _showSnack('Please select a company or submit a request first.');
-      return;
-    }
     if (!_step3Key.currentState!.validate()) return;
     if (!_agreedToTerms) {
       _showSnack('You must agree to the Terms of Service to continue.');
@@ -621,7 +617,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   List<Widget> _buildRoleFields(bool isDark, Color primary, bool isLoading) {
     bool orgSelected = switch (_role) {
       RegistrationRole.coordinator => _coordinatorUniversityId != null,
-      RegistrationRole.supervisor => _selectedCompanyId != null,
       _ => _selectedUniversityId != null,
     } || _organizationRequestId != null;
 
@@ -657,32 +652,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
       case RegistrationRole.supervisor:
         return [
-          _FieldLabel('Company Name *'),
+          _FieldLabel('Company/Organization Name *'),
           const SizedBox(height: 8),
-          _CompanySearchPicker(
-            nameCtrl: _companyCtrl,
+          _InputField(
+            controller: _companyCtrl,
+            hint: 'e.g., Tech Solutions Inc.',
+            icon: Icons.business_rounded,
             isDark: isDark,
             primary: primary,
             enabled: !isLoading,
-            requesterEmail: _emailCtrl.text,
-            onCompanySelected: (id) => setState(() => _selectedCompanyId = id),
+            validator: (v) => (v ?? '').trim().isEmpty ? 'Company name is required' : null,
           ),
           const SizedBox(height: 16),
-          _FieldLabel('Position *'),
+          _FieldLabel('Role/Position *'),
           const SizedBox(height: 8),
           _InputField(
             controller: _positionCtrl,
-            hint: 'e.g., HR Manager',
+            hint: 'e.g., Senior Engineer',
             icon: Icons.work_outline_rounded,
             isDark: isDark,
             primary: primary,
             enabled: !isLoading,
             validator: (v) => (v ?? '').trim().isEmpty ? 'Position is required' : null,
           ),
-          const SizedBox(height: 20),
-          _FieldLabel('Official Company Letter with Stamp *'),
-          const SizedBox(height: 8),
-          filePicker,
         ];
 
       case RegistrationRole.hod:
