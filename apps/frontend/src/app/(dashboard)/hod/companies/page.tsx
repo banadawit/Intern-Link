@@ -35,7 +35,7 @@ export default function HodCompaniesPage() {
     } finally {
       setLoading(false);
     }
-  }, [verifiedOnly, t]);
+  }, [verifiedOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { void load(); }, [load]);
 

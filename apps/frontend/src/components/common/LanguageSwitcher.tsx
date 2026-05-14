@@ -1,10 +1,9 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Globe } from 'lucide-react';
-import { useI18n } from '@/components/i18n/I18nProvider';
+import { useI18n, useTranslations } from '@/components/i18n/I18nProvider';
 import { LOCALES, type Locale } from '@/lib/i18n';
 
 export default function LanguageSwitcher() {

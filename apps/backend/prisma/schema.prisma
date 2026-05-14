@@ -258,9 +258,6 @@ model Student {
   studentTeams        StudentTeam[]
   weeklyPlans         WeeklyPlan[]
   weeklyReports       WeeklyReport[]
-  managedTeams        Team[]             @relation("TeamManager")
-  teamWeeklyPlans     TeamWeeklyPlan[]   @relation("TeamPlanSubmitter")
-  teamDailyPlans      TeamDailyPlan[]    @relation("TeamDailySubmitter")
 }
 
 model InternshipProposal {
@@ -416,14 +413,11 @@ model Team {
   companyId    Int
   supervisorId Int?
   projectId    Int?
-  managerId    Int?
   created_at   DateTime      @default(now())
   deleted_at   DateTime?
   members      StudentTeam[]
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   project      Project?      @relation(fields: [projectId], references: [id])
-  manager      Student?      @relation("TeamManager", fields: [managerId], references: [id])
-  weeklyPlans  TeamWeeklyPlan[]
 }
 
 model StudentTeam {
@@ -448,7 +442,6 @@ model Project {
   company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   students       StudentProject[]
   teams          Team[]
-  teamWeeklyPlans TeamWeeklyPlan[]
 }
 
 model StudentProject {
@@ -619,52 +612,6 @@ model UniversityConfig {
   studentRegistrationEnabled Boolean?
   updatedAt                  DateTime   @updatedAt
   university                 University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-}
-
-/// Team-level weekly plan submitted by the project manager on behalf of the team.
-model TeamWeeklyPlan {
-  id               Int              @id @default(autoincrement())
-  teamId           Int
-  projectId        Int?
-  submittedById    Int
-  week_number      Int
-  plan_description String           @db.Text
-  /// Supervisor-facing status: PENDING | APPROVED | REJECTED | RESUBMITTED
-  status           String           @default("PENDING")
-  feedback         String?          @db.Text
-  reviewed_at      DateTime?
-  submitted_at     DateTime         @default(now())
-  version          Int              @default(1)
-  /// TL review of the compiled team plan before it reaches the supervisor
-  /// Values: PENDING | APPROVED | REVISION_REQUESTED
-  tl_status        String           @default("PENDING")
-  tl_comment       String?          @db.Text
-  tl_reviewed_at   DateTime?
-  team             Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  project          Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  submittedBy      Student          @relation("TeamPlanSubmitter", fields: [submittedById], references: [id])
-  dailyPlans       TeamDailyPlan[]
-
-  @@unique([teamId, week_number])
-  @@index([teamId])
-}
-
-/// Team-level daily plan submitted by the project manager on behalf of the team.
-model TeamDailyPlan {
-  id               Int            @id @default(autoincrement())
-  teamWeeklyPlanId Int
-  submittedById    Int
-  workDate         DateTime       @db.Date
-  notes            String?        @db.Text
-  status           String         @default("PENDING")
-  supervisorNote   String?        @db.Text
-  reviewedAt       DateTime?
-  submittedAt      DateTime       @default(now())
-  teamWeeklyPlan   TeamWeeklyPlan @relation(fields: [teamWeeklyPlanId], references: [id], onDelete: Cascade)
-  submittedBy      Student        @relation("TeamDailySubmitter", fields: [submittedById], references: [id])
-
-  @@unique([teamWeeklyPlanId, workDate])
-  @@index([teamWeeklyPlanId])
 }
 
 model ChatMessage {

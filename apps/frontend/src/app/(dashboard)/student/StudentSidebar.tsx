@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -12,8 +12,8 @@ import {
   GraduationCap,
   Settings,
   Activity,
-  UsersRound,
   Crown,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -23,14 +23,11 @@ import LogoutModal from "@/components/common/LogoutModal";
 import SupportLink from "@/components/shared/SupportLink";
 import api from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chatStore";
-import { useTranslations } from "next-intl";
 
 const StudentSidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
-  const t = useTranslations('StudentPortal');
-  const tCommon = useTranslations('Common');
   const [showLogout, setShowLogout] = useState(false);
   const [universityName, setUniversityName] = useState<string | null>(null);
   const [isTeamLeader, setIsTeamLeader] = useState(false);
@@ -43,9 +40,13 @@ const StudentSidebar = () => {
         if (profile?.university?.name) setUniversityName(profile.university.name);
       })
       .catch(() => {});
-    // Check if this student is a Team Leader
-    api.get<{ success: boolean; data: { isManager?: boolean } | null }>("/progress/team-plans/my")
-      .then(({ data }) => { setIsTeamLeader(data.data?.isManager ?? false); })
+    api.get("/progress/team-plans/my")
+      .then(({ data }) => {
+        const d = (data as { success?: boolean; data?: unknown })?.data;
+        if (d && typeof d === 'object' && !Array.isArray(d)) {
+          setIsTeamLeader((d as { isManager?: boolean }).isManager === true);
+        }
+      })
       .catch(() => {});
     void fetchUnread();
     const interval = setInterval(() => void fetchUnread(), 10000);
@@ -68,15 +69,14 @@ const StudentSidebar = () => {
       .slice(0, 2) ?? "JD";
 
   const navItems = [
-    { icon: LayoutDashboard, label: t('nav.dashboard'),       path: "/student",                  badge: 0 },
-    { icon: ClipboardList,   label: t('nav.plans'),           path: "/student/plans",            badge: 0 },
-    { icon: isTeamLeader ? Crown : UsersRound, label: "Team", path: "/student/team", badge: 0, isLeaderItem: isTeamLeader },
-    { icon: MessagesSquare,  label: t('nav.messages'),        path: "/student/chat",             badge: unreadCount },
-    { icon: Building,        label: t('nav.requestCompany'),  path: "/student/request-company",  badge: 0 },
-    { icon: FileCheck,       label: t('nav.finalEvaluation'), path: "/student/evaluation",       badge: 0 },
-    { icon: Activity,        label: t('nav.activity'),        path: "/student/settings/activity",badge: 0 },
-    { icon: Settings,        label: t('nav.settings'),        path: "/student/settings",         badge: 0 },
-    { icon: MessageSquare,   label: t('nav.commonFeed'),      path: "/student/common",           badge: 0 },
+    { icon: LayoutDashboard, label: "Dashboard", path: "/student", badge: 0 },
+    { icon: ClipboardList, label: "Plans", path: "/student/plans", badge: 0 },
+    { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
+    { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
+    { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation", badge: 0 },
+    { icon: Activity, label: "Activity", path: "/student/settings/activity", badge: 0 },
+    { icon: Settings, label: "Profile", path: "/student/settings", badge: 0 },
+    { icon: MessageSquare, label: "Common Feed", path: "/student/common", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>
@@ -97,10 +97,10 @@ const StudentSidebar = () => {
           <GraduationCap className="h-6 w-6 text-white" />
         </div>
         <div className="min-w-0 flex-1">
-          <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">{t('title')}</span>
+          <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">StudentPortal</span>
           {universityName
             ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{universityName}</span>
-            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">{t('internshipWorkspace')}</span>
+            : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">Internship workspace</span>
           }
         </div>
       </div>
@@ -114,22 +114,12 @@ const StudentSidebar = () => {
             item.path === "/student"
               ? pathname === item.path
               : item.path === "/student/settings"
-                ? pathname === "/student/settings" || pathname === "/student/settings/alerts"
+                ? pathname === "/student/settings" || pathname?.startsWith("/student/settings/")
                 : pathname?.startsWith(item.path) ?? false;
-          const isLeaderItem = 'isLeaderItem' in item && item.isLeaderItem;
           return (
-            <Link key={item.path} href={item.path} className={cn(
-              linkClass(!!active),
-              isLeaderItem && !active && "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
-              isLeaderItem && active && "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-800"
-            )}>
-              <item.icon className={cn("h-5 w-5 shrink-0", isLeaderItem && "text-amber-500")} />
+            <Link key={item.path} href={item.path} className={linkClass(!!active)}>
+              <item.icon className="h-5 w-5 shrink-0" />
               <span className="whitespace-nowrap flex-1">{item.label}</span>
-              {isLeaderItem && (
-                <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-300">
-                  TL
-                </span>
-              )}
               {item.badge > 0 && (
                 <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-rose-700 ring-1 ring-rose-200/80">
                   {item.badge > 99 ? "99+" : item.badge}
@@ -157,7 +147,7 @@ const StudentSidebar = () => {
                 <Crown className="h-3 w-3" /> Team Leader
               </span>
             ) : (
-              <p className="truncate text-xs text-text-muted dark:text-slate-400">{tCommon('student')}</p>
+              <p className="truncate text-xs text-text-muted dark:text-slate-400">Student</p>
             )}
           </div>
         </div>
@@ -168,7 +158,7 @@ const StudentSidebar = () => {
           className="mb-4 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          {tCommon('logout')}
+          Logout
         </button>
       </div>
 

@@ -18,12 +18,23 @@ export interface VerificationProposal {
 
 export interface AuditLogEntry {
   id: string;
-  action: 'Approve' | 'Reject' | 'Suspend' | 'Reactivate';
+  action: 'Approve' | 'Reject' | 'Suspend' | 'Reactivate' | 'Delete' | 'Other';
+  /** Raw action string from the backend, e.g. "APPROVED_UNIVERSITY" */
+  rawAction: string;
   targetId: string;
   targetName: string;
   adminId: string;
   timestamp: string;
   notes?: string;
+}
+
+export interface AuditOrgItem {
+  id: number;
+  name: string;
+  email: string;
+  type: 'University' | 'Company' | 'Coordinator';
+  since: string;
+  universityName?: string | null;
 }
 
 export interface PlatformStats {
@@ -48,7 +59,7 @@ export interface WeeklyPlan {
   submittedAt: string;
   reviewedAt?: string;
   version: number;
-  daySubmissions?: { workDate: string; notes?: string }[];
+  daySubmissions?: { workDate: string; notes?: string; tl_status?: string; tl_comment?: string | null }[];
   /** Team Leader review */
   tlStatus?: string;
   tlComment?: string;

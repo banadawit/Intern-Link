@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Settings,
   Mail,
@@ -81,6 +81,9 @@ export default function SystemSettings() {
   const [broadcastSuccess, setBroadcastSuccess] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Keep a stable ref to t so load doesn't need it as a dep
+  const tRef = useRef(t);
+  useEffect(() => { tRef.current = t; });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,13 +91,13 @@ export default function SystemSettings() {
       const { data } = await api.get<{ success: boolean; data: Config }>("/admin/config");
       setConfig(data.data);
     } catch {
-      setError(t("loadFailed"));
+      setError(tRef.current("loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []); // stable — no deps
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, []); // run once on mount
 
   const set = (key: keyof Config, value: string) => {
     setConfig((prev) => prev ? { ...prev, [key]: value } : prev);

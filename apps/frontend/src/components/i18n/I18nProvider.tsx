@@ -1,39 +1,62 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { NextIntlClientProvider, type AbstractIntlMessages } from 'next-intl';
 import { type Locale, DEFAULT_LOCALE, getStoredLocale, setStoredLocale } from '@/lib/i18n';
+
+type Messages = Record<string, Record<string, unknown>>;
 
 interface I18nContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
+  t: (namespace: string, key: string) => string;
+  raw: (namespace: string, key: string) => unknown;
 }
 
 const I18nContext = createContext<I18nContextValue>({
   locale: DEFAULT_LOCALE,
   setLocale: () => {},
+  t: (_ns, key) => key,
+  raw: (_ns, key) => key,
 });
 
 export function useI18n() {
   return useContext(I18nContext);
 }
 
-async function loadMessages(locale: Locale): Promise<AbstractIntlMessages> {
-  switch (locale) {
-    case 'am': return (await import('../../../messages/am.json')).default as unknown as AbstractIntlMessages;
-    case 'om': return (await import('../../../messages/om.json')).default as unknown as AbstractIntlMessages;
-    default:   return (await import('../../../messages/en.json')).default as unknown as AbstractIntlMessages;
+/** Minimal hook that mimics next-intl's useTranslations(namespace) */
+export function useTranslations(namespace: string) {
+  const { t, raw } = useI18n();
+  const fn = (key: string, params?: Record<string, string | number>) => {
+    const str = t(namespace, key);
+    if (!params) return str;
+    // Replace {param} placeholders
+    return str.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? `{${k}}`));
+  };
+  fn.raw = (key: string) => raw(namespace, key);
+  return fn;
+}
+
+async function loadMessages(locale: Locale): Promise<Messages> {
+  try {
+    switch (locale) {
+      case 'am': return (await import('../../../messages/am.json')).default as unknown as Messages;
+      case 'om': return (await import('../../../messages/om.json')).default as unknown as Messages;
+      default:   return (await import('../../../messages/en.json')).default as unknown as Messages;
+    }
+  } catch {
+    return {};
   }
 }
 
 export default function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
-  const [messages, setMessages] = useState<AbstractIntlMessages | null>(null);
+  const [messages, setMessages] = useState<Messages>({});
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const stored = getStoredLocale();
     setLocaleState(stored);
-    loadMessages(stored).then(setMessages);
+    loadMessages(stored).then((m) => { setMessages(m); setReady(true); });
   }, []);
 
   const setLocale = useCallback((newLocale: Locale) => {
@@ -42,13 +65,39 @@ export default function I18nProvider({ children }: { children: React.ReactNode }
     loadMessages(newLocale).then(setMessages);
   }, []);
 
-  if (!messages) return null;
+  const t = useCallback((namespace: string, key: string): string => {
+    // Support dotted namespaces: 'Auth.register' → messages.Auth.register
+    const ns = namespace.split('.').reduce<unknown>((obj, k) => {
+      if (obj && typeof obj === 'object') return (obj as Record<string, unknown>)[k];
+      return undefined;
+    }, messages);
+    if (!ns || typeof ns !== 'object') return key;
+    // Support dotted keys: 'roles.student' → ns.roles.student
+    const val = key.split('.').reduce<unknown>((obj, k) => {
+      if (obj && typeof obj === 'object') return (obj as Record<string, unknown>)[k];
+      return undefined;
+    }, ns);
+    return typeof val === 'string' ? val : key;
+  }, [messages]);
+
+  const raw = useCallback((namespace: string, key: string): unknown => {
+    const ns = namespace.split('.').reduce<unknown>((obj, k) => {
+      if (obj && typeof obj === 'object') return (obj as Record<string, unknown>)[k];
+      return undefined;
+    }, messages);
+    if (!ns || typeof ns !== 'object') return key;
+    const val = key.split('.').reduce<unknown>((obj, k) => {
+      if (obj && typeof obj === 'object') return (obj as Record<string, unknown>)[k];
+      return undefined;
+    }, ns);
+    return val ?? key;
+  }, [messages]);
+
+  if (!ready) return null;
 
   return (
-    <I18nContext.Provider value={{ locale, setLocale }}>
-      <NextIntlClientProvider locale={locale} messages={messages}>
-        {children}
-      </NextIntlClientProvider>
+    <I18nContext.Provider value={{ locale, setLocale, t, raw }}>
+      {children}
     </I18nContext.Provider>
   );
 }

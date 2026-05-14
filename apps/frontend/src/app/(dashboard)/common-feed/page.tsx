@@ -78,6 +78,12 @@ export default function CommonFeedPage() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -185,35 +191,40 @@ export default function CommonFeedPage() {
       const token = getToken();
       const lines = newPostContent.split('\n');
       const title = lines[0].substring(0, 100) || 'Post';
-      const content = newPostContent;
 
-      // Upload images if any
+      // Upload images directly to Cloudinary from the browser (no backend needed)
       let imageUrls: string[] = [];
       if (selectedImages.length > 0) {
-        const imgForm = new FormData();
-        selectedImages.forEach((f) => imgForm.append('images', f));
-        const imgRes = await axios.post(`${API_BASE}/common-feed/upload/images`, imgForm, {
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
-        });
-        imageUrls = imgRes.data?.data?.urls ?? [];
+        try {
+          const { cloudinaryService } = await import('@/lib/services/cloudinary.service');
+          const results = await Promise.all(
+            selectedImages.map((f) => cloudinaryService.uploadImage(f, 'internlink/common-feed/images'))
+          );
+          imageUrls = results.filter((r) => r.success && r.url).map((r) => r.url as string);
+        } catch {
+          // Upload failed — post without images
+        }
       }
 
-      // Upload documents if any
+      // Upload documents directly to Cloudinary from the browser
       let documentUrls: string[] = [];
       if (selectedDocuments.length > 0) {
-        const docForm = new FormData();
-        selectedDocuments.forEach((f) => docForm.append('documents', f));
-        const docRes = await axios.post(`${API_BASE}/common-feed/upload/documents`, docForm, {
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
-        });
-        documentUrls = docRes.data?.data?.urls ?? [];
+        try {
+          const { cloudinaryService } = await import('@/lib/services/cloudinary.service');
+          const results = await Promise.all(
+            selectedDocuments.map((f) => cloudinaryService.uploadDocument(f, 'internlink/common-feed/documents'))
+          );
+          documentUrls = results.filter((r) => r.success && r.url).map((r) => r.url as string);
+        } catch {
+          // Upload failed — post without documents
+        }
       }
 
       await axios.post(
         `${API_BASE}/common-feed`,
         {
           title,
-          content: `<p>${content.replace(/\n/g, '<br>')}</p>`,
+          content: `<p>${newPostContent.replace(/\n/g, '<br>')}</p>`,
           postType: newPostType,
           visibility: 'PUBLIC',
           imageUrls,
@@ -228,16 +239,8 @@ export default function CommonFeedPage() {
       setImagePreviews([]);
       setShowCreatePost(false);
       fetchPosts(currentPage, filter !== 'ALL' ? filter : undefined);
-
-      if (showUserProfile && selectedUserId) {
-        const response = await axios.get(`${API_BASE}/common-feed/user/${selectedUserId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUserPosts(response.data.data.posts);
-      }
-    } catch (error) {
-      console.error('Error creating post:', error);
-      alert('Failed to create post');
+    } catch {
+      showToast('Could not publish your post. Please try again.', 'error');
     } finally {
       setUploading(false);
     }
@@ -317,8 +320,6 @@ export default function CommonFeedPage() {
     console.log('Current user object:', currentUser);
     
     if (!userId) {
-      console.error('No userId provided to openUserProfile');
-      alert('Cannot open profile: User ID is missing');
       return;
     }
     
@@ -341,32 +342,21 @@ export default function CommonFeedPage() {
       setLoadingProfile(false);
     } catch (error: any) {
       console.error('Error fetching user profile:', error);
-      console.error('Error response:', error.response?.data);
-      alert(`Failed to load profile: ${error.response?.data?.message || error.message}`);
       setLoadingProfile(false);
       setShowUserProfile(false);
     }
   };
 
   const deleteUserPost = async (postId: number) => {
-    if (!confirm('Are you sure you want to delete this post?')) return;
-
     try {
       const token = getToken();
       await axios.delete(`${API_BASE}/common-feed/${postId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
-      // Remove from user posts
       setUserPosts(userPosts.filter(p => p.id !== postId));
-      
-      // Also remove from main feed if present
       setPosts(posts.filter(p => p.id !== postId));
-      
-      alert('Post deleted successfully');
-    } catch (error) {
-      console.error('Error deleting post:', error);
-      alert('Failed to delete post');
+    } catch {
+      showToast('Could not delete the post. Please try again.', 'error');
     }
   };
 
@@ -383,8 +373,9 @@ export default function CommonFeedPage() {
 
     switch (platform) {
       case 'copy':
-        navigator.clipboard.writeText(postUrl);
-        alert('Link copied to clipboard!');
+        try { await navigator.clipboard.writeText(postUrl); } catch { /* ignore */ }
+        setCopyDone(true);
+        setTimeout(() => setCopyDone(false), 2500);
         setShowShareModal(false);
         break;
       case 'twitter':
@@ -411,10 +402,7 @@ export default function CommonFeedPage() {
   };
 
   const sendPostViaEmail = () => {
-    if (!selectedSendPost || !shareMessage.trim()) {
-      alert('Please enter a message');
-      return;
-    }
+    if (!selectedSendPost || !shareMessage.trim()) return;
 
     const postUrl = `${window.location.origin}/common-feed?post=${selectedSendPost.id}`;
     const subject = `Shared: ${selectedSendPost.title}`;
@@ -624,31 +612,16 @@ export default function CommonFeedPage() {
                       </button>
                     </div>
 
-                    {/* Post Content */}
+                    {/* Post Content — text first */}
                     <div className="mt-3">
-                      <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">{post.title}</h4>
-                      <div 
+                      <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">{post.title}</h4>
+                      <div
                         className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed"
                         dangerouslySetInnerHTML={{ __html: post.content }}
                       />
                     </div>
 
-                    {/* Images */}
-                    {post.imageUrls && post.imageUrls.length > 0 && (
-                      <div className={`mt-3 grid gap-1 ${post.imageUrls.length === 1 ? 'grid-cols-1' : post.imageUrls.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                        {post.imageUrls.map((url, i) => (
-                          <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                            <img
-                              src={url}
-                              alt={`attachment ${i + 1}`}
-                              className="w-full rounded-lg object-cover max-h-64 hover:opacity-90 transition-opacity"
-                            />
-                          </a>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Documents */}
+                    {/* Documents (inline, below text) */}
                     {post.documentUrls && post.documentUrls.length > 0 && (
                       <div className="mt-3 space-y-1.5">
                         {post.documentUrls.map((url, i) => {
@@ -669,6 +642,64 @@ export default function CommonFeedPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Images — full card width, below text, outside the padded div */}
+                  {post.imageUrls && post.imageUrls.length > 0 && (
+                    <div className={`mt-1 overflow-hidden ${
+                      post.imageUrls.length === 1
+                        ? ''
+                        : post.imageUrls.length === 2
+                        ? 'grid grid-cols-2 gap-0.5'
+                        : 'grid grid-cols-2 gap-0.5'
+                    }`}>
+                      {post.imageUrls.length === 1 ? (
+                        <a href={post.imageUrls[0]} target="_blank" rel="noopener noreferrer" className="block">
+                          <img
+                            src={post.imageUrls[0]}
+                            alt="post image"
+                            className="w-full max-h-[480px] object-cover hover:opacity-95 transition-opacity"
+                          />
+                        </a>
+                      ) : post.imageUrls.length === 2 ? (
+                        post.imageUrls.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                            <img
+                              src={url}
+                              alt={`image ${i + 1}`}
+                              className="w-full h-56 object-cover hover:opacity-95 transition-opacity"
+                            />
+                          </a>
+                        ))
+                      ) : (
+                        <>
+                          {/* First image takes full width on top */}
+                          <a href={post.imageUrls[0]} target="_blank" rel="noopener noreferrer" className="col-span-2 block">
+                            <img
+                              src={post.imageUrls[0]}
+                              alt="image 1"
+                              className="w-full h-56 object-cover hover:opacity-95 transition-opacity"
+                            />
+                          </a>
+                          {/* Remaining images in a row below */}
+                          {post.imageUrls.slice(1).map((url, i) => (
+                            <a key={i + 1} href={url} target="_blank" rel="noopener noreferrer" className="block relative">
+                              <img
+                                src={url}
+                                alt={`image ${i + 2}`}
+                                className="w-full h-40 object-cover hover:opacity-95 transition-opacity"
+                              />
+                              {/* "+N more" overlay on the last visible tile if there are more than 4 */}
+                              {i === 2 && post.imageUrls!.length > 4 && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                  <span className="text-white text-lg font-bold">+{post.imageUrls!.length - 4}</span>
+                                </div>
+                              )}
+                            </a>
+                          )).slice(0, 3)}
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   {/* Post Stats */}
                   <div className="px-4 py-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
@@ -845,6 +876,21 @@ export default function CommonFeedPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast notifications */}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300 ${
+          toast.type === 'error' ? 'bg-red-600' : 'bg-slate-900'
+        }`}>
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${toast.type === 'error' ? 'bg-white/20' : 'bg-emerald-500'}`}>
+            {toast.type === 'error'
+              ? <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              : <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+            }
+          </div>
+          <p className="text-sm font-semibold text-white">{toast.message}</p>
+        </div>
+      )}
 
       {/* Copy link toast */}
       {copyDone && (

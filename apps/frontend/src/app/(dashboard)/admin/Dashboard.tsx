@@ -129,6 +129,9 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
   const [online, setOnline] = useState(true);
   const [activityPage, setActivityPage] = useState(1);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Keep a ref so `load` can always read the latest page without being a dep
+  const activityPageRef = useRef(activityPage);
+  const loadingRef = useRef(false);
 
   const ACTIVITY_LIMIT = 5;
 
@@ -139,16 +142,21 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       { href: "/admin?view=audit-log", label: t("quickAuditLog"), icon: FileText, accent: "bg-slate-100 text-slate-700 ring-slate-200" },
       { href: "/admin?view=settings", label: t("quickSettings"), icon: CheckCircle2, accent: "bg-teal-50 text-teal-700 ring-teal-100" },
     ],
-    [t]
+    [t] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const load = useCallback(async (silent = false, page = activityPage) => {
+  // Stable load function — never changes reference, reads page from ref
+  const load = useCallback(async (silent = false, page?: number) => {
+    // Prevent concurrent requests
+    if (loadingRef.current) return;
+    const targetPage = page ?? activityPageRef.current;
+    loadingRef.current = true;
     if (!silent) setLoading(true);
     else setRefreshing(true);
     setError(null);
     try {
       const { data: res } = await api.get<AnalyticsData>(
-        `/admin/analytics?activityPage=${page}&activityLimit=${ACTIVITY_LIMIT}`
+        `/admin/analytics?activityPage=${targetPage}&activityLimit=${ACTIVITY_LIMIT}`
       );
       setData(res);
       setLastUpdated(new Date());
@@ -157,18 +165,27 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       setError(t("failedAnalytics"));
       setOnline(false);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activityPage, t]);
+  }, [t]); // no activityPage dep — uses ref instead
 
-  useEffect(() => { void load(); }, [load]);
+  // Initial load — runs once on mount
+  useEffect(() => {
+    void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-refresh interval — stable, never recreated
   useEffect(() => {
     intervalRef.current = setInterval(() => void load(true), REFRESH_INTERVAL);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [load]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleActivityPageChange = (page: number) => {
+    activityPageRef.current = page;
     setActivityPage(page);
     void load(false, page);
   };
@@ -187,7 +204,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       { name: t("chartCompleted"), value: data.placementStats.completed },
       { name: t("chartPending"), value: data.placementStats.pending },
     ];
-  }, [data, t]);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const proposalPieData = useMemo(() => {
     if (!data) return [];
@@ -196,7 +213,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       { name: t("chartRejected"), value: data.proposalStats.rejected },
       { name: t("chartPending"), value: data.proposalStats.pending },
     ];
-  }, [data, t]);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pendingBreakdown = useMemo(() => {
     if (!data?.pendingApprovals) return "";
@@ -207,7 +224,7 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
     if (pa.coordinators > 0) parts.push(t("coordinatorsCount", { count: pa.coordinators }));
     if (pa.supervisors > 0) parts.push(t("supervisorsCount", { count: pa.supervisors }));
     return parts.join(" · ");
-  }, [data, t]);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPending = (data?.pendingApprovals.total ?? 0) || pendingVerificationCount;
 

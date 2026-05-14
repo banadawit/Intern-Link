@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api/client";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodStudentApprovalsTable from "@/components/hod/HodStudentApprovalsTable";
 import type { HodStudentRow } from "@/components/hod/types";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 type FilterStatus = "all" | "pending" | "approved" | "rejected" | "placed";
 
 const FILTER_KEYS: FilterStatus[] = ["all", "pending", "approved", "rejected", "placed"];
+const PAGE_SIZE = 7;
 
 export default function HodStudentsPage() {
   const t = useTranslations("HodPortal.students");
@@ -23,6 +24,7 @@ export default function HodStudentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterStatus>("all");
+  const [page, setPage] = useState(1);
 
   const [confirm, setConfirm] = useState<{ id: number; action: "approve" | "reject"; reason?: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -46,7 +48,7 @@ export default function HodStudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilter, t]);
+  }, [activeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { void load(); }, [load]);
 
@@ -147,7 +149,7 @@ export default function HodStudentsPage() {
           <button
             key={value}
             type="button"
-            onClick={() => setActiveFilter(value)}
+            onClick={() => { setActiveFilter(value); setPage(1); }}
             className={cn(
               "rounded-xl px-4 py-2 text-sm font-semibold transition-colors capitalize",
               activeFilter === value
@@ -165,15 +167,64 @@ export default function HodStudentsPage() {
           <Loader2 className="h-10 w-10 animate-spin text-primary-600" aria-hidden />
         </div>
       ) : (
-        <HodStudentApprovalsTable
-          students={students}
-          submitting={submitting}
-          onApprove={(id) => setConfirm({ id, action: "approve" })}
-          onReject={(id) => { setRejectReason(""); setConfirm({ id, action: "reject" }); }}
-          onFlag={(id) => { setFlagTarget(id); setFlagType("LOW_PERFORMANCE"); setFlagNote(""); }}
-          onUnflag={onUnflag}
-          onReprocess={onReprocess}
-        />
+        <>
+          <HodStudentApprovalsTable
+            students={students.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+            submitting={submitting}
+            onApprove={(id) => setConfirm({ id, action: "approve" })}
+            onReject={(id) => { setRejectReason(""); setConfirm({ id, action: "reject" }); }}
+            onFlag={(id) => { setFlagTarget(id); setFlagType("LOW_PERFORMANCE"); setFlagNote(""); }}
+            onUnflag={onUnflag}
+            onReprocess={onReprocess}
+          />
+
+          {/* Pagination */}
+          {students.length > 0 && (() => {
+            const totalPages = Math.ceil(students.length / PAGE_SIZE);
+            return (
+              <div className="flex flex-col items-center gap-3 pt-2">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Showing{" "}
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
+                    {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, students.length)}
+                  </span>{" "}
+                  of <span className="font-semibold text-slate-700 dark:text-slate-200">{students.length}</span> students
+                </p>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                    className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                    .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                      if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("…");
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, i) =>
+                      p === "…" ? (
+                        <span key={`e-${i}`} className="px-2 text-slate-400 text-sm">…</span>
+                      ) : (
+                        <button key={p} type="button" onClick={() => setPage(p as number)}
+                          className={cn("min-w-[2rem] rounded-xl border px-3 py-1.5 text-sm font-medium transition-all",
+                            page === p
+                              ? "border-primary-600 bg-primary-600 text-white shadow-sm"
+                              : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                          )}>
+                          {p}
+                        </button>
+                      )
+                    )}
+                  <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                    className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </>
       )}
 
       <ConfirmDialog
