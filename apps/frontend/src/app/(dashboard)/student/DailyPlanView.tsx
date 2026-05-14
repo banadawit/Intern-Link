@@ -9,7 +9,31 @@ import {
   Calendar, CheckCircle2, Loader2, ChevronDown, ChevronUp,
 } from "lucide-react";
 
+import SuccessToast from "@/components/shared/SuccessToast";
+import { useTranslations } from "next-intl";
+
+type DayEntry = {
+  planId: string;
+  planWeek: number;
+  ymd: string;
+  notes: string;
+  done: boolean;
+};
+
+function todayYmd(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatYmd(ymd: string): string {
+  return new Date(`${ymd}T12:00:00.000Z`).toLocaleDateString(undefined, {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+}
+
+
 export default function DailyPlanView() {
+  const t = useTranslations("StudentPortal.dailyPlan");
   const [plans, setPlans] = useState<WeeklyPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,9 +51,8 @@ export default function DailyPlanView() {
       );
       setPlans(mapped);
     } catch {
-      setError("Could not load plans. Make sure you have an active internship placement.");
-    } finally {
-      setLoading(false);
+      setError(t("loadError"));
+    } finally {      setLoading(false);
     }
   }, []);
 
@@ -37,10 +60,46 @@ export default function DailyPlanView() {
 
   const approvedPlans = plans.filter((p) => p.status === "Approved");
 
+
+  const submitDay = async (planId: string, ymd: string) => {
+    const key = `${planId}-${ymd}`;
+    setBusy(key);
+    try {
+      await api.post(`/progress/plan/${planId}/days`, {
+        workDate: ymd,
+        notes: notes[key]?.trim() || undefined,
+      });
+      setToast({ show: true, message: `✅ Daily plan for ${formatYmd(ymd)} submitted` });
+      await load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+        ?? "Could not submit daily plan.";
+      setError(msg);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const removeDay = async (planId: string, ymd: string) => {
+    const key = `${planId}-${ymd}`;
+    setBusy(key);
+    try {
+      await api.delete(`/progress/plan/${planId}/days/${ymd}`);
+      await load();
+    } catch {
+      setError(t("removeError"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+
   if (loading) {
     return (
       <div className="flex min-h-[30vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        <span className="sr-only">{t("loading")}</span>
       </div>
     );
   }
@@ -57,9 +116,13 @@ export default function DailyPlanView() {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-16 text-center">
         <CheckCircle2 className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
-        <p className="text-base font-semibold text-slate-600 dark:text-slate-400">No approved plans yet</p>
+        <p className="text-base font-semibold text-slate-600 dark:text-slate-400">{t("noApprovedPlans")}</p>
         <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+
           Daily attendance is recorded automatically when your supervisor approves a weekly plan.
+
+          {t("noApprovedPlansDesc")}
+
         </p>
       </div>
     );
@@ -68,9 +131,15 @@ export default function DailyPlanView() {
   return (
     <div className="space-y-6">
       <div>
+
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Daily Attendance</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Your daily attendance is recorded automatically when your supervisor approves your weekly plan.
+
+        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("title")}</h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {t("description")}
+
         </p>
       </div>
 
@@ -99,12 +168,15 @@ export default function DailyPlanView() {
                 <Calendar className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-900 dark:text-slate-100">Week {plan.weekNumber}</p>
+                <p className="font-bold text-slate-900 dark:text-slate-100">{t("weekLabel")} {plan.weekNumber}</p>
                 {plan.tasks && (
                   <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-1">{plan.tasks}</p>
                 )}
                 <p className="text-xs text-slate-500 dark:text-slate-400">
+
                   {submittedDates.length} day{submittedDates.length !== 1 ? "s" : ""} recorded
+         {submittedDates.size} {submittedDates.size !== 1 ? t("days") : t("day")} {t("submitted")}
+
                 </p>
               </div>
               {/* Progress bar */}
@@ -133,9 +205,13 @@ export default function DailyPlanView() {
               <div className="border-t border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
                 {plan.tasks && (
                   <div className="px-5 py-3 bg-slate-50/60 dark:bg-slate-800/40">
+
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">
                       This week&apos;s plan
                     </p>
+
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">{t("thisWeeksPlan")}</p>
+
                     <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{plan.tasks}</p>
                   </div>
                 )}
@@ -172,6 +248,98 @@ export default function DailyPlanView() {
           </div>
         );
       })}
+
+
+      <SuccessToast
+        show={toast.show}
+        message={toast.message}
+        onClose={() => setToast({ show: false, message: "" })}
+      />
+    </div>
+  );
+}
+
+// ─── Day entry form ───────────────────────────────────────────────────────────
+
+function DayEntryForm({
+  planId, ymd, isToday, done, noteValue, onNoteChange, onSubmit, onRemove, busy,
+}: {
+  planId: string;
+  ymd: string;
+  isToday: boolean;
+  done: boolean;
+  noteValue: string;
+  onNoteChange: (v: string) => void;
+  onSubmit: () => void;
+  onRemove: () => void;
+  busy: boolean;
+}) {
+  const t = useTranslations("StudentPortal.dailyPlan");
+  const label = new Date(`${ymd}T12:00:00.000Z`).toLocaleDateString(undefined, {
+    weekday: "long", month: "short", day: "numeric",
+  });
+
+  return (
+    <div className={cn(
+      "px-5 py-4",
+      done ? "bg-emerald-50/40 dark:bg-emerald-900/10" : "bg-white dark:bg-slate-900"
+    )}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+          done ? "bg-emerald-500 text-white" : "border-2 border-slate-300 dark:border-slate-600"
+        )}>
+          {done && <CheckCircle2 className="h-4 w-4" />}
+        </div>
+        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</span>
+        {isToday && (
+          <span className="rounded-full bg-primary-100 dark:bg-primary-900/40 px-2 py-0.5 text-[10px] font-bold text-primary-700 dark:text-primary-300">
+            {t("today")}
+          </span>
+        )}
+        {done && (
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={busy}
+            className="ml-auto text-xs text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+          >
+            {t("undo")}
+          </button>
+        )}
+      </div>
+
+      {!done && (
+        <div className="space-y-3">
+          <textarea
+            value={noteValue}
+            onChange={(e) => onNoteChange(e.target.value)}
+            placeholder={t("notesPlaceholder")}
+            rows={4}
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 resize-none"
+          />
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={busy || !noteValue.trim()}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            {busy ? t("submitting") : t("submitDailyPlan")}
+          </button>
+        </div>
+      )}
+
+      {done && (
+        <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
+          ✓ {t("submitDailyPlan")}
+        </p>
+      )}
+
     </div>
   );
 }

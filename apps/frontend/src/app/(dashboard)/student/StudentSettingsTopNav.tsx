@@ -12,8 +12,17 @@ const items = [
   { href: "/student/settings/alerts", label: "Alerts", icon: BellRing, exact: false },
 ];
 
+import { useTranslations } from "next-intl";
+
+
 export default function StudentSettingsTopNav() {
+  const t = useTranslations("StudentPortal.settings");
   const pathname = usePathname();
+
+  const items = [
+    { href: "/student/settings", label: t("profile"), icon: User, exact: true },
+    { href: "/student/settings/alerts", label: t("alerts"), icon: BellRing, exact: false },
+  ];
 
   const isActive = (href: string, exact: boolean) => {
     if (exact) return pathname === href;
@@ -23,7 +32,7 @@ export default function StudentSettingsTopNav() {
   return (
     <nav
       className="flex flex-wrap gap-2 border-b border-border-default pb-4"
-      aria-label="Settings sections"
+      aria-label={t("settingsSections")}
     >
       {items.map((item) => {
         const active = isActive(item.href, item.exact);

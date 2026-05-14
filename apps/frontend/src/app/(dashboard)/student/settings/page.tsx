@@ -7,8 +7,10 @@ import { mapStudentProfileFromMe, type StudentMeResponse } from "@/lib/api/mappe
 import type { StudentProfile } from "@/lib/superadmin/types";
 import { cn } from "@/lib/utils";
 import StudentPageHero from "../StudentPageHero";
+import { useTranslations } from "next-intl";
 
 export default function StudentSettingsProfilePage() {
+  const t = useTranslations("StudentPortal.settings");
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +35,7 @@ export default function StudentSettingsProfilePage() {
   if (loading) {
     return (
       <p className="pb-4 text-sm text-text-muted" role="status">
-        Loading profile…
+        {t("loadingProfile")}
       </p>
     );
   }
@@ -42,7 +44,7 @@ export default function StudentSettingsProfilePage() {
   if (!s) {
     return (
       <p className="text-sm text-red-600" role="alert">
-        Could not load profile.
+        {t("couldNotLoadProfile")}
       </p>
     );
   }
@@ -57,9 +59,9 @@ export default function StudentSettingsProfilePage() {
   return (
     <div className="space-y-8 pb-4 animate-in fade-in duration-300">
       <StudentPageHero
-        badge="Settings"
-        title="Profile"
-        description="Your account details and internship placement summary."
+        badge={t("settingsTitle")}
+        title={t("profileTitle")}
+        description={t("profileDesc")}
       />
 
       <div className="card overflow-hidden p-0">
@@ -91,8 +93,8 @@ export default function StudentSettingsProfilePage() {
               <Building2 className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Assigned company</p>
-              <p className="font-semibold text-slate-900">{s.assignedCompany || "Not assigned"}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t("assignedCompany")}</p>
+              <p className="font-semibold text-slate-900">{s.assignedCompany || t("notAssigned")}</p>
             </div>
           </div>
           <div className="flex items-start gap-3 rounded-xl bg-slate-50/80 p-4 ring-1 ring-slate-100">
@@ -100,8 +102,8 @@ export default function StudentSettingsProfilePage() {
               <User className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Supervisor</p>
-              <p className="font-semibold text-slate-900">{s.supervisorName || "Not assigned"}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t("supervisor")}</p>
+              <p className="font-semibold text-slate-900">{s.supervisorName || t("notAssigned")}</p>
             </div>
           </div>
           <div className="flex items-start gap-3 rounded-xl bg-slate-50/80 p-4 ring-1 ring-slate-100 sm:col-span-2">
@@ -109,8 +111,8 @@ export default function StudentSettingsProfilePage() {
               <Mail className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Supervisor email</p>
-              <p className="break-all font-semibold text-slate-900">{s.supervisorEmail || "N/A"}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{t("supervisorEmail")}</p>
+              <p className="break-all font-semibold text-slate-900">{s.supervisorEmail || t("na")}</p>
             </div>
           </div>
         </div>

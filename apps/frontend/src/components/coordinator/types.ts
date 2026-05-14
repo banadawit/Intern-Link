@@ -1,5 +1,6 @@
 export type CoordinatorDashboardStats = {
   universityId: number;
+  universityName: string;
   hods: { total: number; pending: number; approved: number; rejected: number };
   students: {
     total: number;

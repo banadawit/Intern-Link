@@ -27,6 +27,7 @@ router.patch('/students/:id/reprocess', hodEnhanced.reprocessStudent);
 router.get('/companies', hodCtrl.getCompanies);
 router.get('/invited-companies', hodCtrl.getInvitedCompanies);
 router.post('/invite-company', hodCtrl.inviteCompany);
+router.delete('/invited-companies/:id', hodCtrl.deleteInvitedCompany);
 
 // ── Proposals ─────────────────────────────────────────────────────────────────
 router.get('/proposals/open-letters', hodCtrl.getOpenLetterProposals);

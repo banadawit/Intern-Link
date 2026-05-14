@@ -593,6 +593,38 @@ export const inviteCompany = async (req: AuthRequest, res: Response) => {
         const { email, company_name } = req.body;
         if (!email || !company_name) return sendError(res, 'email and company_name are required', 400);
 
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return sendError(res, 'The email address format is invalid.', 400);
+        }
+
+        // Validate domain has MX records (real email domain)
+        const domain = (email as string).split('@')[1];
+        try {
+            const { promises: dnsPromises } = await import('dns');
+            const mxRecords = await dnsPromises.resolveMx(domain);
+            if (!mxRecords || mxRecords.length === 0) {
+                return sendError(res, `The email domain "${domain}" does not appear to be a valid mail domain. Please check the email address.`, 400);
+            }
+        } catch {
+            return sendError(res, `The email domain "${domain}" could not be verified. Please make sure the email address is correct.`, 400);
+        }
+
+        // Block disposable/temporary email domains
+        const disposableDomains = new Set([
+            'mailinator.com', 'guerrillamail.com', 'tempmail.com', 'throwaway.email',
+            'yopmail.com', 'sharklasers.com', 'guerrillamailblock.com', 'grr.la',
+            'guerrillamail.info', 'guerrillamail.biz', 'guerrillamail.de', 'guerrillamail.net',
+            'guerrillamail.org', 'spam4.me', 'trashmail.com', 'trashmail.me', 'trashmail.net',
+            'dispostable.com', 'mailnull.com', 'spamgourmet.com', 'maildrop.cc',
+            'fakeinbox.com', 'tempr.email', 'discard.email', 'spambox.us',
+            'getairmail.com', 'filzmail.com', 'throwam.com', 'spamherelots.com',
+        ]);
+        if (disposableDomains.has(domain.toLowerCase())) {
+            return sendError(res, `Disposable or temporary email addresses are not allowed. Please use a real company email.`, 400);
+        }
+
         const existing = await prisma.company.findFirst({ where: { official_email: email } });
         if (existing) return sendError(res, 'A company with this email already exists.', 400);
 
@@ -638,6 +670,30 @@ export const getInvitedCompanies = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const deleteInvitedCompany = async (req: AuthRequest, res: Response) => {
+    try {
+        const uid = req.user?.userId;
+        const hod = await getHodOr403(uid!);
+        if (!hod) return sendError(res, 'HOD profile not found.', 403);
+
+        const companyId = parseInt(String(req.params.id), 10);
+        if (isNaN(companyId)) return sendError(res, 'Invalid company ID.', 400);
+
+        // Verify this company was invited by this HOD and is still PENDING
+        const company = await prisma.company.findUnique({ where: { id: companyId } });
+        if (!company) return sendError(res, 'Company not found.', 404);
+        if (company.invited_by_hod_id !== hod.id) return sendError(res, 'You can only remove companies you invited.', 403);
+        if (company.approval_status === 'APPROVED') {
+            return sendError(res, 'Cannot remove a company that has already accepted the invitation and registered.', 400);
+        }
+
+        await prisma.company.delete({ where: { id: companyId } });
+        return sendSuccess(res, { companyId }, 'Invitation removed from history.');
+    } catch (e: any) {
+        return sendError(res, e.message);
+    }
+};
+
 export const getOpenLetterProposals = async (req: AuthRequest, res: Response) => {
     try {
         const uid = req.user?.userId;
@@ -664,7 +720,7 @@ export const getOpenLetterProposals = async (req: AuthRequest, res: Response) =>
                 expected_duration_weeks: true,
                 expected_outcomes: true,
                 student: { include: { user: { select: { full_name: true, email: true } } } },
-                company: { select: { id: true, name: true, official_email: true, approval_status: true, address: true } },
+                company: { select: { id: true, name: true, official_email: true, approval_status: true, address: true, stamp_image_url: true, verification_doc: true } },
             },
             orderBy: { submitted_at: 'desc' },
         });
@@ -789,7 +845,29 @@ export const getReports = async (req: AuthRequest, res: Response) => {
         
         const reports = deptIds.length === 0 ? [] : await prisma.report.findMany({
             where: { studentId: { in: deptIds } },
-            include: { student: { include: { user: { select: { full_name: true, email: true } } } } },
+            include: {
+                student: {
+                    include: {
+                        user: { select: { full_name: true, email: true } },
+                        finalEvaluation: {
+                            select: {
+                                technical_skills: true,
+                                problem_solving: true,
+                                communication: true,
+                                team_collaboration: true,
+                                time_management: true,
+                                adaptability: true,
+                                professionalism: true,
+                                initiative_creativity: true,
+                                attendance_punctuality: true,
+                                task_completion_quality: true,
+                                comments: true,
+                                evaluated_at: true,
+                            },
+                        },
+                    },
+                },
+            },
             orderBy: { generated_at: 'desc' },
         });
         return sendSuccess(res, reports);

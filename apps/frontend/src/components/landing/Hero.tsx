@@ -3,8 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion, useAnimation, useInView } from 'framer-motion';
 import { useRef } from 'react';
+import { useTranslations } from 'next-intl';
 
 const Hero = () => {
+  const t = useTranslations('Hero');
   const [isHovered, setIsHovered] = useState(false);
   const [activeRole, setActiveRole] = useState(0);
   const [mockupTilt, setMockupTilt] = useState({ x: 0, y: 0 });
@@ -47,33 +49,17 @@ const Hero = () => {
   };
 
   const stats = [
-    { value: '50+', label: 'Partner Companies', color: 'primary' },
-    { value: '2,000+', label: 'Active Students', color: 'success' },
-    { value: '98%', label: 'Placement Rate', color: 'warning' },
-    { value: '24/7', label: 'Support', color: 'info' },
+    { value: '50+', label: t('stats.partnerCompanies'), color: 'primary' },
+    { value: '2,000+', label: t('stats.activeStudents'), color: 'success' },
+    { value: '98%', label: t('stats.placementRate'), color: 'warning' },
+    { value: '24/7', label: t('stats.support'), color: 'info' },
   ];
 
   const roleHighlights = [
-    {
-      title: 'Students',
-      subtitle: 'Submit weekly plans and track progress in real-time',
-      tone: 'bg-teal-50 text-teal-700 ring-teal-600/20',
-    },
-    {
-      title: 'Coordinators',
-      subtitle: 'Monitor placements and university-company collaboration',
-      tone: 'bg-green-50 text-green-700 ring-green-600/20',
-    },
-    {
-      title: 'Supervisors',
-      subtitle: 'Review tasks, attendance, and final evaluations quickly',
-      tone: 'bg-yellow-50 text-yellow-700 ring-yellow-600/20',
-    },
-    {
-      title: 'Admins',
-      subtitle: 'Verify institutions and keep the system secure',
-      tone: 'bg-blue-50 text-blue-700 ring-blue-600/20',
-    },
+    { title: t('roles.students'), subtitle: t('roles.studentsSubtitle'), tone: 'bg-teal-50 text-teal-700 ring-teal-600/20' },
+    { title: t('roles.coordinators'), subtitle: t('roles.coordinatorsSubtitle'), tone: 'bg-green-50 text-green-700 ring-green-600/20' },
+    { title: t('roles.supervisors'), subtitle: t('roles.supervisorsSubtitle'), tone: 'bg-yellow-50 text-yellow-700 ring-yellow-600/20' },
+    { title: t('roles.admins'), subtitle: t('roles.adminsSubtitle'), tone: 'bg-blue-50 text-blue-700 ring-blue-600/20' },
   ];
 
   const handleMockupMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -120,58 +106,31 @@ const Hero = () => {
           {/* Left Side: Content */}
           <div className="flex-1 text-center lg:text-left">
             <motion.div variants={itemVariants}>
-              <div className="mb-6 inline-flex items-center rounded-full bg-teal-50 px-4 py-1.5 text-sm font-medium text-teal-700 ring-1 ring-inset ring-teal-600/20 shadow-soft">
-                <span className="relative flex h-2 w-2 mr-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                </span>
-                Official Platform for Ethiopian Universities
-              </div>
             </motion.div>
 
             <motion.h1 
               variants={itemVariants}
               className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl md:text-6xl lg:text-5xl xl:text-6xl dark:text-slate-100"
             >
-              Digitizing the Future of{' '}
+              {t('title')}{' '}
               <span className="relative inline-block">
                 <span className="relative z-10 bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent">
-                  Internships
+                  {t('titleHighlight')}
                 </span>
-                <svg
-                  className="absolute -bottom-2 left-0 w-full h-3 text-teal-200/60 -z-0"
-                  viewBox="0 0 100 10"
-                  preserveAspectRatio="none"
-                >
-                  <path
-                    d="M0,5 Q10,2 20,5 T40,5 T60,5 T80,5 T100,5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    fill="none"
-                    strokeLinecap="round"
-                  />
+                <svg className="absolute -bottom-2 left-0 w-full h-3 text-teal-200/60 -z-0" viewBox="0 0 100 10" preserveAspectRatio="none">
+                  <path d="M0,5 Q10,2 20,5 T40,5 T60,5 T80,5 T100,5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
                 </svg>
               </span>
-              <br />
-              <span className="text-slate-900 dark:text-slate-100">in Ethiopia</span>
             </motion.h1>
 
             <motion.p 
               variants={itemVariants}
               className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg lg:mx-0 dark:text-slate-300"
             >
-              A smart, centralized ecosystem connecting{' '}
-              <span className="font-semibold text-slate-900 dark:text-slate-100">Students</span>,{' '}
-              <span className="font-semibold text-slate-900 dark:text-slate-100">Coordinators</span>, and{' '}
-              <span className="font-semibold text-slate-900 dark:text-slate-100">Industry Partners</span>{' '}
-              for seamless placement, supervision, and evaluation.
+              {t('subtitle')}
             </motion.p>
 
             <motion.div variants={itemVariants} className="mt-5">
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                Live workflow for all major roles
-              </div>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={roleHighlights[activeRole].title}
@@ -202,7 +161,7 @@ const Hero = () => {
                 className="group relative w-full sm:w-auto overflow-hidden rounded-lg bg-gradient-to-r from-teal-600 to-teal-700 px-8 py-4 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:from-teal-700 hover:to-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
               >
                 <span className="relative z-10 flex items-center justify-center gap-2">
-                  Get Started
+                  {t('getStarted')}
                   <svg
                     className={`h-5 w-5 transition-transform duration-300 ${
                       isHovered ? 'translate-x-1' : ''
@@ -227,7 +186,7 @@ const Hero = () => {
                 className="group w-full sm:w-auto rounded-lg border border-slate-200 bg-white px-8 py-4 text-sm font-semibold text-slate-700 shadow-soft transition-all duration-300 hover:border-teal-200 hover:bg-slate-50 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 <span className="flex items-center justify-center gap-2">
-                  Explore Companies
+                  {t('learnMore')}
                   <svg
                     className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-0.5"
                     fill="none"

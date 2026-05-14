@@ -18,6 +18,7 @@ import {
 import api from "@/lib/api/client";
 import AdminPageHero from "./AdminPageHero";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface Config {
   registration_student_open: string;
@@ -34,8 +35,6 @@ interface Config {
   maintenance_message: string;
   [key: string]: string;
 }
-
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -70,6 +69,8 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.C
 }
 
 export default function SystemSettings() {
+  const t = useTranslations("AdminPortal.settings");
+  const days = t.raw("days") as string[];
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,11 +88,11 @@ export default function SystemSettings() {
       const { data } = await api.get<{ success: boolean; data: Config }>("/admin/config");
       setConfig(data.data);
     } catch {
-      setError("Failed to load configuration.");
+      setError(t("loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -109,7 +110,7 @@ export default function SystemSettings() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch {
-      setError("Failed to save configuration.");
+      setError(t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -136,7 +137,7 @@ export default function SystemSettings() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      setError("Failed to export audit log.");
+      setError(t("exportFailed"));
     } finally {
       setExportLoading(false);
     }
@@ -153,7 +154,7 @@ export default function SystemSettings() {
       setBroadcast({ title: "", content: "" });
       setTimeout(() => setBroadcastSuccess(false), 4000);
     } catch {
-      setError("Failed to send broadcast.");
+      setError(t("broadcastFailed"));
     } finally {
       setBroadcastSending(false);
     }
@@ -170,7 +171,7 @@ export default function SystemSettings() {
   if (!config) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-        {error ?? "Could not load configuration."}
+        {error ?? t("couldNotLoad")}
       </div>
     );
   }
@@ -178,9 +179,9 @@ export default function SystemSettings() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <AdminPageHero
-        badge="Settings"
-        title="System Configuration"
-        description="Manage platform-wide settings, registration controls, and operational parameters."
+        badge={t("heroBadge")}
+        title={t("heroTitle")}
+        description={t("heroDescription")}
       />
 
       {error && (
@@ -191,20 +192,31 @@ export default function SystemSettings() {
       )}
 
       {/* ── Registration Controls ── */}
-      <Section title="Registration Controls" icon={ToggleRight}>
+      <Section title={t("sectionRegistration")} icon={ToggleRight}>
         <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-          Enable or disable new registrations per role. Existing accounts are not affected.
+          {t("sectionRegistrationLead")}
         </p>
         <div className="flex flex-wrap gap-3">
           {(["student", "coordinator", "hod", "supervisor"] as const).map((role) => {
             const key = `registration_${role}_open` as keyof Config;
             const isOpen = config[key] === "true";
+            const roleLabel =
+              role === "student"
+                ? t("roleStudent")
+                : role === "coordinator"
+                  ? t("roleCoordinator")
+                  : role === "hod"
+                    ? t("roleHod")
+                    : t("roleSupervisor");
             return (
               <Toggle
                 key={role}
                 value={isOpen}
                 onChange={(v) => set(key, v ? "true" : "false")}
-                label={`${role.charAt(0).toUpperCase() + role.slice(1)} registration ${isOpen ? "open" : "closed"}`}
+                label={t("registrationToggle", {
+                  role: roleLabel,
+                  state: isOpen ? t("registrationStateOpen") : t("registrationStateClosed"),
+                })}
               />
             );
           })}
@@ -212,22 +224,22 @@ export default function SystemSettings() {
       </Section>
 
       {/* ── Maintenance Mode ── */}
-      <Section title="Maintenance Mode" icon={AlertTriangle}>
+      <Section title={t("sectionMaintenance")} icon={AlertTriangle}>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Enable maintenance mode</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Blocks all new registrations and shows a message to users.</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("maintenanceEnableTitle")}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t("maintenanceEnableHint")}</p>
             </div>
             <Toggle
               value={config.maintenance_mode === "true"}
               onChange={(v) => set("maintenance_mode", v ? "true" : "false")}
-              label={config.maintenance_mode === "true" ? "Active" : "Inactive"}
+              label={config.maintenance_mode === "true" ? t("toggleActive") : t("toggleInactive")}
             />
           </div>
           {config.maintenance_mode === "true" && (
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Maintenance message</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("maintenanceMessageLabel")}</label>
               <textarea
                 value={config.maintenance_message}
                 onChange={(e) => set("maintenance_message", e.target.value)}
@@ -240,12 +252,12 @@ export default function SystemSettings() {
       </Section>
 
       {/* ── Internship Rules ── */}
-      <Section title="Internship Rules" icon={Settings}>
+      <Section title={t("sectionInternship")} icon={Settings}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { key: "internship_min_weeks", label: "Min duration (weeks)", type: "number", min: 1, max: 52 },
-            { key: "internship_max_weeks", label: "Max duration (weeks)", type: "number", min: 1, max: 52 },
-            { key: "max_weekly_plans", label: "Max weekly plans", type: "number", min: 1, max: 52 },
+            { key: "internship_min_weeks" as const, label: t("labelMinWeeks"), type: "number", min: 1, max: 52 },
+            { key: "internship_max_weeks" as const, label: t("labelMaxWeeks"), type: "number", min: 1, max: 52 },
+            { key: "max_weekly_plans" as const, label: t("labelMaxWeeklyPlans"), type: "number", min: 1, max: 52 },
           ].map(({ key, label, min, max }) => (
             <div key={key} className="space-y-1">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{label}</label>
@@ -260,23 +272,23 @@ export default function SystemSettings() {
             </div>
           ))}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Weekly plan deadline</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("labelWeeklyDeadline")}</label>
             <select
               value={config.weekly_plan_deadline_day}
               onChange={(e) => set("weekly_plan_deadline_day", e.target.value)}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             >
-              {DAYS.map((d) => <option key={d}>{d}</option>)}
+              {days.map((d) => <option key={d}>{d}</option>)}
             </select>
           </div>
         </div>
       </Section>
 
       {/* ── Platform Info ── */}
-      <Section title="Platform Information" icon={Settings}>
+      <Section title={t("sectionPlatform")} icon={Settings}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Platform name</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("labelPlatformName")}</label>
             <input
               type="text"
               value={config.platform_name}
@@ -285,7 +297,7 @@ export default function SystemSettings() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Support email</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("labelSupportEmail")}</label>
             <input
               type="email"
               value={config.support_email}
@@ -297,21 +309,21 @@ export default function SystemSettings() {
       </Section>
 
       {/* ── Email / SMTP ── */}
-      <Section title="Email & SMTP" icon={Mail}>
+      <Section title={t("sectionEmailSmtp")} icon={Mail}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">SMTP connection status</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Tests the current SMTP configuration from your .env file.</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("smtpStatusTitle")}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t("smtpStatusHint")}</p>
           </div>
           <div className="flex items-center gap-3">
             {smtpStatus === "ok" && (
               <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
-                <CheckCircle2 className="h-4 w-4" /> Connected
+                <CheckCircle2 className="h-4 w-4" /> {t("smtpConnected")}
               </span>
             )}
             {smtpStatus === "fail" && (
               <span className="flex items-center gap-1.5 text-sm font-semibold text-red-600">
-                <XCircle className="h-4 w-4" /> Failed
+                <XCircle className="h-4 w-4" /> {t("smtpFailed")}
               </span>
             )}
             <button
@@ -325,34 +337,34 @@ export default function SystemSettings() {
               ) : (
                 <RefreshCw className="h-4 w-4" />
               )}
-              Test SMTP
+              {t("testSmtp")}
             </button>
           </div>
         </div>
       </Section>
 
       {/* ── Broadcast Announcement ── */}
-      <Section title="Broadcast Announcement" icon={Megaphone}>
+      <Section title={t("sectionBroadcast")} icon={Megaphone}>
         <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-          Send an in-app notification to all users on the platform.
+          {t("broadcastLead")}
         </p>
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Title</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("broadcastTitleLabel")}</label>
             <input
               type="text"
               value={broadcast.title}
               onChange={(e) => setBroadcast((b) => ({ ...b, title: e.target.value }))}
-              placeholder="e.g., System maintenance scheduled"
+              placeholder={t("broadcastTitlePlaceholder")}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Message</label>
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("broadcastMessageLabel")}</label>
             <textarea
               value={broadcast.content}
               onChange={(e) => setBroadcast((b) => ({ ...b, content: e.target.value }))}
-              placeholder="Write your announcement here…"
+              placeholder={t("broadcastMessagePlaceholder")}
               rows={3}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none"
             />
@@ -365,11 +377,11 @@ export default function SystemSettings() {
               className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-60 transition-colors"
             >
               {broadcastSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
-              Send to all users
+              {t("broadcastSend")}
             </button>
             {broadcastSuccess && (
               <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
-                <CheckCircle2 className="h-4 w-4" /> Sent successfully
+                <CheckCircle2 className="h-4 w-4" /> {t("broadcastSent")}
               </span>
             )}
           </div>
@@ -377,11 +389,11 @@ export default function SystemSettings() {
       </Section>
 
       {/* ── Data & Compliance ── */}
-      <Section title="Data & Compliance" icon={Download}>
+      <Section title={t("sectionDataCompliance")} icon={Download}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Export audit log</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Download the last 5,000 audit entries as a CSV file.</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("exportAuditTitle")}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t("exportAuditHint")}</p>
           </div>
           <button
             type="button"
@@ -390,7 +402,7 @@ export default function SystemSettings() {
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-60 transition-colors"
           >
             {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Download CSV
+            {t("downloadCsv")}
           </button>
         </div>
       </Section>
@@ -399,7 +411,7 @@ export default function SystemSettings() {
       <div className="flex items-center justify-end gap-3 pb-8">
         {saveSuccess && (
           <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
-            <CheckCircle2 className="h-4 w-4" /> Settings saved
+            <CheckCircle2 className="h-4 w-4" /> {t("settingsSaved")}
           </span>
         )}
         <button
@@ -409,7 +421,7 @@ export default function SystemSettings() {
           className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700 disabled:opacity-60 transition-all"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save all settings
+          {t("saveAllSettings")}
         </button>
       </div>
     </div>

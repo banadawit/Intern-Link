@@ -27,6 +27,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             pendingSupervisors,
             totalEvaluations,
             totalReports,
+            pendingOrganizationRequests,
         ] = await Promise.all([
             prisma.university.count({ where: { approval_status: 'PENDING' } }),
             prisma.company.count({ where: { approval_status: 'PENDING' } }),
@@ -37,8 +38,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             prisma.internshipAssignment.count({ where: { status: 'ACTIVE' } }),
             prisma.coordinator.count({
                 where: {
-                    universityId: { equals: null },
-                    user: { institution_access_approval: 'PENDING' },
+                    user: { institution_access_approval: 'PENDING', role: 'COORDINATOR' },
                 },
             }),
             prisma.supervisor.count({
@@ -46,6 +46,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             }),
             prisma.finalEvaluation.count(),
             prisma.report.count(),
+            prisma.organizationRequest.count({ where: { status: 'PENDING' } }),
         ]);
 
         res.json({
@@ -58,12 +59,16 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             activeInternships,
             pendingCoordinators,
             pendingSupervisors,
+            pendingHods: await prisma.hodProfile.count({ where: { user: { institution_access_approval: 'PENDING' } } }),
             totalEvaluations,
             totalReports,
+            pendingOrganizationRequests,
             rejectedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'REJECTED' } }),
             rejectedSupervisors: await prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'REJECTED' } }),
+            rejectedHods: await prisma.user.count({ where: { role: 'HOD', institution_access_approval: 'REJECTED' } }),
             suspendedCoordinators: await prisma.user.count({ where: { role: 'COORDINATOR', institution_access_approval: 'SUSPENDED' } }),
             suspendedSupervisors: await prisma.user.count({ where: { role: 'SUPERVISOR', institution_access_approval: 'SUSPENDED' } }),
+            suspendedHods: await prisma.user.count({ where: { role: 'HOD', institution_access_approval: 'SUSPENDED' } }),
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -128,7 +133,7 @@ export const listCompanies = async (req: AuthRequest, res: Response) => {
 
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
-        const take = Math.min(500, Math.max(1, parseInt(String(req.query.take || '100'), 10) || 100));
+        const take = Math.min(1000, Math.max(1, parseInt(String(req.query.take || '500'), 10) || 500));
         const logs = await prisma.auditLog.findMany({
             orderBy: { timestamp: 'desc' },
             take,
@@ -374,6 +379,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
             id: true,
             full_name: true,
             email: true,
+            verification_document: true,
             role: true,
             verification_status: true,
             institution_access_approval: true,
@@ -753,13 +759,101 @@ export const getSuspendedCoordinators = async (req: AuthRequest, res: Response) 
     } catch (error: any) { res.status(500).json({ error: error.message }); }
 };
 
-/** List all coordinators pending admin approval (no university linked yet) */
+/** List all coordinators pending admin approval */
+/** List all pending HODs */
+export const getPendingHods = async (req: AuthRequest, res: Response) => {
+    try {
+        const hods = await prisma.hodProfile.findMany({
+            where: { user: { institution_access_approval: 'PENDING' } },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                        verification_status: true,
+                        institution_access_approval: true,
+                        verification_document: true,
+                        created_at: true,
+                    },
+                },
+                university: { select: { id: true, name: true } },
+            },
+            orderBy: { user: { created_at: 'desc' } },
+        });
+        res.json(hods);
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
+/** Approve a pending HOD */
+export const approveHod = async (req: AuthRequest, res: Response) => {
+    try {
+        const rawId = req.params.userId;
+        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+
+        const hod = await prisma.hodProfile.findUnique({
+            where: { userId },
+            include: { user: true, university: true },
+        });
+        if (!hod) return res.status(404).json({ error: 'HOD not found' });
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'APPROVED', verification_status: 'APPROVED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'APPROVED_HOD',
+                targetId: userId,
+                details: `Approved HOD ${hod.user.full_name} for university "${hod.university.name}" - department "${hod.department}"`,
+            },
+        });
+
+        await sendNotification(userId, `✅ Your Head of Department account has been approved. You can now access the coordinator portal.`);
+        res.json({ message: 'HOD approved', userId });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
+/** Reject a pending HOD */
+export const rejectHod = async (req: AuthRequest, res: Response) => {
+    try {
+        const rawId = req.params.userId;
+        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+        const { reason } = req.body as { reason?: string };
+        const rejectionReason = reason?.trim() || 'Your credentials could not be verified.';
+
+        const hod = await prisma.hodProfile.findUnique({
+            where: { userId },
+            include: { user: true, university: true },
+        });
+        if (!hod) return res.status(404).json({ error: 'HOD not found' });
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'REJECTED', verification_status: 'REJECTED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'REJECTED_HOD',
+                targetId: userId,
+                details: `Rejected HOD ${hod.user.full_name} for university "${hod.university.name}". Reason: ${rejectionReason}`,
+            },
+        });
+
+        await sendNotification(userId, `❌ Your HOD registration was rejected. Reason: ${rejectionReason}`);
+        res.json({ message: 'HOD rejected', userId });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
     try {
         const coordinators = await prisma.coordinator.findMany({
             where: {
-                universityId: { equals: null },
-                user: { institution_access_approval: 'PENDING' },
+                user: { institution_access_approval: 'PENDING', role: 'COORDINATOR' },
             },
             include: {
                 user: {
@@ -773,6 +867,7 @@ export const getPendingCoordinators = async (req: AuthRequest, res: Response) =>
                         created_at: true,
                     },
                 },
+                university: { select: { id: true, name: true } },
             },
             orderBy: { user: { created_at: 'desc' } },
         });
@@ -794,6 +889,8 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
     try {
         const rawId = req.params.userId;
         const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+        // Admin can override the university name when approving a new-university request
+        const { universityNameOverride } = req.body as { universityNameOverride?: string };
 
         const coordinator = await prisma.coordinator.findUnique({
             where: { userId },
@@ -803,10 +900,39 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
         if (!coordinator) {
             return res.status(404).json({ error: 'Coordinator not found' });
         }
-        if (coordinator.universityId) {
-            return res.status(400).json({ error: 'Coordinator is already linked to a university' });
+        if (coordinator.universityId && coordinator.user.institution_access_approval === 'APPROVED') {
+            return res.status(400).json({ error: 'Coordinator is already approved and linked to a university' });
         }
 
+        // Case 1: Coordinator already linked to an existing university (selected during registration)
+        if (coordinator.universityId) {
+            // Just approve the user — university already exists and is approved
+            await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    institution_access_approval: 'APPROVED',
+                    verification_status: 'APPROVED',
+                },
+            });
+
+            const university = await prisma.university.findUnique({ where: { id: coordinator.universityId } });
+
+            await prisma.auditLog.create({
+                data: {
+                    adminId: req.user!.userId,
+                    action: 'APPROVED_COORDINATOR',
+                    targetId: userId,
+                    details: `Approved coordinator ${coordinator.user.full_name} — linked to existing university "${university?.name ?? coordinator.universityId}"`,
+                },
+            });
+
+            await sendOrganizationApprovalEmail(coordinator.user.email, university?.name ?? 'your university', 'University');
+            await sendNotification(userId, `✅ Your coordinator account has been approved. You can now access the platform.`);
+
+            return res.json({ message: 'Coordinator approved', universityId: coordinator.universityId });
+        }
+
+        // Case 2: New university request — pending_university_name must exist
         const pendingName = coordinator.pending_university_name;
         if (!pendingName) {
             return res.status(400).json({ error: 'No pending university name on this coordinator profile' });
@@ -831,9 +957,11 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
 
         // New university request — find or create
         if (!resolvedUniversity) {
-            const universityName = pendingName.startsWith('__EXISTING__:')
-                ? pendingName.split(':').slice(2).join(':')
-                : pendingName;
+            // Admin can override the name (e.g. fix "harama" → "Haramaya University")
+            const universityName = universityNameOverride?.trim() ||
+                (pendingName.startsWith('__EXISTING__:')
+                    ? pendingName.split(':').slice(2).join(':')
+                    : pendingName);
 
             resolvedUniversity = await prisma.university.findFirst({ where: { name: universityName } });
             if (!resolvedUniversity) {
@@ -1195,16 +1323,21 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         };
 
         // ── Evaluation stats ──────────────────────────────────────────────────
+        const avg10 = (e: any) => Math.round(([
+            e.technical_skills, e.problem_solving, e.communication, e.team_collaboration,
+            e.time_management, e.adaptability, e.professionalism, e.initiative_creativity,
+            e.attendance_punctuality, e.task_completion_quality
+        ].reduce((s: number, v: any) => s + Number(v), 0) / 10) * 10) / 10;
+
         const evalData = await prisma.finalEvaluation.findMany({
-            select: { technical_score: true, soft_skill_score: true },
+            select: { technical_skills: true, problem_solving: true, communication: true, team_collaboration: true, time_management: true, adaptability: true, professionalism: true, initiative_creativity: true, attendance_punctuality: true, task_completion_quality: true },
         });
         const evalStats = evalData.length > 0
             ? {
                 count: evalData.length,
-                avgTechnical: Math.round(evalData.reduce((s, e) => s + Number(e.technical_score), 0) / evalData.length * 10) / 10,
-                avgSoftSkill: Math.round(evalData.reduce((s, e) => s + Number(e.soft_skill_score), 0) / evalData.length * 10) / 10,
+                avgOverall: Math.round(evalData.reduce((s, e) => s + avg10(e), 0) / evalData.length * 10) / 10,
             }
-            : { count: 0, avgTechnical: 0, avgSoftSkill: 0 };
+            : { count: 0, avgOverall: 0 };
 
         // ── Recent activity (paginated) ───────────────────────────────────────
         const activityPage = Math.max(1, parseInt(String(req.query.activityPage ?? '1'), 10) || 1);
@@ -1254,5 +1387,59 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         });
     } catch (error: any) {
         return res.status(500).json({ error: error.message });
+    }
+};
+
+/** DELETE /admin/universities/:id — permanently remove a university and all linked data */
+export const deleteUniversity = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid university ID.' });
+
+        const university = await prisma.university.findUnique({ where: { id } });
+        if (!university) return res.status(404).json({ success: false, error: 'University not found.' });
+
+        // Cascade: delete all students, coordinators, hods, proposals, reports linked to this university
+        // Prisma onDelete: Cascade handles most relations; we just delete the root record.
+        await prisma.university.delete({ where: { id } });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'DELETE_UNIVERSITY',
+                targetId: id,
+                details: `Permanently deleted university: ${university.name}`,
+            },
+        });
+
+        return res.json({ success: true, message: `University "${university.name}" deleted.` });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+/** DELETE /admin/companies/:id — permanently remove a company and all linked data */
+export const deleteCompany = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid company ID.' });
+
+        const company = await prisma.company.findUnique({ where: { id } });
+        if (!company) return res.status(404).json({ success: false, error: 'Company not found.' });
+
+        await prisma.company.delete({ where: { id } });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'DELETE_COMPANY',
+                targetId: id,
+                details: `Permanently deleted company: ${company.name}`,
+            },
+        });
+
+        return res.json({ success: true, message: `Company "${company.name}" deleted.` });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, error: error.message });
     }
 };

@@ -10,6 +10,18 @@ export type HodStats = {
   recentPendingStudents: { id: number; full_name: string; email: string }[];
   university: { name: string };
   department: string;
+  // Enhanced stats
+  placementRate: number;
+  reportsCompletionRate: number;
+  approvalSuccessRate: number;
+  alerts: {
+    type: 'UNPLACED' | 'NEEDS_REASSIGNMENT' | 'INACTIVE';
+    message: string;
+    studentId: number;
+    studentName: string;
+    daysElapsed?: number;
+  }[];
+  weeklyPlacementTrend: { weekLabel: string; weekStart: string; count: number }[];
 };
 
 export type HodStudentRow = {
@@ -18,7 +30,17 @@ export type HodStudentRow = {
   internship_status: string;
   department: string | null;
   studentId: string | null;
+  flag_type: string | null;
+  flag_note: string | null;
   user: { full_name: string; email: string; verification_document: string | null };
+  latestProposal: {
+    id: number;
+    status: string;
+    companyId: number;
+    companyName: string;
+    submittedAt: string;
+    proposalType: string;
+  } | null;
 };
 
 export type HodCompanyRow = {
@@ -38,8 +60,17 @@ export type HodProposalRow = {
   proposal_type: string;
   submitted_at: string;
   expected_duration_weeks: number | null;
+  expected_outcomes: string | null;
   student: { user: { full_name: string; email: string } };
-  company: { id: number; name: string };
+  company: {
+    id: number;
+    name: string;
+    official_email: string;
+    address: string | null;
+    approval_status: string;
+    stamp_image_url: string | null;
+    verification_doc: string | null;
+  };
 };
 
 export type HodReportRow = {
@@ -47,5 +78,21 @@ export type HodReportRow = {
   pdf_url: string;
   stamped: boolean;
   generated_at: string;
-  student: { user: { full_name: string; email: string } };
+  student: {
+    user: { full_name: string; email: string };
+    finalEvaluation: {
+      technical_skills: number;
+      problem_solving: number;
+      communication: number;
+      team_collaboration: number;
+      time_management: number;
+      adaptability: number;
+      professionalism: number;
+      initiative_creativity: number;
+      attendance_punctuality: number;
+      task_completion_quality: number;
+      comments: string | null;
+      evaluated_at: string;
+    } | null;
+  };
 };

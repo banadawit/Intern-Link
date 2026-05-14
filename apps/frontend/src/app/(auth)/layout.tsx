@@ -1,30 +1,27 @@
-// app/(auth)/layout.tsx
-'use client'; // Add this if using client-side auth
+'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useTranslations } from 'next-intl';
+import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 
-export default function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const router = useRouter();
+  const t = useTranslations('Auth');
+  const tBranding = useTranslations('AuthBranding');
 
-  // If already logged in, redirect to appropriate dashboard
   useEffect(() => {
     let storedUser: { role?: string; institutionAccessApproval?: string } | null = null;
     try {
-      const raw = localStorage.getItem("auth-storage");
+      const raw = localStorage.getItem('auth-storage');
       if (raw) storedUser = JSON.parse(raw)?.state?.user ?? null;
     } catch { storedUser = null; }
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem('token');
     if (!token || !storedUser?.role) return;
 
     if (
@@ -32,8 +29,7 @@ export default function AuthLayout({
       storedUser.institutionAccessApproval !== 'APPROVED'
     ) return;
 
-    // Students with pending HoD approval stay on pending page
-    if (storedUser.role === 'STUDENT' && (storedUser as any).hodApprovalStatus === 'PENDING') return;
+    if (storedUser.role === 'STUDENT' && (storedUser as { hodApprovalStatus?: string }).hodApprovalStatus === 'PENDING') return;
 
     const dest: Record<string, string> = {
       ADMIN: '/admin', COORDINATOR: '/coordinator', HOD: '/hod',
@@ -45,42 +41,38 @@ export default function AuthLayout({
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-slate-950">
-      {/* Left Side: The Form */}
+      {/* Left Side: Form */}
       <div className="flex flex-col justify-center px-8 py-12 sm:px-12 lg:px-20 xl:px-32">
-        <div className="mb-8">
-          <Link 
-            href="/" 
+        {/* Top bar: back link + language switcher */}
+        <div className="mb-8 flex items-center justify-between">
+          <Link
+            href="/"
             className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors dark:text-slate-400"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
+            {t('backToHome')}
           </Link>
+          <LanguageSwitcher />
         </div>
-        
+
         <div className="w-full max-w-md mx-auto">
           {children}
         </div>
       </div>
 
-      {/* Right Side: Visual/Branding (Hidden on Mobile) */}
+      {/* Right Side: Branding */}
       <div className="hidden lg:block relative bg-slate-900 overflow-hidden dark:bg-slate-950">
-        {/* Abstract Background Decoration */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary-600/20 to-slate-900 z-10" />
-        <div className="absolute inset-0 bg-[url('/assets/images/auth-pattern.svg')] opacity-10" />
-        
         <div className="relative z-20 h-full flex flex-col justify-center p-16 text-white">
           <div className="flex items-center gap-3 mb-8">
             <div className="h-12 w-12 rounded-2xl bg-primary-600 flex items-center justify-center text-2xl font-bold">I</div>
             <span className="text-3xl font-bold tracking-tight">InternLink</span>
           </div>
-          
           <blockquote className="space-y-4">
             <p className="text-2xl font-medium leading-relaxed">
-              &quot;Connecting the brightest minds of Haramaya University with the leading industries of Ethiopia.&quot;
+              &quot;{tBranding('quote')}&quot;
             </p>
-            <footer className="text-slate-400 dark:text-slate-500">
-              — Official Career Management Portal
-            </footer>
+            <footer className="text-slate-400">{tBranding('quoteAuthor')}</footer>
           </blockquote>
         </div>
       </div>
