@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { UserCheck, Briefcase, CheckCircle, XCircle, FileText, User, Building, Loader2, LayoutList } from "lucide-react";
 import { format } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/components/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 import CoordinatorApprovals from "./CoordinatorApprovals";
 import SupervisorApprovals from "./SupervisorApprovals";

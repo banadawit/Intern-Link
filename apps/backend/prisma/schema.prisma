@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
 }
 
 enum Role {
@@ -258,6 +257,10 @@ model Student {
   studentTeams        StudentTeam[]
   weeklyPlans         WeeklyPlan[]
   weeklyReports       WeeklyReport[]
+  managedTeams        Team[]                 @relation("TeamManager")
+  teamWeeklyPlans     TeamWeeklyPlan[]       @relation("TeamWeeklyPlanSubmitter")
+  teamDailyPlans      TeamDailyPlan[]        @relation("TeamDailyPlanSubmitter")
+  jobApplications     JobApplication[]
 }
 
 model InternshipProposal {
@@ -397,16 +400,61 @@ model Report {
 }
 
 model Team {
-  id           Int           @id @default(autoincrement())
+  id           Int              @id @default(autoincrement())
   name         String
   companyId    Int
   supervisorId Int?
   projectId    Int?
-  created_at   DateTime      @default(now())
+  created_at   DateTime         @default(now())
   deleted_at   DateTime?
+  /// Student who is the Team Leader / Project Manager for this team
+  managerId    Int?
   members      StudentTeam[]
-  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  project      Project?      @relation(fields: [projectId], references: [id])
+  weeklyPlans  TeamWeeklyPlan[]
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  manager      Student?         @relation("TeamManager", fields: [managerId], references: [id], onDelete: SetNull)
+  project      Project?         @relation(fields: [projectId], references: [id])
+}
+
+/// Weekly plan submitted by the Team Leader on behalf of the whole team.
+model TeamWeeklyPlan {
+  id               Int             @id @default(autoincrement())
+  teamId           Int
+  projectId        Int?
+  submittedById    Int
+  week_number      Int
+  title            String?         @db.VarChar(255)
+  plan_description String          @db.Text
+  status           String          @default("PENDING")
+  feedback         String?         @db.Text
+  reviewed_at      DateTime?
+  submitted_at     DateTime        @default(now())
+  version          Int             @default(1)
+  dailyPlans       TeamDailyPlan[]
+  team             Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project          Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  submittedBy      Student         @relation("TeamWeeklyPlanSubmitter", fields: [submittedById], references: [id])
+
+  @@unique([teamId, week_number])
+  @@index([teamId])
+}
+
+/// Daily plan submitted by the Team Leader on behalf of the whole team.
+model TeamDailyPlan {
+  id               Int            @id @default(autoincrement())
+  teamWeeklyPlanId Int
+  submittedById    Int
+  workDate         DateTime       @db.Date
+  notes            String?        @db.Text
+  status           String         @default("PENDING")
+  supervisorNote   String?        @db.Text
+  reviewedAt       DateTime?
+  submittedAt      DateTime       @default(now())
+  teamWeeklyPlan   TeamWeeklyPlan @relation(fields: [teamWeeklyPlanId], references: [id], onDelete: Cascade)
+  submittedBy      Student        @relation("TeamDailyPlanSubmitter", fields: [submittedById], references: [id])
+
+  @@unique([teamWeeklyPlanId, workDate])
+  @@index([teamWeeklyPlanId])
 }
 
 model StudentTeam {
@@ -431,6 +479,7 @@ model Project {
   company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   students       StudentProject[]
   teams          Team[]
+  teamWeeklyPlans TeamWeeklyPlan[]
 }
 
 model StudentProject {
@@ -476,6 +525,7 @@ model CommonPost {
   likes              PostLike[]
   reports            PostReport[]
   views              PostView[]
+  jobOpportunity     JobOpportunity?
 
   @@index([authorId, createdAt])
   @@index([postType, createdAt])
@@ -651,4 +701,65 @@ model CoordinatorReport {
   coordinatorUserId   Int      @unique
   content             String   @db.Text
   createdAt           DateTime @default(now())
+}
+
+// ─── Job Opportunity Feature ───────────────────────────────────────────────────
+
+/// Extended metadata for CommonPost entries with postType = OPPORTUNITY.
+model JobOpportunity {
+  id           Int              @id @default(autoincrement())
+  postId       Int              @unique
+  deadline     DateTime?
+  slots        Int              @default(1)
+  /// OPEN | CLOSED | FILLED
+  status       String           @default("OPEN")
+  post         CommonPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  questions    JobQuestion[]
+  applications JobApplication[]
+
+  @@index([status])
+}
+
+/// Supervisor-defined questions attached to a job opportunity.
+model JobQuestion {
+  id            Int            @id @default(autoincrement())
+  opportunityId Int
+  question      String
+  /// true = student must answer; false = optional
+  required      Boolean        @default(true)
+  order         Int            @default(0)
+  opportunity   JobOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  answers       JobAnswer[]
+
+  @@index([opportunityId])
+}
+
+/// A student's application to a job opportunity.
+model JobApplication {
+  id            Int            @id @default(autoincrement())
+  opportunityId Int
+  studentId     Int
+  /// PENDING | ACCEPTED | REJECTED
+  status        String         @default("PENDING")
+  appliedAt     DateTime       @default(now())
+  reviewedAt    DateTime?
+  opportunity   JobOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  student       Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers       JobAnswer[]
+
+  @@unique([opportunityId, studentId])
+  @@index([opportunityId])
+  @@index([studentId])
+}
+
+/// A student's answer to one question in their application.
+model JobAnswer {
+  id            Int            @id @default(autoincrement())
+  applicationId Int
+  questionId    Int
+  answer        String         @db.Text
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  question      JobQuestion    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, questionId])
 }

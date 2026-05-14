@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/components/i18n/I18nProvider";
 import {
   CheckCircle2,
   XCircle,

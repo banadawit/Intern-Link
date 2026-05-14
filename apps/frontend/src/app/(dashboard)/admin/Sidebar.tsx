@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import LogoutModal from "@/components/common/LogoutModal";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/components/i18n/I18nProvider";
 
 export type ViewKey =
   | "dashboard"

@@ -18,7 +18,7 @@ import {
 import api from "@/lib/api/client";
 import AdminPageHero from "./AdminPageHero";
 import { cn } from "@/lib/utils";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/components/i18n/I18nProvider";
 
 interface Config {
   registration_student_open: string;

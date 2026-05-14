@@ -5,7 +5,7 @@ import { CheckCircle, XCircle, FileText, User, Building, Loader2 } from "lucide-
 import { format } from "date-fns";
 import api from "@/lib/api/client";
 import { AxiosError } from "axios";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/components/i18n/I18nProvider";
 import AdminPageHero from "./AdminPageHero";
 import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import SuccessToast from "@/components/shared/SuccessToast";
