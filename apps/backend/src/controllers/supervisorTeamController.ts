@@ -166,7 +166,16 @@ export const listProjects = async (req: AuthRequest, res: Response) => {
                     },
                     teams: {
                         where: { deleted_at: null },
-                        select: { id: true, name: true },
+                        select: {
+                            id: true,
+                            name: true,
+                            managerId: true,
+                            members: {
+                                include: {
+                                    student: { include: { user: { select: { full_name: true, email: true } } } },
+                                },
+                            },
+                        },
                     },
                 },
                 orderBy: { name: 'asc' },
@@ -334,3 +343,26 @@ export const removeProjectMember = async (req: AuthRequest, res: Response) => {
     }
 };
 
+
+/** Unassign a team from its current project (set Team.projectId = null). */
+export const unassignTeamFromProject = async (req: AuthRequest, res: Response) => {
+    try {
+        const sup = await getSupervisor(req);
+        if (!sup) return sendError(res, 'Supervisor profile not found.', 403);
+
+        const teamId = parseInt(String(req.params.teamId), 10);
+        if (Number.isNaN(teamId)) return sendError(res, 'Invalid team id.', 400);
+
+        const team = await prisma.team.findFirst({
+            where: { id: teamId, companyId: sup.companyId, deleted_at: null },
+        });
+        if (!team) return sendError(res, 'Team not found.', 404);
+
+        await prisma.team.update({ where: { id: teamId }, data: { projectId: null } });
+
+        return sendSuccess(res, { teamId }, 'Team unassigned from project.');
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        return sendError(res, message, 500);
+    }
+};

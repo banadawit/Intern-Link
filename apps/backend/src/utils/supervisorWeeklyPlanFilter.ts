@@ -12,8 +12,20 @@ export async function getPeerStudentIdsWithTeamLeaderForCompany(
     return [];
 }
 
+/** AND-clause: fully hide individual plans for team-member students from supervisor lists.
+ *  Supervisor only reviews the compiled TeamWeeklyPlan, not individual member plans.
+ */
+
 export function weeklyPlanWhereVisibleToSupervisor(
     _peerWithTlStudentIds: number[],
 ): Prisma.WeeklyPlanWhereInput {
+
+    if (peerWithTlStudentIds.length === 0) return {};
+    // Exclude ALL individual plans from students who are on a team with a TL
+    return {
+        studentId: { notIn: peerWithTlStudentIds },
+    };
+
     return {};
+ main
 }

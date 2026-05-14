@@ -53,8 +53,8 @@ export function mapWeeklyPlanRow(p: {
   tl_status?: string | null;
   tl_comment?: string | null;
   presentation?: { file_url: string } | null;
-  day_submissions?: { workDate: string | Date; notes?: string | null }[];
-  daySubmissions?: { workDate: string | Date; notes?: string | null }[];
+  day_submissions?: { workDate: string | Date; notes?: string | null; tl_status?: string | null; tl_comment?: string | null }[];
+  daySubmissions?: { workDate: string | Date; notes?: string | null; tl_status?: string | null; tl_comment?: string | null }[];
 }): WeeklyPlan {
   const url = p.presentation?.file_url ? apiFileUrl(p.presentation.file_url) : undefined;
   const path = p.presentation?.file_url ?? "";
@@ -78,6 +78,9 @@ export function mapWeeklyPlanRow(p: {
         typeof d.workDate === "string"
           ? d.workDate.slice(0, 10)
           : new Date(d.workDate).toISOString().slice(0, 10),
+      notes: d.notes ?? undefined,
+      tl_status: d.tl_status ?? undefined,
+      tl_comment: d.tl_comment ?? undefined,
     })),
   };
 }
