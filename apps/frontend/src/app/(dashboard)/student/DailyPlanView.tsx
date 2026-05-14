@@ -9,6 +9,7 @@ import {
   Calendar, CheckCircle2, Loader2, Send, ChevronDown, ChevronUp,
 } from "lucide-react";
 import SuccessToast from "@/components/shared/SuccessToast";
+import { useTranslations } from "next-intl";
 
 type DayEntry = {
   planId: string;
@@ -30,6 +31,7 @@ function formatYmd(ymd: string): string {
 }
 
 export default function DailyPlanView() {
+  const t = useTranslations("StudentPortal.dailyPlan");
   const [plans, setPlans] = useState<WeeklyPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +52,8 @@ export default function DailyPlanView() {
       const mapped = (Array.isArray(rows) ? rows : []).map((row) => mapWeeklyPlanRow(row as Parameters<typeof mapWeeklyPlanRow>[0]));
       setPlans(mapped);
     } catch {
-      setError("Could not load plans. Make sure you have an active internship placement.");
-    } finally {
-      setLoading(false);
+      setError(t("loadError"));
+    } finally {      setLoading(false);
     }
   }, []);
 
@@ -87,7 +88,7 @@ export default function DailyPlanView() {
       await api.delete(`/progress/plan/${planId}/days/${ymd}`);
       await load();
     } catch {
-      setError("Could not remove check-in.");
+      setError(t("removeError"));
     } finally {
       setBusy(null);
     }
@@ -97,6 +98,7 @@ export default function DailyPlanView() {
     return (
       <div className="flex min-h-[30vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        <span className="sr-only">{t("loading")}</span>
       </div>
     );
   }
@@ -113,9 +115,9 @@ export default function DailyPlanView() {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-16 text-center">
         <CheckCircle2 className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
-        <p className="text-base font-semibold text-slate-600 dark:text-slate-400">No approved plans yet</p>
+        <p className="text-base font-semibold text-slate-600 dark:text-slate-400">{t("noApprovedPlans")}</p>
         <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-          Daily check-ins unlock once your supervisor approves a weekly plan.
+          {t("noApprovedPlansDesc")}
         </p>
       </div>
     );
@@ -124,9 +126,9 @@ export default function DailyPlanView() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Daily Plan</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t("title")}</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Write what you worked on each day and submit. Each submission is recorded in your activity heatmap.
+          {t("description")}
         </p>
       </div>
 
@@ -151,12 +153,12 @@ export default function DailyPlanView() {
                 <Calendar className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-900 dark:text-slate-100">Week {plan.weekNumber}</p>
+                <p className="font-bold text-slate-900 dark:text-slate-100">{t("weekLabel")} {plan.weekNumber}</p>
                 {plan.tasks && (
                   <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-1">{plan.tasks}</p>
                 )}
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {submittedDates.size} day{submittedDates.size !== 1 ? "s" : ""} submitted
+                  {submittedDates.size} {submittedDates.size !== 1 ? t("days") : t("day")} {t("submitted")}
                 </p>
               </div>
               {/* Progress */}
@@ -186,7 +188,7 @@ export default function DailyPlanView() {
                 {/* Weekly plan context */}
                 {plan.tasks && (
                   <div className="px-5 py-3 bg-slate-50/60 dark:bg-slate-800/40">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">This week&apos;s plan</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1">{t("thisWeeksPlan")}</p>
                     <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{plan.tasks}</p>
                   </div>
                 )}
@@ -251,6 +253,7 @@ function DayEntryForm({
   onRemove: () => void;
   busy: boolean;
 }) {
+  const t = useTranslations("StudentPortal.dailyPlan");
   const label = new Date(`${ymd}T12:00:00.000Z`).toLocaleDateString(undefined, {
     weekday: "long", month: "short", day: "numeric",
   });
@@ -270,7 +273,7 @@ function DayEntryForm({
         <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</span>
         {isToday && (
           <span className="rounded-full bg-primary-100 dark:bg-primary-900/40 px-2 py-0.5 text-[10px] font-bold text-primary-700 dark:text-primary-300">
-            Today
+            {t("today")}
           </span>
         )}
         {done && (
@@ -280,7 +283,7 @@ function DayEntryForm({
             disabled={busy}
             className="ml-auto text-xs text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
           >
-            Undo
+            {t("undo")}
           </button>
         )}
       </div>
@@ -290,7 +293,7 @@ function DayEntryForm({
           <textarea
             value={noteValue}
             onChange={(e) => onNoteChange(e.target.value)}
-            placeholder="What did you work on today? Describe your tasks, progress, and any challenges..."
+            placeholder={t("notesPlaceholder")}
             rows={4}
             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 resize-none"
           />
@@ -305,14 +308,14 @@ function DayEntryForm({
             ) : (
               <Send className="h-4 w-4" />
             )}
-            {busy ? "Submitting…" : "Submit daily plan"}
+            {busy ? t("submitting") : t("submitDailyPlan")}
           </button>
         </div>
       )}
 
       {done && (
         <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
-          ✓ Daily plan submitted
+          ✓ {t("submitDailyPlan")}
         </p>
       )}
     </div>

@@ -60,8 +60,17 @@ export type HodProposalRow = {
   proposal_type: string;
   submitted_at: string;
   expected_duration_weeks: number | null;
+  expected_outcomes: string | null;
   student: { user: { full_name: string; email: string } };
-  company: { id: number; name: string };
+  company: {
+    id: number;
+    name: string;
+    official_email: string;
+    address: string | null;
+    approval_status: string;
+    stamp_image_url: string | null;
+    verification_doc: string | null;
+  };
 };
 
 export type HodReportRow = {

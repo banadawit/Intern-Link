@@ -133,7 +133,7 @@ export const listCompanies = async (req: AuthRequest, res: Response) => {
 
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
-        const take = Math.min(500, Math.max(1, parseInt(String(req.query.take || '100'), 10) || 100));
+        const take = Math.min(1000, Math.max(1, parseInt(String(req.query.take || '500'), 10) || 500));
         const logs = await prisma.auditLog.findMany({
             orderBy: { timestamp: 'desc' },
             take,
@@ -1387,5 +1387,59 @@ export const getAnalytics = async (req: AuthRequest, res: Response) => {
         });
     } catch (error: any) {
         return res.status(500).json({ error: error.message });
+    }
+};
+
+/** DELETE /admin/universities/:id — permanently remove a university and all linked data */
+export const deleteUniversity = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid university ID.' });
+
+        const university = await prisma.university.findUnique({ where: { id } });
+        if (!university) return res.status(404).json({ success: false, error: 'University not found.' });
+
+        // Cascade: delete all students, coordinators, hods, proposals, reports linked to this university
+        // Prisma onDelete: Cascade handles most relations; we just delete the root record.
+        await prisma.university.delete({ where: { id } });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'DELETE_UNIVERSITY',
+                targetId: id,
+                details: `Permanently deleted university: ${university.name}`,
+            },
+        });
+
+        return res.json({ success: true, message: `University "${university.name}" deleted.` });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+/** DELETE /admin/companies/:id — permanently remove a company and all linked data */
+export const deleteCompany = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = parseInt(String(req.params.id), 10);
+        if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid company ID.' });
+
+        const company = await prisma.company.findUnique({ where: { id } });
+        if (!company) return res.status(404).json({ success: false, error: 'Company not found.' });
+
+        await prisma.company.delete({ where: { id } });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'DELETE_COMPANY',
+                targetId: id,
+                details: `Permanently deleted company: ${company.name}`,
+            },
+        });
+
+        return res.json({ success: true, message: `Company "${company.name}" deleted.` });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, error: error.message });
     }
 };

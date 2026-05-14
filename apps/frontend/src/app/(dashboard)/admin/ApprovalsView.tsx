@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Clock, UserCheck, Briefcase, CheckCircle, XCircle, FileText, User, Building, Loader2, LayoutList } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { UserCheck, Briefcase, CheckCircle, XCircle, FileText, User, Building, Loader2, LayoutList } from "lucide-react";
 import { format } from "date-fns";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import VerificationList from "./VerificationList";
 import CoordinatorApprovals from "./CoordinatorApprovals";
 import SupervisorApprovals from "./SupervisorApprovals";
 import AdminPageHero from "./AdminPageHero";
@@ -46,17 +46,12 @@ interface Props {
   initialTab?: ApprovalTab;
 }
 
-const tabs: Array<{ id: ApprovalTab; label: string; icon: React.ComponentType<{ className?: string }>; title: string; description: string }> = [
-  { id: "all", label: "All", icon: LayoutList, title: "All Pending Approvals", description: "Review all pending verification requests across organizations, coordinators, and supervisors." },
-  { id: "coordinator-approvals", label: "Coordinators", icon: UserCheck, title: "Pending Coordinator Approvals", description: "Review and approve university coordinator registrations." },
-  { id: "supervisor-approvals", label: "Supervisors", icon: Briefcase, title: "Pending Supervisor Approvals", description: "Review and approve company supervisor registrations." },
-];
-
 function TypeBadge({ kind }: { kind: "org" | "coordinator" | "supervisor" }) {
+  const t = useTranslations("AdminPortal.approvals");
   const map = {
-    org: { label: "Organization", cls: "bg-blue-50 text-blue-700 ring-blue-200/80" },
-    coordinator: { label: "Coordinator", cls: "bg-teal-50 text-teal-700 ring-teal-200/80" },
-    supervisor: { label: "Supervisor", cls: "bg-violet-50 text-violet-700 ring-violet-200/80" },
+    org: { label: t("typeOrg"), cls: "bg-blue-50 text-blue-700 ring-blue-200/80" },
+    coordinator: { label: t("typeCoordinator"), cls: "bg-teal-50 text-teal-700 ring-teal-200/80" },
+    supervisor: { label: t("typeSupervisor"), cls: "bg-violet-50 text-violet-700 ring-violet-200/80" },
   };
   const { label, cls } = map[kind];
   return <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold ring-1", cls)}>{label}</span>;
@@ -73,6 +68,9 @@ function AllPendingView({
   onReviewOrg: (p: VerificationProposal) => void;
   onActionComplete: () => void;
 }) {
+  const t = useTranslations("AdminPortal.approvals");
+  const tc = useTranslations("Common");
+  const td = useTranslations("AdminPortal.dashboard");
   const [coordinators, setCoordinators] = useState<PendingCoordinator[]>([]);
   const [supervisors, setSupervisors] = useState<PendingSupervisor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +104,10 @@ function AllPendingView({
     try {
       await api.post(`/admin/${role === "coordinator" ? "coordinators" : "supervisors"}/${userId}/approve`);
       setConfirmApprove(null);
-      setToast({ show: true, message: `✅ ${role === "coordinator" ? "Coordinator" : "Supervisor"} approved successfully` });
+      setToast({
+        show: true,
+        message: role === "coordinator" ? t("toastApprovedCoord") : t("toastApprovedSup"),
+      });
       await loadPeople();
       onActionComplete();
     } catch (e) {
@@ -123,7 +124,10 @@ function AllPendingView({
     try {
       await api.post(`/admin/${role === "coordinator" ? "coordinators" : "supervisors"}/${userId}/reject`, { reason });
       setRejectTarget(null);
-      setToast({ show: true, message: `${role === "coordinator" ? "Coordinator" : "Supervisor"} registration rejected` });
+      setToast({
+        show: true,
+        message: role === "coordinator" ? t("toastRejectedCoord") : t("toastRejectedSup"),
+      });
       await loadPeople();
       onActionComplete();
     } catch (e) {
@@ -143,12 +147,12 @@ function AllPendingView({
 
   const isLoading = orgsLoading || loading;
 
-  if (isLoading) return <p className="text-sm text-slate-500">Loading pending approvals…</p>;
+  if (isLoading) return <p className="text-sm text-slate-500">{t("loadingAll")}</p>;
 
   if (unified.length === 0) return (
     <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900">
       <CheckCircle className="mx-auto mb-3 h-10 w-10 text-emerald-400" />
-      <p className="font-medium">All caught up — no pending approvals.</p>
+      <p className="font-medium">{t("allCaughtUp")}</p>
     </div>
   );
 
@@ -159,16 +163,16 @@ function AllPendingView({
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-100 text-slate-500 text-xs uppercase tracking-wider dark:bg-slate-800 dark:text-slate-400">
-                <th className="px-6 py-4 font-semibold">Name</th>
-                <th className="px-6 py-4 font-semibold">Type</th>
-                <th className="px-6 py-4 font-semibold">Institution</th>
-                <th className="px-6 py-4 font-semibold">Document</th>
-                <th className="px-6 py-4 font-semibold">Submitted</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                <th className="px-6 py-4 font-semibold">{t("tableName")}</th>
+                <th className="px-6 py-4 font-semibold">{t("tableType")}</th>
+                <th className="px-6 py-4 font-semibold">{t("tableInstitution")}</th>
+                <th className="px-6 py-4 font-semibold">{t("tableDocument")}</th>
+                <th className="px-6 py-4 font-semibold">{t("tableSubmitted")}</th>
+                <th className="px-6 py-4 font-semibold text-right">{t("tableActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-              {unified.map((item, idx) => {
+              {unified.map((item) => {
                 if (item.kind === "org") {
                   const p = item.data;
                   return (
@@ -178,7 +182,7 @@ function AllPendingView({
                           <div className="p-2 rounded-lg bg-blue-50 text-blue-600"><Building className="w-5 h-5" /></div>
                           <div>
                             <p className="font-semibold text-slate-900 dark:text-slate-100">{p.organizationName}</p>
-                            <p className="text-xs text-slate-500">{p.email ?? "—"}</p>
+                            <p className="text-xs text-slate-500">{p.email ?? td("activityDash")}</p>
                           </div>
                         </div>
                       </td>
@@ -187,12 +191,12 @@ function AllPendingView({
                       <td className="px-6 py-4">
                         {p.documents?.[0] ? (
                           <button type="button" onClick={() => setDocUrl(p.documents[0])} className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium">
-                            <FileText className="w-4 h-4" />View Doc
+                            <FileText className="w-4 h-4" />{t("viewDoc")}
                           </button>
-                        ) : <span className="text-xs text-slate-400 italic">No document</span>}
+                        ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">
-                        {p.submittedAt ? format(new Date(p.submittedAt), "MMM d, yyyy") : "—"}
+                        {p.submittedAt ? format(new Date(p.submittedAt), "MMM d, yyyy") : td("activityDash")}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end">
@@ -200,7 +204,7 @@ function AllPendingView({
                             onClick={() => onReviewOrg(p)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                           >
-                            Review
+                            {t("review")}
                           </button>
                         </div>
                       </td>
@@ -222,7 +226,7 @@ function AllPendingView({
                         </div>
                       </td>
                       <td className="px-6 py-4"><TypeBadge kind="coordinator" /></td>
-                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{c.pending_university_name ?? <span className="italic text-slate-400">Not provided</span>}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{c.pending_university_name ?? <span className="italic text-slate-400">{t("notProvided")}</span>}</td>
                       <td className="px-6 py-4">
                         {c.user.verification_document ? (
                           <button
@@ -233,9 +237,9 @@ function AllPendingView({
                             }}
                             className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                           >
-                            <FileText className="w-4 h-4" />View Doc
+                            <FileText className="w-4 h-4" />{t("viewDoc")}
                           </button>
-                        ) : <span className="text-xs text-slate-400 italic">No document</span>}
+                        ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">{format(new Date(c.user.created_at), "MMM d, yyyy")}</td>
                       <td className="px-6 py-4">
@@ -249,15 +253,15 @@ function AllPendingView({
                             }
                             title={
                               !c.user.verification_document
-                                ? "Cannot approve without a verification document"
+                                ? t("titleApproveNoDoc")
                                 : !documentViewedUserIds.has(c.userId)
-                                  ? "Open the verification document before approving"
+                                  ? t("titleOpenDocBeforeApprove")
                                   : undefined
                             }
                             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                           >
                             {actionLoading === c.userId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                            Approve
+                            {t("approve")}
                           </button>
                           <button
                             onClick={() => setRejectTarget({ userId: c.userId, role: "coordinator", reason: "" })}
@@ -267,12 +271,12 @@ function AllPendingView({
                             }
                             title={
                               c.user.verification_document && !documentViewedUserIds.has(c.userId)
-                                ? "Open the verification document before rejecting"
+                                ? t("titleOpenDocBeforeReject")
                                 : undefined
                             }
                             className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors"
                           >
-                            <XCircle className="w-3.5 h-3.5" />Reject
+                            <XCircle className="w-3.5 h-3.5" />{t("reject")}
                           </button>
                         </div>
                       </td>
@@ -280,7 +284,6 @@ function AllPendingView({
                   );
                 }
 
-                // supervisor
                 const s = item.data as PendingSupervisor;
                 return (
                   <tr key={`sup-${s.userId}`} className="hover:bg-slate-50 transition-colors dark:hover:bg-slate-800/50">
@@ -305,9 +308,9 @@ function AllPendingView({
                           }}
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
-                          <FileText className="w-4 h-4" />View Doc
+                          <FileText className="w-4 h-4" />{t("viewDoc")}
                         </button>
-                      ) : <span className="text-xs text-slate-400 italic">No document</span>}
+                      ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">{format(new Date(s.user.created_at), "MMM d, yyyy")}</td>
                     <td className="px-6 py-4">
@@ -321,15 +324,15 @@ function AllPendingView({
                           }
                           title={
                             !s.user.verification_document
-                              ? "Cannot approve without a verification document"
+                              ? t("titleApproveNoDoc")
                               : !documentViewedUserIds.has(s.userId)
-                                ? "Open the verification document before approving"
+                                ? t("titleOpenDocBeforeApprove")
                                 : undefined
                           }
                           className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                         >
                           {actionLoading === s.userId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                          Approve
+                          {t("approve")}
                         </button>
                         <button
                           onClick={() => setRejectTarget({ userId: s.userId, role: "supervisor", reason: "" })}
@@ -339,12 +342,12 @@ function AllPendingView({
                           }
                           title={
                             s.user.verification_document && !documentViewedUserIds.has(s.userId)
-                              ? "Open the verification document before rejecting"
+                              ? t("titleOpenDocBeforeReject")
                               : undefined
                           }
                           className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 transition-colors"
                         >
-                          <XCircle className="w-3.5 h-3.5" />Reject
+                          <XCircle className="w-3.5 h-3.5" />{t("reject")}
                         </button>
                       </div>
                     </td>
@@ -356,25 +359,24 @@ function AllPendingView({
         </div>
       </div>
 
-      {/* Reject modal */}
       {rejectTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 space-y-4 dark:bg-slate-900">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              Reject {rejectTarget.role === "coordinator" ? "Coordinator" : "Supervisor"}
+              {rejectTarget.role === "coordinator" ? t("rejectModalTitleCoord") : t("rejectModalTitleSup")}
             </h3>
-            <p className="text-sm text-slate-500">Provide a reason for rejection. This will be sent by email.</p>
+            <p className="text-sm text-slate-500">{t("rejectModalHint")}</p>
             <textarea
               value={rejectTarget.reason}
               onChange={(e) => setRejectTarget({ ...rejectTarget, reason: e.target.value })}
-              placeholder="e.g., Verification document is unclear or invalid..."
+              placeholder={t("rejectPlaceholder")}
               rows={3}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
             <div className="flex gap-3 pt-1">
-              <button onClick={() => setRejectTarget(null)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+              <button onClick={() => setRejectTarget(null)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">{tc("cancel")}</button>
               <button onClick={() => void handleReject()} disabled={actionLoading !== null} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors">
-                {actionLoading !== null ? "Rejecting…" : "Confirm Reject"}
+                {actionLoading !== null ? t("rejecting") : t("confirmReject")}
               </button>
             </div>
           </div>
@@ -383,11 +385,9 @@ function AllPendingView({
 
       <ConfirmDialog
         open={confirmApprove !== null}
-        title={`Approve ${confirmApprove?.role === "coordinator" ? "coordinator" : "supervisor"}?`}
-        message={confirmApprove?.role === "coordinator"
-          ? "This will create their university and grant them full coordinator access. They will be notified by email."
-          : "This will grant the supervisor access to InternLink. They will be notified by email."}
-        confirmLabel="Approve"
+        title={confirmApprove?.role === "coordinator" ? t("confirmApproveCoordTitle") : t("confirmApproveSupTitle")}
+        message={confirmApprove?.role === "coordinator" ? t("confirmApproveCoordMessage") : t("confirmApproveSupMessage")}
+        confirmLabel={t("confirmApproveLabel")}
         variant="success"
         loading={actionLoading !== null}
         onConfirm={() => void handleApprove()}
@@ -398,7 +398,7 @@ function AllPendingView({
       <PdfViewerModal
         isOpen={!!docUrl}
         pdfUrl={docUrl ?? ""}
-        title="Verification Document"
+        title={t("pdfVerificationTitle")}
         onClose={() => setDocUrl(null)}
       />
     </>
@@ -415,7 +415,18 @@ export default function ApprovalsView({
   onActionComplete,
   initialTab = "all",
 }: Props) {
+  const t = useTranslations("AdminPortal.approvals");
   const [activeTab, setActiveTab] = useState<ApprovalTab>(initialTab);
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: "all" as const, label: t("tabs.all.label"), icon: LayoutList, title: t("tabs.all.title"), description: t("tabs.all.description") },
+        { id: "coordinator-approvals" as const, label: t("tabs.coordinators.label"), icon: UserCheck, title: t("tabs.coordinators.title"), description: t("tabs.coordinators.description") },
+        { id: "supervisor-approvals" as const, label: t("tabs.supervisors.label"), icon: Briefcase, title: t("tabs.supervisors.title"), description: t("tabs.supervisors.description") },
+      ] as const,
+    [t]
+  );
 
   const badgeFor = (tab: ApprovalTab) => {
     if (tab === "all") return pendingCount + pendingCoordinatorCount + pendingSupervisorCount;
@@ -424,13 +435,16 @@ export default function ApprovalsView({
     return 0;
   };
 
-  const active = tabs.find((t) => t.id === activeTab)!;
+  const activeTabDef = tabs.find((tab) => tab.id === activeTab)!;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <AdminPageHero badge={active.id === "all" ? "Approvals" : active.label} title={active.title} description={active.description} />
+      <AdminPageHero
+        badge={activeTabDef.id === "all" ? t("badgeAll") : activeTabDef.label}
+        title={activeTabDef.title}
+        description={activeTabDef.description}
+      />
 
-      {/* Tab bar */}
       <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/50">
         {tabs.map((tab) => {
           const count = badgeFor(tab.id);

@@ -6,6 +6,7 @@ import { Loader2, RefreshCw, TrendingUp } from "lucide-react";
 import HodPageHero from "@/app/(dashboard)/hod/HodPageHero";
 import HodReportsTable from "@/components/hod/HodReportsTable";
 import type { HodReportRow } from "@/components/hod/types";
+import { useTranslations } from "next-intl";
 
 type ReportsSummary = {
   averageScore: number | null;
@@ -13,6 +14,7 @@ type ReportsSummary = {
 };
 
 export default function HodReportsPage() {
+  const t = useTranslations("HodPortal.reports");
   const [reports, setReports] = useState<HodReportRow[]>([]);
   const [summary, setSummary] = useState<ReportsSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,11 +31,11 @@ export default function HodReportsPage() {
       setReports(Array.isArray(reportsRes.data.data) ? reportsRes.data.data : []);
       setSummary(summaryRes.data.data ?? null);
     } catch {
-      setError("Could not load reports.");
+      setError(t("couldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -42,9 +44,9 @@ export default function HodReportsPage() {
   return (
     <div className="space-y-6 pb-8">
       <HodPageHero
-        badge="Reports"
-        title="Final reports"
-        description="Stamped PDFs submitted by students in your department. Open each file in a new tab."
+        badge={t("badge")}
+        title={t("title")}
+        description={t("description")}
         action={
           <button
             type="button"
@@ -53,7 +55,7 @@ export default function HodReportsPage() {
             className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-default bg-white/90 px-4 py-3 text-sm font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60 sm:w-auto dark:bg-slate-900/90 dark:text-slate-100 dark:hover:bg-slate-900"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            Refresh
+            {t("refresh")}
           </button>
         }
       />
@@ -80,7 +82,7 @@ export default function HodReportsPage() {
               <Loader2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Final Reports</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t("title")}</p>
               <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{summary.studentsWithFinalReport}</p>
             </div>
           </div>

@@ -161,13 +161,59 @@ function ConfirmModal({
   );
 }
 
-// ── Suggested prompts ─────────────────────────────────────────────────────────
-const SUGGESTED_PROMPTS = [
-  "📅 Suggest a weekly plan for my project",
-  "✅ What tasks should I focus on today?",
-  "📊 Summarize my progress so far",
-  "🚧 I'm facing a blocker, can you help?",
-];
+const getSuggestedPrompts = (role: string) => {
+  switch (role) {
+    case "visitor":
+      return [
+        "👋 What is Intern-Link?",
+        "🚀 How can this platform help me?",
+        "💡 What features do you offer?",
+        "🌍 Tell me a fun fact!",
+      ];
+    case "student":
+      return [
+        "📅 How do I structure a good weekly plan?",
+        "✅ Give me tips for a productive workday",
+        "✍️ Help me brainstorm my daily check-in",
+        "🚧 How do I communicate a blocker to my supervisor?",
+      ];
+    case "supervisor":
+      return [
+        "📝 What makes for good intern feedback?",
+        "💡 How can I keep my interns engaged?",
+        "⭐ What should I include in a final evaluation?",
+        "🤝 Give me tips for mentoring junior developers",
+      ];
+    case "coordinator":
+      return [
+        "📋 What are best practices for tracking placements?",
+        "📧 Draft an email template to remind supervisors",
+        "🏫 How can universities better support students?",
+        "🚨 Give me a template for handling an underperforming intern",
+      ];
+    case "hod":
+      return [
+        "🏢 Suggest ways to increase company partnerships",
+        "📄 Draft an official letter template for a placement",
+        "📊 What metrics evaluate an internship program?",
+        "🤝 How can we align coursework with industry needs?",
+      ];
+    case "admin":
+      return [
+        "⚙️ Best practices for managing a multi-role platform?",
+        "🔒 Give me tips for system security and access control",
+        "📈 How do I encourage user engagement?",
+        "📝 Draft an announcement for system maintenance",
+      ];
+    default:
+      return [
+        "👋 Hello! How can you help me today?",
+        "💡 Give me a tip for using this platform",
+        "❓ I have a question",
+        "🛠️ Help me with a task",
+      ];
+  }
+};
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AIChat({
@@ -176,6 +222,7 @@ export default function AIChat({
 }: Props) {
   const { user } = useAuth();
   const effectiveRole = role === "visitor" ? "visitor" : (mapAuthRoleToChatRole(user?.role) ?? role);
+  const suggestedPrompts = getSuggestedPrompts(effectiveRole);
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -472,7 +519,7 @@ export default function AIChat({
             </div>
             {/* Suggested prompts */}
             <div className="grid grid-cols-1 gap-2 w-full max-w-sm sm:grid-cols-2">
-              {SUGGESTED_PROMPTS.map((prompt) => (
+              {suggestedPrompts.map((prompt) => (
                 <button
                   key={prompt}
                   type="button"

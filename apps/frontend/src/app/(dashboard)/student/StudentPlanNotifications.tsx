@@ -22,6 +22,7 @@ import {
 } from "@/lib/student/planNotificationEvents";
 import { cn } from "@/lib/utils";
 import { notifyDesktop } from "@/lib/student/desktopNotifications";
+import { useTranslations } from "next-intl";
 
 type NoticeKind = "submitted" | "status" | "feedback" | "reviewed" | "presentation";
 
@@ -136,6 +137,7 @@ function persistReadIds(ids: Set<string>) {
 }
 
 export default function StudentPlanNotifications() {
+  const t = useTranslations("StudentPortal.planNotifications");
   const [panelOpen, setPanelOpen] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
@@ -226,8 +228,8 @@ export default function StudentPlanNotifications() {
           className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-bg-secondary text-text-heading shadow-sm transition-all hover:bg-bg-tertiary hover:shadow-md active:scale-95"
           aria-label={
             unreadCount > 0
-              ? `Plan notifications, ${unreadCount} unread`
-              : "Plan notifications, no unread items"
+              ? t("unread", { count: unreadCount })
+              : t("noUnread")
           }
         >
           <Bell className="h-5 w-5" />
@@ -248,11 +250,11 @@ export default function StudentPlanNotifications() {
             />
             <div className="absolute right-0 top-full z-[110] mt-2 w-[min(100vw-2rem,22rem)] animate-in fade-in duration-200 rounded-2xl border border-border-default bg-bg-main py-2 shadow-modal">
               <p className="border-b border-border-default px-4 pb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                All activity
+                {t("allActivity")}
               </p>
               <ul className="max-h-72 overflow-y-auto py-1">
                 {notices.length === 0 ? (
-                  <li className="px-4 py-6 text-center text-sm text-text-muted">No plan activity yet.</li>
+                  <li className="px-4 py-6 text-center text-sm text-text-muted">{t("noActivity")}</li>
                 ) : (
                   notices.map((n) => (
                     <li key={n.id} className="border-b border-border-default/80 last:border-0">
