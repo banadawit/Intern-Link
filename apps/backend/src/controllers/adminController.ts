@@ -201,6 +201,19 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
         }
 
+        if (status === 'APPROVED' && !existing.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
+        }
+
+        if (status === 'APPROVED') {
+            if (existing.approval_status !== 'SUSPENDED') {
+                const check = await checkUniversityVerification(uid);
+                if (!check.verified && check.warning) {
+                    console.warn(`[Admin Approval] University ${uid}: ${check.warning}`);
+                }
+            }
+        }
+
         // When approving, pull verification_doc from the linked coordinator if not already set
         let coordVerificationDoc: string | null = null;
         if (status === 'APPROVED' && existing.verification_doc == null) {
@@ -211,18 +224,6 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             coordVerificationDoc = coordinator?.user?.verification_document ?? null;
         }
 
-        // Enforce view-before-approve for all approvals
-        if (status === 'APPROVED' && !existing.document_viewed) {
-            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
-        }
-
-        if (status === 'APPROVED' && existing.approval_status !== 'SUSPENDED') {
-            const check = await checkUniversityVerification(uid);
-            if (!check.verified && check.warning) {
-                console.warn(`[Admin Approval] University ${uid}: ${check.warning}`);
-            }
-        }
-
         const updated = await prisma.university.update({
             where: { id: uid },
             data: {
@@ -230,8 +231,8 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
                 ...(status === 'REJECTED'
                     ? { rejection_reason: rejectionReason, verification_doc: null }
                     : status === 'SUSPENDED'
-                      ? {}
-                      : {
+                        ? {}
+                        : {
                             rejection_reason: null,
                             ...(coordVerificationDoc ? { verification_doc: coordVerificationDoc } : {}),
                         }),
@@ -321,6 +322,19 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
         }
 
+        if (status === 'APPROVED' && !existing.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
+        }
+
+        if (status === 'APPROVED') {
+            if (existing.approval_status !== 'SUSPENDED') {
+                const check = await checkCompanyVerification(cid);
+                if (!check.verified && check.warning) {
+                    console.warn(`[Admin Approval] Company ${cid}: ${check.warning}`);
+                }
+            }
+        }
+
         // When approving, pull verification_doc from the linked supervisor if not already set
         let supVerificationDoc: string | null = null;
         if (status === 'APPROVED' && existing.verification_doc == null) {
@@ -331,18 +345,6 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
             supVerificationDoc = supervisor?.user?.verification_document ?? null;
         }
 
-        // Enforce view-before-approve for all approvals
-        if (status === 'APPROVED' && !existing.document_viewed) {
-            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
-        }
-
-        if (status === 'APPROVED' && existing.approval_status !== 'SUSPENDED') {
-            const check = await checkCompanyVerification(cid);
-            if (!check.verified && check.warning) {
-                console.warn(`[Admin Approval] Company ${cid}: ${check.warning}`);
-            }
-        }
-
         const updated = await prisma.company.update({
             where: { id: cid },
             data: {
@@ -350,8 +352,8 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
                 ...(status === 'REJECTED'
                     ? { rejection_reason: rejectionReason, verification_doc: null }
                     : status === 'SUSPENDED'
-                      ? {}
-                      : {
+                        ? {}
+                        : {
                             rejection_reason: null,
                             ...(supVerificationDoc ? { verification_doc: supVerificationDoc } : {}),
                         }),
@@ -553,8 +555,8 @@ export const verifyInstitution = async (req: AuthRequest, res: Response) => {
             status === 'REJECTED'
                 ? { rejection_reason: reasonStr, verification_doc: null }
                 : status === 'SUSPENDED'
-                  ? {}
-                  : { rejection_reason: null };
+                    ? {}
+                    : { rejection_reason: null };
 
         if (type === 'UNIVERSITY') {
             updatedRecord = await prisma.university.update({
@@ -583,8 +585,8 @@ export const verifyInstitution = async (req: AuthRequest, res: Response) => {
                     status === 'REJECTED'
                         ? `Reason: ${reason}`
                         : status === 'SUSPENDED'
-                          ? 'Organization suspended by admin'
-                          : `Processed ${type} as ${status}`,
+                            ? 'Organization suspended by admin'
+                            : `Processed ${type} as ${status}`,
             },
         });
 
