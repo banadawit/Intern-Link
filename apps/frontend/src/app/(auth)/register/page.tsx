@@ -25,6 +25,8 @@ interface FormData {
   // Role-specific fields
   universityId?: number;       // Coordinator, HoD & Student: selected approved university
   universitySearch?: string;   // search input text
+  newUniversityName?: string;  // Coordinator: new university name
+  newUniversityAddress?: string; // Coordinator: new university address
   hodId?: number;              // Student: selected HoD/department
   companyId?: number;          // Supervisor: selected approved company
   companySearch?: string;      // Supervisor: search input text
@@ -75,6 +77,8 @@ const RegisterPage = () => {
     confirmPassword: '',
     universityId: undefined,
     universitySearch: '',
+    newUniversityName: '',
+    newUniversityAddress: '',
     companyName: '',
     department: '',
     studentId: '',
@@ -89,6 +93,7 @@ const RegisterPage = () => {
   // Approved universities for HoD & Student dropdown
   const [approvedUniversities, setApprovedUniversities] = useState<{ id: number; name: string; hasCoordinator: boolean }[]>([]);
   const [uniDropdownOpen, setUniDropdownOpen] = useState(false);
+  const [newUniversityMode, setNewUniversityMode] = useState(false);
   // Approved companies for Supervisor dropdown
   const [approvedCompanies, setApprovedCompanies] = useState<{ id: number; name: string }[]>([]);
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
@@ -203,10 +208,13 @@ const RegisterPage = () => {
 
   const validateRoleSpecific = () => {
     if (role === 'coordinator') {
-      if (!formData.universityId) return tErr('universityRequired');
-      // Verify the selected ID actually exists in approved universities
-      const selectedUni = approvedUniversities.find(u => u.id === formData.universityId);
-      if (!selectedUni) return tErr('universityRequired');
+      if (newUniversityMode) {
+        if (!formData.newUniversityName?.trim()) return tErr('universityRequired');
+      } else {
+        if (!formData.universityId) return tErr('universityRequired');
+        const selectedUni = approvedUniversities.find(u => u.id === formData.universityId);
+        if (!selectedUni) return tErr('universityRequired');
+      }
     }
     if (role === 'hod') {
       if (!formData.universityId) return tErr('universityRequired');
@@ -378,8 +386,12 @@ const RegisterPage = () => {
         email: formData.email,
         password: formData.password,
         role: role!,
-        ...(role === 'coordinator' && {
+        ...(role === 'coordinator' && !newUniversityMode && {
           universityId: formData.universityId,
+        }),
+        ...(role === 'coordinator' && newUniversityMode && {
+          pendingUniversityName: formData.newUniversityName,
+          universityAddress: formData.newUniversityAddress,
         }),
         ...(role === 'hod' && {
           universityId: formData.universityId,
@@ -414,7 +426,7 @@ const RegisterPage = () => {
     }
   };
 
-  const coordinatorUploadLocked = role === 'coordinator' && !formData.universityId;
+  const coordinatorUploadLocked = role === 'coordinator' && !newUniversityMode && !formData.universityId;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -731,126 +743,143 @@ const RegisterPage = () => {
           <div className="space-y-4">
             {role === 'coordinator' && (
               <>
-                {/* Searchable University Dropdown - REQUIRED FROM DATABASE ONLY */}
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {t('universityLabel')} <span className="text-red-500">* ({t('selectFromListOnly')})</span>
-                  </label>
-                  <div className="relative">
+                {newUniversityMode ? (
+                  /* ── New university mode ── */
+                  <div className="space-y-4">
                     <button
                       type="button"
-                      onClick={() => setUniDropdownOpen((o) => !o)}
-                      className={`w-full flex items-center justify-between pl-10 pr-4 py-3 rounded-xl border bg-white text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:bg-slate-900 dark:text-slate-100 ${
-                        errors.universityId 
-                          ? 'border-red-300' 
-                          : formData.universityId 
-                          ? 'border-emerald-300 dark:border-emerald-700' 
-                          : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
-                      }`}
+                      onClick={() => { setNewUniversityMode(false); setFormData(p => ({ ...p, newUniversityName: '', newUniversityAddress: '' })); }}
+                      className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
                     >
-                      <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 dark:text-slate-500" />
-                      <span className={formData.universityId ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>
-                        {formData.universityId
-                          ? approvedUniversities.find((u) => u.id === formData.universityId)?.name
-                          : t('selectUniversity')}
-                      </span>
-                      <ChevronDown className={`h-4 w-4 text-slate-400 dark:text-slate-500 transition-transform ${uniDropdownOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown className="h-4 w-4 rotate-90" />
+                      Select from existing list
                     </button>
 
-                    {uniDropdownOpen && (
-                      <div className="absolute z-20 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
-                        <div className="p-2 border-b border-slate-100 dark:border-slate-700">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                            <input
-                              type="text"
-                              name="universitySearch"
-                              value={formData.universitySearch}
-                              onChange={handleInputChange}
-                              placeholder={t('universitySearchPlaceholder')}
-                              className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:bg-slate-950 dark:text-slate-100"
-                              autoFocus
-                            />
-                          </div>
-                        </div>
-                        <ul className="max-h-48 overflow-y-auto">
-                          {approvedUniversities
-                            .filter((u) =>
-                              u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
-                            )
-                            .map((u) => (
-                              <li key={u.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setFormData((prev) => ({ ...prev, universityId: u.id, universitySearch: '' }));
-                                    setUniDropdownOpen(false);
-                                    setErrors((prev) => ({ ...prev, universityId: '' }));
-                                  }}
-                                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-700 dark:hover:text-primary-400 transition-colors ${formData.universityId === u.id ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium' : 'text-slate-700 dark:text-slate-300'}`}
-                                >
-                                  {u.name}
-                                </button>
-                              </li>
-                            ))}
-                          {approvedUniversities.filter((u) =>
-                            u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
-                          ).length === 0 && (
-                            <li className="px-4 py-3 text-sm text-slate-400 text-center">{t('noUniversitiesFound')}</li>
-                          )}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                  {errors.universityId && (
-                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {errors.universityId}
-                    </p>
-                  )}
-                </div>
-
-                {/* Selection Required Warning */}
-                {!formData.universityId && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-red-800 dark:text-red-300">{t('universitySelectionRequiredTitle')}</p>
-                        <p className="text-xs text-red-700 dark:text-red-400 mt-1">
-                          {t('universitySelectionRequiredBody')}
-                        </p>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        University Name <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                        <input
+                          type="text"
+                          name="newUniversityName"
+                          value={formData.newUniversityName || ''}
+                          onChange={handleInputChange}
+                          placeholder="e.g. Addis Ababa University"
+                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                        />
                       </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Can't find your institution? */}
-                {formData.universitySearch && approvedUniversities.filter((u) =>
-                  u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
-                ).length === 0 && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('cantFindInstitution')}</p>
-                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                          {t('cantFindInstitutionBody')}
-                        </p>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        University Address <span className="text-xs font-normal text-slate-400">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="newUniversityAddress"
+                        value={formData.newUniversityAddress || ''}
+                        onChange={handleInputChange}
+                        placeholder="e.g. Addis Ababa, Ethiopia"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                      />
+                    </div>
+
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20 px-4 py-3">
+                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                        The verification document below will be used to verify your university. An administrator will review your request and create the university account.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── Select from existing list mode ── */
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        {t('universityLabel')} <span className="text-red-500">* ({t('selectFromListOnly')})</span>
+                      </label>
+                      <div className="relative">
                         <button
                           type="button"
-                          onClick={() => {
-                            // This would navigate to an institution request form
-                            // For now, we'll keep it simple and just alert
-                            alert('Institution request feature coming soon. Please contact support.');
-                          }}
-                          className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 underline underline-offset-2"
+                          onClick={() => setUniDropdownOpen((o) => !o)}
+                          className={`w-full flex items-center justify-between pl-10 pr-4 py-3 rounded-xl border bg-white text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:bg-slate-900 dark:text-slate-100 ${
+                            errors.universityId
+                              ? 'border-red-300'
+                              : formData.universityId
+                              ? 'border-emerald-300 dark:border-emerald-700'
+                              : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
+                          }`}
                         >
-                          {t('requestNewInstitution')}
+                          <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                          <span className={formData.universityId ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>
+                            {formData.universityId
+                              ? approvedUniversities.find((u) => u.id === formData.universityId)?.name
+                              : t('selectUniversity')}
+                          </span>
+                          <ChevronDown className={`h-4 w-4 text-slate-400 dark:text-slate-500 transition-transform ${uniDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
+
+                        {uniDropdownOpen && (
+                          <div className="absolute z-20 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden">
+                            <div className="p-2 border-b border-slate-100 dark:border-slate-700">
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                                <input
+                                  type="text"
+                                  name="universitySearch"
+                                  value={formData.universitySearch}
+                                  onChange={handleInputChange}
+                                  placeholder={t('universitySearchPlaceholder')}
+                                  className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:bg-slate-950 dark:text-slate-100"
+                                  autoFocus
+                                />
+                              </div>
+                            </div>
+                            <ul className="max-h-48 overflow-y-auto">
+                              {approvedUniversities
+                                .filter((u) => u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase()))
+                                .map((u) => (
+                                  <li key={u.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFormData((prev) => ({ ...prev, universityId: u.id, universitySearch: '' }));
+                                        setUniDropdownOpen(false);
+                                        setErrors((prev) => ({ ...prev, universityId: '' }));
+                                      }}
+                                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-700 dark:hover:text-primary-400 transition-colors ${formData.universityId === u.id ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium' : 'text-slate-700 dark:text-slate-300'}`}
+                                    >
+                                      {u.name}
+                                    </button>
+                                  </li>
+                                ))}
+                              {approvedUniversities.filter((u) =>
+                                u.name.toLowerCase().includes((formData.universitySearch || '').toLowerCase())
+                              ).length === 0 && (
+                                <li className="px-4 py-3 text-sm text-slate-400 text-center">{t('noUniversitiesFound')}</li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
                       </div>
+                      {errors.universityId && (
+                        <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors.universityId}
+                        </p>
+                      )}
                     </div>
-                  </div>
+
+                    {/* Toggle to new university mode */}
+                    <button
+                      type="button"
+                      onClick={() => { setNewUniversityMode(true); setFormData(p => ({ ...p, universityId: undefined, universitySearch: '' })); setUniDropdownOpen(false); }}
+                      className="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
+                    >
+                      My university is not in the list — register a new one
+                    </button>
+                  </>
                 )}
               </>
             )}
@@ -1278,16 +1307,16 @@ const RegisterPage = () => {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isLoading || authLoading || (role === 'coordinator' && !formData.universityId)}
+              disabled={isLoading || authLoading || (role === 'coordinator' && !newUniversityMode && !formData.universityId)}
               className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700 disabled:opacity-70 disabled:cursor-not-allowed"
-              title={role === 'coordinator' && !formData.universityId ? t('selectUniversityFirst') : ''}
+              title={role === 'coordinator' && !newUniversityMode && !formData.universityId ? t('selectUniversityFirst') : ''}
             >
               {isLoading || authLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {t('creatingAccount')}
                 </>
-              ) : role === 'coordinator' && !formData.universityId ? (
+              ) : role === 'coordinator' && !newUniversityMode && !formData.universityId ? (
                 <>
                   <AlertCircle className="h-4 w-4" />
                   {t('selectUniversityToContinue')}

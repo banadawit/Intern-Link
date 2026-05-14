@@ -1,38 +1,31 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
-  Building, Briefcase, Search, CheckCircle2, XCircle, Ban, RotateCcw,
-  Loader2, Filter, UserCheck, User, CheckCircle, FileText, Trash2,
+  Briefcase, Search, XCircle, Ban,
+  Loader2, Filter, UserCheck, User, CheckCircle, FileText,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import AdminPageHero from "./AdminPageHero";
-import { VerificationProposal } from "@/lib/superadmin/types";
 import api from "@/lib/api/client";
 import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
-type OrgTab = "universities" | "companies" | "coordinators" | "supervisors";
+type OrgTab = "coordinators" | "supervisors";
 const PAGE_SIZE = 10;
 
-const STATUS_CONFIG = {
-  Pending:   { bg: "bg-amber-50",   text: "text-amber-700",   ring: "ring-amber-200"   },
-  Approved:  { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-200" },
-  Rejected:  { bg: "bg-red-50",     text: "text-red-700",     ring: "ring-red-200"     },
-  Suspended: { bg: "bg-slate-100",  text: "text-slate-600",   ring: "ring-slate-200"   },
-};
-
 interface Props {
-  proposals: VerificationProposal[];
+  proposals: never[];
   loading: boolean;
-  onReview: (p: VerificationProposal) => void;
+  onReview: (p: never) => void;
   onActionComplete: () => void;
 }
 
 interface PersonUser {
   id: number; full_name: string; email: string;
   created_at: string; institution_access_approval?: string;
+  verification_document?: string | null;
 }
 interface CoordinatorRow {
   id: number; userId: number;
@@ -47,7 +40,6 @@ interface SupervisorRow {
 }
 type PersonStatus = "approved" | "rejected" | "suspended";
 
-// ── Pagination helper ─────────────────────────────────────────────────────────
 function Pagination({ page, total, pageSize, onChange }: {
   page: number; total: number; pageSize: number; onChange: (p: number) => void;
 }) {
@@ -55,9 +47,7 @@ function Pagination({ page, total, pageSize, onChange }: {
   if (totalPages <= 1) return null;
   return (
     <div className="flex items-center justify-between px-1 pt-2">
-      <p className="text-xs text-slate-400">
-        Page {page} of {totalPages} &middot; {total} total
-      </p>
+      <p className="text-xs text-slate-400">Page {page} of {totalPages} &middot; {total} total</p>
       <div className="flex items-center gap-1">
         <button type="button" disabled={page <= 1} onClick={() => onChange(page - 1)}
           className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors">
@@ -67,58 +57,20 @@ function Pagination({ page, total, pageSize, onChange }: {
           .filter((n) => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
           .reduce<(number | "…")[]>((acc, n, i, arr) => {
             if (i > 0 && n - (arr[i - 1] as number) > 1) acc.push("…");
-            acc.push(n);
-            return acc;
+            acc.push(n); return acc;
           }, [])
-          .map((n, i) =>
-            n === "…" ? (
-              <span key={`ellipsis-${i}`} className="px-1 text-xs text-slate-400">…</span>
-            ) : (
-              <button key={n} type="button" onClick={() => onChange(n as number)}
+          .map((n, i) => n === "…"
+            ? <span key={`e-${i}`} className="px-1 text-xs text-slate-400">…</span>
+            : <button key={n} type="button" onClick={() => onChange(n as number)}
                 className={cn("min-w-[28px] rounded-lg px-2 py-1 text-xs font-semibold transition-colors",
                   page === n ? "bg-teal-600 text-white" : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700")}>
                 {n}
               </button>
-            )
           )}
         <button type="button" disabled={page >= totalPages} onClick={() => onChange(page + 1)}
           className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 transition-colors">
           <ChevronRight className="h-4 w-4" />
         </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Delete confirmation dialog ────────────────────────────────────────────────
-function DeleteConfirm({ name, onConfirm, onCancel, loading }: {
-  name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
-}) {
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-xl space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-red-100 p-2.5 text-red-600"><Trash2 className="h-5 w-5" /></div>
-          <div>
-            <p className="font-bold text-slate-900 dark:text-slate-100">Delete permanently?</p>
-            <p className="text-xs text-slate-500 mt-0.5">This cannot be undone.</p>
-          </div>
-        </div>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          You are about to delete <span className="font-semibold">{name}</span> and all associated data (users, proposals, reports).
-        </p>
-        <div className="flex gap-2 justify-end">
-          <button type="button" onClick={onCancel} disabled={loading}
-            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors">
-            Cancel
-          </button>
-          <button type="button" onClick={onConfirm} disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
-            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Delete
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -151,6 +103,7 @@ function CoordinatorsPanel() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const { data: approved, loading: l1 } = usePersonList<CoordinatorRow>("/admin/approved-coordinators");
   const { data: rejected, loading: l2 } = usePersonList<CoordinatorRow>("/admin/rejected-coordinators");
@@ -205,7 +158,8 @@ function CoordinatorsPanel() {
                 <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <th className="px-6 py-3">Coordinator</th>
                   <th className="px-6 py-3">University</th>
-                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Registered</th>
+                  <th className="px-6 py-3">Document</th>
                   <th className="px-6 py-3">Status</th>
                 </tr>
               </thead>
@@ -225,6 +179,14 @@ function CoordinatorsPanel() {
                       {c.university?.name ?? c.pending_university_name ?? <span className="italic text-slate-400">—</span>}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">{format(new Date(c.user.created_at), "MMM d, yyyy")}</td>
+                    <td className="px-6 py-4">
+                      {c.user.verification_document ? (
+                        <button type="button" onClick={() => setDocUrl(c.user.verification_document!)}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700">
+                          <FileText className="w-3.5 h-3.5" /> View doc
+                        </button>
+                      ) : <span className="text-xs text-slate-400 italic">—</span>}
+                    </td>
                     <td className="px-6 py-4">{statusBadge(c._status)}</td>
                   </tr>
                 ))}
@@ -234,6 +196,7 @@ function CoordinatorsPanel() {
         )}
       </div>
       <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+      <PdfViewerModal isOpen={!!docUrl} pdfUrl={docUrl ?? ""} title="Verification Document" onClose={() => setDocUrl(null)} />
     </div>
   );
 }
@@ -243,6 +206,7 @@ function SupervisorsPanel() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const { data: approved, loading: l1 } = usePersonList<SupervisorRow>("/admin/approved-supervisors");
   const { data: rejected, loading: l2 } = usePersonList<SupervisorRow>("/admin/rejected-supervisors");
@@ -297,7 +261,8 @@ function SupervisorsPanel() {
                 <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <th className="px-6 py-3">Supervisor</th>
                   <th className="px-6 py-3">Company</th>
-                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Registered</th>
+                  <th className="px-6 py-3">Document</th>
                   <th className="px-6 py-3">Status</th>
                 </tr>
               </thead>
@@ -315,6 +280,14 @@ function SupervisorsPanel() {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{s.company.name}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">{format(new Date(s.user.created_at), "MMM d, yyyy")}</td>
+                    <td className="px-6 py-4">
+                      {s.user.verification_document ? (
+                        <button type="button" onClick={() => setDocUrl(s.user.verification_document!)}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700">
+                          <FileText className="w-3.5 h-3.5" /> View doc
+                        </button>
+                      ) : <span className="text-xs text-slate-400 italic">—</span>}
+                    </td>
                     <td className="px-6 py-4">{statusBadge(s._status)}</td>
                   </tr>
                 ))}
@@ -324,79 +297,29 @@ function SupervisorsPanel() {
         )}
       </div>
       <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
+      <PdfViewerModal isOpen={!!docUrl} pdfUrl={docUrl ?? ""} title="Verification Document" onClose={() => setDocUrl(null)} />
     </div>
   );
 }
 
+export default function OrganizationsView(_props: Props) {
+  const [tab, setTab] = useState<OrgTab>("coordinators");
 
-export default function OrganizationsView({ proposals, loading, onReview, onActionComplete }: Props) {
-  const [tab, setTab] = useState<OrgTab>("universities");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Approved" | "Rejected" | "Suspended">("All");
-  const [page, setPage] = useState(1);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; kind: "uni" | "com" } | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return proposals.filter((p) => {
-      const matchesType = tab === "universities" ? p.organizationType === "University" : p.organizationType === "Company";
-      const matchesSearch = !q || p.organizationName.toLowerCase().includes(q) || (p.description ?? "").toLowerCase().includes(q);
-      const matchesStatus = statusFilter === "All" || p.status === statusFilter;
-      return matchesType && matchesSearch && matchesStatus;
-    });
-  }, [proposals, tab, search, statusFilter]);
-
-  const paginated = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
-
-  const counts = useMemo(() => {
-    const byType = (type: "University" | "Company") => proposals.filter((p) => p.organizationType === type);
-    return {
-      universities: byType("University").length,
-      uniPending: byType("University").filter((p) => p.status === "Pending").length,
-      companies: byType("Company").length,
-      compPending: byType("Company").filter((p) => p.status === "Pending").length,
-    };
-  }, [proposals]);
-
-  const orgTabs: Array<{ id: OrgTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number; pending?: number }> = [
-    { id: "universities", label: "Universities", icon: Building,  count: counts.universities, pending: counts.uniPending },
-    { id: "companies",    label: "Companies",    icon: Briefcase, count: counts.companies,    pending: counts.compPending },
+  const orgTabs: Array<{ id: OrgTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
     { id: "coordinators", label: "Coordinators", icon: UserCheck },
     { id: "supervisors",  label: "Supervisors",  icon: Briefcase },
   ];
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleteLoading(true);
-    try {
-      const numericId = deleteTarget.id.replace(/^(uni|com)-/, "");
-      const endpoint = deleteTarget.kind === "uni"
-        ? `/admin/universities/${numericId}`
-        : `/admin/companies/${numericId}`;
-      await api.delete(endpoint);
-      setDeleteTarget(null);
-      onActionComplete();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Delete failed.";
-      alert(msg);
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <AdminPageHero
-        badge="Organizations"
-        title="Organizations & Members"
-        description="Manage all universities, companies, coordinators, and supervisors on the platform."
+        badge="Members"
+        title="Coordinators & Supervisors"
+        description="View all registered coordinators and supervisors on the platform."
       />
-
       <div className="flex gap-1 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-1">
         {orgTabs.map((t) => (
-          <button key={t.id} type="button"
-            onClick={() => { setTab(t.id); setSearch(""); setStatusFilter("All"); setPage(1); }}
+          <button key={t.id} type="button" onClick={() => setTab(t.id)}
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
               tab === t.id
@@ -405,177 +328,11 @@ export default function OrganizationsView({ proposals, loading, onReview, onActi
             )}>
             <t.icon className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">{t.label}</span>
-            {t.count !== undefined && (
-              <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                tab === t.id ? "bg-teal-100 text-teal-800" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300")}>
-                {t.count}
-              </span>
-            )}
-            {t.pending !== undefined && t.pending > 0 && (
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-amber-800">
-                {t.pending} pending
-              </span>
-            )}
           </button>
         ))}
       </div>
-
       {tab === "coordinators" && <CoordinatorsPanel />}
       {tab === "supervisors" && <SupervisorsPanel />}
-
-      {(tab === "universities" || tab === "companies") && (
-        <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                placeholder={`Search ${tab}…`}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 pl-9 pr-4 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20" />
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Filter className="h-4 w-4 text-slate-400 shrink-0" />
-              {(["All", "Pending", "Approved", "Rejected", "Suspended"] as const).map((s) => (
-                <button key={s} type="button" onClick={() => { setStatusFilter(s); setPage(1); }}
-                  className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-all",
-                    statusFilter === s ? "bg-teal-600 text-white shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700")}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
-            {loading ? (
-              <div className="flex min-h-[30vh] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-              </div>
-            ) : paginated.length === 0 ? (
-              <div className="flex min-h-[20vh] items-center justify-center text-sm text-slate-400">
-                No {tab} match your filters.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      <th className="px-6 py-3">Name</th>
-                      <th className="px-6 py-3">Email</th>
-                      <th className="px-6 py-3">Address</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3">Registered</th>
-                      <th className="px-6 py-3">Documents</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {paginated.map((p) => {
-                      const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG.Pending;
-                      const kind: "uni" | "com" = p.organizationType === "University" ? "uni" : "com";
-                      return (
-                        <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                          <td className="px-6 py-4">
-                            <p className="font-semibold text-slate-900 dark:text-slate-100">{p.organizationName}</p>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                            {p.email ? (
-                              <a href={`mailto:${p.email}`} className="hover:text-teal-600 hover:underline">{p.email}</a>
-                            ) : (
-                              <span className="text-xs text-slate-400 italic">—</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400 max-w-[160px] truncate">
-                            {p.description || <span className="italic text-slate-400">—</span>}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ring-1", cfg.bg, cfg.text, cfg.ring)}>
-                              {p.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-slate-500 text-xs">
-                            {format(new Date(p.submittedAt), "MMM d, yyyy")}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col gap-1">
-                              {p.documents?.[0] ? (
-                                <a href={p.documents[0]} target="_blank" rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
-                                  <FileText className="h-3 w-3" /> Verification doc
-                                </a>
-                              ) : (
-                                <span className="text-xs text-slate-400 italic">No doc</span>
-                              )}
-                              {p.stampImageUrl && (
-                                <a href={p.stampImageUrl} target="_blank" rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700">
-                                  <FileText className="h-3 w-3" /> Stamp
-                                </a>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                              <button type="button" onClick={() => onReview(p)}
-                                className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                                Review
-                              </button>
-                              {p.status === "Pending" && (
-                                <button type="button" onClick={() => onReview(p)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors">
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                                </button>
-                              )}
-                              {p.status === "Approved" && (
-                                <button type="button" onClick={() => onReview(p)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors">
-                                  <Ban className="h-3.5 w-3.5" /> Suspend
-                                </button>
-                              )}
-                              {p.status === "Suspended" && (
-                                <button type="button" onClick={() => onReview(p)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-teal-50 border border-teal-200 px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 transition-colors">
-                                  <RotateCcw className="h-3.5 w-3.5" /> Reactivate
-                                </button>
-                              )}
-                              {p.status === "Rejected" && (
-                                <button type="button" onClick={() => onReview(p)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors">
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                                </button>
-                              )}
-                              {(p.status === "Pending" || p.status === "Approved") && (
-                                <button type="button" onClick={() => onReview(p)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors">
-                                  <XCircle className="h-3.5 w-3.5" /> Reject
-                                </button>
-                              )}
-                              <button type="button"
-                                onClick={() => setDeleteTarget({ id: p.id, name: p.organizationName, kind })}
-                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors">
-                                <Trash2 className="h-3.5 w-3.5" /> Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
-        </>
-      )}
-
-      {deleteTarget && (
-        <DeleteConfirm
-          name={deleteTarget.name}
-          loading={deleteLoading}
-          onConfirm={handleDelete}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      )}
     </div>
   );
 }

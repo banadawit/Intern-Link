@@ -220,6 +220,7 @@ async function main() {
             registration_type: 'Official',
             department: 'Computer Science',
             internship_status: 'PENDING',
+            hod_approval_status: 'APPROVED',
           },
         },
       },
@@ -229,6 +230,20 @@ async function main() {
     console.log('   Password: Student123!');
   } else {
     console.log(`Student already exists: ${studentEmail}`);
+    // Repair: ensure hodId and hod_approval_status are set
+    const studentUser = await prisma.user.findUnique({ where: { email: studentEmail } });
+    const hodUser = await prisma.user.findUnique({ where: { email: hodEmail } });
+    if (studentUser && hodUser) {
+      const sp = await prisma.student.findUnique({ where: { userId: studentUser.id } });
+      const hp = await prisma.hodProfile.findUnique({ where: { userId: hodUser.id } });
+      if (sp && hp && (!sp.hodId || sp.hod_approval_status !== 'APPROVED')) {
+        await prisma.student.update({
+          where: { userId: studentUser.id },
+          data: { hodId: hp.id, hod_approval_status: 'APPROVED' },
+        });
+        console.log('✅ Main demo student repaired (hodId + approval set)');
+      }
+    }
   }
 
   // ── 10 extra demo students under the demo HOD ──────────────────────────────
