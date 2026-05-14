@@ -41,6 +41,8 @@ router.delete('/projects/:id', supervisorTeamCtrl.deleteProject);
 router.patch('/projects/:id/restore', supervisorTeamCtrl.restoreProject);
 router.post('/projects/:id/members', supervisorTeamCtrl.addProjectMember);
 router.delete('/projects/:projectId/members/:studentId', supervisorTeamCtrl.removeProjectMember);
+// Assign / unassign a team to a project
+router.patch('/projects/:id/teams/:teamId', supervisorTeamCtrl.unassignTeamFromProject); // unassign (no body needed)
 
 // ── Assignments (bulk + reassignment) ────────────────────────────────────────
 // POST   /supervisor/assignments          — bulk assign students to team+project

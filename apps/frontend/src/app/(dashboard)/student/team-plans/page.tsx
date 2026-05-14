@@ -21,6 +21,7 @@ type TeamDailyPlan = {
 type TeamWeeklyPlan = {
   id: number;
   week_number: number;
+  title: string | null;
   plan_description: string;
   status: string;
   submitted_at: string;
@@ -262,6 +263,16 @@ export default function StudentTeamPlansPage() {
                     : "border-slate-200 dark:border-slate-700"
                 )}
               >
+                {/* Title banner — full width, prominent */}
+                {plan.title && (
+                  <div className="border-b border-primary-100 dark:border-primary-900/50 bg-gradient-to-r from-primary-50 to-white dark:from-primary-900/20 dark:to-slate-900 px-5 py-3">
+                    <p className="text-base font-bold tracking-tight text-primary-700 dark:text-primary-300 truncate">
+                      {plan.title}
+                    </p>
+                    <p className="text-xs text-primary-500 dark:text-primary-400 mt-0.5">Week {plan.week_number} · Team Plan</p>
+                  </div>
+                )}
+
                 {/* TL pending banner — only visible to TL */}
                 {isTlPending && isManager && (
                   <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-5 py-3">

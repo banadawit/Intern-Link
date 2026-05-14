@@ -595,6 +595,7 @@ model TeamWeeklyPlan {
   projectId        Int?
   submittedById    Int
   week_number      Int
+  title            String?          @db.VarChar(255)
   plan_description String           @db.Text
   /// Supervisor-facing status: PENDING | APPROVED | REJECTED | RESUBMITTED
   status           String           @default("PENDING")

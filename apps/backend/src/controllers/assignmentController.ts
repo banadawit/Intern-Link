@@ -7,6 +7,8 @@ import {
   reassignStudentToTeam,
   reassignTeamToProject,
 } from '../services/assignmentService';
+import { sendNotification } from '../utils/notificationHelper';
+import { sendProjectAssignmentEmail } from '../services/email.service';
 
 async function getSupervisor(req: AuthRequest) {
   return prisma.supervisor.findUnique({
@@ -183,6 +185,49 @@ export const moveTeamToProject = async (req: AuthRequest, res: Response) => {
     }
 
     const result = await reassignTeamToProject(sup.companyId, teamId, newProjectId);
+
+    // Notify all team members by email + in-app notification (fire-and-forget)
+    void (async () => {
+      try {
+        const [team, supervisorProfile] = await Promise.all([
+          prisma.team.findUnique({
+            where: { id: teamId },
+            include: {
+              members: {
+                include: {
+                  student: { include: { user: { select: { id: true, email: true, full_name: true } } } },
+                },
+              },
+            },
+          }),
+          prisma.supervisor.findUnique({
+            where: { userId: req.user!.userId },
+            include: { user: { select: { full_name: true } }, company: { select: { name: true } } },
+          }),
+        ]);
+        const project = await prisma.project.findUnique({
+          where: { id: newProjectId },
+          select: { name: true },
+        });
+        if (team && supervisorProfile && project) {
+          for (const m of team.members) {
+            const s = m.student;
+            const msg = `Your team "${team.name}" has been assigned to project "${project.name}" at ${supervisorProfile.company.name} by ${supervisorProfile.user.full_name}.`;
+            sendNotification(s.user.id, msg).catch(() => {});
+            sendProjectAssignmentEmail({
+              to: s.user.email,
+              studentName: s.user.full_name,
+              projectName: project.name,
+              companyName: supervisorProfile.company.name,
+              supervisorName: supervisorProfile.user.full_name,
+            }).catch(() => {});
+          }
+        }
+      } catch {
+        // Non-fatal — don't fail the response
+      }
+    })();
+
     return sendSuccess(
       res,
       { teamId, newProjectId, ...result },

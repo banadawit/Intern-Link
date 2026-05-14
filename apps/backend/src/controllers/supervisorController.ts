@@ -483,6 +483,9 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
         const peerWithTlIds = await getPeerStudentIdsWithTeamLeaderForCompany(supervisor.companyId);
         const supervisorWeeklyVisibility = weeklyPlanWhereVisibleToSupervisor(peerWithTlIds);
 
+        // For solo students: show all daily submissions (any status)
+        // For team students: only show submissions with status='APPROVED' (set when supervisor approves team daily plan)
+        // This ensures absent team members don't appear in the heatmap
         const rows = await prisma.weeklyPlanDaySubmission.findMany({
             where: {
                 weeklyPlan: {
@@ -491,6 +494,21 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
                     },
                 },
                 workDate: { gte: new Date(startUtc), lte: new Date(endUtc) },
+                // Team students: only count APPROVED daily submissions (supervisor-approved team daily plan)
+                // Solo students: count all submissions (status defaults to PENDING until reviewed)
+                OR: [
+                    // Solo student submissions (not on a team with TL) — show all
+                    {
+                        weeklyPlan: {
+                            studentId: peerWithTlIds.length > 0 ? { notIn: peerWithTlIds } : undefined,
+                        },
+                    },
+                    // Team student submissions — only show APPROVED ones
+                    ...(peerWithTlIds.length > 0 ? [{
+                        weeklyPlan: { studentId: { in: peerWithTlIds } },
+                        status: 'APPROVED',
+                    }] : []),
+                ],
             },
             select: {
                 workDate: true,

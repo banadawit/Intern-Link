@@ -317,31 +317,57 @@ export const reviewTeamWeeklyPlan = async (req: AuthRequest, res: Response) => {
         });
 
         if (status === 'APPROVED') {
-            // Auto-create attendance (WeeklyPlanDaySubmission) for all team members
-            // using the plan submission date as the activity date
+            // Record attendance for ALL team members:
+            // - Submitted their individual weekly plan → PRESENT (WeeklyReport + activity + day check-in)
+            // - Did NOT submit → ABSENT (WeeklyReport with ABSENT, no activity, no heatmap entry)
             const activityDate = new Date(plan.submitted_at);
             const ymd = activityDate.toISOString().slice(0, 10);
 
             for (const m of plan.team.members) {
                 const s = m.student;
-                // Find the student's individual weekly plan for this week (if any) to link attendance
                 const individualPlan = await prisma.weeklyPlan.findFirst({
                     where: { studentId: s.id, week_number: plan.week_number },
                 });
 
                 if (individualPlan) {
-                    // Mark attendance on the plan submission date
+                    // ── PRESENT: student submitted ──────────────────────────────
+                    // Create/update WeeklyReport as PRESENT
+                    await prisma.weeklyReport.upsert({
+                        where: { weeklyPlanId: individualPlan.id },
+                        update: {
+                            attendanceStatus: 'PRESENT',
+                            remarks: `Team plan approved (Week ${plan.week_number}).`,
+                        },
+                        create: {
+                            studentId: s.id,
+                            supervisorId: sup.id,
+                            weeklyPlanId: individualPlan.id,
+                            attendanceStatus: 'PRESENT',
+                            remarks: `Team plan approved (Week ${plan.week_number}).`,
+                        },
+                    });
+                    // Mark a day check-in on the plan submission date — status APPROVED so it shows in heatmap
                     await prisma.weeklyPlanDaySubmission.upsert({
                         where: { weeklyPlanId_workDate: { weeklyPlanId: individualPlan.id, workDate: new Date(`${ymd}T12:00:00.000Z`) } },
-                        create: { weeklyPlanId: individualPlan.id, workDate: new Date(`${ymd}T12:00:00.000Z`), notes: `Auto-recorded: team plan approved (Week ${plan.week_number})` },
-                        update: {},
+                        create: {
+                            weeklyPlanId: individualPlan.id,
+                            workDate: new Date(`${ymd}T12:00:00.000Z`),
+                            notes: `Auto-recorded: team plan approved (Week ${plan.week_number})`,
+                            status: 'APPROVED',
+                            tl_status: 'APPROVED',
+                        },
+                        update: { status: 'APPROVED', tl_status: 'APPROVED' },
                     });
+                    void incrementActivityForUser(s.user.id);
+                } else {
+                    // ── ABSENT: student did not submit ──────────────────────────
+                    // We can't link to a weeklyPlanId (none exists), so create a WeeklyReport
+                    // without a plan link — just mark ABSENT for this week.
+                    // Check if a report already exists for this student+week via a plan
+                    // (no plan means no weeklyPlanId, so we skip WeeklyReport here —
+                    //  the absence is implicit: no heatmap entry, no activity increment)
                 }
 
-                // Increment activity log
-                void incrementActivityForUser(s.user.id);
-
-                // Notify each member
                 void sendNotification(s.user.id, `✅ Your team's Week ${plan.week_number} plan was approved by the supervisor.`);
             }
         } else {
@@ -402,20 +428,28 @@ export const reviewTeamDailyPlan = async (req: AuthRequest, res: Response) => {
                 ? daily.workDate.toISOString().slice(0, 10)
                 : String(daily.workDate).slice(0, 10);
 
-            // Auto-record attendance for all team members on this date
+            // Record attendance for ALL team members:
+            // - Submitted a daily plan for this date → mark their WeeklyPlanDaySubmission APPROVED + activity
+            // - Did NOT submit → no entry, no activity (absent in heatmap)
             for (const m of daily.teamWeeklyPlan.team.members) {
                 const s = m.student;
                 const individualPlan = await prisma.weeklyPlan.findFirst({
                     where: { studentId: s.id, week_number: daily.teamWeeklyPlan.week_number },
                 });
                 if (individualPlan) {
-                    await prisma.weeklyPlanDaySubmission.upsert({
+                    const memberDailySubmission = await prisma.weeklyPlanDaySubmission.findUnique({
                         where: { weeklyPlanId_workDate: { weeklyPlanId: individualPlan.id, workDate: new Date(`${workDateStr}T12:00:00.000Z`) } },
-                        create: { weeklyPlanId: individualPlan.id, workDate: new Date(`${workDateStr}T12:00:00.000Z`), notes: 'Auto-recorded: team daily plan approved' },
-                        update: {},
                     });
+                    if (memberDailySubmission) {
+                        // Member submitted → mark APPROVED + record activity (present in heatmap)
+                        await prisma.weeklyPlanDaySubmission.update({
+                            where: { id: memberDailySubmission.id },
+                            data: { status: 'APPROVED' },
+                        });
+                        void incrementActivityForUser(s.user.id);
+                    }
+                    // No daily submission → absent → no heatmap entry, no activity
                 }
-                void incrementActivityForUser(s.user.id);
                 void sendNotification(s.user.id, `✅ Your team's daily plan for ${workDateStr} was approved.`);
             }
         }
@@ -679,7 +713,7 @@ export const tlReviewDailyPlan = async (req: AuthRequest, res: Response) => {
 export const forwardToSupervisor = async (req: AuthRequest, res: Response) => {
     try {
         const student = await getStudentOrFail(req.user!.userId);
-        const { week_number, plan_description } = req.body as { week_number?: number; plan_description?: string };
+        const { week_number, plan_description, title } = req.body as { week_number?: number; plan_description?: string; title?: string };
 
         if (!week_number || !plan_description?.trim()) {
             return sendError(res, 'week_number and plan_description are required.', 400);
@@ -702,15 +736,16 @@ export const forwardToSupervisor = async (req: AuthRequest, res: Response) => {
             where: { teamId_week_number: { teamId: team.id, week_number } },
         });
         if (existing) {
-            // Update existing plan
+            // Update existing plan — forward directly to supervisor
             const updated = await prisma.teamWeeklyPlan.update({
                 where: { id: existing.id },
                 data: {
+                    title: typeof title === 'string' ? title.trim() || null : existing.title,
                     plan_description: plan_description.trim(),
-                    status: 'TL_PENDING',
-                    tl_status: 'PENDING',
+                    status: 'PENDING',
+                    tl_status: 'APPROVED',
                     tl_comment: null,
-                    tl_reviewed_at: null,
+                    tl_reviewed_at: new Date(),
                     feedback: null,
                     reviewed_at: null,
                     version: existing.version + 1,
@@ -718,7 +753,7 @@ export const forwardToSupervisor = async (req: AuthRequest, res: Response) => {
                 },
             });
             void incrementActivityForUser(req.user!.userId);
-            return sendSuccess(res, updated, 'Team plan updated and ready for your final review.', 200);
+            return sendSuccess(res, updated, 'Team plan forwarded to supervisor.', 200);
         }
 
         const plan = await prisma.teamWeeklyPlan.create({
@@ -727,9 +762,11 @@ export const forwardToSupervisor = async (req: AuthRequest, res: Response) => {
                 projectId: team.projectId ?? undefined,
                 submittedById: student.id,
                 week_number,
+                title: typeof title === 'string' ? title.trim() || null : null,
                 plan_description: plan_description.trim(),
-                status: 'TL_PENDING',
-                tl_status: 'PENDING',
+                status: 'PENDING',
+                tl_status: 'APPROVED',
+                tl_reviewed_at: new Date(),
             },
         });
 
@@ -738,11 +775,11 @@ export const forwardToSupervisor = async (req: AuthRequest, res: Response) => {
         // Notify all team members
         for (const m of team.members) {
             if (m.student.user.id !== req.user!.userId) {
-                void sendNotification(m.student.user.id, `📤 Your Team Leader has submitted the Week ${week_number} team plan to the supervisor.`);
+                void sendNotification(m.student.user.id, `📤 Your Team Leader has forwarded the Week ${week_number} team plan to the supervisor.`);
             }
         }
 
-        return sendSuccess(res, plan, 'Team plan ready for your final review.', 201);
+        return sendSuccess(res, plan, 'Team plan forwarded to supervisor.', 201);
     } catch (e: any) {
         return sendError(res, e.message, e.status ?? 500);
     }
@@ -827,6 +864,178 @@ export const tlReviewTeamPlan = async (req: AuthRequest, res: Response) => {
 
             return sendSuccess(res, null, 'Revision requested. Members have been notified.');
         }
+    } catch (e: any) {
+        return sendError(res, e.message, e.status ?? 500);
+    }
+};
+
+// ── Team Leader: get all team members' daily submissions (for Collect Daily Plans) ──
+export const getTeamMembersDailyPlans = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await getStudentOrFail(req.user!.userId);
+
+        const team = await prisma.team.findFirst({
+            where: { managerId: student.id, deleted_at: null },
+            include: {
+                members: {
+                    include: {
+                        student: {
+                            include: {
+                                user: { select: { id: true, full_name: true, email: true } },
+                                weeklyPlans: {
+                                    orderBy: { week_number: 'asc' },
+                                    include: {
+                                        daySubmissions: { orderBy: { workDate: 'asc' } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                weeklyPlans: {
+                    where: { status: 'APPROVED' },
+                    orderBy: { week_number: 'asc' },
+                },
+            },
+        });
+
+        if (!team) return sendError(res, 'You are not a Team Leader of any team.', 403);
+
+        const peerMembers = team.members.filter((m) => m.studentId !== team.managerId);
+
+        // Group daily submissions by week number
+        const weekNumbers = [...new Set(
+            peerMembers.flatMap((m) => m.student.weeklyPlans.map((p) => p.week_number))
+        )].sort((a, b) => a - b);
+
+        const weeklyData = weekNumbers.map((weekNum) => {
+            const approvedTeamPlan = team.weeklyPlans.find((p) => p.week_number === weekNum);
+            const members = peerMembers.map((m) => {
+                const weeklyPlan = m.student.weeklyPlans.find((p) => p.week_number === weekNum);
+                return {
+                    studentId: m.studentId,
+                    fullName: m.student.user.full_name,
+                    email: m.student.user.email,
+                    weeklyPlanId: weeklyPlan?.id ?? null,
+                    weeklyPlanApproved: weeklyPlan?.tl_status === 'APPROVED',
+                    dailySubmissions: (weeklyPlan?.daySubmissions ?? []).map((d) => ({
+                        id: d.id,
+                        workDate: d.workDate instanceof Date ? d.workDate.toISOString().slice(0, 10) : String(d.workDate).slice(0, 10),
+                        notes: d.notes,
+                        tl_status: d.tl_status,
+                        tl_comment: d.tl_comment,
+                    })),
+                };
+            });
+
+            return {
+                weekNumber: weekNum,
+                teamWeeklyPlanApproved: !!approvedTeamPlan,
+                teamWeeklyPlanId: approvedTeamPlan?.id ?? null,
+                teamWeeklyPlanDescription: approvedTeamPlan?.plan_description ?? null,
+                members,
+            };
+        });
+
+        return sendSuccess(res, {
+            teamId: team.id,
+            teamName: team.name,
+            weeks: weeklyData,
+        });
+    } catch (e: any) {
+        return sendError(res, e.message, e.status ?? 500);
+    }
+};
+
+// ── Team Leader: forward compiled daily plans to supervisor ───────────────────
+export const forwardDailyToSupervisor = async (req: AuthRequest, res: Response) => {
+    try {
+        const student = await getStudentOrFail(req.user!.userId);
+        const { week_number, work_date, notes } = req.body as {
+            week_number?: number; work_date?: string; notes?: string;
+        };
+
+        if (!week_number || !work_date) {
+            return sendError(res, 'week_number and work_date are required.', 400);
+        }
+
+        const team = await prisma.team.findFirst({
+            where: { managerId: student.id, deleted_at: null },
+            include: {
+                members: {
+                    include: { student: { include: { user: { select: { id: true } } } } },
+                },
+                weeklyPlans: {
+                    where: { week_number, status: 'APPROVED' },
+                    take: 1,
+                },
+            },
+        });
+        if (!team) return sendError(res, 'You are not a Team Leader.', 403);
+
+        const teamWeeklyPlan = team.weeklyPlans[0];
+        if (!teamWeeklyPlan) {
+            return sendError(res, `The team weekly plan for Week ${week_number} must be approved by the supervisor before submitting daily plans.`, 400);
+        }
+
+        const peerMemberIds = team.members
+            .map((m) => m.studentId)
+            .filter((sid) => sid !== team.managerId);
+
+        // Collect only the members who actually submitted AND were TL-approved for this date.
+        // Members who didn't submit are simply absent — no gate, TL can always forward.
+        const memberDailyPlans = await prisma.weeklyPlanDaySubmission.findMany({
+            where: {
+                workDate: new Date(`${work_date}T12:00:00.000Z`),
+                weeklyPlan: { studentId: { in: peerMemberIds }, week_number },
+                tl_status: 'APPROVED',
+            },
+            include: { weeklyPlan: { select: { studentId: true } } },
+        });
+
+        // Compile notes only from members who submitted
+        const compiledNotes = notes?.trim() || memberDailyPlans
+            .map((d) => d.notes?.trim())
+            .filter(Boolean)
+            .join('\n') || null;
+
+        const workDateObj = new Date(`${work_date}T12:00:00.000Z`);
+
+        // Upsert team daily plan
+        const existing = await prisma.teamDailyPlan.findUnique({
+            where: { teamWeeklyPlanId_workDate: { teamWeeklyPlanId: teamWeeklyPlan.id, workDate: workDateObj } },
+        });
+
+        let daily;
+        if (existing) {
+            daily = await prisma.teamDailyPlan.update({
+                where: { id: existing.id },
+                data: { notes: compiledNotes, status: 'PENDING', supervisorNote: null, reviewedAt: null },
+            });
+        } else {
+            daily = await prisma.teamDailyPlan.create({
+                data: {
+                    teamWeeklyPlanId: teamWeeklyPlan.id,
+                    submittedById: student.id,
+                    workDate: workDateObj,
+                    notes: compiledNotes,
+                    status: 'PENDING',
+                },
+            });
+        }
+
+        void incrementActivityForUser(req.user!.userId);
+
+        // Notify all team members
+        for (const m of team.members) {
+            if (m.student.user.id !== req.user!.userId) {
+                void sendNotification(m.student.user.id,
+                    `📤 Team Leader forwarded the daily plan for ${work_date} (Week ${week_number}) to the supervisor.`
+                );
+            }
+        }
+
+        return sendSuccess(res, daily, `Daily plan for ${work_date} forwarded to supervisor.`, 201);
     } catch (e: any) {
         return sendError(res, e.message, e.status ?? 500);
     }

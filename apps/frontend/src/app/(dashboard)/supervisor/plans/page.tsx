@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/lib/api/client";
-import { AlertCircle, X, ClipboardList, Calendar, UsersRound } from "lucide-react";
+import { AlertCircle, X, ClipboardList, Calendar, UsersRound, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { getFileUrl } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -40,9 +40,17 @@ type TeamDailyPlan = {
   reviewedAt: string | null;
 };
 
+type TeamDailyPlanRow = TeamDailyPlan & {
+  teamWeeklyPlanId: number;
+  weekNumber: number;
+  teamName: string;
+  teamId: number;
+};
+
 type TeamWeeklyPlan = {
   id: number;
   week_number: number;
+  title: string | null;
   plan_description: string;
   status: string;
   submitted_at: string;
@@ -53,7 +61,7 @@ type TeamWeeklyPlan = {
   dailyPlans: TeamDailyPlan[];
 };
 
-type Tab = "weekly" | "daily" | "team";
+type Tab = "weekly" | "daily" | "team-weekly" | "team-daily";
 
 function statusBadge(status: string) {
   if (status === "APPROVED") return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
@@ -67,11 +75,11 @@ function statusLabel(status: string) {
 }
 
 export default function SupervisorPlansPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("weekly");
+  const [activeTab, setActiveTab] = useState<Tab>("team-weekly");
   const [rows, setRows] = useState<WeeklyPlanRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"PENDING" | "ALL">("PENDING");
+  const [filter] = useState<"ALL">("ALL");
 
   // Weekly plan review modal
   const [selected, setSelected] = useState<WeeklyPlanRow | null>(null);
@@ -97,8 +105,8 @@ export default function SupervisorPlansPage() {
     setLoading(true);
     setError(null);
     try {
-      const q = filter === "PENDING" ? "?status=PENDING" : "";
-      const res = await api.get<{ success: boolean; data: WeeklyPlanRow[] }>(`/supervisor/weekly-plans${q}`);
+      // Always fetch ALL plans so we can show pending on top + history below
+      const res = await api.get<{ success: boolean; data: WeeklyPlanRow[] }>(`/supervisor/weekly-plans`);
       const raw = res.data.data ?? [];
       const withDays = await Promise.all(raw.map(async (p) => {
         try {
@@ -107,10 +115,9 @@ export default function SupervisorPlansPage() {
         } catch { return p; }
       }));
       setRows(withDays);
-      // Also load team plans
+      // Also load all team plans
       try {
-        const tq = filter === "PENDING" ? "?status=PENDING" : "";
-        const tr = await api.get<{ success: boolean; data: TeamWeeklyPlan[] }>(`/supervisor/team-plans${tq}`);
+        const tr = await api.get<{ success: boolean; data: TeamWeeklyPlan[] }>(`/supervisor/team-plans`);
         setTeamPlans(tr.data.data ?? []);
       } catch { /* non-fatal */ }
     } catch {
@@ -118,7 +125,7 @@ export default function SupervisorPlansPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -193,12 +200,24 @@ export default function SupervisorPlansPage() {
     }
   };
 
-  // All daily submissions across all plans
+  // All daily submissions across all plans (solo students)
   const allDailySubmissions = rows.flatMap((p) =>
     (p.daySubmissions ?? []).map((d) => ({ day: d, plan: p }))
   );
   const pendingDailySubmissions = allDailySubmissions.filter((x) => x.day.status === "PENDING");
-  const displayedDailySubmissions = filter === "PENDING" ? pendingDailySubmissions : allDailySubmissions;
+  const displayedDailySubmissions = allDailySubmissions;
+
+  // Flat list of team daily plans (forwarded by TL) across all team weekly plans
+  const allTeamDailyRows: TeamDailyPlanRow[] = teamPlans.flatMap((tp) =>
+    tp.dailyPlans.map((d) => ({
+      ...d,
+      teamWeeklyPlanId: tp.id,
+      weekNumber: tp.week_number,
+      teamName: tp.team.name,
+      teamId: tp.team.id,
+    }))
+  );
+  const pendingTeamDailyRows = allTeamDailyRows.filter((d) => d.status === "PENDING");
 
   return (
     <div className="space-y-6">
@@ -206,7 +225,17 @@ export default function SupervisorPlansPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Plans</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Review and approve student weekly and daily plans.
+          Review and approve student weekly plans, daily plans, and team weekly plans.
+        </p>
+      </div>
+
+      {/* Info banner: team students are reviewed via Team Plans tab */}
+      <div className="flex items-start gap-3 rounded-xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm text-primary-900 dark:border-primary-900/50 dark:bg-primary-900/20 dark:text-primary-200">
+        <span className="shrink-0 text-base">👑</span>
+        <p>
+          <span className="font-semibold">Team students</span> submit plans through their Team Leader.
+          Their individual plans are not shown here — review the compiled team weekly plan in the{" "}
+          <strong>Team Weekly Plans</strong> tab.
         </p>
       </div>
 
@@ -214,69 +243,39 @@ export default function SupervisorPlansPage() {
       <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/50">
         <button
           type="button"
-          onClick={() => setActiveTab("weekly")}
+          onClick={() => setActiveTab("team-weekly")}
           className={cn(
             "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-            activeTab === "weekly"
-              ? "bg-white text-primary-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-primary-400 dark:ring-slate-700"
-              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-          )}
-        >
-          <ClipboardList className="h-4 w-4 shrink-0" />
-          Weekly Plans
-          {rows.filter((p) => p.status === "PENDING" || p.status === "RESUBMITTED").length > 0 && (
-            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-              {rows.filter((p) => p.status === "PENDING" || p.status === "RESUBMITTED").length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("daily")}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-            activeTab === "daily"
-              ? "bg-white text-primary-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-primary-400 dark:ring-slate-700"
-              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-          )}
-        >
-          <Calendar className="h-4 w-4 shrink-0" />
-          Daily Plans
-          {pendingDailySubmissions.length > 0 && (
-            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-              {pendingDailySubmissions.length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("team")}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-            activeTab === "team"
+            activeTab === "team-weekly"
               ? "bg-white text-primary-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-primary-400 dark:ring-slate-700"
               : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           )}
         >
           <UsersRound className="h-4 w-4 shrink-0" />
-          Team Plans
+          Team Weekly Plans
           {teamPlans.filter((p) => p.status === "PENDING" || p.status === "RESUBMITTED").length > 0 && (
             <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
               {teamPlans.filter((p) => p.status === "PENDING" || p.status === "RESUBMITTED").length}
             </span>
           )}
         </button>
-      </div>
-
-      {/* Filter buttons */}
-      <div className="flex gap-2">
-        <button type="button" onClick={() => setFilter("PENDING")}
-          className={`rounded-xl px-4 py-2 text-sm font-semibold ${filter === "PENDING" ? "bg-primary-600 text-white" : "border border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"}`}>
-          Pending
-        </button>
-        <button type="button" onClick={() => setFilter("ALL")}
-          className={`rounded-xl px-4 py-2 text-sm font-semibold ${filter === "ALL" ? "bg-primary-600 text-white" : "border border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"}`}>
-          All
+        <button
+          type="button"
+          onClick={() => setActiveTab("team-daily")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+            activeTab === "team-daily"
+              ? "bg-white text-primary-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-primary-400 dark:ring-slate-700"
+              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          )}
+        >
+          <Calendar className="h-4 w-4 shrink-0" />
+          Team Daily Plans
+          {pendingTeamDailyRows.length > 0 && (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+              {pendingTeamDailyRows.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -305,7 +304,8 @@ export default function SupervisorPlansPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {rows.map((p) => (
+                  {/* Pending rows first */}
+                  {rows.filter((p) => p.status === "PENDING" || p.status === "RESUBMITTED").map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
                       <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">Week {p.week_number}</td>
                       <td className="px-4 py-3">
@@ -313,7 +313,8 @@ export default function SupervisorPlansPage() {
                         <p className="text-xs text-slate-500 dark:text-slate-400">{p.student.university.name}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadge(p.status)}`}>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                          <Clock className="h-3 w-3" />
                           {statusLabel(p.status)}
                         </span>
                       </td>
@@ -325,6 +326,42 @@ export default function SupervisorPlansPage() {
                       </td>
                     </tr>
                   ))}
+                  {/* Separator if both groups exist */}
+                  {rows.some((p) => p.status === "PENDING" || p.status === "RESUBMITTED") &&
+                   rows.some((p) => p.status !== "PENDING" && p.status !== "RESUBMITTED") && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Reviewed</p>
+                      </td>
+                    </tr>
+                  )}
+                  {/* Reviewed rows below */}
+                  {rows.filter((p) => p.status !== "PENDING" && p.status !== "RESUBMITTED").map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60 opacity-80">
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">Week {p.week_number}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">{p.student.user.full_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{p.student.university.name}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {p.status === "APPROVED" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                            <CheckCircle2 className="h-3 w-3" /> Approved
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                            <XCircle className="h-3 w-3" /> Rejected
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button type="button" onClick={() => { setSelected(p); setRemarks(""); setAttendance(true); }}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -332,47 +369,105 @@ export default function SupervisorPlansPage() {
         </div>
       )}
 
-      {/* ── DAILY PLANS TAB ── */}
-      {activeTab === "daily" && (
+      {/* ── TEAM DAILY PLANS TAB ── */}
+      {activeTab === "team-daily" && (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           {loading ? (
             <p className="p-8 text-center text-slate-500 dark:text-slate-400">Loading…</p>
-          ) : displayedDailySubmissions.length === 0 ? (
-            <p className="p-8 text-center text-slate-500 dark:text-slate-400">No daily plans in this view.</p>
+          ) : allTeamDailyRows.length === 0 ? (
+            <p className="p-8 text-center text-slate-500 dark:text-slate-400">No team daily plans in this view.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/70">
                   <tr>
                     <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Date</th>
-                    <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Student</th>
+                    <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Team</th>
                     <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Week</th>
                     <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">Status</th>
                     <th className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {displayedDailySubmissions.map(({ day, plan }) => {
-                    const dateLabel = new Date(`${String(day.workDate).slice(0, 10)}T12:00:00.000Z`)
+                  {/* Pending rows first */}
+                  {allTeamDailyRows.filter((d) => d.status === "PENDING").map((d) => {
+                    const dateLabel = new Date(`${String(d.workDate).slice(0, 10)}T12:00:00.000Z`)
                       .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                    const parentPlan = teamPlans.find((tp) => tp.id === d.teamWeeklyPlanId) ?? null;
                     return (
-                      <tr key={day.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
+                      <tr key={d.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
                         <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{dateLabel}</td>
                         <td className="px-4 py-3">
-                          <p className="font-medium text-slate-900 dark:text-slate-100">{plan.student.user.full_name}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{plan.student.university.name}</p>
+                          <div className="flex items-center gap-2">
+                            <UsersRound className="h-4 w-4 text-primary-500 shrink-0" />
+                            <span className="font-medium text-slate-900 dark:text-slate-100">{d.teamName}</span>
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">Week {plan.week_number}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                          <p>Week {d.weekNumber}</p>
+                          {parentPlan?.title && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">📌 {parentPlan.title}</p>}
+                        </td>
                         <td className="px-4 py-3">
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadge(day.status)}`}>
-                            {day.status}
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            <Clock className="h-3 w-3" /> Pending
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button type="button" onClick={() => { setSelectedDay({ day, plan }); setDayNote(""); }}
-                            className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700">
-                            View / review
-                          </button>
+                          {parentPlan && (
+                            <button type="button" onClick={() => { setSelectedTeamDay({ day: d, plan: parentPlan }); setTeamDayNote(""); }}
+                              className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700">
+                              View / review
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {/* Separator */}
+                  {allTeamDailyRows.some((d) => d.status === "PENDING") &&
+                   allTeamDailyRows.some((d) => d.status !== "PENDING") && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Reviewed</p>
+                      </td>
+                    </tr>
+                  )}
+                  {/* Reviewed rows below */}
+                  {allTeamDailyRows.filter((d) => d.status !== "PENDING").map((d) => {
+                    const dateLabel = new Date(`${String(d.workDate).slice(0, 10)}T12:00:00.000Z`)
+                      .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                    const parentPlan = teamPlans.find((tp) => tp.id === d.teamWeeklyPlanId) ?? null;
+                    return (
+                      <tr key={d.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60 opacity-80">
+                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{dateLabel}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <UsersRound className="h-4 w-4 text-slate-400 shrink-0" />
+                            <span className="font-medium text-slate-900 dark:text-slate-100">{d.teamName}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                          <p>Week {d.weekNumber}</p>
+                          {parentPlan?.title && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">📌 {parentPlan.title}</p>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {d.status === "APPROVED" ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                              <CheckCircle2 className="h-3 w-3" /> Approved
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                              <XCircle className="h-3 w-3" /> Rejected
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {parentPlan && (
+                            <button type="button" onClick={() => { setSelectedTeamDay({ day: d, plan: parentPlan }); setTeamDayNote(""); }}
+                              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                              View
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -384,13 +479,13 @@ export default function SupervisorPlansPage() {
         </div>
       )}
 
-      {/* ── TEAM PLANS TAB ── */}
-      {activeTab === "team" && (
+      {/* ── TEAM WEEKLY PLANS TAB ── */}
+      {activeTab === "team-weekly" && (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
           {loading ? (
             <p className="p-8 text-center text-slate-500 dark:text-slate-400">Loading…</p>
           ) : teamPlans.length === 0 ? (
-            <p className="p-8 text-center text-slate-500 dark:text-slate-400">No team plans in this view.</p>
+            <p className="p-8 text-center text-slate-500 dark:text-slate-400">No team weekly plans in this view.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
@@ -405,7 +500,8 @@ export default function SupervisorPlansPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {teamPlans.map((p) => (
+                  {/* Pending rows first */}
+                  {teamPlans.filter((p) => p.status === "PENDING" || p.status === "RESUBMITTED").map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -414,10 +510,14 @@ export default function SupervisorPlansPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{p.project?.name ?? "—"}</td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">Week {p.week_number}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">Week {p.week_number}</p>
+                        {p.title && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">📌 {p.title}</p>}
+                      </td>
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{p.submittedBy.user.full_name}</td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadge(p.status)}`}>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                          <Clock className="h-3 w-3" />
                           {statusLabel(p.status)}
                         </span>
                       </td>
@@ -425,6 +525,49 @@ export default function SupervisorPlansPage() {
                         <button type="button" onClick={() => { setSelectedTeamPlan(p); setTeamRemarks(""); }}
                           className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700">
                           View / review
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Separator */}
+                  {teamPlans.some((p) => p.status === "PENDING" || p.status === "RESUBMITTED") &&
+                   teamPlans.some((p) => p.status !== "PENDING" && p.status !== "RESUBMITTED") && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Reviewed</p>
+                      </td>
+                    </tr>
+                  )}
+                  {/* Reviewed rows below */}
+                  {teamPlans.filter((p) => p.status !== "PENDING" && p.status !== "RESUBMITTED").map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60 opacity-80">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <UsersRound className="h-4 w-4 text-slate-400 shrink-0" />
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{p.team.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{p.project?.name ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900 dark:text-slate-100">Week {p.week_number}</p>
+                        {p.title && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">📌 {p.title}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{p.submittedBy.user.full_name}</td>
+                      <td className="px-4 py-3">
+                        {p.status === "APPROVED" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                            <CheckCircle2 className="h-3 w-3" /> Approved
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                            <XCircle className="h-3 w-3" /> Rejected
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button type="button" onClick={() => { setSelectedTeamPlan(p); setTeamRemarks(""); }}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          View
                         </button>
                       </td>
                     </tr>
@@ -448,6 +591,9 @@ export default function SupervisorPlansPage() {
                   <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{selectedTeamPlan.team.name} — Week {selectedTeamPlan.week_number}</h2>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadge(selectedTeamPlan.status)}`}>{statusLabel(selectedTeamPlan.status)}</span>
                 </div>
+                {selectedTeamPlan.title && (
+                  <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">📌 {selectedTeamPlan.title}</p>
+                )}
                 {selectedTeamPlan.project && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">📁 {selectedTeamPlan.project.name}</p>}
                 <p className="text-xs text-slate-500 dark:text-slate-400">Submitted by {selectedTeamPlan.submittedBy.user.full_name} (Team Leader)</p>
               </div>
@@ -458,12 +604,18 @@ export default function SupervisorPlansPage() {
             <div className="space-y-4 px-6 py-5">
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Team&apos;s Plan</p>
-                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 py-4">
-                  <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{selectedTeamPlan.plan_description}</p>
-                </div>
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors [&::-webkit-details-marker]:hidden">
+                    <span>{selectedTeamPlan.title ?? "View full description"}</span>
+                    <span className="text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+                  </summary>
+                  <div className="mt-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 py-4">
+                    <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">{selectedTeamPlan.plan_description}</p>
+                  </div>
+                </details>
               </div>
 
-              {/* Daily plans for this team weekly plan */}
+              {/* Team daily plans for this team weekly plan */}
               {selectedTeamPlan.dailyPlans.length > 0 && (
                 <div>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">📆 Team Daily Plans</p>
@@ -533,7 +685,7 @@ export default function SupervisorPlansPage() {
         </div>
       )}
 
-      {/* ── Team daily plan review modal ── */}
+      {/* ── Team Daily Plan review modal ── */}
       {selectedTeamDay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-slate-900/40" onClick={() => setSelectedTeamDay(null)} />
@@ -662,7 +814,7 @@ export default function SupervisorPlansPage() {
         </div>
       )}
 
-      {/* ── Daily plan review modal ── */}
+      {/* ── Daily Plan review modal ── */}
       {selectedDay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-slate-900/40" onClick={() => setSelectedDay(null)} />

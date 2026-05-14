@@ -29,16 +29,15 @@ export async function getPeerStudentIdsWithTeamLeaderForCompany(companyId: numbe
     return [...peerIds];
 }
 
-/** AND-clause: hide peer TL-queue plans from supervisor lists and counts. */
+/** AND-clause: fully hide individual plans for team-member students from supervisor lists.
+ *  Supervisor only reviews the compiled TeamWeeklyPlan, not individual member plans.
+ */
 export function weeklyPlanWhereVisibleToSupervisor(
     peerWithTlStudentIds: number[],
 ): Prisma.WeeklyPlanWhereInput {
     if (peerWithTlStudentIds.length === 0) return {};
+    // Exclude ALL individual plans from students who are on a team with a TL
     return {
-        OR: [
-            { studentId: { notIn: peerWithTlStudentIds } },
-            { status: { notIn: ['PENDING', 'RESUBMITTED'] } },
-            { tl_status: 'APPROVED' },
-        ],
+        studentId: { notIn: peerWithTlStudentIds },
     };
 }
