@@ -21,6 +21,7 @@ type TeamDailyPlan = {
 type TeamWeeklyPlan = {
   id: number;
   week_number: number;
+  title: string | null;
   plan_description: string;
   status: string;
   submitted_at: string;
@@ -262,6 +263,16 @@ export default function StudentTeamPlansPage() {
                     : "border-slate-200 dark:border-slate-700"
                 )}
               >
+                {/* Title banner — full width, prominent */}
+                {plan.title && (
+                  <div className="border-b border-primary-100 dark:border-primary-900/50 bg-gradient-to-r from-primary-50 to-white dark:from-primary-900/20 dark:to-slate-900 px-5 py-3">
+                    <p className="text-base font-bold tracking-tight text-primary-700 dark:text-primary-300 truncate">
+                      {plan.title}
+                    </p>
+                    <p className="text-xs text-primary-500 dark:text-primary-400 mt-0.5">Week {plan.week_number} · Team Plan</p>
+                  </div>
+                )}
+
                 {/* TL pending banner — only visible to TL */}
                 {isTlPending && isManager && (
                   <div className="flex items-center justify-between gap-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-5 py-3">
@@ -299,16 +310,20 @@ export default function StudentTeamPlansPage() {
                       className={cn(
                         "rounded-xl p-2.5 shrink-0",
                         plan.status === "APPROVED"
-                          ? "bg-emerald-50 text-emerald-600"
+                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
                           : plan.status === "REJECTED"
-                          ? "bg-red-50 text-red-600"
-                          : "bg-amber-50 text-amber-600"
+                          ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                          : plan.status === "PENDING" || plan.status === "RESUBMITTED"
+                          ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                          : "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
                       )}
                     >
                       {plan.status === "APPROVED" ? (
                         <CheckCircle2 className="h-4 w-4" />
                       ) : plan.status === "REJECTED" ? (
                         <XCircle className="h-4 w-4" />
+                      ) : plan.status === "PENDING" || plan.status === "RESUBMITTED" ? (
+                        <Send className="h-4 w-4" />
                       ) : (
                         <Clock className="h-4 w-4" />
                       )}
@@ -321,10 +336,22 @@ export default function StudentTeamPlansPage() {
                         <span
                           className={cn(
                             "rounded-full px-2.5 py-0.5 text-xs font-bold",
-                            statusBadge(isTlPending ? "PENDING" : plan.status)
+                            plan.status === "APPROVED"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                              : plan.status === "REJECTED"
+                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                              : plan.status === "PENDING" || plan.status === "RESUBMITTED"
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
                           )}
                         >
-                          {isTlPending ? "TL Review" : plan.status}
+                          {plan.status === "APPROVED"
+                            ? "✅ Supervisor Approved"
+                            : plan.status === "REJECTED"
+                            ? "❌ Supervisor Rejected"
+                            : plan.status === "PENDING" || plan.status === "RESUBMITTED"
+                            ? "⏳ Awaiting Supervisor"
+                            : "👑 TL Review"}
                         </span>
                         {plan.tl_status === "REVISION_REQUESTED" && !isTlPending && (
                           <span className="rounded-full px-2.5 py-0.5 text-xs font-bold bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">

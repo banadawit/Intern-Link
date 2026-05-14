@@ -24,11 +24,13 @@ export interface UploadResult {
 }
 
 export class CloudinaryService {
-  private static readonly ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+  private static readonly ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   private static readonly ALLOWED_DOCUMENT_TYPES = [
     'application/pdf',
     'application/vnd.ms-powerpoint',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ];
   private static readonly ALLOWED_VERIFICATION_TYPES = [
     'application/pdf',
