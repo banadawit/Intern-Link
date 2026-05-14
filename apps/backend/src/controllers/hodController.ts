@@ -44,8 +44,8 @@ export const verifyStudent = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Student not in your department.', 404);
         }
 
-        if (status === 'APPROVED' && !student.user.document_viewed) {
-            return sendError(res, 'Reviewer must view the uploaded document before approving.', 400);
+        if (status === 'APPROVED' && !student.user.verification_document) {
+            // No document check — proceed
         }
 
         await prisma.student.update({
@@ -238,8 +238,8 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Student is already approved.', 409);
         }
 
-        if (!student.user.document_viewed) {
-            return sendError(res, 'Reviewer must view the uploaded document before approving.', 400);
+        if (!student.user.verification_document) {
+            // No document check — proceed
         }
 
         await prisma.student.update({
@@ -297,14 +297,9 @@ export const markStudentViewed = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Student not found in your department.', 404);
         }
 
-        await prisma.user.update({
-            where: { id: student.userId },
-            data: { document_viewed: true },
-        });
-
         await prisma.auditLog.create({
             data: {
-                adminId: uid!, // Actually the HOD user ID
+                adminId: uid!,
                 action: 'VIEWED_DOCUMENT',
                 targetId: student.userId,
                 details: `HOD viewed verification document for Student User ID ${student.userId}`,

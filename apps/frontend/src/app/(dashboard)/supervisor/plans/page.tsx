@@ -110,7 +110,7 @@ export default function SupervisorPlansPage() {
       const raw = res.data.data ?? [];
       const withDays = await Promise.all(raw.map(async (p) => {
         try {
-          const dr = await api.get<{ success: boolean; data: unknown[] }>(`/progress/plan/${p.id}/days`);
+          const dr = await api.get<{ success: boolean; data: unknown[] }>(`/progress/plan/${p.id}/days/supervisor`);
           return { ...p, daySubmissions: (dr.data.data ?? []) as DaySubmission[] };
         } catch { return p; }
       }));

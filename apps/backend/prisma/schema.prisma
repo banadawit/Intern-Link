@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 enum Role {
@@ -82,7 +83,6 @@ model User {
   verification_token          String?         @unique
   verification_token_expiry   DateTime?
   verification_document       String?
-  document_viewed             Boolean         @default(false)
   /// COORDINATOR/SUPERVISOR/HOD: Pending until admin (coord./sup.) or coordinator (HOD) approves. STUDENT/ADMIN default APPROVED.
   institution_access_approval ApprovalStatus  @default(APPROVED)
   /// Set to true when account is created by a coordinator/admin with a temp password.
@@ -139,7 +139,6 @@ model University {
   approval_status  ApprovalStatus       @default(PENDING)
   created_at       DateTime             @default(now())
   rejection_reason String?
-  document_viewed  Boolean              @default(false)
   coordinators     Coordinator[]
   hods             HodProfile[]
   students         Student[]
@@ -158,7 +157,6 @@ model Company {
   approval_status   ApprovalStatus         @default(PENDING)
   created_at        DateTime               @default(now())
   rejection_reason  String?
-  document_viewed   Boolean                @default(false)
   /// HOD who sent the invitation (null if company registered on their own)
   invited_by_hod_id Int?
   invitedByHod      HodProfile?            @relation("HodInvitedCompanies", fields: [invited_by_hod_id], references: [id])
@@ -184,7 +182,6 @@ model OrganizationRequest {
   status           ApprovalStatus   @default(PENDING)
   rejection_reason String?
   requester_email  String
-  document_viewed  Boolean          @default(false)
   created_at       DateTime         @default(now())
   updated_at       DateTime         @updatedAt
 
@@ -325,6 +322,9 @@ model WeeklyPlan {
   version          Int                       @default(1)
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
   attachments      Json                      @default("[]")
+  tl_status        String                    @default("PENDING")
+  tl_comment       String?                   @db.Text
+  tl_reviewed_at   DateTime?
   student          Student                   @relation(fields: [studentId], references: [id])
   daySubmissions   WeeklyPlanDaySubmission[]
   presentation     WeeklyPresentation?
@@ -338,6 +338,12 @@ model WeeklyPlanDaySubmission {
   workDate       DateTime   @db.Date
   notes          String?    @db.Text
   submittedAt    DateTime   @default(now())
+  status         String     @default("PENDING")
+  supervisor_note String?   @db.Text
+  reviewed_at    DateTime?
+  tl_status      String     @default("PENDING")
+  tl_comment     String?    @db.Text
+  tl_reviewed_at DateTime?
   weeklyPlan     WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
 
   @@unique([weeklyPlanId, workDate])

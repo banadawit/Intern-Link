@@ -346,7 +346,7 @@ const WeeklyPlans = () => {
       fd.append("week_number", String(formData.weekNumber));
       fd.append("plan_description", formData.tasks);
       if (formData.presentation) {
-        fd.append("presentation", formData.presentation);
+        fd.append("attachments", formData.presentation);
       }
       await api.post("/progress/submit", fd);
       await loadPlansAndProfile();

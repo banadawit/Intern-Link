@@ -156,14 +156,9 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
                 proposal.documents.map((doc, index) => (
                   <a
                     key={index}
-<<<<<<< HEAD
-                    type="button"
-                    onClick={() => handleOpenDoc(doc)}
-=======
                     href={doc}
                     target="_blank"
                     rel="noopener noreferrer"
->>>>>>> 1e7b041ea3cf082cc98956529ec7d63582c8501b
                     className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 hover:border-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -174,16 +169,8 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
                         Verification_Document_{index + 1}.pdf
                       </span>
                     </div>
-<<<<<<< HEAD
-                    <div className="flex items-center gap-2">
-                       {documentViewed && <CheckCircle className="w-4 h-4 text-emerald-500" />}
-                       <span className="shrink-0 text-xs font-semibold text-teal-700 dark:text-teal-400">View</span>
-                    </div>
-                  </button>
-=======
                     <span className="shrink-0 text-xs font-semibold text-teal-700 dark:text-teal-400">Open</span>
                   </a>
->>>>>>> 1e7b041ea3cf082cc98956529ec7d63582c8501b
                 ))
               )}
             </div>

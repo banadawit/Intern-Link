@@ -105,6 +105,7 @@ const RegisterPage = () => {
   const [regStatus, setRegStatus] = useState<Record<string, boolean>>({
     student: true, coordinator: true, hod: true, supervisor: true,
   });
+  const [regStatusLoading, setRegStatusLoading] = useState(true);
 
   useEffect(() => {
     const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -117,8 +118,9 @@ const RegisterPage = () => {
           hod: data.hod !== false,
           supervisor: data.supervisor !== false,
         });
+        setRegStatusLoading(false);
       })
-      .catch(() => {});
+      .catch(() => { setRegStatusLoading(false); });
   }, []);
 
   // Password strength checker
@@ -182,6 +184,9 @@ const RegisterPage = () => {
   const validateFullName = (name: string) => {
     if (!name) return tErr('fullNameRequired');
     if (name.length < 3) return tErr('fullNameRequired');
+    // Must contain at least some letters (no digits-only or symbols-only names)
+    if (!/[a-zA-Z]/.test(name)) return 'Name must contain letters only.';
+    if (/[0-9]/.test(name)) return 'Name must contain letters only.';
     return '';
   };
 
@@ -189,6 +194,9 @@ const RegisterPage = () => {
     const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
     if (!email) return tErr('emailRequired');
     if (!emailRegex.test(email)) return tErr('emailInvalid');
+    // Username part (before @) cannot be all digits
+    const username = email.split('@')[0];
+    if (/^\d+$/.test(username)) return 'Email username cannot be numbers only.';
     return '';
   };
 
@@ -464,56 +472,69 @@ const RegisterPage = () => {
             </p>
           </div>
 
-          <div className="grid gap-4">
-            {[
-              { id: 'student' as const,     title: t('roles.student'),     icon: GraduationCap, desc: t('roles.studentDesc'),     color: 'bg-emerald-50 text-emerald-600' },
-              { id: 'coordinator' as const, title: t('roles.coordinator'), icon: School,        desc: t('roles.coordinatorDesc'), color: 'bg-primary-50 text-primary-600' },
-              { id: 'hod' as const,         title: t('roles.hod'),         icon: Building,      desc: t('roles.hodDesc'),         color: 'bg-violet-50 text-violet-600'   },
-              { id: 'supervisor' as const,  title: t('roles.supervisor'),  icon: Briefcase,     desc: t('roles.supervisorDesc'),  color: 'bg-slate-100 text-slate-600'    },
-            ].map((item) => {
-              const isClosed = !regStatus[item.id];
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => !isClosed && setRole(item.id)}
-                  disabled={isClosed}
-                  className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left group ${
-                    isClosed
-                      ? 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900'
-                      : role === item.id 
-                        ? 'border-primary-600 bg-primary-50/30 shadow-soft dark:bg-primary-900/20' 
-                        : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-soft dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700'
-                  }`}
-                >
-                  <div className={`p-3 rounded-xl transition-all ${
-                    isClosed
-                      ? 'bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
-                      : role === item.id 
-                        ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20' 
-                        : 'bg-slate-100 text-slate-500 group-hover:bg-primary-50 group-hover:text-primary-600 dark:bg-slate-900 dark:text-slate-400 dark:group-hover:bg-primary-900/30'
-                  }`}>
-                    <item.icon className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1">
-                    <p className={`font-bold ${isClosed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>{item.title}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {isClosed ? t('registrationClosed') : item.desc}
-                    </p>
-                  </div>
-                  {isClosed ? (
-                    <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                      {t('closed')}
-                    </span>
-                  ) : role === item.id ? (
-                    <CheckCircle2 className="h-5 w-5 text-primary-600" />
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+          {regStatusLoading ? (
+            <div className="grid gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {[
+                { id: 'student' as const,     title: t('roles.student'),     icon: GraduationCap, desc: t('roles.studentDesc'),     color: 'bg-emerald-50 text-emerald-600' },
+                { id: 'coordinator' as const, title: t('roles.coordinator'), icon: School,        desc: t('roles.coordinatorDesc'), color: 'bg-primary-50 text-primary-600' },
+                { id: 'hod' as const,         title: t('roles.hod'),         icon: Building,      desc: t('roles.hodDesc'),         color: 'bg-violet-50 text-violet-600'   },
+                { id: 'supervisor' as const,  title: t('roles.supervisor'),  icon: Briefcase,     desc: t('roles.supervisorDesc'),  color: 'bg-slate-100 text-slate-600'    },
+              ].map((item) => {
+                const isClosed = !regStatus[item.id];
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => !isClosed && setRole(item.id)}
+                    disabled={isClosed}
+                    className={`relative overflow-hidden flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left group ${
+                      isClosed
+                        ? 'border-slate-100 bg-slate-50 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900'
+                        : role === item.id
+                          ? 'border-primary-600 bg-primary-50/30 shadow-soft dark:bg-primary-900/20'
+                          : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-soft dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div className={`p-3 rounded-xl transition-all ${
+                      isClosed
+                        ? 'bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                        : role === item.id
+                          ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20'
+                          : 'bg-slate-100 text-slate-500 group-hover:bg-primary-50 group-hover:text-primary-600 dark:bg-slate-900 dark:text-slate-400 dark:group-hover:bg-primary-900/30'
+                    }`}>
+                      <item.icon className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-bold ${isClosed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>{item.title}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{item.desc}</p>
+                    </div>
+                    {!isClosed && role === item.id && (
+                      <CheckCircle2 className="h-5 w-5 text-primary-600 shrink-0" />
+                    )}
+
+                    {/* Closed overlay */}
+                    {isClosed && (
+                      <div className="absolute inset-0 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 flex flex-col items-center justify-center gap-1 z-10">
+                        <svg className="h-5 w-5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Registration closed</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <button
-            disabled={!role}
+            disabled={!role || (role !== null && !regStatus[role])}
             onClick={nextStep}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary-600 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition-all hover:bg-primary-700 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >

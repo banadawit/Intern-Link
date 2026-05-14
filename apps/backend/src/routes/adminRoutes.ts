@@ -22,12 +22,10 @@ router.get('/audit-logs', adminCtrl.getAuditLogs);
 // Institution Approvals
 router.get('/pending-universities', adminCtrl.getPendingUniversities);
 router.patch('/university-status/:id', adminCtrl.updateUniversityStatus);
-router.patch('/universities/:id/mark-viewed', adminCtrl.markUniversityViewed);
 router.delete('/universities/:id', adminCtrl.deleteUniversity);
 
 router.get('/pending-companies', adminCtrl.getPendingCompanies);
 router.patch('/company-status/:id', adminCtrl.updateCompanyStatus);
-router.patch('/companies/:id/mark-viewed', adminCtrl.markCompanyViewed);
 router.delete('/companies/:id', adminCtrl.deleteCompany);
 
 // ── Admin Manual Creation (Universities & Companies) ──────────────────────────
@@ -43,7 +41,6 @@ router.post('/upload-verification', uploadVerification.single('file'), adminCtrl
 
 // User Management
 router.get('/users', adminCtrl.getAllUsers);
-router.patch('/users/:id/mark-viewed', adminCtrl.markUserViewed);
 router.patch('/users/:id/institution-access', adminCtrl.updateUserInstitutionAccess);
 
 // Coordinator Approval Workflow

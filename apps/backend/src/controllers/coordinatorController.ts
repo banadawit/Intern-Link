@@ -159,8 +159,8 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
             return res.status(403).json({ error: 'You can only manage HoDs from your own university.' });
         }
 
-        if (status === 'APPROVED' && !hodProfile.user.document_viewed) {
-            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
+        if (status === 'APPROVED' && !hodProfile.user.verification_document) {
+            // No document check needed — proceed with approval
         }
 
         const rejectionReason = reason?.trim() || 'Your credentials could not be verified.';
@@ -236,11 +236,6 @@ export const markHodViewed = async (req: AuthRequest, res: Response) => {
         if (hodProfile.universityId !== coordinatorProfile.universityId) {
             return res.status(403).json({ error: 'You can only manage HoDs from your own university.' });
         }
-
-        await prisma.user.update({
-            where: { id: targetUserId },
-            data: { document_viewed: true },
-        });
 
         await prisma.auditLog.create({
             data: {
