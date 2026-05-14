@@ -322,10 +322,6 @@ model WeeklyPlan {
   version          Int                       @default(1)
   /// JSON array of attachment objects: [{ url, name, type, size, uploadedAt }]
   attachments      Json                      @default("[]")
-  /// Team Leader review
-  tl_status        String                    @default("PENDING")
-  tl_comment       String?                   @db.Text
-  tl_reviewed_at   DateTime?
   student          Student                   @relation(fields: [studentId], references: [id])
   daySubmissions   WeeklyPlanDaySubmission[]
   presentation     WeeklyPresentation?
@@ -339,13 +335,6 @@ model WeeklyPlanDaySubmission {
   workDate       DateTime   @db.Date
   notes          String?    @db.Text
   submittedAt    DateTime   @default(now())
-  status         String     @default("PENDING")
-  supervisorNote String?    @db.Text
-  reviewedAt     DateTime?
-  /// Team Leader review
-  tl_status      String     @default("PENDING")
-  tl_comment     String?    @db.Text
-  tl_reviewed_at DateTime?
   weeklyPlan     WeeklyPlan @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
 
   @@unique([weeklyPlanId, workDate])
