@@ -302,6 +302,15 @@ export const markStudentViewed = async (req: AuthRequest, res: Response) => {
             data: { document_viewed: true },
         });
 
+        await prisma.auditLog.create({
+            data: {
+                adminId: uid!, // Actually the HOD user ID
+                action: 'VIEWED_DOCUMENT',
+                targetId: student.userId,
+                details: `HOD viewed verification document for Student User ID ${student.userId}`,
+            },
+        });
+
         return sendSuccess(res, { studentId }, 'Student document marked as viewed.');
     } catch (e: any) {
         return sendError(res, e.message);

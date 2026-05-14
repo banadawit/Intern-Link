@@ -214,7 +214,7 @@ export const verifyHod = async (req: AuthRequest, res: Response) => {
 export const markHodViewed = async (req: AuthRequest, res: Response) => {
     try {
         const { userId } = req.params;
-        const targetUserId = parseInt(userId, 10);
+        const targetUserId = parseInt(Array.isArray(userId) ? userId[0] : userId, 10);
         
         // Ensure the coordinator is linked to a university
         const coordinatorProfile = await prisma.coordinator.findUnique({
@@ -240,6 +240,15 @@ export const markHodViewed = async (req: AuthRequest, res: Response) => {
         await prisma.user.update({
             where: { id: targetUserId },
             data: { document_viewed: true },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'VIEWED_DOCUMENT',
+                targetId: targetUserId,
+                details: `Coordinator viewed verification document for HOD User ID ${targetUserId}`,
+            },
         });
 
         res.json({ success: true, message: 'HoD document marked as viewed' });

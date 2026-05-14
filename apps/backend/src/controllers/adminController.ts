@@ -282,9 +282,18 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
 export const markUniversityViewed = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
+        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
         await prisma.university.update({
-            where: { id: parseInt(id) },
+            where: { id: parsedId },
             data: { document_viewed: true },
+        });
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'VIEWED_DOCUMENT',
+                targetId: parsedId,
+                details: `Admin viewed verification document for University ID ${parsedId}`,
+            },
         });
         res.json({ success: true, message: 'University document marked as viewed' });
     } catch (error: any) {
@@ -394,9 +403,18 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
 export const markCompanyViewed = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
+        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
         await prisma.company.update({
-            where: { id: parseInt(id) },
+            where: { id: parsedId },
             data: { document_viewed: true },
+        });
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'VIEWED_DOCUMENT',
+                targetId: parsedId,
+                details: `Admin viewed verification document for Company ID ${parsedId}`,
+            },
         });
         res.json({ success: true, message: 'Company document marked as viewed' });
     } catch (error: any) {
@@ -457,9 +475,18 @@ export const updateUserInstitutionAccess = async (req: AuthRequest, res: Respons
 export const markUserViewed = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
+        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
         await prisma.user.update({
-            where: { id: parseInt(id) },
+            where: { id: parsedId },
             data: { document_viewed: true },
+        });
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'VIEWED_DOCUMENT',
+                targetId: parsedId,
+                details: `Admin viewed verification document for User ID ${parsedId}`,
+            },
         });
         res.json({ success: true, message: 'User document marked as viewed' });
     } catch (error: any) {
@@ -840,41 +867,6 @@ export const getPendingHods = async (req: AuthRequest, res: Response) => {
 // These are now strictly handled by Coordinator (see coordinatorController.ts)
 // as per the new role-based approval hierarchy.
 
-export const markUniversityViewed = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        await prisma.university.update({
-            where: { id: parseInt(id) },
-            data: { document_viewed: true }
-        });
-        res.json({ message: 'University marked as viewed' });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-};
-};
-
-export const markCompanyViewed = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        await prisma.company.update({
-            where: { id: parseInt(id) },
-            data: { document_viewed: true }
-        });
-        res.json({ message: 'Company marked as viewed' });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-};
-};
-
-export const markUserViewed = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        await prisma.user.update({
-            where: { id: parseInt(id) },
-            data: { document_viewed: true }
-        });
-        res.json({ message: 'User marked as viewed' });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-};
-};
 
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
     try {
