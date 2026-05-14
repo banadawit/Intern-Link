@@ -83,6 +83,7 @@ model User {
   verification_token          String?         @unique
   verification_token_expiry   DateTime?
   verification_document       String?
+  document_viewed             Boolean         @default(false)
   /// COORDINATOR/SUPERVISOR/HOD: Pending until admin (coord./sup.) or coordinator (HOD) approves. STUDENT/ADMIN default APPROVED.
   institution_access_approval ApprovalStatus  @default(APPROVED)
   /// Set to true when account is created by a coordinator/admin with a temp password.
@@ -139,6 +140,7 @@ model University {
   approval_status  ApprovalStatus       @default(PENDING)
   created_at       DateTime             @default(now())
   rejection_reason String?
+  document_viewed  Boolean              @default(false)
   coordinators     Coordinator[]
   hods             HodProfile[]
   students         Student[]
@@ -157,6 +159,7 @@ model Company {
   approval_status   ApprovalStatus         @default(PENDING)
   created_at        DateTime               @default(now())
   rejection_reason  String?
+  document_viewed   Boolean                @default(false)
   /// HOD who sent the invitation (null if company registered on their own)
   invited_by_hod_id Int?
   invitedByHod      HodProfile?            @relation("HodInvitedCompanies", fields: [invited_by_hod_id], references: [id])

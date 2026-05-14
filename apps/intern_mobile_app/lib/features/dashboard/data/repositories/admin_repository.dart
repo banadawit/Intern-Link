@@ -181,6 +181,10 @@ class AdminRepository {
     await apiClient.dio.patch('/admin/requests/$id/view');
   }
 
+  Future<void> markUserViewed(int userId) async {
+    await apiClient.dio.patch('/admin/users/$userId/mark-viewed');
+  }
+
   Future<void> approveOrganizationRequest(int id, {String? resolution}) async {
     await apiClient.dio.post('/admin/requests/$id/approve', data: {if (resolution != null) 'resolution': resolution});
   }

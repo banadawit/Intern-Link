@@ -244,6 +244,10 @@ class HodRepository {
     await apiClient.dio.patch('/hod/students/$studentId/reject', data: {'reason': reason});
   }
 
+  Future<void> markStudentViewed(int studentId) async {
+    await apiClient.dio.patch('/hod/students/$studentId/mark-viewed');
+  }
+
   Future<Map<String, dynamic>> bulkApproveStudents(List<int> studentIds) async {
     final res = await apiClient.dio.post('/hod/students/bulk-approve', data: {'studentIds': studentIds});
     final data = _unwrap(res.data);

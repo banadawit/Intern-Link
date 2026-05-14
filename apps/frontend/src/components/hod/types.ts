@@ -32,7 +32,7 @@ export type HodStudentRow = {
   studentId: string | null;
   flag_type: string | null;
   flag_note: string | null;
-  user: { full_name: string; email: string; verification_document: string | null };
+  user: { full_name: string; email: string; verification_document: string | null; document_viewed: boolean };
   latestProposal: {
     id: number;
     status: string;

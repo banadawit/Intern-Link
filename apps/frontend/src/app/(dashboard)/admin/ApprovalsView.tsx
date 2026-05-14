@@ -20,14 +20,14 @@ interface PendingCoordinator {
   id: number;
   userId: number;
   pending_university_name: string | null;
-  user: { id: number; full_name: string; email: string; verification_document: string | null; created_at: string };
+  user: { id: number; full_name: string; email: string; verification_document: string | null; document_viewed: boolean; created_at: string };
 }
 
 interface PendingSupervisor {
   id: number;
   userId: number;
   company: { id: number; name: string };
-  user: { id: number; full_name: string; email: string; verification_document: string | null; created_at: string };
+  user: { id: number; full_name: string; email: string; verification_document: string | null; document_viewed: boolean; created_at: string };
 }
 
 type UnifiedItem =
@@ -137,6 +137,20 @@ function AllPendingView({
     }
   };
 
+  const handleViewDoc = async (userIdOrId: number | string, url: string, isOrg = false) => {
+    setDocUrl(url);
+    try {
+      if (isOrg) {
+        await api.patch(`/organizations/admin/requests/${userIdOrId}/view`);
+      } else {
+        await api.patch(`/admin/users/${userIdOrId}/mark-viewed`);
+      }
+      setDocumentViewedUserIds((prev) => new Set(prev).add(Number(userIdOrId)));
+    } catch (e) {
+      console.error("Failed to mark document as viewed", e);
+    }
+  };
+
   const pendingOrgs = proposals.filter((p) => p.status === "Pending");
 
   const unified: UnifiedItem[] = [
@@ -190,8 +204,15 @@ function AllPendingView({
                       <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{p.organizationType}</td>
                       <td className="px-6 py-4">
                         {p.documents?.[0] ? (
-                          <button type="button" onClick={() => setDocUrl(p.documents[0])} className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium">
+                          <button
+                            type="button"
+                            onClick={() => handleViewDoc(p.id, p.documents[0], true)}
+                            className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                          >
                             <FileText className="w-4 h-4" />{t("viewDoc")}
+                            {(p.document_viewed || documentViewedUserIds.has(Number(p.id))) && (
+                              <CheckCircle className="w-3 h-3 text-emerald-500" />
+                            )}
                           </button>
                         ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                       </td>
@@ -231,13 +252,13 @@ function AllPendingView({
                         {c.user.verification_document ? (
                           <button
                             type="button"
-                            onClick={() => {
-                              setDocumentViewedUserIds((prev) => new Set(prev).add(c.userId));
-                              setDocUrl(c.user.verification_document);
-                            }}
+                            onClick={() => handleViewDoc(c.userId, c.user.verification_document!)}
                             className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                           >
                             <FileText className="w-4 h-4" />{t("viewDoc")}
+                            {(c.user.document_viewed || documentViewedUserIds.has(c.userId)) && (
+                              <CheckCircle className="w-3 h-3 text-emerald-500" />
+                            )}
                           </button>
                         ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                       </td>
@@ -249,12 +270,12 @@ function AllPendingView({
                             disabled={
                               actionLoading === c.userId ||
                               !c.user.verification_document ||
-                              !documentViewedUserIds.has(c.userId)
+                              (!c.user.document_viewed && !documentViewedUserIds.has(c.userId))
                             }
                             title={
                               !c.user.verification_document
                                 ? t("titleApproveNoDoc")
-                                : !documentViewedUserIds.has(c.userId)
+                                : (!c.user.document_viewed && !documentViewedUserIds.has(c.userId))
                                   ? t("titleOpenDocBeforeApprove")
                                   : undefined
                             }
@@ -302,13 +323,13 @@ function AllPendingView({
                       {s.user.verification_document ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            setDocumentViewedUserIds((prev) => new Set(prev).add(s.userId));
-                            setDocUrl(s.user.verification_document);
-                          }}
+                          onClick={() => handleViewDoc(s.userId, s.user.verification_document!)}
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           <FileText className="w-4 h-4" />{t("viewDoc")}
+                          {(s.user.document_viewed || documentViewedUserIds.has(s.userId)) && (
+                            <CheckCircle className="w-3 h-3 text-emerald-500" />
+                          )}
                         </button>
                       ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                     </td>
@@ -320,12 +341,12 @@ function AllPendingView({
                           disabled={
                             actionLoading === s.userId ||
                             !s.user.verification_document ||
-                            !documentViewedUserIds.has(s.userId)
+                            (!s.user.document_viewed && !documentViewedUserIds.has(s.userId))
                           }
                           title={
                             !s.user.verification_document
                               ? t("titleApproveNoDoc")
-                              : !documentViewedUserIds.has(s.userId)
+                              : (!s.user.document_viewed && !documentViewedUserIds.has(s.userId))
                                 ? t("titleOpenDocBeforeApprove")
                                 : undefined
                           }

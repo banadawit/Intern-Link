@@ -117,6 +117,10 @@ class CoordinatorRepository {
     });
   }
 
+  Future<void> markHodViewed(int userId) async {
+    await apiClient.dio.patch('/coordinator/hods/$userId/mark-viewed');
+  }
+
   Future<Map<String, dynamic>> createHod({
     required String fullName,
     required String email,

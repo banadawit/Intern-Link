@@ -153,6 +153,7 @@ function ActionButtons({
   onUnflag: (id: number) => void;
   onReprocess: (id: number) => void;
   layout: "row" | "card";
+  viewedIds: Set<number>;
 }) {
   const status = student.hod_approval_status;
   const isApprovedOrPlaced = status === "APPROVED" || student.internship_status === "PLACED";
@@ -166,10 +167,18 @@ function ActionButtons({
         <>
           <button
             type="button"
-            disabled={submitting}
+            disabled={
+              submitting || 
+              (!!student.user.verification_document && !student.user.document_viewed && !viewedIds.has(student.id))
+            }
             onClick={() => onApprove(student.id)}
+            title={
+              !!student.user.verification_document && !student.user.document_viewed && !viewedIds.has(student.id)
+                ? "Review verification document first"
+                : ""
+            }
             className={cn(
-              "rounded-lg bg-primary-600 font-semibold text-white hover:bg-primary-700 disabled:opacity-50",
+              "rounded-lg bg-primary-600 font-semibold text-white hover:bg-primary-700 disabled:opacity-50 transition-all",
               layout === "card" ? "flex-1 px-3 py-2 text-sm" : "px-3 py-1.5 text-xs",
             )}
           >
@@ -177,10 +186,13 @@ function ActionButtons({
           </button>
           <button
             type="button"
-            disabled={submitting}
+            disabled={
+              submitting || 
+              (!!student.user.verification_document && !student.user.document_viewed && !viewedIds.has(student.id))
+            }
             onClick={() => onReject(student.id)}
             className={cn(
-              "rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50",
+              "rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-all",
               layout === "card" ? "flex-1 px-3 py-2 text-sm" : "px-3 py-1.5 text-xs",
             )}
           >
@@ -230,7 +242,18 @@ function ActionButtons({
 export default function HodStudentApprovalsTable({ students, submitting, onApprove, onReject, onFlag, onUnflag, onReprocess }: Props) {
   const [view, setView] = useState<ViewMode>("row");
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [viewedIds, setViewedIds] = useState<Set<number>>(() => new Set());
   const [timeline, setTimeline] = useState<{ id: number; name: string } | null>(null);
+
+  const handleOpenDoc = async (id: number, url: string) => {
+    setDocUrl(url);
+    try {
+      await api.patch(`/hod/students/${id}/mark-viewed`);
+      setViewedIds((prev) => new Set(prev).add(id));
+    } catch (e) {
+      console.error("Failed to mark student document as viewed", e);
+    }
+  };
 
   const toggleView = () => setView((v) => (v === "row" ? "card" : "row"));
 
@@ -298,10 +321,11 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                       {s.user.verification_document ? (
                         <button
                           type="button"
-                          onClick={() => setDocUrl(s.user.verification_document)}
+                          onClick={() => handleOpenDoc(s.id, s.user.verification_document!)}
                           className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors"
                         >
                           <FileText className="h-3.5 w-3.5" /> View
+                          {(s.user.document_viewed || viewedIds.has(s.id)) && <CheckCircle className="h-3 w-3 text-emerald-500 ml-0.5" />}
                         </button>
                       ) : (
                         <span className="text-xs text-slate-400">None</span>
@@ -319,7 +343,7 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                         >
                           <History className="h-3 w-3" /> Timeline
                         </button>
-                        <ActionButtons student={s} submitting={submitting} onApprove={onApprove} onReject={onReject} onFlag={onFlag} onUnflag={onUnflag} onReprocess={onReprocess} layout="row" />
+                        <ActionButtons student={s} submitting={submitting} onApprove={onApprove} onReject={onReject} onFlag={onFlag} onUnflag={onUnflag} onReprocess={onReprocess} layout="row" viewedIds={viewedIds} />
                       </div>
                     </td>
                   </tr>
@@ -365,10 +389,11 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                   {s.user.verification_document && (
                     <button
                       type="button"
-                      onClick={() => setDocUrl(s.user.verification_document)}
+                      onClick={() => handleOpenDoc(s.id, s.user.verification_document!)}
                       className="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors"
                     >
                       <FileText className="h-3.5 w-3.5" /> View document
+                      {(s.user.document_viewed || viewedIds.has(s.id)) && <CheckCircle className="h-3 w-3 text-emerald-500 ml-0.5" />}
                     </button>
                   )}
                 </div>
@@ -381,6 +406,7 @@ export default function HodStudentApprovalsTable({ students, submitting, onAppro
                   onUnflag={onUnflag}
                   onReprocess={onReprocess}
                   layout="card"
+                  viewedIds={viewedIds}
                 />
                 <button
                   type="button"

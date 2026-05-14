@@ -247,6 +247,10 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
         }
 
+        if (status === 'APPROVED' && !existing.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
+        }
+
         if (status === 'APPROVED') {
             if (existing.approval_status !== 'SUSPENDED') {
                 const check = await checkUniversityVerification(uid);
@@ -273,8 +277,8 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
                 ...(status === 'REJECTED'
                     ? { rejection_reason: rejectionReason, verification_doc: null }
                     : status === 'SUSPENDED'
-                      ? {}
-                      : {
+                        ? {}
+                        : {
                             rejection_reason: null,
                             ...(coordVerificationDoc ? { verification_doc: coordVerificationDoc } : {}),
                         }),
@@ -321,6 +325,28 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
     }
 };
 
+export const markUniversityViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
+        await prisma.university.update({
+            where: { id: parsedId },
+            data: { document_viewed: true },
+        });
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'VIEWED_DOCUMENT',
+                targetId: parsedId,
+                details: `Admin viewed verification document for University ID ${parsedId}`,
+            },
+        });
+        res.json({ success: true, message: 'University document marked as viewed' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Approve, Reject, Suspend, or reactivate a company
 export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
@@ -340,6 +366,10 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
                 return res.json({ success: true, message: 'Company is already suspended', data: existing });
             }
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
+        }
+
+        if (status === 'APPROVED' && !existing.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
         }
 
         if (status === 'APPROVED') {
@@ -368,8 +398,8 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
                 ...(status === 'REJECTED'
                     ? { rejection_reason: rejectionReason, verification_doc: null }
                     : status === 'SUSPENDED'
-                      ? {}
-                      : {
+                        ? {}
+                        : {
                             rejection_reason: null,
                             ...(supVerificationDoc ? { verification_doc: supVerificationDoc } : {}),
                         }),
@@ -413,6 +443,28 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
     } catch (error: any) {
         console.error('[updateCompanyStatus] Error:', error?.message || error);
         res.status(500).json({ success: false, error: error?.message || 'Update failed' });
+    }
+};
+
+export const markCompanyViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
+        await prisma.company.update({
+            where: { id: parsedId },
+            data: { document_viewed: true },
+        });
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'VIEWED_DOCUMENT',
+                targetId: parsedId,
+                details: `Admin viewed verification document for Company ID ${parsedId}`,
+            },
+        });
+        res.json({ success: true, message: 'Company document marked as viewed' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
     }
 };
 
@@ -461,6 +513,28 @@ export const updateUserInstitutionAccess = async (req: AuthRequest, res: Respons
         }
 
         res.json({ message: `Institution access ${status}`, user: updated });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const markUserViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
+        await prisma.user.update({
+            where: { id: parsedId },
+            data: { document_viewed: true },
+        });
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'VIEWED_DOCUMENT',
+                targetId: parsedId,
+                details: `Admin viewed verification document for User ID ${parsedId}`,
+            },
+        });
+        res.json({ success: true, message: 'User document marked as viewed' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -527,8 +601,8 @@ export const verifyInstitution = async (req: AuthRequest, res: Response) => {
             status === 'REJECTED'
                 ? { rejection_reason: reasonStr, verification_doc: null }
                 : status === 'SUSPENDED'
-                  ? {}
-                  : { rejection_reason: null };
+                    ? {}
+                    : { rejection_reason: null };
 
         if (type === 'UNIVERSITY') {
             updatedRecord = await prisma.university.update({
@@ -557,8 +631,8 @@ export const verifyInstitution = async (req: AuthRequest, res: Response) => {
                     status === 'REJECTED'
                         ? `Reason: ${reason}`
                         : status === 'SUSPENDED'
-                          ? 'Organization suspended by admin'
-                          : `Processed ${type} as ${status}`,
+                            ? 'Organization suspended by admin'
+                            : `Processed ${type} as ${status}`,
             },
         });
 
@@ -677,6 +751,10 @@ export const approveSupervisor = async (req: AuthRequest, res: Response) => {
             include: { user: true, company: true },
         });
         if (!supervisor) return res.status(404).json({ error: 'Supervisor not found' });
+
+        if (!supervisor.user.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
+        }
 
         // Approve the user and the company
         await prisma.user.update({
@@ -831,69 +909,10 @@ export const getPendingHods = async (req: AuthRequest, res: Response) => {
     } catch (error: any) { res.status(500).json({ error: error.message }); }
 };
 
-/** Approve a pending HOD */
-export const approveHod = async (req: AuthRequest, res: Response) => {
-    try {
-        const rawId = req.params.userId;
-        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
+// Removed approveHod and rejectHod from adminController. 
+// These are now strictly handled by Coordinator (see coordinatorController.ts)
+// as per the new role-based approval hierarchy.
 
-        const hod = await prisma.hodProfile.findUnique({
-            where: { userId },
-            include: { user: true, university: true },
-        });
-        if (!hod) return res.status(404).json({ error: 'HOD not found' });
-
-        await prisma.user.update({
-            where: { id: userId },
-            data: { institution_access_approval: 'APPROVED', verification_status: 'APPROVED' },
-        });
-
-        await prisma.auditLog.create({
-            data: {
-                adminId: req.user!.userId,
-                action: 'APPROVED_HOD',
-                targetId: userId,
-                details: `Approved HOD ${hod.user.full_name} for university "${hod.university.name}" - department "${hod.department}"`,
-            },
-        });
-
-        await sendNotification(userId, `✅ Your Head of Department account has been approved. You can now access the coordinator portal.`);
-        res.json({ message: 'HOD approved', userId });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-};
-
-/** Reject a pending HOD */
-export const rejectHod = async (req: AuthRequest, res: Response) => {
-    try {
-        const rawId = req.params.userId;
-        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
-        const { reason } = req.body as { reason?: string };
-        const rejectionReason = reason?.trim() || 'Your credentials could not be verified.';
-
-        const hod = await prisma.hodProfile.findUnique({
-            where: { userId },
-            include: { user: true, university: true },
-        });
-        if (!hod) return res.status(404).json({ error: 'HOD not found' });
-
-        await prisma.user.update({
-            where: { id: userId },
-            data: { institution_access_approval: 'REJECTED', verification_status: 'REJECTED' },
-        });
-
-        await prisma.auditLog.create({
-            data: {
-                adminId: req.user!.userId,
-                action: 'REJECTED_HOD',
-                targetId: userId,
-                details: `Rejected HOD ${hod.user.full_name} for university "${hod.university.name}". Reason: ${rejectionReason}`,
-            },
-        });
-
-        await sendNotification(userId, `❌ Your HOD registration was rejected. Reason: ${rejectionReason}`);
-        res.json({ message: 'HOD rejected', userId });
-    } catch (error: any) { res.status(500).json({ error: error.message }); }
-};
 
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
     try {
@@ -945,6 +964,9 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
 
         if (!coordinator) {
             return res.status(404).json({ error: 'Coordinator not found' });
+        }
+        if (!coordinator.user.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
         }
         if (coordinator.universityId && coordinator.user.institution_access_approval === 'APPROVED') {
             return res.status(400).json({ error: 'Coordinator is already approved and linked to a university' });
