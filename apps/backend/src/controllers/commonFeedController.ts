@@ -1135,35 +1135,29 @@ export const uploadImages = async (req: AuthRequest, res: Response) => {
     const files = req.files as Express.Multer.File[];
 
     if (!files || files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No files provided',
-      });
+      return res.status(400).json({ success: false, message: 'No files provided' });
     }
 
-    const { FileUploadService } = await import('../services/fileUpload.service');
-    const result = await FileUploadService.uploadMultipleImages(files, userId);
+    const { CloudinaryService } = await import('../services/cloudinary.service');
+    const results = await Promise.all(
+      files.map((file) =>
+        CloudinaryService.uploadImage(file, {
+          fileType: 'COMMON_FEED_IMAGE',
+          folder: `internlink/common-feed/images/${userId}`,
+        })
+      )
+    );
 
-    if (!result.success) {
-      return res.status(400).json({
-        success: false,
-        message: 'Failed to upload some images',
-        errors: result.errors,
-      });
+    const failed = results.filter((r) => !r.success);
+    if (failed.length === results.length) {
+      return res.status(500).json({ success: false, message: 'All image uploads failed', errors: failed.map((r) => r.error) });
     }
 
-    res.json({
-      success: true,
-      message: 'Images uploaded successfully',
-      data: { urls: result.urls },
-    });
+    const urls = results.filter((r) => r.success && r.url).map((r) => r.url as string);
+    res.json({ success: true, message: 'Images uploaded successfully', data: { urls } });
   } catch (error: any) {
     console.error('Upload images error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload images',
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: 'Failed to upload images' });
   }
 };
 
@@ -1176,34 +1170,28 @@ export const uploadDocuments = async (req: AuthRequest, res: Response) => {
     const files = req.files as Express.Multer.File[];
 
     if (!files || files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No files provided',
-      });
+      return res.status(400).json({ success: false, message: 'No files provided' });
     }
 
-    const { FileUploadService } = await import('../services/fileUpload.service');
-    const result = await FileUploadService.uploadMultipleDocuments(files, userId);
+    const { CloudinaryService } = await import('../services/cloudinary.service');
+    const results = await Promise.all(
+      files.map((file) =>
+        CloudinaryService.uploadDocument(file, {
+          fileType: 'COMMON_FEED_DOCUMENT',
+          folder: `internlink/common-feed/documents/${userId}`,
+        })
+      )
+    );
 
-    if (!result.success) {
-      return res.status(400).json({
-        success: false,
-        message: 'Failed to upload some documents',
-        errors: result.errors,
-      });
+    const failed = results.filter((r) => !r.success);
+    if (failed.length === results.length) {
+      return res.status(500).json({ success: false, message: 'All document uploads failed', errors: failed.map((r) => r.error) });
     }
 
-    res.json({
-      success: true,
-      message: 'Documents uploaded successfully',
-      data: { urls: result.urls },
-    });
+    const urls = results.filter((r) => r.success && r.url).map((r) => r.url as string);
+    res.json({ success: true, message: 'Documents uploaded successfully', data: { urls } });
   } catch (error: any) {
     console.error('Upload documents error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to upload documents',
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: 'Failed to upload documents' });
   }
 };
