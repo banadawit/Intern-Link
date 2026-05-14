@@ -20,14 +20,12 @@ interface Props {
 const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend, onReactivate }: Props) => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectionInput, setShowRejectionInput] = useState(false);
-  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   // Reset local state whenever the proposal changes
   const proposalId = proposal?.id;
   React.useEffect(() => {
     setRejectionReason("");
     setShowRejectionInput(false);
-    setDocUrl(null);
   }, [proposalId]);
 
   if (!proposal) return null;
@@ -131,22 +129,23 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
                 </div>
               ) : (
                 proposal.documents.map((doc, index) => (
-                  <button
+                  <a
                     key={index}
-                    type="button"
-                    onClick={() => setDocUrl(doc)}
+                    href={doc}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 hover:border-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="rounded-lg bg-teal-50 dark:bg-teal-900/30 p-2 group-hover:bg-teal-100 dark:group-hover:bg-teal-900/50">
-                        <FileText className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                      <div className="rounded-lg bg-teal-100 p-2 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400 shrink-0">
+                        <FileText className="h-4 w-4" />
                       </div>
                       <span className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                         Verification_Document_{index + 1}.pdf
                       </span>
                     </div>
-                    <span className="shrink-0 text-xs font-semibold text-teal-700 dark:text-teal-400">View</span>
-                  </button>
+                    <span className="shrink-0 text-xs font-semibold text-teal-700 dark:text-teal-400">Open</span>
+                  </a>
                 ))
               )}
             </div>
@@ -313,13 +312,6 @@ const VerificationDetail = ({ proposal, onClose, onApprove, onReject, onSuspend,
           </footer>
         )}
       </div>
-
-      <PdfViewerModal
-        isOpen={!!docUrl}
-        pdfUrl={docUrl ?? ""}
-        title="Verification Document"
-        onClose={() => setDocUrl(null)}
-      />
     </div>
   );
 };
