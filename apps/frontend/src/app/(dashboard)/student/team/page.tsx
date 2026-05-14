@@ -1152,8 +1152,13 @@ export default function StudentTeamPage() {
   const [isLeader, setIsLeader] = useState(false);
 
   useEffect(() => {
-    api.get<{ success: boolean; data: { isManager?: boolean } | null }>("/progress/team-plans/my")
-      .then(({ data }) => { setIsLeader(data.data?.isManager ?? false); })
+    api.get("/progress/team-plans/my")
+      .then(({ data }) => {
+        const d = (data as { success?: boolean; data?: unknown })?.data;
+        if (d && typeof d === 'object' && !Array.isArray(d)) {
+          setIsLeader((d as { isManager?: boolean }).isManager === true);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -1170,20 +1175,28 @@ export default function StudentTeamPage() {
             activeTab === "team-plans" ? "bg-white text-primary-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-primary-400 dark:ring-slate-700" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200")}>
           <ClipboardList className="h-4 w-4 shrink-0" />Team Plans
         </button>
-        {isLeader && (
-          <button type="button" onClick={() => setActiveTab("collect")}
-            className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-              activeTab === "collect" ? "bg-white text-amber-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-amber-400 dark:ring-slate-700" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200")}>
-            <Crown className="h-4 w-4 shrink-0 text-amber-500" />Collect Weekly Plans
-          </button>
-        )}
-        {isLeader && (
-          <button type="button" onClick={() => setActiveTab("collect-daily")}
-            className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-              activeTab === "collect-daily" ? "bg-white text-amber-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-amber-400 dark:ring-slate-700" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200")}>
-            <Calendar className="h-4 w-4 shrink-0 text-amber-500" />Collect Daily Plans
-          </button>
-        )}
+        <button type="button" onClick={() => setActiveTab("collect")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+            activeTab === "collect" ? "bg-white text-amber-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-amber-400 dark:ring-slate-700" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+            !isLeader && "opacity-40 cursor-not-allowed"
+          )}
+          disabled={!isLeader}
+          title={isLeader ? "Collect Weekly Plans" : "Only available to Team Leaders"}
+        >
+          <Crown className="h-4 w-4 shrink-0 text-amber-500" />Collect Weekly Plans
+        </button>
+        <button type="button" onClick={() => setActiveTab("collect-daily")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+            activeTab === "collect-daily" ? "bg-white text-amber-700 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:text-amber-400 dark:ring-slate-700" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+            !isLeader && "opacity-40 cursor-not-allowed"
+          )}
+          disabled={!isLeader}
+          title={isLeader ? "Collect Daily Plans" : "Only available to Team Leaders"}
+        >
+          <Calendar className="h-4 w-4 shrink-0 text-amber-500" />Collect Daily Plans
+        </button>
       </div>
       <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Loading…</div>}>
         {activeTab === "my-team" && <MyTeamView />}

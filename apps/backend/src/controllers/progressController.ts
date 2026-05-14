@@ -434,13 +434,11 @@ export const reviewWeeklyPlan = async (req: AuthRequest, res: Response) => {
 
         const needsTlFirst = await studentOnTeamWithLeader(existing.studentId);
         if (needsTlFirst) {
- testing-and-fixing-bug
             return sendError(
                 res,
                 'This student is on a team. Individual plans are reviewed by the Team Leader only. The supervisor reviews the compiled team plan.',
                 403,
             );
-            // tl_status not yet in schema — skip TL check main
         }
 
         // Block re-reviewing an already-reviewed plan (unless it was resubmitted)
