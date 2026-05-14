@@ -129,6 +129,9 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
   const [online, setOnline] = useState(true);
   const [activityPage, setActivityPage] = useState(1);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Keep a ref so `load` can always read the latest page without being a dep
+  const activityPageRef = useRef(activityPage);
+  const loadingRef = useRef(false);
 
   const ACTIVITY_LIMIT = 5;
 
@@ -142,13 +145,18 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
     [t]
   );
 
-  const load = useCallback(async (silent = false, page = activityPage) => {
+  // Stable load function — never changes reference, reads page from ref
+  const load = useCallback(async (silent = false, page?: number) => {
+    // Prevent concurrent requests
+    if (loadingRef.current) return;
+    const targetPage = page ?? activityPageRef.current;
+    loadingRef.current = true;
     if (!silent) setLoading(true);
     else setRefreshing(true);
     setError(null);
     try {
       const { data: res } = await api.get<AnalyticsData>(
-        `/admin/analytics?activityPage=${page}&activityLimit=${ACTIVITY_LIMIT}`
+        `/admin/analytics?activityPage=${targetPage}&activityLimit=${ACTIVITY_LIMIT}`
       );
       setData(res);
       setLastUpdated(new Date());
@@ -157,18 +165,27 @@ export default function Dashboard({ pendingVerificationCount, stats, statsLoadin
       setError(t("failedAnalytics"));
       setOnline(false);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activityPage, t]);
+  }, [t]); // no activityPage dep — uses ref instead
 
-  useEffect(() => { void load(); }, [load]);
+  // Initial load — runs once on mount
+  useEffect(() => {
+    void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-refresh interval — stable, never recreated
   useEffect(() => {
     intervalRef.current = setInterval(() => void load(true), REFRESH_INTERVAL);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [load]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleActivityPageChange = (page: number) => {
+    activityPageRef.current = page;
     setActivityPage(page);
     void load(false, page);
   };
