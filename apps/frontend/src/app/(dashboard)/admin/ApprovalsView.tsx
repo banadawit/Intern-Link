@@ -137,11 +137,15 @@ function AllPendingView({
     }
   };
 
-  const handleViewDoc = async (userId: number, url: string) => {
+  const handleViewDoc = async (userIdOrId: number | string, url: string, isOrg = false) => {
     setDocUrl(url);
     try {
-      await api.patch(`/admin/users/${userId}/mark-viewed`);
-      setDocumentViewedUserIds((prev) => new Set(prev).add(userId));
+      if (isOrg) {
+        await api.patch(`/organizations/admin/requests/${userIdOrId}/view`);
+      } else {
+        await api.patch(`/admin/users/${userIdOrId}/mark-viewed`);
+      }
+      setDocumentViewedUserIds((prev) => new Set(prev).add(Number(userIdOrId)));
     } catch (e) {
       console.error("Failed to mark document as viewed", e);
     }
@@ -200,8 +204,15 @@ function AllPendingView({
                       <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{p.organizationType}</td>
                       <td className="px-6 py-4">
                         {p.documents?.[0] ? (
-                          <button type="button" onClick={() => setDocUrl(p.documents[0])} className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium">
+                          <button
+                            type="button"
+                            onClick={() => handleViewDoc(p.id, p.documents[0], true)}
+                            className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                          >
                             <FileText className="w-4 h-4" />{t("viewDoc")}
+                            {(p.document_viewed || documentViewedUserIds.has(Number(p.id))) && (
+                              <CheckCircle className="w-3 h-3 text-emerald-500" />
+                            )}
                           </button>
                         ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                       </td>
