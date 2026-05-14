@@ -357,14 +357,15 @@ export const deleteWeekForTeam = async (req: AuthRequest, res: Response) => {
         const student = await prisma.student.findUnique({ where: { userId } });
         if (!student) return sendError(res, 'Student profile not found.', 404);
 
-        // Verify caller is the team leader
-        const team = await prisma.team.findFirst({
-            where: { managerId: student.id, deleted_at: null },
-            include: { members: { select: { studentId: true } } },
+        // Verify caller is the team leader (student must be a member of a team)
+        const studentTeam = await prisma.studentTeam.findFirst({
+            where: { studentId: student.id, team: { deleted_at: null } },
+            include: { team: { include: { members: { select: { studentId: true } } } } },
         });
-        if (!team) return sendError(res, 'You are not a Team Leader.', 403);
+        if (!studentTeam) return sendError(res, 'You are not a Team Leader.', 403);
+        const team = studentTeam.team;
 
-        const memberIds = team.members.map((m) => m.studentId);
+        const memberIds = team.members.map((m: { studentId: number }) => m.studentId);
 
         // Find all individual WeeklyPlans for this week
         const plans = await prisma.weeklyPlan.findMany({
@@ -381,10 +382,8 @@ export const deleteWeekForTeam = async (req: AuthRequest, res: Response) => {
             await prisma.weeklyPlan.deleteMany({ where: { id: { in: planIds } } });
         }
 
-        // Also delete the compiled TeamWeeklyPlan for this week (TeamDailyPlans cascade)
-        await prisma.teamWeeklyPlan.deleteMany({
-            where: { teamId: team.id, week_number: weekNumber },
-        });
+        // Also delete the compiled WeeklyPlans for this week (no TeamWeeklyPlan model)
+        // Individual plans already deleted above; nothing more to do here.
 
         return sendSuccess(res, null, `Week ${weekNumber} plans deleted for all team members.`);
     } catch (error: any) {

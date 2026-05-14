@@ -14,7 +14,8 @@ import {
   Send,
   MoreHorizontal,
   Globe,
-  X
+  X,
+  Briefcase
 } from 'lucide-react';
 
 interface Post {
@@ -757,6 +758,16 @@ export default function CommonFeedPage() {
                       <Send className="w-5 h-5" />
                       <span>Send</span>
                     </button>
+                    {/* Apply button — only for OPPORTUNITY posts viewed by students */}
+                    {post.postType === 'OPPORTUNITY' && currentUser?.role === 'STUDENT' && (
+                      <button
+                        onClick={() => router.push(`/student/job-opportunities`)}
+                        className="flex items-center gap-2 px-4 py-3 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-lg text-teal-600 dark:text-teal-400 font-medium transition-colors flex-1 justify-center"
+                      >
+                        <Briefcase className="w-5 h-5" />
+                        <span>Apply</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Comments Section */}

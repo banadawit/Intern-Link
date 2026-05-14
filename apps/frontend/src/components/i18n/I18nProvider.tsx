@@ -26,12 +26,41 @@ export function useI18n() {
 /** Minimal hook that mimics next-intl's useTranslations(namespace) */
 export function useTranslations(namespace: string) {
   const { t, raw } = useI18n();
+
   const fn = (key: string, params?: Record<string, string | number>) => {
     const str = t(namespace, key);
     if (!params) return str;
-    // Replace {param} placeholders
-    return str.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? `{${k}}`));
+
+    // Handle ICU plural: {count, plural, one {# item} other {# items}}
+    const resolved = str.replace(
+      /\{(\w+),\s*plural,\s*((?:(?:zero|one|two|few|many|other|=\d+)\s*\{[^}]*\}\s*)+)\}/g,
+      (_match, paramName, cases) => {
+        const count = Number(params[paramName] ?? 0);
+        // Parse cases into a map
+        const caseMap: Record<string, string> = {};
+        const caseRegex = /(zero|one|two|few|many|other|=\d+)\s*\{([^}]*)\}/g;
+        let m: RegExpExecArray | null;
+        while ((m = caseRegex.exec(cases)) !== null) {
+          caseMap[m[1]] = m[2];
+        }
+        // Pick the right case
+        const exactKey = `=${count}`;
+        let chosen = caseMap[exactKey];
+        if (!chosen) {
+          if (count === 0 && caseMap['zero']) chosen = caseMap['zero'];
+          else if (count === 1 && caseMap['one']) chosen = caseMap['one'];
+          else if (count === 2 && caseMap['two']) chosen = caseMap['two'];
+          else chosen = caseMap['other'] ?? String(count);
+        }
+        // Replace # with the count
+        return chosen.replace(/#/g, String(count));
+      }
+    );
+
+    // Replace remaining {param} placeholders
+    return resolved.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? `{${k}}`));
   };
+
   fn.raw = (key: string) => raw(namespace, key);
   return fn;
 }

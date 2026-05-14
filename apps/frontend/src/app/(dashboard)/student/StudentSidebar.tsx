@@ -13,7 +13,8 @@ import {
   Settings,
   Activity,
   Crown,
-  Calendar,
+  UsersRound,
+  Briefcase,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -69,14 +70,16 @@ const StudentSidebar = () => {
       .slice(0, 2) ?? "JD";
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/student", badge: 0 },
-    { icon: ClipboardList, label: "Plans", path: "/student/plans", badge: 0 },
-    { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
-    { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
-    { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation", badge: 0 },
-    { icon: Activity, label: "Activity", path: "/student/settings/activity", badge: 0 },
-    { icon: Settings, label: "Profile", path: "/student/settings", badge: 0 },
-    { icon: MessageSquare, label: "Common Feed", path: "/student/common", badge: 0 },
+    { icon: LayoutDashboard,                   label: "Dashboard",        path: "/student",                   badge: 0 },
+    { icon: ClipboardList,                     label: "Plans",            path: "/student/plans",             badge: 0 },
+    { icon: isTeamLeader ? Crown : UsersRound, label: "Team",             path: "/student/team",              badge: 0 },
+    { icon: MessagesSquare,                    label: "Messages",         path: "/student/chat",              badge: unreadCount },
+    { icon: Building,                          label: "Request Company",  path: "/student/request-company",   badge: 0 },
+    { icon: FileCheck,                         label: "Final Evaluation", path: "/student/evaluation",        badge: 0 },
+    { icon: Activity,                          label: "Activity",         path: "/student/settings/activity", badge: 0 },
+    { icon: Settings,                          label: "Settings",         path: "/student/settings",          badge: 0 },
+    { icon: MessageSquare,                     label: "Common Feed",      path: "/student/common",            badge: 0 },
+    { icon: Briefcase,                         label: "Job Opportunities",path: "/student/job-opportunities", badge: 0 },
   ];
 
   const linkClass = (active: boolean) =>
@@ -97,7 +100,7 @@ const StudentSidebar = () => {
           <GraduationCap className="h-6 w-6 text-white" />
         </div>
         <div className="min-w-0 flex-1">
-          <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">StudentPortal</span>
+          <span className="block truncate text-lg font-bold tracking-tight text-text-heading dark:text-slate-100">Student Portal</span>
           {universityName
             ? <span className="hidden truncate text-xs font-medium text-primary-600 sm:block">{universityName}</span>
             : <span className="hidden text-xs text-text-muted sm:block dark:text-slate-400">Internship workspace</span>

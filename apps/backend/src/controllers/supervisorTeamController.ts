@@ -169,7 +169,6 @@ export const listProjects = async (req: AuthRequest, res: Response) => {
                         select: {
                             id: true,
                             name: true,
-                            managerId: true,
                             members: {
                                 include: {
                                     student: { include: { user: { select: { full_name: true, email: true } } } },

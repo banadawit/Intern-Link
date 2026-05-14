@@ -23,6 +23,7 @@ import hodRoutes from './routes/hodRoutes';
 import commonFeedRoutes from './routes/commonFeedRoutes';
 import fileRoutes from './routes/fileRoutes';
 import supportRoutes from './routes/supportRoutes';
+import jobOpportunityRoutes from './routes/jobOpportunityRoutes';
 
 import organizationRoutes from './routes/organizationRoutes';
 import { startReminderScheduler } from './services/reminderScheduler';
@@ -63,6 +64,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/job-opportunities', jobOpportunityRoutes);
 // Public organization search (no auth — used during registration)
 app.use('/api', organizationRoutes);
 // 3. Basic Health Check Route

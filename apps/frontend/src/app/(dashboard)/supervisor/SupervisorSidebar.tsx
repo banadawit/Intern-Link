@@ -15,6 +15,7 @@ import {
   FolderKanban,
   MessageSquare,
   MessagesSquare,
+  Briefcase,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -82,6 +83,7 @@ const SupervisorSidebar = () => {
     { icon: ClipboardList, label: "Weekly plans", path: "/supervisor/plans", badge: pendingPlans },
     { icon: FileCheck, label: "Reports", path: "/supervisor/reports", badge: 0 },
     { icon: MessageSquare, label: "Common Feed", path: "/supervisor/common-feed", badge: 0 },
+    { icon: Briefcase,     label: "Job Opportunities", path: "/supervisor/job-opportunities", badge: 0 },
   ];
 
   const attendanceNavItems = [
