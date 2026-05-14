@@ -6204,7 +6204,7 @@ class _SupervisorStudentsTab extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () async {
-              await ref.read(supervisorActionsProvider.notifier).submitEvaluation(
+              await ref.read(supervisorRepositoryProvider).submitEvaluation(
                     studentId: student.id,
                     technicalSkills: double.parse(technicalSkillsCtrl.text),
                     problemSolving: double.parse(problemSolvingCtrl.text),
@@ -19363,9 +19363,28 @@ class _AdminOrganizationsTabState
             return true;
           });
 
-          // Merge and remove duplicates by ID
+          // Include organization requests (map to same shape used by org cards)
+          final requestsRaw = ref.watch(organizationRequestsProvider).asData?.value ?? [];
+          final filteredReqs = requestsRaw.where((r) {
+            if (filterByStatus && (r['status']?.toString() ?? 'PENDING') != _orgStatusFilter) return false;
+            if (sQuery.isNotEmpty && !r['name'].toString().toLowerCase().contains(sQuery)) return false;
+            if (_orgTypeFilter != 'All' && r['type'] != _orgTypeFilter.toUpperCase()) return false;
+            return true;
+          }).map((r) => {
+                'id': 'req-${r['id']}',
+                'name': r['name'],
+                'official_email': r['official_email'] ?? r['requester_email'] ?? '',
+                'approval_status': r['status'] ?? 'PENDING',
+                'type': r['type'] == 'UNIVERSITY' ? 'University' : 'Company',
+                'requester_email': r['requester_email'],
+                'is_request': true,
+                'request_id': r['id'],
+                'document_viewed': r['document_viewed'] ?? false,
+              }).toList();
+
+          // Merge and remove duplicates by ID (include requests)
           final Map<String, dynamic> uniqueMap = {};
-          for (var org in [...optimistic, ...filteredUnis, ...filteredComps]) {
+          for (var org in [...optimistic, ...filteredUnis, ...filteredComps, ...filteredReqs]) {
             uniqueMap[org['id'].toString()] = org;
           }
           final all = uniqueMap.values.toList();
@@ -21226,173 +21245,149 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab>
   }
 
   Widget _buildCoordinatorsTab(bool isDark) {
-    final pendingAsync = ref.watch(pendingCoordinatorsProvider);
-    // We merge pending + others using the allUsers data for approved/rejected/suspended
+    final allUsersAsync = ref.watch(allUsersProvider);
+
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(pendingCoordinatorsProvider);
+        ref.invalidate(allUsersProvider);
         ref.invalidate(adminStatsProvider);
       },
-      child: pendingAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (coordinators) {
-          final filtered = coordinators.where((c) {
-            final name = (c['user']?['full_name'] ?? '')
-                .toString()
-                .toLowerCase();
-            final email = (c['user']?['email'] ?? '').toString().toLowerCase();
-            final status =
-                (c['user']?['institution_access_approval'] ?? 'PENDING')
-                    .toString();
-            final matchesSearch =
-                name.contains(_searchQuery.toLowerCase()) ||
-                email.contains(_searchQuery.toLowerCase());
-            final matchesStatus =
-                _statusFilter == 'ALL' || status == _statusFilter;
-            return matchesSearch && matchesStatus;
-          }).toList();
+      child: allUsersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (users) {
+                // Filter users that are coordinators
+                final coords = (users as List).where((u) {
+                  final role = (u['role'] ?? '').toString();
+                  return role == 'COORDINATOR' || u['coordinatorProfile'] != null;
+                }).toList();
 
-          if (filtered.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.school_rounded,
-                      size: 48,
-                      color: Colors.grey.shade300,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No coordinators found',
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+                final filtered = coords.where((c) {
+                  final name = (c['full_name'] ?? c['user']?['full_name'] ?? '')
+                      .toString()
+                      .toLowerCase();
+                  final email = (c['email'] ?? c['user']?['email'] ?? '')
+                      .toString()
+                      .toLowerCase();
+                  final status = (c['institution_access_approval'] ?? c['user']?['institution_access_approval'] ?? 'PENDING')
+                      .toString();
+                  final matchesSearch = name.contains(_searchQuery.toLowerCase()) || email.contains(_searchQuery.toLowerCase());
+                  final matchesStatus = _statusFilter == 'ALL' || status == _statusFilter;
+                  return matchesSearch && matchesStatus;
+                }).toList();
 
-          return LayoutBuilder(
-            builder: (ctx, constraints) {
-              final hPad = responsiveValue(
-                context,
-                mobile: 16.0,
-                tablet: 20.0,
-                desktop: 24.0,
-              );
-              if (isTablet(context)) {
-                return GridView.builder(
-                  padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.4,
+                if (filtered.isEmpty) return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.school_rounded, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No coordinators found', style: TextStyle(color: Colors.grey.shade500)),
+                      ],
+                    ),
                   ),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) =>
-                      _buildCoordinatorCard(context, filtered[i], isDark),
                 );
-              }
-              return ListView.builder(
-                padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
-                itemCount: filtered.length,
-                itemBuilder: (context, i) =>
-                    _buildCoordinatorCard(context, filtered[i], isDark),
-              );
-            },
-          );
-        },
-      ),
+
+                return LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final hPad = responsiveValue(context, mobile: 16.0, tablet: 20.0, desktop: 24.0);
+                    if (isTablet(context)) {
+                      return GridView.builder(
+                        padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.4,
+                        ),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, i) => _buildCoordinatorCard(context, filtered[i], isDark),
+                      );
+                    }
+                    return ListView.builder(
+                      padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) => _buildCoordinatorCard(context, filtered[i], isDark),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 
   Widget _buildSupervisorsTab(bool isDark) {
-    final pendingAsync = ref.watch(pendingSupervisorsProvider);
+    final allUsersAsync = ref.watch(allUsersProvider);
+
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(pendingSupervisorsProvider);
+        ref.invalidate(allUsersProvider);
         ref.invalidate(adminStatsProvider);
       },
-      child: pendingAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (supervisors) {
-          final filtered = supervisors.where((s) {
-            final name = (s['user']?['full_name'] ?? '')
-                .toString()
-                .toLowerCase();
-            final email = (s['user']?['email'] ?? '').toString().toLowerCase();
-            final status =
-                (s['user']?['institution_access_approval'] ?? 'PENDING')
-                    .toString();
-            final matchesSearch =
-                name.contains(_searchQuery.toLowerCase()) ||
-                email.contains(_searchQuery.toLowerCase());
-            final matchesStatus =
-                _statusFilter == 'ALL' || status == _statusFilter;
-            return matchesSearch && matchesStatus;
-          }).toList();
+      child: allUsersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (users) {
+                final sups = (users as List).where((u) {
+                  final role = (u['role'] ?? '').toString();
+                  return role == 'SUPERVISOR' || u['supervisorProfile'] != null;
+                }).toList();
 
-          if (filtered.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.work_rounded,
-                      size: 48,
-                      color: Colors.grey.shade300,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No supervisors found',
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+                final filtered = sups.where((s) {
+                  final name = (s['full_name'] ?? s['user']?['full_name'] ?? '')
+                      .toString()
+                      .toLowerCase();
+                  final email = (s['email'] ?? s['user']?['email'] ?? '')
+                      .toString()
+                      .toLowerCase();
+                  final status = (s['institution_access_approval'] ?? s['user']?['institution_access_approval'] ?? 'PENDING')
+                      .toString();
+                  final matchesSearch = name.contains(_searchQuery.toLowerCase()) || email.contains(_searchQuery.toLowerCase());
+                  final matchesStatus = _statusFilter == 'ALL' || status == _statusFilter;
+                  return matchesSearch && matchesStatus;
+                }).toList();
 
-          return LayoutBuilder(
-            builder: (ctx, constraints) {
-              final hPad = responsiveValue(
-                context,
-                mobile: 16.0,
-                tablet: 20.0,
-                desktop: 24.0,
-              );
-              if (isTablet(context)) {
-                return GridView.builder(
-                  padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.4,
+                if (filtered.isEmpty) return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.work_rounded, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No supervisors found', style: TextStyle(color: Colors.grey.shade500)),
+                      ],
+                    ),
                   ),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) =>
-                      _buildSupervisorCard(context, filtered[i], isDark),
                 );
-              }
-              return ListView.builder(
-                padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
-                itemCount: filtered.length,
-                itemBuilder: (context, i) =>
-                    _buildSupervisorCard(context, filtered[i], isDark),
-              );
-            },
-          );
-        },
-      ),
+
+                return LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final hPad = responsiveValue(context, mobile: 16.0, tablet: 20.0, desktop: 24.0);
+                    if (isTablet(context)) {
+                      return GridView.builder(
+                        padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.4,
+                        ),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, i) => _buildSupervisorCard(context, filtered[i], isDark),
+                      );
+                    }
+                    return ListView.builder(
+                      padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 120),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) => _buildSupervisorCard(context, filtered[i], isDark),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 
@@ -21402,7 +21397,13 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab>
     bool isDark,
   ) {
     final theme = Theme.of(context);
-    final user = coord['user'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> user = () {
+      if (coord is Map<String, dynamic>) {
+        if (coord['user'] is Map<String, dynamic>) return Map<String, dynamic>.from(coord['user']);
+        return Map<String, dynamic>.from(coord);
+      }
+      return <String, dynamic>{};
+    }();
     final approval =
         (user['institution_access_approval'] ?? 'PENDING') as String;
     final isPending = approval == 'PENDING';
@@ -21658,8 +21659,22 @@ class _AdminUsersTabState extends ConsumerState<_AdminUsersTab>
 
   Widget _buildSupervisorCard(BuildContext context, dynamic sup, bool isDark) {
     final theme = Theme.of(context);
-    final user = sup['user'] as Map<String, dynamic>? ?? {};
-    final company = sup['company'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> user = () {
+      if (sup is Map<String, dynamic>) {
+        if (sup['user'] is Map<String, dynamic>) return Map<String, dynamic>.from(sup['user']);
+        return Map<String, dynamic>.from(sup);
+      }
+      return <String, dynamic>{};
+    }();
+    final Map<String, dynamic> company = () {
+      if (sup is Map<String, dynamic>) {
+        if (sup['company'] is Map<String, dynamic>) return Map<String, dynamic>.from(sup['company']);
+        if (sup['supervisorProfile'] is Map<String, dynamic> && sup['supervisorProfile']['company'] is Map<String, dynamic>) {
+          return Map<String, dynamic>.from(sup['supervisorProfile']['company']);
+        }
+      }
+      return <String, dynamic>{};
+    }();
     final approval =
         (user['institution_access_approval'] ?? 'PENDING') as String;
     final isPending = approval == 'PENDING';

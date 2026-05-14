@@ -331,8 +331,8 @@ const RegisterPage = () => {
       return false;
     }
     
-    // File upload is optional for coordinators, required for others
-    const fileError = role === 'coordinator' ? '' : validateVerificationFile(formData.verificationFile);
+    // File upload is optional for coordinators and supervisors
+    const fileError = (role === 'coordinator' || role === 'supervisor') ? '' : validateVerificationFile(formData.verificationFile);
     
     if (fileError) {
       setErrors(prev => ({ ...prev, verificationFile: fileError }));
@@ -754,17 +754,11 @@ const RegisterPage = () => {
                 ? 'Select your institution from the approved universities'
                 : role === 'hod'
                 ? 'Select your university, enter your department, and upload your staff ID'
-                : 'Enter your company details and upload official verification document'}
+                : 'Enter your company details'}
             </p>
           </div>
 
-          {/* Step 3 error display */}
-          {errors.general && (
-            <div className="flex items-center gap-3 rounded-xl bg-red-50 p-4 text-red-700 border border-red-200">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <p className="text-sm font-medium">{errors.general}</p>
-            </div>
-          )}
+
 
           {/* Role-Specific Fields */}
           <div className="space-y-4">
@@ -1014,7 +1008,7 @@ const RegisterPage = () => {
               <>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Company Name <span className="text-red-500">*</span>
+                    Company/Organization Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -1023,21 +1017,21 @@ const RegisterPage = () => {
                       name="companyName"
                       value={formData.companyName}
                       onChange={handleInputChange}
-                      placeholder="Enter your company name"
+                      placeholder="e.g., Tech Solutions Inc."
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">
-                    Position <span className="text-red-500">*</span>
+                    Role/Position <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     name="position"
                     value={formData.position}
                     onChange={handleInputChange}
-                    placeholder="Enter your position or job title"
+                    placeholder="e.g., Senior Engineer"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                   />
                 </div>
@@ -1170,109 +1164,110 @@ const RegisterPage = () => {
             )}
           </div>
 
-          {/* File Upload - Optional for coordinators, but disabled until they select university */}
-          <div className="space-y-2">
-            <label className={`text-sm font-semibold ${
-              role === 'coordinator' && !formData.universityId 
-                ? 'text-slate-400 dark:text-slate-500' 
-                : 'text-slate-700 dark:text-slate-200'
-            }`}>
-              {role === 'student' ? 'Student ID / Verification' : 
-               role === 'coordinator' ? 'Official University Letter with Stamp (Optional)' :
-               role === 'hod' ? 'Staff ID / Verification Document' :
-               'Official Company Letter with Stamp'} {role !== 'coordinator' && <span className="text-red-500">*</span>}
-            </label>
-            
-            {/* Disabled state message for coordinators without selection */}
-            {role === 'coordinator' && !formData.universityId && (
-              <div className="rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/50 p-4 text-center">
-                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                  ℹ️ File upload is disabled until you select a valid university
-                </p>
-              </div>
-            )}
-            
-            {!formData.verificationFile ? (
-              <label
-                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-all ${
-                  coordinatorUploadLocked
-                    ? 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed opacity-50 pointer-events-none'
-                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/50 dark:hover:bg-slate-800/50 hover:border-primary-300 dark:hover:border-primary-700 cursor-pointer group'
-                }`}
-                aria-disabled={coordinatorUploadLocked}
-              >
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileChange}
-                  disabled={coordinatorUploadLocked}
-                  className="hidden"
-                />
-                <div className={`h-14 w-14 rounded-full shadow-sm flex items-center justify-center transition-colors mb-4 ${
-                  coordinatorUploadLocked
-                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
-                    : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 group-hover:text-primary-600 dark:group-hover:text-primary-400'
-                }`}>
-                  <Upload className="h-7 w-7" />
-                </div>
-                <p className={`text-sm font-bold ${
-                  coordinatorUploadLocked
-                    ? 'text-slate-600 dark:text-slate-400'
-                    : 'text-slate-900 dark:text-slate-100'
-                }`}>Click to upload or drag and drop</p>
-                <p className={`text-xs mt-1 ${
-                  coordinatorUploadLocked
-                    ? 'text-slate-500 dark:text-slate-500'
-                    : 'text-slate-500 dark:text-slate-400'
-                }`}>PDF, JPG or PNG (max. 5MB)</p>
-                {role !== 'coordinator' && (
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Official document with institutional stamp required</p>
-                )}
+          {/* File Upload - Optional for coordinators, hidden for supervisors, required for others */}
+          {role !== 'supervisor' && (
+            <div className="space-y-2">
+              <label className={`text-sm font-semibold ${
+                role === 'coordinator' && !formData.universityId 
+                  ? 'text-slate-400 dark:text-slate-500' 
+                  : 'text-slate-700 dark:text-slate-200'
+              }`}>
+                {role === 'student' ? 'Student ID / Verification' : 
+                 role === 'coordinator' ? 'Official University Letter with Stamp (Optional)' :
+                 'Staff ID / Verification Document'} {role !== 'coordinator' && <span className="text-red-500">*</span>}
               </label>
-            ) : (
-              <div className="border-2 border-primary-200 dark:border-primary-800 rounded-2xl p-4 bg-primary-50/30 dark:bg-primary-900/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary-100 dark:bg-primary-900/50 rounded-lg">
-                      <FileText className="h-6 w-6 text-primary-600 dark:text-primary-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {formData.verificationFile.name}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {(formData.verificationFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={removeFile}
-                    className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                  >
-                    <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                  </button>
+              
+              {/* Disabled state message for coordinators without selection */}
+              {role === 'coordinator' && !formData.universityId && (
+                <div className="rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/50 p-4 text-center">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                    ℹ️ File upload is disabled until you select a valid university
+                  </p>
                 </div>
-                {formData.verificationFilePreview && formData.verificationFile.type.startsWith('image/') && (
-                  <div className="mt-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={formData.verificationFilePreview} 
-                      alt="Preview" 
-                      className="max-h-32 rounded-lg object-cover"
-                    />
+              )}
+              
+              {!formData.verificationFile ? (
+                <label
+                  className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-all ${
+                    coordinatorUploadLocked
+                      ? 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 cursor-not-allowed opacity-50 pointer-events-none'
+                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900/50 dark:hover:bg-slate-800/50 hover:border-primary-300 dark:hover:border-primary-700 cursor-pointer group'
+                  }`}
+                  aria-disabled={coordinatorUploadLocked}
+                >
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileChange}
+                    disabled={coordinatorUploadLocked}
+                    className="hidden"
+                  />
+                  <div className={`h-14 w-14 rounded-full shadow-sm flex items-center justify-center transition-colors mb-4 ${
+                    coordinatorUploadLocked
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+                      : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 group-hover:text-primary-600 dark:group-hover:text-primary-400'
+                  }`}>
+                    <Upload className="h-7 w-7" />
                   </div>
-                )}
-              </div>
-            )}
-            
-            {errors.verificationFile && (
-              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
-                <AlertCircle className="h-3 w-3" />
-                {errors.verificationFile}
-              </p>
-            )}
-          </div>
+                  <p className={`text-sm font-bold ${
+                    coordinatorUploadLocked
+                      ? 'text-slate-600 dark:text-slate-400'
+                      : 'text-slate-900 dark:text-slate-100'
+                  }`}>Click to upload or drag and drop</p>
+                  <p className={`text-xs mt-1 ${
+                    coordinatorUploadLocked
+                      ? 'text-slate-500 dark:text-slate-500'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}>PDF, JPG or PNG (max. 5MB)</p>
+                  {role !== 'coordinator' && (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Official document with institutional stamp required</p>
+                  )}
+                </label>
+              ) : (
+                <div className="border-2 border-primary-200 dark:border-primary-800 rounded-2xl p-4 bg-primary-50/30 dark:bg-primary-900/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary-100 dark:bg-primary-900/50 rounded-lg">
+                        <FileText className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {formData.verificationFile.name}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {(formData.verificationFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeFile}
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                    >
+                      <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                    </button>
+                  </div>
+                  {formData.verificationFilePreview && formData.verificationFile.type.startsWith('image/') && (
+                    <div className="mt-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={formData.verificationFilePreview} 
+                        alt="Preview" 
+                        className="max-h-32 rounded-lg object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {errors.verificationFile && (
+                <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 mt-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.verificationFile}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Terms and Conditions */}
           <div className="flex items-start gap-3 pt-2">
