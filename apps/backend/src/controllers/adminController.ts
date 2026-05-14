@@ -201,6 +201,10 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
         }
 
+        if (status === 'APPROVED' && !existing.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
+        }
+
         if (status === 'APPROVED') {
             if (existing.approval_status !== 'SUSPENDED') {
                 const check = await checkUniversityVerification(uid);
@@ -275,6 +279,19 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
     }
 };
 
+export const markUniversityViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        await prisma.university.update({
+            where: { id: parseInt(id) },
+            data: { document_viewed: true },
+        });
+        res.json({ success: true, message: 'University document marked as viewed' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Approve, Reject, Suspend, or reactivate a company
 export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
@@ -294,6 +311,10 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
                 return res.json({ success: true, message: 'Company is already suspended', data: existing });
             }
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
+        }
+
+        if (status === 'APPROVED' && !existing.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
         }
 
         if (status === 'APPROVED') {
@@ -370,6 +391,19 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const markCompanyViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        await prisma.company.update({
+            where: { id: parseInt(id) },
+            data: { document_viewed: true },
+        });
+        res.json({ success: true, message: 'Company document marked as viewed' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // --- USER MANAGEMENT ---
 
 // View all users in the system
@@ -415,6 +449,19 @@ export const updateUserInstitutionAccess = async (req: AuthRequest, res: Respons
         }
 
         res.json({ message: `Institution access ${status}`, user: updated });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const markUserViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        await prisma.user.update({
+            where: { id: parseInt(id) },
+            data: { document_viewed: true },
+        });
+        res.json({ success: true, message: 'User document marked as viewed' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -632,6 +679,10 @@ export const approveSupervisor = async (req: AuthRequest, res: Response) => {
         });
         if (!supervisor) return res.status(404).json({ error: 'Supervisor not found' });
 
+        if (!supervisor.user.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
+        }
+
         // Approve the user and the company
         await prisma.user.update({
             where: { id: userId },
@@ -785,68 +836,44 @@ export const getPendingHods = async (req: AuthRequest, res: Response) => {
     } catch (error: any) { res.status(500).json({ error: error.message }); }
 };
 
-/** Approve a pending HOD */
-export const approveHod = async (req: AuthRequest, res: Response) => {
+// Removed approveHod and rejectHod from adminController. 
+// These are now strictly handled by Coordinator (see coordinatorController.ts)
+// as per the new role-based approval hierarchy.
+
+export const markUniversityViewed = async (req: AuthRequest, res: Response) => {
     try {
-        const rawId = req.params.userId;
-        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
-
-        const hod = await prisma.hodProfile.findUnique({
-            where: { userId },
-            include: { user: true, university: true },
+        const { id } = req.params;
+        await prisma.university.update({
+            where: { id: parseInt(id) },
+            data: { document_viewed: true }
         });
-        if (!hod) return res.status(404).json({ error: 'HOD not found' });
-
-        await prisma.user.update({
-            where: { id: userId },
-            data: { institution_access_approval: 'APPROVED', verification_status: 'APPROVED' },
-        });
-
-        await prisma.auditLog.create({
-            data: {
-                adminId: req.user!.userId,
-                action: 'APPROVED_HOD',
-                targetId: userId,
-                details: `Approved HOD ${hod.user.full_name} for university "${hod.university.name}" - department "${hod.department}"`,
-            },
-        });
-
-        await sendNotification(userId, `✅ Your Head of Department account has been approved. You can now access the coordinator portal.`);
-        res.json({ message: 'HOD approved', userId });
+        res.json({ message: 'University marked as viewed' });
     } catch (error: any) { res.status(500).json({ error: error.message }); }
 };
+};
 
-/** Reject a pending HOD */
-export const rejectHod = async (req: AuthRequest, res: Response) => {
+export const markCompanyViewed = async (req: AuthRequest, res: Response) => {
     try {
-        const rawId = req.params.userId;
-        const userId = parseInt(Array.isArray(rawId) ? rawId[0] : rawId, 10);
-        const { reason } = req.body as { reason?: string };
-        const rejectionReason = reason?.trim() || 'Your credentials could not be verified.';
-
-        const hod = await prisma.hodProfile.findUnique({
-            where: { userId },
-            include: { user: true, university: true },
+        const { id } = req.params;
+        await prisma.company.update({
+            where: { id: parseInt(id) },
+            data: { document_viewed: true }
         });
-        if (!hod) return res.status(404).json({ error: 'HOD not found' });
-
-        await prisma.user.update({
-            where: { id: userId },
-            data: { institution_access_approval: 'REJECTED', verification_status: 'REJECTED' },
-        });
-
-        await prisma.auditLog.create({
-            data: {
-                adminId: req.user!.userId,
-                action: 'REJECTED_HOD',
-                targetId: userId,
-                details: `Rejected HOD ${hod.user.full_name} for university "${hod.university.name}". Reason: ${rejectionReason}`,
-            },
-        });
-
-        await sendNotification(userId, `❌ Your HOD registration was rejected. Reason: ${rejectionReason}`);
-        res.json({ message: 'HOD rejected', userId });
+        res.json({ message: 'Company marked as viewed' });
     } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
+};
+
+export const markUserViewed = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        await prisma.user.update({
+            where: { id: parseInt(id) },
+            data: { document_viewed: true }
+        });
+        res.json({ message: 'User marked as viewed' });
+    } catch (error: any) { res.status(500).json({ error: error.message }); }
+};
 };
 
 export const getPendingCoordinators = async (req: AuthRequest, res: Response) => {
@@ -899,6 +926,9 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
 
         if (!coordinator) {
             return res.status(404).json({ error: 'Coordinator not found' });
+        }
+        if (!coordinator.user.document_viewed) {
+            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
         }
         if (coordinator.universityId && coordinator.user.institution_access_approval === 'APPROVED') {
             return res.status(400).json({ error: 'Coordinator is already approved and linked to a university' });

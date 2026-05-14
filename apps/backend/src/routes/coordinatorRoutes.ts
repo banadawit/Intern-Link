@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middlewares/authMiddleware';
 import { Role } from '@prisma/client';
-import { getPendingHods, getApprovedHods, getRejectedHods, getSuspendedHods, getAllHods, verifyHod, createHod, getHodDetail, suspendHod, activateHod } from '../controllers/coordinatorController';
+import { getPendingHods, getApprovedHods, getRejectedHods, getSuspendedHods, getAllHods, verifyHod, createHod, getHodDetail, suspendHod, activateHod, markHodViewed } from '../controllers/coordinatorController';
 
 const router = Router();
 
@@ -15,6 +15,7 @@ router.get('/rejected-hods', getRejectedHods);
 router.get('/suspended-hods', getSuspendedHods);
 router.get('/all-hods', getAllHods);
 router.patch('/verify-hod', verifyHod);
+router.patch('/hods/:userId/mark-viewed', markHodViewed);
 
 // Coordinator manually creates an HoD (auto-approved)
 router.post('/hods', createHod);

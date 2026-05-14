@@ -18,6 +18,7 @@ router.get('/students', hodCtrl.getStudents);
 router.patch('/students/:studentId/approve', hodCtrl.approveStudent);
 router.patch('/students/:studentId/reject', hodCtrl.rejectStudent);
 router.patch('/verify-student', hodCtrl.verifyStudent);
+router.patch('/students/:studentId/mark-viewed', hodCtrl.markStudentViewed);
 router.patch('/students/:id/flag', hodEnhanced.flagStudent);
 router.delete('/students/:id/flag', hodEnhanced.unflagStudent);
 router.get('/students/:id/timeline', hodEnhanced.getStudentTimeline);

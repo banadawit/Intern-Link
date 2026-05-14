@@ -22,10 +22,12 @@ router.get('/audit-logs', adminCtrl.getAuditLogs);
 // Institution Approvals
 router.get('/pending-universities', adminCtrl.getPendingUniversities);
 router.patch('/university-status/:id', adminCtrl.updateUniversityStatus);
+router.patch('/universities/:id/mark-viewed', adminCtrl.markUniversityViewed);
 router.delete('/universities/:id', adminCtrl.deleteUniversity);
 
 router.get('/pending-companies', adminCtrl.getPendingCompanies);
 router.patch('/company-status/:id', adminCtrl.updateCompanyStatus);
+router.patch('/companies/:id/mark-viewed', adminCtrl.markCompanyViewed);
 router.delete('/companies/:id', adminCtrl.deleteCompany);
 
 // ── Admin Manual Creation (Universities & Companies) ──────────────────────────
@@ -41,6 +43,7 @@ router.post('/upload-verification', uploadVerification.single('file'), adminCtrl
 
 // User Management
 router.get('/users', adminCtrl.getAllUsers);
+router.patch('/users/:id/mark-viewed', adminCtrl.markUserViewed);
 router.patch('/users/:id/institution-access', adminCtrl.updateUserInstitutionAccess);
 
 // Coordinator Approval Workflow
@@ -59,10 +62,10 @@ router.get('/suspended-supervisors', adminCtrl.getSuspendedSupervisors);
 router.post('/supervisors/:userId/approve', adminCtrl.approveSupervisor);
 router.post('/supervisors/:userId/reject', adminCtrl.rejectSupervisor);
 
-// HOD Approval Workflow
+// HOD Approval Workflow - MOVED TO COORDINATOR
 router.get('/pending-hods', adminCtrl.getPendingHods);
-router.post('/hods/:userId/approve', adminCtrl.approveHod);
-router.post('/hods/:userId/reject', adminCtrl.rejectHod);
+// router.post('/hods/:userId/approve', adminCtrl.approveHod);
+// router.post('/hods/:userId/reject', adminCtrl.rejectHod);
 
 // Common Page Feed
 router.post('/announcements', adminCtrl.postAnnouncement);

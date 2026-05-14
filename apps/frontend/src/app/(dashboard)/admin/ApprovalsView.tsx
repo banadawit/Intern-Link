@@ -20,14 +20,14 @@ interface PendingCoordinator {
   id: number;
   userId: number;
   pending_university_name: string | null;
-  user: { id: number; full_name: string; email: string; verification_document: string | null; created_at: string };
+  user: { id: number; full_name: string; email: string; verification_document: string | null; document_viewed: boolean; created_at: string };
 }
 
 interface PendingSupervisor {
   id: number;
   userId: number;
   company: { id: number; name: string };
-  user: { id: number; full_name: string; email: string; verification_document: string | null; created_at: string };
+  user: { id: number; full_name: string; email: string; verification_document: string | null; document_viewed: boolean; created_at: string };
 }
 
 type UnifiedItem =
@@ -137,6 +137,16 @@ function AllPendingView({
     }
   };
 
+  const handleViewDoc = async (userId: number, url: string) => {
+    setDocUrl(url);
+    try {
+      await api.patch(`/admin/users/${userId}/mark-viewed`);
+      setDocumentViewedUserIds((prev) => new Set(prev).add(userId));
+    } catch (e) {
+      console.error("Failed to mark document as viewed", e);
+    }
+  };
+
   const pendingOrgs = proposals.filter((p) => p.status === "Pending");
 
   const unified: UnifiedItem[] = [
@@ -231,13 +241,13 @@ function AllPendingView({
                         {c.user.verification_document ? (
                           <button
                             type="button"
-                            onClick={() => {
-                              setDocumentViewedUserIds((prev) => new Set(prev).add(c.userId));
-                              setDocUrl(c.user.verification_document);
-                            }}
+                            onClick={() => handleViewDoc(c.userId, c.user.verification_document!)}
                             className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                           >
                             <FileText className="w-4 h-4" />{t("viewDoc")}
+                            {(c.user.document_viewed || documentViewedUserIds.has(c.userId)) && (
+                              <CheckCircle className="w-3 h-3 text-emerald-500" />
+                            )}
                           </button>
                         ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                       </td>
@@ -249,12 +259,12 @@ function AllPendingView({
                             disabled={
                               actionLoading === c.userId ||
                               !c.user.verification_document ||
-                              !documentViewedUserIds.has(c.userId)
+                              (!c.user.document_viewed && !documentViewedUserIds.has(c.userId))
                             }
                             title={
                               !c.user.verification_document
                                 ? t("titleApproveNoDoc")
-                                : !documentViewedUserIds.has(c.userId)
+                                : (!c.user.document_viewed && !documentViewedUserIds.has(c.userId))
                                   ? t("titleOpenDocBeforeApprove")
                                   : undefined
                             }
@@ -302,13 +312,13 @@ function AllPendingView({
                       {s.user.verification_document ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            setDocumentViewedUserIds((prev) => new Set(prev).add(s.userId));
-                            setDocUrl(s.user.verification_document);
-                          }}
+                          onClick={() => handleViewDoc(s.userId, s.user.verification_document!)}
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           <FileText className="w-4 h-4" />{t("viewDoc")}
+                          {(s.user.document_viewed || documentViewedUserIds.has(s.userId)) && (
+                            <CheckCircle className="w-3 h-3 text-emerald-500" />
+                          )}
                         </button>
                       ) : <span className="text-xs text-slate-400 italic">{t("noDocument")}</span>}
                     </td>
@@ -320,12 +330,12 @@ function AllPendingView({
                           disabled={
                             actionLoading === s.userId ||
                             !s.user.verification_document ||
-                            !documentViewedUserIds.has(s.userId)
+                            (!s.user.document_viewed && !documentViewedUserIds.has(s.userId))
                           }
                           title={
                             !s.user.verification_document
                               ? t("titleApproveNoDoc")
-                              : !documentViewedUserIds.has(s.userId)
+                              : (!s.user.document_viewed && !documentViewedUserIds.has(s.userId))
                                 ? t("titleOpenDocBeforeApprove")
                                 : undefined
                           }
