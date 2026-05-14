@@ -67,12 +67,11 @@ const StudentSidebar = () => {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/student", badge: 0 },
     { icon: ClipboardList, label: "Plans", path: "/student/plans", badge: 0 },
-    { icon: isTeamLeader ? Crown : UsersRound, label: "Team", path: "/student/team", badge: 0, isLeaderItem: isTeamLeader },
     { icon: MessagesSquare, label: "Messages", path: "/student/chat", badge: unreadCount },
     { icon: Building, label: "Request Company", path: "/student/request-company", badge: 0 },
     { icon: FileCheck, label: "Final Evaluation", path: "/student/evaluation", badge: 0 },
     { icon: Activity, label: "Activity", path: "/student/settings/activity", badge: 0 },
-    { icon: Settings, label: "Settings", path: "/student/settings", badge: 0 },
+    { icon: Settings, label: "Profile", path: "/student/settings", badge: 0 },
     { icon: MessageSquare, label: "Common Feed", path: "/student/common", badge: 0 },
   ];
 
@@ -111,22 +110,12 @@ const StudentSidebar = () => {
             item.path === "/student"
               ? pathname === item.path
               : item.path === "/student/settings"
-                ? pathname === "/student/settings" || pathname === "/student/settings/alerts"
+                ? pathname === "/student/settings" || pathname?.startsWith("/student/settings/")
                 : pathname?.startsWith(item.path) ?? false;
-          const isLeaderItem = 'isLeaderItem' in item && item.isLeaderItem;
           return (
-            <Link key={item.path} href={item.path} className={cn(
-              linkClass(!!active),
-              isLeaderItem && !active && "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
-              isLeaderItem && active && "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-800"
-            )}>
-              <item.icon className={cn("h-5 w-5 shrink-0", isLeaderItem && "text-amber-500")} />
+            <Link key={item.path} href={item.path} className={linkClass(!!active)}>
+              <item.icon className="h-5 w-5 shrink-0" />
               <span className="whitespace-nowrap flex-1">{item.label}</span>
-              {isLeaderItem && (
-                <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-300">
-                  TL
-                </span>
-              )}
               {item.badge > 0 && (
                 <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold tabular-nums text-rose-700 ring-1 ring-rose-200/80">
                   {item.badge > 99 ? "99+" : item.badge}

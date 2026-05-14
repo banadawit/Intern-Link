@@ -895,6 +895,14 @@ export const getTeamMembersDailyPlans = async (req: AuthRequest, res: Response) 
                 weeklyPlans: {
                     where: { status: 'APPROVED' },
                     orderBy: { week_number: 'asc' },
+                    include: {
+                        dailyPlans: {
+                            select: {
+                                workDate: true,
+                                status: true,
+                            },
+                        },
+                    },
                 },
             },
         });
@@ -928,11 +936,23 @@ export const getTeamMembersDailyPlans = async (req: AuthRequest, res: Response) 
                 };
             });
 
+            // Build a map of date → supervisor status for forwarded team daily plans
+            const forwardedDailyDates: Record<string, string> = {};
+            if (approvedTeamPlan) {
+                for (const dp of (approvedTeamPlan as any).dailyPlans ?? []) {
+                    const ymd = dp.workDate instanceof Date
+                        ? dp.workDate.toISOString().slice(0, 10)
+                        : String(dp.workDate).slice(0, 10);
+                    forwardedDailyDates[ymd] = dp.status; // PENDING | APPROVED | REJECTED
+                }
+            }
+
             return {
                 weekNumber: weekNum,
                 teamWeeklyPlanApproved: !!approvedTeamPlan,
                 teamWeeklyPlanId: approvedTeamPlan?.id ?? null,
                 teamWeeklyPlanDescription: approvedTeamPlan?.plan_description ?? null,
+                forwardedDailyDates,
                 members,
             };
         });

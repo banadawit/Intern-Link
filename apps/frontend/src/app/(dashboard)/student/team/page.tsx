@@ -86,6 +86,8 @@ function CollectPlansView() {
 
   // Track which weeks have already been forwarded to supervisor (status PENDING/APPROVED/REJECTED)
   const [forwardedWeeks, setForwardedWeeks] = useState<Set<number>>(new Set());
+  // Track supervisor review status per week
+  const [weekPlanStatus, setWeekPlanStatus] = useState<Record<number, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -102,6 +104,12 @@ function CollectPlansView() {
             .map((p) => p.week_number)
         );
         setForwardedWeeks(forwarded);
+        // Build status map per week
+        const statusMap: Record<number, string> = {};
+        for (const p of plans) {
+          statusMap[p.week_number] = p.status;
+        }
+        setWeekPlanStatus(statusMap);
       } catch {
         setForwardedWeeks(new Set());
       }
@@ -264,9 +272,26 @@ function CollectPlansView() {
                           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                             Week {weekNum}
                           </h3>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {roster.length} teammates · {membersSorted.filter((m) => tlPendingForWeek(m, weekNum) === 0).length} approved
-                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {roster.length} teammates · {membersSorted.filter((m) => tlPendingForWeek(m, weekNum) === 0).length} approved
+                            </p>
+                            {weekPlanStatus[weekNum] === "APPROVED" && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                                <CheckCircle2 className="h-3 w-3" /> Supervisor Approved
+                              </span>
+                            )}
+                            {weekPlanStatus[weekNum] === "REJECTED" && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
+                                <XCircle className="h-3 w-3" /> Supervisor Rejected
+                              </span>
+                            )}
+                            {(weekPlanStatus[weekNum] === "PENDING" || weekPlanStatus[weekNum] === "RESUBMITTED") && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                <Clock className="h-3 w-3" /> Awaiting Supervisor
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -585,6 +610,7 @@ type DailyWeekData = {
   teamWeeklyPlanApproved: boolean;
   teamWeeklyPlanId: number | null;
   teamWeeklyPlanDescription: string | null;
+  forwardedDailyDates: Record<string, string>;
   members: DailyMember[];
 };
 type DailyTeamData = { teamId: number; teamName: string; weeks: DailyWeekData[] };
@@ -803,6 +829,8 @@ function CollectDailyPlansView() {
                             const fwdKey = `${week.weekNumber}:${date}`;
                             const isForwarding = forwarding === fwdKey;
                             const dateLabel = new Date(`${date}T12:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                            const dailyStatus = week.forwardedDailyDates?.[date]; // PENDING | APPROVED | REJECTED | undefined
+                            const isForwarded = !!dailyStatus;
 
                             return (
                               <div key={date} className="px-6 py-4">
@@ -811,50 +839,92 @@ function CollectDailyPlansView() {
                                   <div className="flex items-center gap-2">
                                     <div className={cn(
                                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
-                                      approvedCount === submittedCount && submittedCount > 0
-                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                      dailyStatus === "APPROVED"
+                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                        : dailyStatus === "PENDING"
+                                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                        : approvedCount === submittedCount && submittedCount > 0                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
                                         : submittedCount > 0
                                         ? "bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400"
                                         : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                                     )}>
-                                      {approvedCount === submittedCount && submittedCount > 0
+                                      {dailyStatus === "APPROVED"
+                                        ? <CheckCircle2 className="h-4 w-4" />
+                                        : dailyStatus === "PENDING"
+                                        ? <Clock className="h-4 w-4" />
+                                        : approvedCount === submittedCount && submittedCount > 0
                                         ? <CheckCircle2 className="h-4 w-4" />
                                         : <Clock className="h-4 w-4" />}
                                     </div>
                                     <div>
                                       <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">{dateLabel}</p>
-                                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                                        {submittedCount}/{roster.length} submitted · {approvedCount} approved
-                                        {roster.length - submittedCount > 0 && (
-                                          <span className="ml-1 text-slate-400 dark:text-slate-500">
-                                            · {roster.length - submittedCount} absent
+                                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                          {submittedCount}/{roster.length} submitted · {approvedCount} approved
+                                          {roster.length - submittedCount > 0 && (
+                                            <span className="ml-1 text-slate-400 dark:text-slate-500">
+                                              · {roster.length - submittedCount} absent
+                                            </span>
+                                          )}
+                                        </p>
+                                        {dailyStatus === "APPROVED" && (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                                            <CheckCircle2 className="h-3 w-3" /> Supervisor Approved
                                           </span>
                                         )}
-                                      </p>
+                                        {dailyStatus === "PENDING" && (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                            <Clock className="h-3 w-3" /> Waiting Approval
+                                          </span>
+                                        )}
+                                        {dailyStatus === "REJECTED" && (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-300">
+                                            <XCircle className="h-3 w-3" /> Supervisor Rejected
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                  <button
-                                    type="button"
-                                    disabled={!canForward || isForwarding}
-                                    onClick={() => openForwardModal(week.weekNumber, date, roster)}
-                                    className={cn(
-                                      "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all shadow-sm",
-                                      canForward
-                                        ? "bg-green-600 text-white hover:bg-green-700"
-                                        : "border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
-                                    )}
-                                    title={canForward
-                                      ? `Forward ${dateLabel} to supervisor (absent members will not get attendance)`
-                                      : "No submissions yet for this date"}
-                                  >
-                                    <ArrowRight className="h-3.5 w-3.5" />
-                                    {isForwarding ? "Forwarding…" : "Forward to Supervisor"}
-                                    {canForward && approvedCount < submittedCount && (
-                                      <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">
-                                        {approvedCount}/{submittedCount} approved
-                                      </span>
-                                    )}
-                                  </button>
+                                  {!isForwarded ? (
+                                    <button
+                                      type="button"
+                                      disabled={!canForward || isForwarding}
+                                      onClick={() => openForwardModal(week.weekNumber, date, roster)}
+                                      className={cn(
+                                        "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all shadow-sm",
+                                        canForward
+                                          ? "bg-green-600 text-white hover:bg-green-700"
+                                          : "border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                                      )}
+                                      title={canForward
+                                        ? `Forward ${dateLabel} to supervisor`
+                                        : "No submissions yet for this date"}
+                                    >
+                                      <ArrowRight className="h-3.5 w-3.5" />
+                                      {isForwarding ? "Forwarding…" : "Forward to Supervisor"}
+                                      {canForward && approvedCount < submittedCount && (
+                                        <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold">
+                                          {approvedCount}/{submittedCount} approved
+                                        </span>
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <span className={cn(
+                                      "inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold",
+                                      dailyStatus === "APPROVED"
+                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                        : dailyStatus === "REJECTED"
+                                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                    )}>
+                                      {dailyStatus === "APPROVED"
+                                        ? <><CheckCircle2 className="h-3.5 w-3.5" /> Supervisor Approved</>
+                                        : dailyStatus === "REJECTED"
+                                        ? <><XCircle className="h-3.5 w-3.5" /> Supervisor Rejected</>
+                                        : <><Clock className="h-3.5 w-3.5" /> Waiting Approval</>
+                                      }
+                                    </span>
+                                  )}
                                 </div>
 
                                 {/* Member submissions for this date */}
