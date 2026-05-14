@@ -217,10 +217,14 @@ export function mapPlacementToCompanyRequest(p: PlacementProposalApi): CompanyRe
 
 function mapAuditAction(action: string): AuditLogEntry["action"] {
   const u = action.toUpperCase();
-  if (u.includes("REJECT")) return "Reject";
+  if (u.includes("DELETE")) return "Delete";
   if (u.includes("SUSPEND")) return "Suspend";
+  if (u.includes("REJECT")) return "Reject";
+  // APPROVED after SUSPENDED = Reactivate; we can't tell from action alone,
+  // so treat all APPROVED_* as Approve (reactivation is visually the same)
+  if (u.includes("APPROVED") || u.includes("APPROVE")) return "Approve";
   if (u.includes("REACTIVATE")) return "Reactivate";
-  return "Approve";
+  return "Other";
 }
 
 export function mapAuditApiToEntry(l: {
@@ -235,7 +239,8 @@ export function mapAuditApiToEntry(l: {
   return {
     id: String(l.id),
     action: mapAuditAction(l.action),
-    targetId: String(l.targetId),
+    rawAction: l.action,
+    targetId: String(l.targetId ?? ""),
     targetName: l.details?.slice(0, 120) || `Target #${l.targetId}`,
     adminId: l.admin?.full_name ?? `Admin #${l.adminId}`,
     timestamp: typeof l.timestamp === "string" ? l.timestamp : new Date(l.timestamp).toISOString(),

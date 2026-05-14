@@ -134,22 +134,68 @@ export const listCompanies = async (req: AuthRequest, res: Response) => {
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     try {
         const take = Math.min(1000, Math.max(1, parseInt(String(req.query.take || '500'), 10) || 500));
-        const logs = await prisma.auditLog.findMany({
-            orderBy: { timestamp: 'desc' },
-            take,
-        });
+        const [logs, universities, companies, coordinators] = await Promise.all([
+            prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take }),
+            // Live lists for the stat cards
+            prisma.university.findMany({
+                select: { id: true, name: true, official_email: true, approval_status: true, created_at: true },
+                orderBy: { name: 'asc' },
+            }),
+            prisma.company.findMany({
+                select: { id: true, name: true, official_email: true, approval_status: true, created_at: true },
+                orderBy: { name: 'asc' },
+            }),
+            prisma.coordinator.findMany({
+                where: { user: { institution_access_approval: { in: ['APPROVED', 'REJECTED', 'SUSPENDED'] } } },
+                select: {
+                    id: true,
+                    user: { select: { full_name: true, email: true, institution_access_approval: true, created_at: true } },
+                    university: { select: { name: true } },
+                },
+                orderBy: { id: 'asc' },
+            }),
+        ]);
+
         const adminIds = [...new Set(logs.map((l) => l.adminId))];
         const admins = await prisma.user.findMany({
             where: { id: { in: adminIds } },
             select: { id: true, full_name: true, email: true },
         });
         const adminMap = new Map(admins.map((a) => [a.id, a]));
-        res.json(
-            logs.map((l) => ({
-                ...l,
-                admin: adminMap.get(l.adminId) ?? null,
-            }))
-        );
+
+        // Build typed lists per status
+        const buildOrgList = (status: string) => [
+            ...universities.filter((u) => u.approval_status === status).map((u) => ({
+                id: u.id, name: u.name, email: u.official_email, type: 'University' as const, since: u.created_at,
+            })),
+            ...companies.filter((c) => c.approval_status === status).map((c) => ({
+                id: c.id, name: c.name, email: c.official_email, type: 'Company' as const, since: c.created_at,
+            })),
+            ...coordinators
+                .filter((c) => c.user.institution_access_approval === status)
+                .map((c) => ({
+                    id: c.id, name: c.user.full_name, email: c.user.email, type: 'Coordinator' as const,
+                    since: c.user.created_at, universityName: c.university?.name ?? null,
+                })),
+        ];
+
+        res.json({
+            logs: logs.map((l) => ({ ...l, admin: adminMap.get(l.adminId) ?? null })),
+            currentStats: {
+                approved: universities.filter((u) => u.approval_status === 'APPROVED').length
+                    + companies.filter((c) => c.approval_status === 'APPROVED').length
+                    + coordinators.filter((c) => c.user.institution_access_approval === 'APPROVED').length,
+                rejected: universities.filter((u) => u.approval_status === 'REJECTED').length
+                    + companies.filter((c) => c.approval_status === 'REJECTED').length
+                    + coordinators.filter((c) => c.user.institution_access_approval === 'REJECTED').length,
+                suspended: universities.filter((u) => u.approval_status === 'SUSPENDED').length
+                    + companies.filter((c) => c.approval_status === 'SUSPENDED').length
+                    + coordinators.filter((c) => c.user.institution_access_approval === 'SUSPENDED').length,
+            },
+            approvedList: buildOrgList('APPROVED'),
+            rejectedList: buildOrgList('REJECTED'),
+            suspendedList: buildOrgList('SUSPENDED'),
+        });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

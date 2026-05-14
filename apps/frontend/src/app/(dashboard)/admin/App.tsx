@@ -23,7 +23,7 @@ import {
   mapAuditApiToEntry,
   parseProposalId,
 } from "@/lib/api/mappers";
-import { VerificationProposal, AuditLogEntry } from "@/lib/superadmin/types";
+import { VerificationProposal, AuditLogEntry, AuditOrgItem } from "@/lib/superadmin/types";
 
 
 const VALID_VIEWS: ViewKey[] = [
@@ -46,6 +46,12 @@ export default function App() {
 
   const [proposals, setProposals] = useState<VerificationProposal[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditCurrentStats, setAuditCurrentStats] = useState<{ approved: number; rejected: number; suspended: number } | null>(null);
+  const [auditLists, setAuditLists] = useState<{
+    approvedList: AuditOrgItem[];
+    rejectedList: AuditOrgItem[];
+    suspendedList: AuditOrgItem[];
+  }>({ approvedList: [], rejectedList: [], suspendedList: [] });
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [listsLoading, setListsLoading] = useState(true);
@@ -87,9 +93,21 @@ export default function App() {
 
   const loadAuditLogs = useCallback(async () => {
     try {
-      const { data } = await api.get("/admin/audit-logs");
-      const logRows = data as Record<string, unknown>[];
+      const { data } = await api.get<{
+        logs: Record<string, unknown>[];
+        currentStats: { approved: number; rejected: number; suspended: number };
+        approvedList: AuditOrgItem[];
+        rejectedList: AuditOrgItem[];
+        suspendedList: AuditOrgItem[];
+      }>("/admin/audit-logs");
+      const logRows = data.logs ?? (Array.isArray(data) ? data as Record<string, unknown>[] : []);
       setAuditLogs(logRows.map((row) => mapAuditApiToEntry(row as never)));
+      if (data.currentStats) setAuditCurrentStats(data.currentStats);
+      setAuditLists({
+        approvedList: data.approvedList ?? [],
+        rejectedList: data.rejectedList ?? [],
+        suspendedList: data.suspendedList ?? [],
+      });
     } catch {
       setAuditLogs([]);
     }
@@ -223,7 +241,7 @@ export default function App() {
           onActionComplete={() => { loadProposals(); loadStats(); }}
         />
       );
-    if (activeView === "audit-log") return <AuditLog logs={auditLogs} />;
+    if (activeView === "audit-log") return <AuditLog logs={auditLogs} currentStats={auditCurrentStats} approvedList={auditLists.approvedList} rejectedList={auditLists.rejectedList} suspendedList={auditLists.suspendedList} />;
     if (activeView === "settings") return <SystemSettings />;
   }, [activeView, proposals, auditLogs, pendingVerificationCount, stats, statsLoading, listsLoading, handleReview]);
 
