@@ -73,6 +73,14 @@ type StudentRow = {
     } | null;
     finalEvaluation?: FinalEvaluation | null;
   };
+  attendanceStats?: {
+    totalWeeks: number;
+    presentWeeks: number;
+    totalDays: number;
+    approvedDays: number;
+    attendanceScore: number | null;
+    attendancePct: number | null;
+  } | null;
 };
 
 function avgEval(ev: FinalEvaluation): number {
@@ -114,6 +122,9 @@ export default function SupervisorReportsPage() {
       const init: Record<number, EvalForm> = {};
       for (const r of rows) {
         const ev = r.student.finalEvaluation;
+        const autoAttendance = r.attendanceStats?.attendanceScore != null
+          ? String(Math.min(10, Math.max(0, Math.round(r.attendanceStats.attendanceScore * 10) / 10)))
+          : "";
         init[r.student.id] = ev ? {
           technical_skills: String(ev.technical_skills),
           problem_solving: String(ev.problem_solving),
@@ -126,7 +137,7 @@ export default function SupervisorReportsPage() {
           attendance_punctuality: String(ev.attendance_punctuality),
           task_completion_quality: String(ev.task_completion_quality),
           comments: ev.comments ?? "",
-        } : emptyForm();
+        } : { ...emptyForm(), attendance_punctuality: autoAttendance };
       }
       setForm(init);
     } catch {
@@ -493,6 +504,26 @@ export default function SupervisorReportsPage() {
 
                 {/* 10-criteria grid */}
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {/* Attendance stats banner — shown when data is available */}
+                  {r.attendanceStats && r.attendanceStats.totalWeeks > 0 && (
+                    <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-800/50 dark:bg-blue-900/20 px-4 py-3 flex flex-wrap gap-4 items-center text-xs">
+                      <span className="font-semibold text-blue-700 dark:text-blue-300">📊 Attendance Data</span>
+                      <span className="text-blue-600 dark:text-blue-400">
+                        Weekly: {r.attendanceStats.presentWeeks}/{r.attendanceStats.totalWeeks} present
+                        {r.attendanceStats.attendancePct != null && ` (${r.attendanceStats.attendancePct}%)`}
+                      </span>
+                      {r.attendanceStats.totalDays > 0 && (
+                        <span className="text-blue-600 dark:text-blue-400">
+                          Daily: {r.attendanceStats.approvedDays}/{r.attendanceStats.totalDays} approved
+                        </span>
+                      )}
+                      {r.attendanceStats.attendanceScore != null && (
+                        <span className="font-bold text-blue-700 dark:text-blue-300">
+                          Auto score: {r.attendanceStats.attendanceScore}/10
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {CRITERIA.map((c) => (
                     <label key={c.key} className="text-xs font-medium text-slate-600 dark:text-slate-300">
                       {c.label} (0–100)

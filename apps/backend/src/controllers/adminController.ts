@@ -247,10 +247,6 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
         }
 
-        if (status === 'APPROVED' && !existing.document_viewed) {
-            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
-        }
-
         if (status === 'APPROVED') {
             if (existing.approval_status !== 'SUSPENDED') {
                 const check = await checkUniversityVerification(uid);
@@ -325,28 +321,6 @@ export const updateUniversityStatus = async (req: AuthRequest, res: Response) =>
     }
 };
 
-export const markUniversityViewed = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
-        await prisma.university.update({
-            where: { id: parsedId },
-            data: { document_viewed: true },
-        });
-        await prisma.auditLog.create({
-            data: {
-                adminId: req.user!.userId,
-                action: 'VIEWED_DOCUMENT',
-                targetId: parsedId,
-                details: `Admin viewed verification document for University ID ${parsedId}`,
-            },
-        });
-        res.json({ success: true, message: 'University document marked as viewed' });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
 // Approve, Reject, Suspend, or reactivate a company
 export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
@@ -366,10 +340,6 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
                 return res.json({ success: true, message: 'Company is already suspended', data: existing });
             }
             return res.status(400).json({ error: 'Only approved organizations can be suspended.' });
-        }
-
-        if (status === 'APPROVED' && !existing.document_viewed) {
-            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
         }
 
         if (status === 'APPROVED') {
@@ -446,28 +416,6 @@ export const updateCompanyStatus = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export const markCompanyViewed = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
-        await prisma.company.update({
-            where: { id: parsedId },
-            data: { document_viewed: true },
-        });
-        await prisma.auditLog.create({
-            data: {
-                adminId: req.user!.userId,
-                action: 'VIEWED_DOCUMENT',
-                targetId: parsedId,
-                details: `Admin viewed verification document for Company ID ${parsedId}`,
-            },
-        });
-        res.json({ success: true, message: 'Company document marked as viewed' });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-};
-
 // --- USER MANAGEMENT ---
 
 // View all users in the system
@@ -518,26 +466,9 @@ export const updateUserInstitutionAccess = async (req: AuthRequest, res: Respons
     }
 };
 
-export const markUserViewed = async (req: AuthRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const parsedId = parseInt(Array.isArray(id) ? id[0] : id, 10);
-        await prisma.user.update({
-            where: { id: parsedId },
-            data: { document_viewed: true },
-        });
-        await prisma.auditLog.create({
-            data: {
-                adminId: req.user!.userId,
-                action: 'VIEWED_DOCUMENT',
-                targetId: parsedId,
-                details: `Admin viewed verification document for User ID ${parsedId}`,
-            },
-        });
-        res.json({ success: true, message: 'User document marked as viewed' });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
+/** Mark a user's verification document as viewed (UI state only — no DB change needed). */
+export const markUserDocumentViewed = async (_req: AuthRequest, res: Response) => {
+    res.json({ success: true, message: 'Document marked as viewed' });
 };
 
 // --- SYSTEM ANNOUNCEMENTS (SRS FR-7.2) ---
@@ -752,10 +683,6 @@ export const approveSupervisor = async (req: AuthRequest, res: Response) => {
         });
         if (!supervisor) return res.status(404).json({ error: 'Supervisor not found' });
 
-        if (!supervisor.user.document_viewed) {
-            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
-        }
-
         // Approve the user and the company
         await prisma.user.update({
             where: { id: userId },
@@ -784,6 +711,106 @@ export const approveSupervisor = async (req: AuthRequest, res: Response) => {
 
         await sendOrganizationApprovalEmail(supervisor.user.email, supervisor.company.name, 'Company');
         res.json({ message: 'Supervisor approved', userId });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Suspend an approved supervisor */
+export const suspendSupervisor = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = parseInt(String(req.params.userId), 10);
+        const { reason } = req.body as { reason?: string };
+
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId },
+            include: { user: true, company: true },
+        });
+        if (!supervisor) return res.status(404).json({ error: 'Supervisor not found' });
+        if (supervisor.user.institution_access_approval !== 'APPROVED') {
+            return res.status(400).json({ error: 'Only approved supervisors can be suspended.' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'SUSPENDED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'SUSPENDED_SUPERVISOR',
+                targetId: userId,
+                details: `Suspended supervisor ${supervisor.user.full_name}${reason ? ` — reason: ${reason}` : ''}`,
+            },
+        });
+
+        await sendNotification(userId, `⚠️ Your supervisor account has been suspended by the admin.${reason ? ` Reason: ${reason}` : ' Please contact support for more information.'}`);
+        res.json({ message: 'Supervisor suspended', userId });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Reactivate a suspended supervisor */
+export const reactivateSupervisor = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = parseInt(String(req.params.userId), 10);
+
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId },
+            include: { user: true, company: true },
+        });
+        if (!supervisor) return res.status(404).json({ error: 'Supervisor not found' });
+        if (supervisor.user.institution_access_approval !== 'SUSPENDED') {
+            return res.status(400).json({ error: 'Supervisor is not suspended.' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'APPROVED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'REACTIVATED_SUPERVISOR',
+                targetId: userId,
+                details: `Reactivated supervisor ${supervisor.user.full_name}`,
+            },
+        });
+
+        await sendNotification(userId, `✅ Your supervisor account has been reactivated. You can now access the platform again.`);
+        res.json({ message: 'Supervisor reactivated', userId });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Delete a supervisor user permanently */
+export const deleteSupervisor = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = parseInt(String(req.params.userId), 10);
+
+        const supervisor = await prisma.supervisor.findUnique({
+            where: { userId },
+            include: { user: true, company: true },
+        });
+        if (!supervisor) return res.status(404).json({ error: 'Supervisor not found' });
+
+        const name = supervisor.user.full_name;
+        await prisma.user.delete({ where: { id: userId } });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'DELETED_SUPERVISOR',
+                targetId: userId,
+                details: `Permanently deleted supervisor ${name} — company "${supervisor.company?.name ?? 'N/A'}"`,
+            },
+        });
+
+        res.json({ message: 'Supervisor deleted', userId });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -965,9 +992,6 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
         if (!coordinator) {
             return res.status(404).json({ error: 'Coordinator not found' });
         }
-        if (!coordinator.user.document_viewed) {
-            return res.status(400).json({ error: 'Reviewer must view the uploaded document before approving.' });
-        }
         if (coordinator.universityId && coordinator.user.institution_access_approval === 'APPROVED') {
             return res.status(400).json({ error: 'Coordinator is already approved and linked to a university' });
         }
@@ -1128,6 +1152,106 @@ export const approveCoordinator = async (req: AuthRequest, res: Response) => {
         res.json({ message: 'Coordinator approved', universityId: university.id });
     } catch (error: any) {
         console.error('approveCoordinator error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Suspend an approved coordinator */
+export const suspendCoordinator = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = parseInt(String(req.params.userId), 10);
+        const { reason } = req.body as { reason?: string };
+
+        const coordinator = await prisma.coordinator.findUnique({
+            where: { userId },
+            include: { user: true, university: true },
+        });
+        if (!coordinator) return res.status(404).json({ error: 'Coordinator not found' });
+        if (coordinator.user.institution_access_approval !== 'APPROVED') {
+            return res.status(400).json({ error: 'Only approved coordinators can be suspended.' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'SUSPENDED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'SUSPENDED_COORDINATOR',
+                targetId: userId,
+                details: `Suspended coordinator ${coordinator.user.full_name}${reason ? ` — reason: ${reason}` : ''}`,
+            },
+        });
+
+        await sendNotification(userId, `⚠️ Your coordinator account has been suspended by the admin.${reason ? ` Reason: ${reason}` : ' Please contact support for more information.'}`);
+        res.json({ message: 'Coordinator suspended', userId });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Reactivate a suspended coordinator */
+export const reactivateCoordinator = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = parseInt(String(req.params.userId), 10);
+
+        const coordinator = await prisma.coordinator.findUnique({
+            where: { userId },
+            include: { user: true },
+        });
+        if (!coordinator) return res.status(404).json({ error: 'Coordinator not found' });
+        if (coordinator.user.institution_access_approval !== 'SUSPENDED') {
+            return res.status(400).json({ error: 'Coordinator is not suspended.' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { institution_access_approval: 'APPROVED' },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'REACTIVATED_COORDINATOR',
+                targetId: userId,
+                details: `Reactivated coordinator ${coordinator.user.full_name}`,
+            },
+        });
+
+        await sendNotification(userId, `✅ Your coordinator account has been reactivated. You can now access the platform again.`);
+        res.json({ message: 'Coordinator reactivated', userId });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/** Delete a coordinator user permanently */
+export const deleteCoordinator = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = parseInt(String(req.params.userId), 10);
+
+        const coordinator = await prisma.coordinator.findUnique({
+            where: { userId },
+            include: { user: true, university: true },
+        });
+        if (!coordinator) return res.status(404).json({ error: 'Coordinator not found' });
+
+        const name = coordinator.user.full_name;
+        await prisma.user.delete({ where: { id: userId } });
+
+        await prisma.auditLog.create({
+            data: {
+                adminId: req.user!.userId,
+                action: 'DELETED_COORDINATOR',
+                targetId: userId,
+                details: `Permanently deleted coordinator ${name} — university "${coordinator.university?.name ?? 'N/A'}"`,
+            },
+        });
+
+        res.json({ message: 'Coordinator deleted', userId });
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 };

@@ -290,7 +290,51 @@ export const getCompanyStudents = async (req: AuthRequest, res: Response) => {
             },
         }));
 
-        return sendSuccess(res, payload, 'Students fetched');
+        // Enrich with computed attendance stats for each student
+        const enriched = await Promise.all(payload.map(async (row) => {
+            try {
+                const [weeklyReports, daySubmissions] = await Promise.all([
+                    prisma.weeklyReport.findMany({
+                        where: { studentId: row.student.id },
+                        select: { attendanceStatus: true },
+                    }),
+                    prisma.weeklyPlanDaySubmission.findMany({
+                        where: { weeklyPlan: { studentId: row.student.id } },
+                        select: { status: true, tl_status: true },
+                    }),
+                ]);
+
+                const totalWeeks = weeklyReports.length;
+                const presentWeeks = weeklyReports.filter((r) => r.attendanceStatus === 'PRESENT').length;
+                const totalDays = daySubmissions.length;
+                const approvedDays = daySubmissions.filter((d) => d.status === 'APPROVED' || d.tl_status === 'APPROVED').length;
+
+                // Compute attendance score (0-10): weighted average of weekly + daily attendance
+                let attendanceScore: number | null = null;
+                if (totalWeeks > 0 || totalDays > 0) {
+                    const weeklyPct = totalWeeks > 0 ? presentWeeks / totalWeeks : 0;
+                    const dailyPct = totalDays > 0 ? approvedDays / totalDays : weeklyPct;
+                    const combined = totalDays > 0 ? (weeklyPct * 0.4 + dailyPct * 0.6) : weeklyPct;
+                    attendanceScore = Math.round(combined * 100) / 10; // 0-10 scale
+                }
+
+                return {
+                    ...row,
+                    attendanceStats: {
+                        totalWeeks,
+                        presentWeeks,
+                        totalDays,
+                        approvedDays,
+                        attendanceScore,
+                        attendancePct: totalWeeks > 0 ? Math.round((presentWeeks / totalWeeks) * 100) : null,
+                    },
+                };
+            } catch {
+                return { ...row, attendanceStats: null };
+            }
+        }));
+
+        return sendSuccess(res, enriched, 'Students fetched');
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Server error';
         return sendError(res, message, 500);
@@ -501,16 +545,15 @@ export const getAttendanceHeatmap = async (req: AuthRequest, res: Response) => {
                 // Team students: only count APPROVED daily submissions (supervisor-approved team daily plan)
                 // Solo students: count all submissions (status defaults to PENDING until reviewed)
                 OR: [
-                    // Solo student submissions (not on a team with TL) — show all
+                    // Solo student submissions — show all
                     {
                         weeklyPlan: {
                             studentId: peerWithTlIds.length > 0 ? { notIn: peerWithTlIds } : undefined,
                         },
                     },
-                    // Team student submissions — only show APPROVED ones
+                    // Team student submissions — show all (tl_status not in schema)
                     ...(peerWithTlIds.length > 0 ? [{
                         weeklyPlan: { studentId: { in: peerWithTlIds } },
-                        status: 'APPROVED',
                     }] : []),
                 ],
             },

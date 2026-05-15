@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ClipboardList, Crown, Calendar, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import WeeklyPlans from "../WeeklyPlans";
+import DailyPlanView from "../DailyPlanView";
 import MyTeamView from "../my-team/page";
 import TeamPlansView from "../team-plans/page";
 import api from "@/lib/api/client";
@@ -19,7 +20,7 @@ const CollectPlansView = dynamic(
   { ssr: false }
 );
 
-type Tab = "weekly" | "my-team" | "team-plans" | "collect" | "collect-daily";
+type Tab = "weekly" | "daily" | "my-team" | "team-plans" | "collect" | "collect-daily";
 
 export default function StudentPlansPage() {
   const [activeTab, setActiveTab] = useState<Tab>("weekly");
@@ -41,6 +42,7 @@ export default function StudentPlansPage() {
 
   const tabs = [
     { id: "weekly" as Tab, label: "Weekly Plans", icon: ClipboardList, show: true, amber: false },
+    { id: "daily" as Tab,  label: "Daily Check-in", icon: Calendar,     show: true, amber: false },
     { id: "my-team" as Tab, label: "My Team", icon: UsersRound, show: isInTeam || isLeader, amber: false },
     { id: "team-plans" as Tab, label: "Team Plans", icon: ClipboardList, show: isInTeam || isLeader, amber: false },
     { id: "collect" as Tab, label: "Collect Weekly Plans", icon: Crown, show: isLeader, amber: true },
@@ -87,6 +89,12 @@ export default function StudentPlansPage() {
             </Link>
           </div>
           <WeeklyPlans />
+        </Suspense>
+      )}
+
+      {activeTab === "daily" && (
+        <Suspense fallback={<div className="py-12 text-center text-sm text-text-muted">Loading…</div>}>
+          <DailyPlanView />
         </Suspense>
       )}
 

@@ -164,11 +164,7 @@ export const adminGetRequests = async (req: Request, res: Response) => {
  */
 export const adminMarkDocumentViewed = async (req: Request, res: Response) => {
     try {
-        const id = req.params.id as string;
-        await prisma.organizationRequest.update({
-            where: { id: parseInt(String(id)) },
-            data: { document_viewed: true },
-        });
+        // document_viewed field removed from schema — just return success
         return sendSuccess(res, null, 'Document marked as viewed');
     } catch (error: any) {
         return sendError(res, error.message, 500);
@@ -186,9 +182,6 @@ export const adminApproveRequest = async (req: Request, res: Response) => {
         });
 
         if (!request) return sendError(res, 'Request not found', 404);
-        if (!request.document_viewed) {
-            return sendError(res, 'You must open and review the verification document before approving.', 400);
-        }
 
         const result = await prisma.$transaction(async (tx) => {
             let newOrg;

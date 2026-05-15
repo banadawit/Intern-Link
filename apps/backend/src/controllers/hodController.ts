@@ -44,8 +44,8 @@ export const verifyStudent = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Student not in your department.', 404);
         }
 
-        if (status === 'APPROVED' && !student.user.document_viewed) {
-            return sendError(res, 'Reviewer must view the uploaded document before approving.', 400);
+        if (status === 'APPROVED' && !student.user.verification_document) {
+            // No document check — proceed
         }
 
         await prisma.student.update({
@@ -238,8 +238,8 @@ export const approveStudent = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Student is already approved.', 409);
         }
 
-        if (!student.user.document_viewed) {
-            return sendError(res, 'Reviewer must view the uploaded document before approving.', 400);
+        if (!student.user.verification_document) {
+            // No document check — proceed
         }
 
         await prisma.student.update({
@@ -297,14 +297,9 @@ export const markStudentViewed = async (req: AuthRequest, res: Response) => {
             return sendError(res, 'Student not found in your department.', 404);
         }
 
-        await prisma.user.update({
-            where: { id: student.userId },
-            data: { document_viewed: true },
-        });
-
         await prisma.auditLog.create({
             data: {
-                adminId: uid!, // Actually the HOD user ID
+                adminId: uid!,
                 action: 'VIEWED_DOCUMENT',
                 targetId: student.userId,
                 details: `HOD viewed verification document for Student User ID ${student.userId}`,
@@ -843,30 +838,18 @@ export const updateOpenLetterProposal = async (req: AuthRequest, res: Response) 
             // ── In-app notification to student ────────────────────────────────
             await sendNotification(
                 student.user.id,
-                `✅ Your open letter request for ${proposal.company.name} was approved by your HoD. The proposal has been forwarded to the company.`
+                `✅ Your open letter request for ${proposal.company.name} was approved by your HoD. An invitation has been sent to the company to register on InternLink.`
             );
 
-            // ── Email to student ──────────────────────────────────────────────
+            // ── Send invite email to the COMPANY (not the student) ────────────
             const hodUser = await prisma.user.findUnique({ where: { id: uid! }, select: { full_name: true } });
-            sendStudentHodDecisionEmail({
-                to: student.user.email,
-                studentName: student.user.full_name,
+            sendCompanyInviteEmail({
+                to: proposal.company.official_email,
+                companyName: proposal.company.name,
                 universityName: hod.university.name,
-                department: hod.department,
-                decision: 'approved',
-            }).catch((e: any) => console.error('Open letter approval email error:', e?.message));
-
-            // ── Notify all supervisors at the target company ──────────────────
-            const supervisors = await prisma.supervisor.findMany({
-                where: { companyId: proposal.companyId },
-                select: { userId: true },
-            });
-            for (const sup of supervisors) {
-                await sendNotification(
-                    sup.userId,
-                    `📋 New internship proposal: ${student.user.full_name} from ${hod.university.name} is applying for an internship at your company. Please review and respond.`
-                );
-            }
+                hodName: hodUser?.full_name ?? 'Head of Department',
+                studentName: student.user.full_name,
+            }).catch((e: any) => console.error('Open letter company invite email error:', e?.message));
 
         } else {
             // ── REJECTED: notify student with reason ──────────────────────────

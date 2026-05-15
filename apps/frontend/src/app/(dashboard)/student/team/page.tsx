@@ -77,6 +77,7 @@ function CollectPlansView() {
   const [forwardModal, setForwardModal] = useState<{ week: number; draft: string } | null>(null);
   const [forwardDesc, setForwardDesc] = useState("");
   const [forwardTitle, setForwardTitle] = useState("");
+  const [tlOwnWeeklyPlan, setTlOwnWeeklyPlan] = useState(""); // TL's own weekly plan (required)
   const [forwarding, setForwarding] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(false);
 
@@ -144,6 +145,7 @@ function CollectPlansView() {
       const d = res.data.data;
       setForwardDesc(d.compiledDraft);
       setForwardTitle("");
+      setTlOwnWeeklyPlan("");
       setForwardModal({ week: weekNum, draft: d.compiledDraft });
     } catch { setError("Could not load compiled draft."); }
     finally { setLoadingDraft(false); }
@@ -151,10 +153,21 @@ function CollectPlansView() {
 
   const submitForward = async () => {
     if (!forwardModal) return;
+    if (!tlOwnWeeklyPlan.trim()) {
+      setError("Please enter your own weekly plan before forwarding.");
+      return;
+    }
     setForwarding(true);
     try {
-      await api.post("/progress/team-plans/forward", { week_number: forwardModal.week, plan_description: forwardDesc.trim(), title: forwardTitle.trim() || undefined });
-      setForwardModal(null); setForwardDesc(""); setForwardTitle("");
+      // The TL's own plan description IS the forwarded plan sent to supervisor
+      // We use tlOwnWeeklyPlan as the plan_description so TL's attendance is tracked
+      await api.post("/progress/team-plans/forward", {
+        week_number: forwardModal.week,
+        plan_description: tlOwnWeeklyPlan.trim(),
+        title: forwardTitle.trim() || undefined,
+        compiled_description: forwardDesc.trim() || undefined,
+      });
+      setForwardModal(null); setForwardDesc(""); setForwardTitle(""); setTlOwnWeeklyPlan("");
       setToast({ show: true, message: "Team weekly plan forwarded to supervisor successfully" });
       await load();
     } catch (err: unknown) {
@@ -493,15 +506,33 @@ function CollectPlansView() {
       {forwardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button type="button" className="absolute inset-0 bg-slate-900/40" onClick={() => setForwardModal(null)} />
-          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 p-6 space-y-4">
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400">
                 <Send className="h-5 w-5" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Forward Week {forwardModal.week} to Supervisor</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Add a title and review the compiled plan before submitting</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Fill in your own plan and review the compiled team plan before submitting</p>
               </div>
+            </div>
+
+            {/* TL's own weekly plan — required */}
+            <div className="rounded-xl border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 p-4 space-y-2">
+              <label className="block text-xs font-bold uppercase tracking-wide text-primary-700 dark:text-primary-300">
+                Your Weekly Plan <span className="text-red-500">*</span>
+                <span className="ml-1 normal-case font-normal text-primary-600 dark:text-primary-400">(required — recorded as your attendance)</span>
+              </label>
+              <textarea
+                value={tlOwnWeeklyPlan}
+                onChange={(e) => setTlOwnWeeklyPlan(e.target.value)}
+                rows={4}
+                placeholder="Describe what you personally plan to work on this week…"
+                className="w-full rounded-xl border border-primary-200 dark:border-primary-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 resize-y"
+              />
+              {!tlOwnWeeklyPlan.trim() && (
+                <p className="text-xs text-red-500 dark:text-red-400">This field is required before you can forward.</p>
+              )}
             </div>
 
             {/* Title — shown to supervisor as the plan headline */}
@@ -539,7 +570,7 @@ function CollectPlansView() {
                 className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
                 Cancel
               </button>
-              <button type="button" disabled={forwarding || !forwardDesc.trim()} onClick={() => void submitForward()}
+              <button type="button" disabled={forwarding || !tlOwnWeeklyPlan.trim()} onClick={() => void submitForward()}
                 className="flex-1 rounded-xl bg-primary-600 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60 inline-flex items-center justify-center gap-2">
                 <Send className="h-4 w-4" />
                 {forwarding ? "Forwarding…" : "Submit to Supervisor"}
@@ -659,6 +690,14 @@ function CollectDailyPlansView() {
     try {
       const res = await api.get<{ success: boolean; data: DailyTeamData }>("/progress/team-plans/members/daily");
       setData(res.data.data ?? null);
+      // Fetch TL's own plans to get plan IDs for daily submission
+      try {
+        const myRes = await api.get<{ success: boolean; data: { plans?: { id: number; week_number: number }[] } | null }>("/progress/team-plans/my");
+        const plans = myRes.data.data?.plans ?? [];
+        const planMap: Record<number, number> = {};
+        for (const p of plans) planMap[p.week_number] = p.id;
+        setTlPlanIdMap(planMap);
+      } catch { /* non-fatal */ }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? "Could not load daily plans. Make sure you are the Team Leader.");
@@ -668,6 +707,8 @@ function CollectDailyPlansView() {
   // Forward daily modal state — per-member editable entries
   const [forwardDailyModal, setForwardDailyModal] = useState<{ weekNum: number; date: string; dateLabel: string } | null>(null);
   const [forwardDailyEntries, setForwardDailyEntries] = useState<{ studentId: number; fullName: string; notes: string; tl_status: string }[]>([]);
+  const [tlOwnDailyNotes, setTlOwnDailyNotes] = useState(""); // TL's own daily notes (required)
+  const [tlPlanIdMap, setTlPlanIdMap] = useState<Record<number, number>>({}); // weekNum -> TL's own WeeklyPlan.id
 
   useEffect(() => { void load(); }, [load]);
 
@@ -699,11 +740,16 @@ function CollectDailyPlansView() {
       };
     });
     setForwardDailyEntries(entries);
+    setTlOwnDailyNotes("");
     setForwardDailyModal({ weekNum, date, dateLabel });
   };
 
   const submitForwardDaily = async () => {
     if (!forwardDailyModal) return;
+    if (!tlOwnDailyNotes.trim()) {
+      setError("Please enter your own daily plan before forwarding.");
+      return;
+    }
     const key = `${forwardDailyModal.weekNum}:${forwardDailyModal.date}`;
     setForwarding(key);
     try {
@@ -712,13 +758,26 @@ function CollectDailyPlansView() {
         .filter((e) => e.notes.trim())
         .map((e) => `**${e.fullName}:**\n${e.notes.trim()}`)
         .join("\n\n");
+      // Forward team daily plan to supervisor
       await api.post("/progress/team-plans/forward-daily", {
         week_number: forwardDailyModal.weekNum,
         work_date: forwardDailyModal.date,
         notes: compiledNotes || undefined,
       });
+      // Auto-record TL's own daily attendance
+      const tlPlanId = tlPlanIdMap[forwardDailyModal.weekNum];
+      if (tlPlanId) {
+        try {
+          await api.patch(`/progress/plan/${tlPlanId}/days/${forwardDailyModal.date}`, {
+            notes: tlOwnDailyNotes.trim(),
+          });
+        } catch {
+          // Non-fatal — TL attendance may already exist or plan not yet approved
+        }
+      }
       setForwardDailyModal(null);
       setForwardDailyEntries([]);
+      setTlOwnDailyNotes("");
       setToast({ show: true, message: `Daily plan for ${forwardDailyModal.date} forwarded to supervisor` });
       await load();
     } catch (err: unknown) {
@@ -1027,6 +1086,24 @@ function CollectDailyPlansView() {
                 </p>
               </div>
 
+              {/* TL's own daily plan — required */}
+              <div className="rounded-xl border-2 border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/20 p-4 space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wide text-primary-700 dark:text-primary-300">
+                  Your Daily Plan <span className="text-red-500">*</span>
+                  <span className="ml-1 normal-case font-normal text-primary-600 dark:text-primary-400">(required — recorded as your attendance)</span>
+                </label>
+                <textarea
+                  value={tlOwnDailyNotes}
+                  onChange={(e) => setTlOwnDailyNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Describe what you personally worked on today…"
+                  className="w-full rounded-xl border border-primary-200 dark:border-primary-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 resize-y"
+                />
+                {!tlOwnDailyNotes.trim() && (
+                  <p className="text-xs text-red-500 dark:text-red-400">This field is required before you can forward.</p>
+                )}
+              </div>
+
               {/* Per-member editable entries */}
               <div className="space-y-3">
                 {forwardDailyEntries.map((entry, idx) => (
@@ -1091,7 +1168,7 @@ function CollectDailyPlansView() {
               </button>
               <button
                 type="button"
-                disabled={!!forwarding}
+                disabled={!!forwarding || !tlOwnDailyNotes.trim()}
                 onClick={() => void submitForwardDaily()}
                 className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 transition-colors"
               >

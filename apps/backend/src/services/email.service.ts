@@ -637,10 +637,11 @@ export const sendCompanyInviteEmail = async (params: {
     companyName: string;
     universityName: string;
     hodName: string;
+    studentName?: string;
 }): Promise<void> => {
     try {
         const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
-        const registerUrl = `${frontendUrl}/register`;
+        const registerUrl = `${frontendUrl}/register?role=supervisor`;
         const transporter = await getTransporter();
         const fromAddr = process.env.SMTP_USER || 'noreply@internlink.com';
         const html = `
@@ -681,9 +682,10 @@ export const sendCompanyInviteEmail = async (params: {
                   <div class="info-row"><strong>Invited by:</strong> ${escapeHtml(params.hodName)}</div>
                   <div class="info-row"><strong>University:</strong> ${escapeHtml(params.universityName)}</div>
                   <div class="info-row"><strong>Company:</strong> ${escapeHtml(params.companyName)}</div>
+                  ${params.studentName ? `<div class="info-row"><strong>Student requesting internship:</strong> ${escapeHtml(params.studentName)}</div>` : ''}
                 </div>
 
-                <p>To get started, register your company supervisor account on InternLink:</p>
+                <p>To accept this internship request, please register as a <strong>Supervisor</strong> on InternLink. Once registered, your account will be reviewed and approved by the platform admin — just like all other users.</p>
                 <div style="text-align:center;">
                   <a href="${registerUrl}" class="button">Register on InternLink</a>
                 </div>

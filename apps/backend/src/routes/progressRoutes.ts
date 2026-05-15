@@ -50,6 +50,8 @@ router.delete('/team-week/:weekNumber', authorize([Role.STUDENT]), progressCtrl.
 
 // ── Supervisor: review (approve / reject with feedback) ───────────────────────
 router.patch('/review/:id', authorize([Role.SUPERVISOR]), progressCtrl.reviewWeeklyPlan);
+// ── Supervisor: get day submissions for a plan ────────────────────────────────
+router.get('/plan/:id/days/supervisor', authorize([Role.SUPERVISOR]), progressCtrl.getSupervisorPlanDaySubmissions);
 // ── Supervisor: review daily plan submission ──────────────────────────────────
 router.patch('/day-submission/:submissionId/review', authorize([Role.SUPERVISOR]), progressCtrl.reviewPlanDay);
 

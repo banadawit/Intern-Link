@@ -53,7 +53,7 @@ export default function SupervisorOpportunityDetailPage() {
     try {
       const { data } = await api.get(`/job-opportunities/${id}/applications`);
       setOpp(data.data.opportunity);
-      setApplications(data.data.applications);
+      setApplications(data.data.applications ?? []);
     } catch { showToast('Failed to load.', 'error'); }
     finally { setLoading(false); }
   };

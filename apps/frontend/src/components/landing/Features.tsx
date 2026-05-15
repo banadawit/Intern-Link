@@ -4,6 +4,7 @@ import React, { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { GraduationCap, Building2, UserCheck, Shield, FileText, TrendingUp, CheckCircle2, Users } from 'lucide-react';
+import { usePublicStats } from '@/lib/hooks/usePublicStats';
 
 const colorStyles = {
   primary: { badge: "bg-teal-50 text-teal-700 ring-teal-600/20", iconGlow: "bg-teal-100", check: "text-teal-500", action: "text-teal-700", statIconBox: "bg-teal-50", statIcon: "text-teal-600", hoverTint: "from-teal-50/80 via-transparent to-white", hoverRing: "group-hover:ring-teal-300/60", iconGradient: "from-teal-500 to-teal-700", borderTop: "from-teal-400 to-teal-600" },
@@ -16,6 +17,7 @@ const Features = () => {
   const t = useTranslations('Features');
   const headerRef = useRef(null);
   const isHeaderInView = useInView(headerRef, { once: true });
+  const { stats: liveStats } = usePublicStats();
 
   const features = [
     { roleKey: 'students',     titleKey: 'studentsTitle',     descKey: 'studentsDesc',     benefitsKey: 'studentsBenefits',     icon: GraduationCap, color: 'primary'  as const },
@@ -25,10 +27,10 @@ const Features = () => {
   ];
 
   const stats = [
-    { icon: Users,         value: '15+',    labelKey: 'universities', color: 'primary'  as const },
-    { icon: Building2,     value: '50+',    labelKey: 'companies',    color: 'success'  as const },
-    { icon: GraduationCap, value: '2,000+', labelKey: 'students',     color: 'warning'  as const },
-    { icon: FileText,      value: '98%',    labelKey: 'satisfaction', color: 'info'     as const },
+    { icon: Users,         value: liveStats ? `${liveStats.partnerUniversities}+` : '…', labelKey: 'universities', color: 'primary'  as const },
+    { icon: Building2,     value: liveStats ? `${liveStats.partnerCompanies}+`    : '…', labelKey: 'companies',    color: 'success'  as const },
+    { icon: GraduationCap, value: liveStats ? `${liveStats.totalStudents.toLocaleString()}+` : '…', labelKey: 'students', color: 'warning' as const },
+    { icon: FileText,      value: liveStats ? `${liveStats.placementRate}%`       : '…', labelKey: 'satisfaction', color: 'info'     as const },
   ];
 
   return (

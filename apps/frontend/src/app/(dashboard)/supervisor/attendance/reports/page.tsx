@@ -25,6 +25,12 @@ type ReportRow = {
 
 const STATUSES: Array<ReportRow["attendanceStatus"]> = ["PRESENT", "ABSENT", "LATE"];
 
+const COMPLETENESS_OPTIONS: Array<{ label: string; value: ReportRow["attendanceStatus"] }> = [
+  { label: ">90%", value: "PRESENT" },
+  { label: ">50%", value: "LATE"    },
+  { label: "<50%", value: "ABSENT"  },
+];
+
 function ymdFromApi(d: string | Date): string {
   return typeof d === "string" ? d.slice(0, 10) : new Date(d).toISOString().slice(0, 10);
 }
@@ -37,6 +43,16 @@ export default function SupervisorAttendanceReportsPage() {
     {},
   );
   const [saving, setSaving] = useState<number | null>(null);
+
+  type HistoryEntry = {
+    id: number;
+    studentName: string;
+    week: string;
+    completeness: string;
+    execution: string;
+    savedAt: string;
+  };
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +90,19 @@ export default function SupervisorAttendanceReportsPage() {
         attendanceStatus: e.status,
         execution_status: e.execution.trim() || undefined,
       });
+      const row = rows.find((r) => r.id === id);
+      const completenessLabel = COMPLETENESS_OPTIONS.find((o) => o.value === e.status)?.label ?? e.status;
+      setHistory((prev) => [
+        {
+          id,
+          studentName: row?.student.user.full_name ?? "—",
+          week: row?.weeklyPlan ? `Week ${row.weeklyPlan.week_number}` : "—",
+          completeness: completenessLabel,
+          execution: e.execution.trim() || "—",
+          savedAt: new Date().toLocaleString(),
+        },
+        ...prev,
+      ]);
       await load();
     } catch {
       setError("Failed to save.");
@@ -112,7 +141,7 @@ export default function SupervisorAttendanceReportsPage() {
                     <th className="px-4 py-3 font-semibold text-slate-700">Student</th>
                     <th className="px-4 py-3 font-semibold text-slate-700">Week</th>
                     <th className="px-4 py-3 font-semibold text-slate-700">Daily streak</th>
-                    <th className="px-4 py-3 font-semibold text-slate-700">Attendance</th>
+                    <th className="px-4 py-3 font-semibold text-slate-700">Completeness</th>
                     <th className="px-4 py-3 font-semibold text-slate-700">Execution</th>
                     <th className="px-4 py-3 text-right font-semibold text-slate-700">Save</th>
                   </tr>
@@ -151,11 +180,11 @@ export default function SupervisorAttendanceReportsPage() {
                                 },
                               }))
                             }
-                            className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                            className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                           >
-                            {STATUSES.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
+                            {COMPLETENESS_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
                               </option>
                             ))}
                           </select>
@@ -194,6 +223,43 @@ export default function SupervisorAttendanceReportsPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Save history */}
+      {history.length > 0 && (
+        <div className="mt-8 space-y-3">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Save history</h2>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px] text-left text-sm">
+                <thead className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/50">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300">Student</th>
+                    <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300">Week</th>
+                    <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300">Completeness</th>
+                    <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300">Execution notes</th>
+                    <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300">Saved at</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {history.map((h, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{h.studentName}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{h.week}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold text-teal-700 ring-1 ring-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:ring-teal-700">
+                          {h.completeness}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{h.execution}</td>
+                      <td className="px-4 py-3 text-xs text-slate-400 dark:text-slate-500">{h.savedAt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>

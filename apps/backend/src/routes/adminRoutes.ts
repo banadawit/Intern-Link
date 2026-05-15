@@ -22,12 +22,10 @@ router.get('/audit-logs', adminCtrl.getAuditLogs);
 // Institution Approvals
 router.get('/pending-universities', adminCtrl.getPendingUniversities);
 router.patch('/university-status/:id', adminCtrl.updateUniversityStatus);
-router.patch('/universities/:id/mark-viewed', adminCtrl.markUniversityViewed);
 router.delete('/universities/:id', adminCtrl.deleteUniversity);
 
 router.get('/pending-companies', adminCtrl.getPendingCompanies);
 router.patch('/company-status/:id', adminCtrl.updateCompanyStatus);
-router.patch('/companies/:id/mark-viewed', adminCtrl.markCompanyViewed);
 router.delete('/companies/:id', adminCtrl.deleteCompany);
 
 // ── Admin Manual Creation (Universities & Companies) ──────────────────────────
@@ -43,8 +41,8 @@ router.post('/upload-verification', uploadVerification.single('file'), adminCtrl
 
 // User Management
 router.get('/users', adminCtrl.getAllUsers);
-router.patch('/users/:id/mark-viewed', adminCtrl.markUserViewed);
 router.patch('/users/:id/institution-access', adminCtrl.updateUserInstitutionAccess);
+router.patch('/users/:id/mark-viewed', adminCtrl.markUserDocumentViewed);
 
 // Coordinator Approval Workflow
 router.get('/pending-coordinators', adminCtrl.getPendingCoordinators);
@@ -53,6 +51,9 @@ router.get('/rejected-coordinators', adminCtrl.getRejectedCoordinators);
 router.get('/suspended-coordinators', adminCtrl.getSuspendedCoordinators);
 router.post('/coordinators/:userId/approve', adminCtrl.approveCoordinator);
 router.post('/coordinators/:userId/reject', adminCtrl.rejectCoordinator);
+router.post('/coordinators/:userId/suspend', adminCtrl.suspendCoordinator);
+router.post('/coordinators/:userId/reactivate', adminCtrl.reactivateCoordinator);
+router.delete('/coordinators/:userId', adminCtrl.deleteCoordinator);
 
 // Supervisor Approval Workflow
 router.get('/pending-supervisors', adminCtrl.getPendingSupervisors);
@@ -61,6 +62,9 @@ router.get('/rejected-supervisors', adminCtrl.getRejectedSupervisors);
 router.get('/suspended-supervisors', adminCtrl.getSuspendedSupervisors);
 router.post('/supervisors/:userId/approve', adminCtrl.approveSupervisor);
 router.post('/supervisors/:userId/reject', adminCtrl.rejectSupervisor);
+router.post('/supervisors/:userId/suspend', adminCtrl.suspendSupervisor);
+router.post('/supervisors/:userId/reactivate', adminCtrl.reactivateSupervisor);
+router.delete('/supervisors/:userId', adminCtrl.deleteSupervisor);
 
 // HOD Approval Workflow - MOVED TO COORDINATOR
 router.get('/pending-hods', adminCtrl.getPendingHods);

@@ -256,7 +256,7 @@ function AllPendingView({
                             className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                           >
                             <FileText className="w-4 h-4" />{t("viewDoc")}
-                            {(c.user.document_viewed || documentViewedUserIds.has(c.userId)) && (
+                            {documentViewedUserIds.has(c.userId) && (
                               <CheckCircle className="w-3 h-3 text-emerald-500" />
                             )}
                           </button>
@@ -269,13 +269,12 @@ function AllPendingView({
                             onClick={() => setConfirmApprove({ userId: c.userId, role: "coordinator" })}
                             disabled={
                               actionLoading === c.userId ||
-                              !c.user.verification_document ||
-                              (!c.user.document_viewed && !documentViewedUserIds.has(c.userId))
+                              (!c.user.verification_document ? false : !documentViewedUserIds.has(c.userId))
                             }
                             title={
                               !c.user.verification_document
                                 ? t("titleApproveNoDoc")
-                                : (!c.user.document_viewed && !documentViewedUserIds.has(c.userId))
+                                : !documentViewedUserIds.has(c.userId)
                                   ? t("titleOpenDocBeforeApprove")
                                   : undefined
                             }
@@ -327,7 +326,7 @@ function AllPendingView({
                           className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                         >
                           <FileText className="w-4 h-4" />{t("viewDoc")}
-                          {(s.user.document_viewed || documentViewedUserIds.has(s.userId)) && (
+                          {documentViewedUserIds.has(s.userId) && (
                             <CheckCircle className="w-3 h-3 text-emerald-500" />
                           )}
                         </button>
@@ -340,13 +339,12 @@ function AllPendingView({
                           onClick={() => setConfirmApprove({ userId: s.userId, role: "supervisor" })}
                           disabled={
                             actionLoading === s.userId ||
-                            !s.user.verification_document ||
-                            (!s.user.document_viewed && !documentViewedUserIds.has(s.userId))
+                            (!s.user.verification_document ? false : !documentViewedUserIds.has(s.userId))
                           }
                           title={
                             !s.user.verification_document
                               ? t("titleApproveNoDoc")
-                              : (!s.user.document_viewed && !documentViewedUserIds.has(s.userId))
+                              : !documentViewedUserIds.has(s.userId)
                                 ? t("titleOpenDocBeforeApprove")
                                 : undefined
                           }

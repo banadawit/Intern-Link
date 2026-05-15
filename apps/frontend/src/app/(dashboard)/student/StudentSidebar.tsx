@@ -10,7 +10,6 @@ import {
   FileCheck,
   LogOut,
   GraduationCap,
-  Settings,
   Activity,
   Crown,
   UsersRound,
@@ -77,7 +76,6 @@ const StudentSidebar = () => {
     { icon: Building,                          label: "Request Company",  path: "/student/request-company",   badge: 0 },
     { icon: FileCheck,                         label: "Final Evaluation", path: "/student/evaluation",        badge: 0 },
     { icon: Activity,                          label: "Activity",         path: "/student/settings/activity", badge: 0 },
-    { icon: Settings,                          label: "Settings",         path: "/student/settings",          badge: 0 },
     { icon: MessageSquare,                     label: "Common Feed",      path: "/student/common",            badge: 0 },
     { icon: Briefcase,                         label: "Job Opportunities",path: "/student/job-opportunities", badge: 0 },
   ];
@@ -116,9 +114,7 @@ const StudentSidebar = () => {
           const active =
             item.path === "/student"
               ? pathname === item.path
-              : item.path === "/student/settings"
-                ? pathname === "/student/settings" || pathname?.startsWith("/student/settings/")
-                : pathname?.startsWith(item.path) ?? false;
+              : pathname?.startsWith(item.path) ?? false;
           return (
             <Link key={item.path} href={item.path} className={linkClass(!!active)}>
               <item.icon className="h-5 w-5 shrink-0" />

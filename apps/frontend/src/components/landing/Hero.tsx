@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion, useAnimation, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { usePublicStats } from '@/lib/hooks/usePublicStats';
 
 const Hero = () => {
   const t = useTranslations('Hero');
@@ -14,6 +15,7 @@ const Hero = () => {
   const controls = useAnimation();
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.3 });
+  const { stats: liveStats } = usePublicStats();
 
   useEffect(() => {
     if (isInView) {
@@ -49,9 +51,21 @@ const Hero = () => {
   };
 
   const stats = [
-    { value: '50+', label: t('stats.partnerCompanies'), color: 'primary' },
-    { value: '2,000+', label: t('stats.activeStudents'), color: 'success' },
-    { value: '98%', label: t('stats.placementRate'), color: 'warning' },
+    {
+      value: liveStats ? `${liveStats.partnerCompanies}+` : '…',
+      label: t('stats.partnerCompanies'),
+      color: 'primary',
+    },
+    {
+      value: liveStats ? `${liveStats.totalStudents.toLocaleString()}+` : '…',
+      label: t('stats.activeStudents'),
+      color: 'success',
+    },
+    {
+      value: liveStats ? `${liveStats.placementRate}%` : '…',
+      label: t('stats.placementRate'),
+      color: 'warning',
+    },
     { value: '24/7', label: t('stats.support'), color: 'info' },
   ];
 
@@ -250,7 +264,9 @@ const Hero = () => {
                 ))}
               </div>
               <p className="text-sm text-slate-500">
-                Trusted by <span className="font-semibold text-slate-700 dark:text-slate-200">15+ universities</span>
+                Trusted by <span className="font-semibold text-slate-700 dark:text-slate-200">
+                  {liveStats ? `${liveStats.partnerUniversities}+` : '…'} universities
+                </span>
               </p>
             </motion.div>
           </div>

@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Briefcase, Search, XCircle, Ban,
   Loader2, Filter, UserCheck, User, CheckCircle, FileText,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, RotateCcw, Trash2, AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,124 @@ interface SupervisorRow {
   user: PersonUser;
 }
 type PersonStatus = "approved" | "rejected" | "suspended";
+
+type ActionType = "suspend" | "deactivate" | "reactivate" | "delete";
+
+interface ActionConfirm {
+  type: ActionType;
+  userId: number;
+  name: string;
+  role: "coordinator" | "supervisor";
+  reason: string;
+}
+
+function useActionModal() {
+  const [confirm, setConfirm] = useState<ActionConfirm | null>(null);
+  const [acting, setActing] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const showToast = (msg: string, ok: boolean) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const open = (type: ActionType, userId: number, name: string, role: "coordinator" | "supervisor") =>
+    setConfirm({ type, userId, name, role, reason: "" });
+
+  const close = () => setConfirm(null);
+
+  const setReason = (r: string) => setConfirm((prev) => prev ? { ...prev, reason: r } : prev);
+
+  const execute = async (onDone: () => void) => {
+    if (!confirm) return;
+    setActing(true);
+    const { type, userId, role, reason } = confirm;
+    const base = role === "coordinator" ? "coordinators" : "supervisors";
+    try {
+      if (type === "suspend") await api.post(`/admin/${base}/${userId}/suspend`, { reason });
+      else if (type === "deactivate") await api.post(`/admin/${base}/${userId}/reject`, { reason });
+      else if (type === "reactivate") await api.post(`/admin/${base}/${userId}/reactivate`);
+      else if (type === "delete") await api.delete(`/admin/${base}/${userId}`);
+      showToast(`${role.charAt(0).toUpperCase() + role.slice(1)} ${type}d successfully.`, true);
+      close();
+      onDone();
+    } catch (e: any) {
+      showToast(e?.response?.data?.error || "Action failed.", false);
+    } finally {
+      setActing(false);
+    }
+  };
+
+  return { confirm, acting, toast, open, close, setReason, execute };
+}
+
+const actionMeta: Record<ActionType, { label: string; btnColor: string; desc: string }> = {
+  suspend: {
+    label: "Suspend",
+    btnColor: "bg-amber-600 hover:bg-amber-700",
+    desc: "The user will lose platform access temporarily and can be reactivated later.",
+  },
+  deactivate: {
+    label: "Deactivate",
+    btnColor: "bg-orange-600 hover:bg-orange-700",
+    desc: "The user's access will be revoked. They will need to re-apply.",
+  },
+  reactivate: {
+    label: "Reactivate",
+    btnColor: "bg-emerald-600 hover:bg-emerald-700",
+    desc: "The user will regain full platform access.",
+  },
+  delete: {
+    label: "Delete",
+    btnColor: "bg-red-600 hover:bg-red-700",
+    desc: "This will permanently delete the account and all associated data. This cannot be undone.",
+  },
+};
+
+function ActionModal({ confirm, acting, onClose, onExecute, onReasonChange }: {
+  confirm: ActionConfirm;
+  acting: boolean;
+  onClose: () => void;
+  onExecute: () => void;
+  onReasonChange: (r: string) => void;
+}) {
+  const meta = actionMeta[confirm.type];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-red-50 text-red-600 dark:bg-red-900/30">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {meta.label} {confirm.role.charAt(0).toUpperCase() + confirm.role.slice(1)}
+          </h3>
+        </div>
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-1">{confirm.name}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{meta.desc}</p>
+        {(confirm.type === "suspend" || confirm.type === "deactivate") && (
+          <textarea
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-800 dark:text-slate-200 px-3 py-2 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows={3}
+            placeholder="Reason (optional)"
+            value={confirm.reason}
+            onChange={(e) => onReasonChange(e.target.value)}
+          />
+        )}
+        <div className="flex gap-3 justify-end">
+          <button onClick={onClose} disabled={acting}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+            Cancel
+          </button>
+          <button onClick={onExecute} disabled={acting}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${meta.btnColor}`}>
+            {acting ? "Processing…" : meta.label}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Pagination({ page, total, pageSize, onChange }: {
   page: number; total: number; pageSize: number; onChange: (p: number) => void;
@@ -90,6 +208,20 @@ function usePersonList<T>(endpoint: string) {
   return { data, loading };
 }
 
+function usePersonListReload<T>(endpoint: string) {
+  const [data, setData] = useState<T[]>([]);
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: res } = await api.get<T[]>(endpoint);
+      setData(res);
+    } finally { setLoading(false); }
+  }, [endpoint]);
+  useEffect(() => { void load(); }, [load]);
+  return { data, loading, load };
+}
+
 function statusBadge(status: PersonStatus) {
   if (status === "approved")
     return <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200"><CheckCircle className="w-3 h-3" /> Approved</span>;
@@ -104,11 +236,14 @@ function CoordinatorsPanel() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const { confirm, acting, toast, open, close, setReason, execute } = useActionModal();
 
-  const { data: approved, loading: l1 } = usePersonList<CoordinatorRow>("/admin/approved-coordinators");
-  const { data: rejected, loading: l2 } = usePersonList<CoordinatorRow>("/admin/rejected-coordinators");
-  const { data: suspended, loading: l3 } = usePersonList<CoordinatorRow>("/admin/suspended-coordinators");
+  const { data: approved, loading: l1, load: reloadApproved } = usePersonListReload<CoordinatorRow>("/admin/approved-coordinators");
+  const { data: rejected, loading: l2, load: reloadRejected } = usePersonListReload<CoordinatorRow>("/admin/rejected-coordinators");
+  const { data: suspended, loading: l3, load: reloadSuspended } = usePersonListReload<CoordinatorRow>("/admin/suspended-coordinators");
   const loading = l1 || l2 || l3;
+
+  const reload = useCallback(() => { reloadApproved(); reloadRejected(); reloadSuspended(); }, [reloadApproved, reloadRejected, reloadSuspended]);
 
   const filtered = useMemo(() => {
     const all: (CoordinatorRow & { _status: PersonStatus })[] = [
@@ -128,6 +263,14 @@ function CoordinatorsPanel() {
 
   return (
     <div className="space-y-4">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white ${toast.ok ? "bg-emerald-600" : "bg-red-600"}`}>
+          {toast.msg}
+        </div>
+      )}
+      {confirm && (
+        <ActionModal confirm={confirm} acting={acting} onClose={close} onReasonChange={setReason} onExecute={() => execute(reload)} />
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -161,6 +304,7 @@ function CoordinatorsPanel() {
                   <th className="px-6 py-3">Registered</th>
                   <th className="px-6 py-3">Document</th>
                   <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -188,6 +332,28 @@ function CoordinatorsPanel() {
                       ) : <span className="text-xs text-slate-400 italic">—</span>}
                     </td>
                     <td className="px-6 py-4">{statusBadge(c._status)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {c._status === "approved" && (
+                          <>
+                            <button onClick={() => open("suspend", c.user.id, c.user.full_name, "coordinator")}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 ring-1 ring-amber-200 transition-colors dark:bg-amber-900/20 dark:text-amber-400 dark:ring-amber-700">
+                              <Ban className="w-3 h-3" /> Suspend
+                            </button>
+                            <button onClick={() => open("deactivate", c.user.id, c.user.full_name, "coordinator")}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-orange-50 text-orange-700 hover:bg-orange-100 ring-1 ring-orange-200 transition-colors dark:bg-orange-900/20 dark:text-orange-400 dark:ring-orange-700">
+                              <XCircle className="w-3 h-3" /> Deactivate
+                            </button>
+                          </>
+                        )}
+                        {c._status === "suspended" && (
+                          <button onClick={() => open("reactivate", c.user.id, c.user.full_name, "coordinator")}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 ring-1 ring-emerald-200 transition-colors dark:bg-emerald-900/20 dark:text-emerald-400 dark:ring-emerald-700">
+                            <RotateCcw className="w-3 h-3" /> Reactivate
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -207,11 +373,14 @@ function SupervisorsPanel() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [docUrl, setDocUrl] = useState<string | null>(null);
+  const { confirm, acting, toast, open, close, setReason, execute } = useActionModal();
 
-  const { data: approved, loading: l1 } = usePersonList<SupervisorRow>("/admin/approved-supervisors");
-  const { data: rejected, loading: l2 } = usePersonList<SupervisorRow>("/admin/rejected-supervisors");
-  const { data: suspended, loading: l3 } = usePersonList<SupervisorRow>("/admin/suspended-supervisors");
+  const { data: approved, loading: l1, load: reloadApproved } = usePersonListReload<SupervisorRow>("/admin/approved-supervisors");
+  const { data: rejected, loading: l2, load: reloadRejected } = usePersonListReload<SupervisorRow>("/admin/rejected-supervisors");
+  const { data: suspended, loading: l3, load: reloadSuspended } = usePersonListReload<SupervisorRow>("/admin/suspended-supervisors");
   const loading = l1 || l2 || l3;
+
+  const reload = useCallback(() => { reloadApproved(); reloadRejected(); reloadSuspended(); }, [reloadApproved, reloadRejected, reloadSuspended]);
 
   const filtered = useMemo(() => {
     const all: (SupervisorRow & { _status: PersonStatus })[] = [
@@ -231,6 +400,14 @@ function SupervisorsPanel() {
 
   return (
     <div className="space-y-4">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white ${toast.ok ? "bg-emerald-600" : "bg-red-600"}`}>
+          {toast.msg}
+        </div>
+      )}
+      {confirm && (
+        <ActionModal confirm={confirm} acting={acting} onClose={close} onReasonChange={setReason} onExecute={() => execute(reload)} />
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -264,6 +441,7 @@ function SupervisorsPanel() {
                   <th className="px-6 py-3">Registered</th>
                   <th className="px-6 py-3">Document</th>
                   <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -289,6 +467,28 @@ function SupervisorsPanel() {
                       ) : <span className="text-xs text-slate-400 italic">—</span>}
                     </td>
                     <td className="px-6 py-4">{statusBadge(s._status)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {s._status === "approved" && (
+                          <>
+                            <button onClick={() => open("suspend", s.user.id, s.user.full_name, "supervisor")}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 ring-1 ring-amber-200 transition-colors dark:bg-amber-900/20 dark:text-amber-400 dark:ring-amber-700">
+                              <Ban className="w-3 h-3" /> Suspend
+                            </button>
+                            <button onClick={() => open("deactivate", s.user.id, s.user.full_name, "supervisor")}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-orange-50 text-orange-700 hover:bg-orange-100 ring-1 ring-orange-200 transition-colors dark:bg-orange-900/20 dark:text-orange-400 dark:ring-orange-700">
+                              <XCircle className="w-3 h-3" /> Deactivate
+                            </button>
+                          </>
+                        )}
+                        {s._status === "suspended" && (
+                          <button onClick={() => open("reactivate", s.user.id, s.user.full_name, "supervisor")}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 ring-1 ring-emerald-200 transition-colors dark:bg-emerald-900/20 dark:text-emerald-400 dark:ring-emerald-700">
+                            <RotateCcw className="w-3 h-3" /> Reactivate
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -40,6 +40,7 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
   const [confirmApprove, setConfirmApprove] = useState<number | null>(null);
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: "" });
   const [documentViewedUserIds, setDocumentViewedUserIds] = useState<Set<number>>(() => new Set());
+  const [docUrl, setDocUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,16 +134,20 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
                   </td>
                   <td className="px-6 py-4">
                     {s.user.verification_document ? (
-                      <a
-                        href={s.user.verification_document}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => setDocumentViewedUserIds((prev) => new Set(prev).add(s.userId))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDocumentViewedUserIds((prev) => new Set(prev).add(s.userId));
+                          setDocUrl(s.user.verification_document);
+                        }}
                         className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                       >
                         <FileText className="w-4 h-4" />
                         {ta("viewDoc")}
-                      </a>
+                        {documentViewedUserIds.has(s.userId) && (
+                          <CheckCircle className="w-3 h-3 text-emerald-500" />
+                        )}
+                      </button>
                     ) : (
                       <span className="text-xs text-slate-400 italic">{ta("noDocument")}</span>
                     )}
@@ -253,6 +258,12 @@ const SupervisorApprovals = ({ onActionComplete, hideHero = false }: Props) => {
         show={toast.show}
         message={toast.message}
         onClose={() => setToast({ show: false, message: "" })}
+      />
+      <PdfViewerModal
+        isOpen={!!docUrl}
+        pdfUrl={docUrl ?? ""}
+        title={ta("pdfVerificationTitle")}
+        onClose={() => setDocUrl(null)}
       />
     </div>
   );
