@@ -4,9 +4,10 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight, Mail, Inbox, MapPin, FileText, ImageIcon,
-  ExternalLink, ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 import type { HodProposalRow } from "./types";
+import PdfViewerModal from "@/components/shared/PdfViewerModal";
 
 type Props = {
   openLetters: HodProposalRow[];
@@ -43,8 +44,11 @@ function OpenLetterRow({
   const [expanded, setExpanded] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [docTitle, setDocTitle] = useState("");
 
   return (
+    <>
     <div className="rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 overflow-hidden">
       {/* Header row */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -126,28 +130,24 @@ function OpenLetterRow({
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Documents</p>
               <div className="flex flex-wrap gap-2">
                 {p.company.stamp_image_url && (
-                  <a
-                    href={p.company.stamp_image_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => { setDocTitle("Company Stamp"); setDocUrl(p.company.stamp_image_url!); }}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
                     <ImageIcon className="w-3.5 h-3.5" />
                     Company stamp
-                    <ExternalLink className="w-3 h-3 opacity-60" />
-                  </a>
+                  </button>
                 )}
                 {p.company.verification_doc && (
-                  <a
-                    href={p.company.verification_doc}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => { setDocTitle("Verification Document"); setDocUrl(p.company.verification_doc!); }}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
                     <FileText className="w-3.5 h-3.5" />
                     Verification document
-                    <ExternalLink className="w-3 h-3 opacity-60" />
-                  </a>
+                  </button>
                 )}
               </div>
             </div>
@@ -201,9 +201,15 @@ function OpenLetterRow({
         </div>
       )}
     </div>
+    <PdfViewerModal
+      isOpen={!!docUrl}
+      pdfUrl={docUrl ?? ""}
+      title={docTitle}
+      onClose={() => setDocUrl(null)}
+    />
+    </>
   );
 }
-
 export default function HodOpenLettersPanel({ openLetters, submitting, onApprove, onReject }: Props) {
   return (
     <section

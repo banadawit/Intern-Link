@@ -193,8 +193,9 @@
     "subtitle": "InternLink sadarkaa bulchiinsa leenjii ta'aa jira",
     "activeStudents": "Barattoota Hojjechaa Jiran",
     "industryPartners": "Hiriyoota Industirii",
-    "universityDepartments": "Kutaalee Yunivarsiitii",
-    "reportsGenerated": "Gabaasawwan Qophaa'an"
+    "universityDepartments": "Yunivarsiitii Hiriyaa",
+    "reportsGenerated": "Gabaasawwan Qophaa'an",
+    "placementRate": "Sadarkaa Ramaddii Barataa"
   },
   "Testimonials": {
     "badge": "Madaallii",
@@ -530,7 +531,7 @@
       "didntReceiveLabel": "Imeelii hin arganne?",
       "enterEmailToResend": "Irra deebi'ii erguuf imeelii kee galchi",
       "needHelpContact": "Gargaarsa barbaaddaa? Quunnamaa",
-      "ictOffice": "Waajjira ICT Yunivarsiitii Haramaayaa",
+      "ictOffice": "Garee Deeggarsa InternLink",
       "orEmail": "ykn imeelii ergi"
     },
     "verificationPending": {

@@ -65,12 +65,17 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/job-opportunities', jobOpportunityRoutes);
-// Public organization search (no auth — used during registration)
-app.use('/api', organizationRoutes);
+// Organization routes (public search + admin management)
+app.use('/api/organizations', organizationRoutes);
 // 3. Basic Health Check Route
 app.get('/', (req: Request, res: Response) => {
     res.send('InternLink Backend API is Running...');
 });
+
+import { getPublicStats } from './controllers/publicStatsController';
+
+// Public: platform statistics for landing page (no auth required)
+app.get('/api/public/stats', getPublicStats);
 
 // Public: maintenance status (no auth required — frontend checks this)
 app.get('/api/maintenance-status', async (_req: Request, res: Response) => {

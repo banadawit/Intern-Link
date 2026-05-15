@@ -6,8 +6,6 @@ import axios from 'axios';
 import { 
   Image as ImageIcon, 
   FileText, 
-  Video, 
-  Calendar,
   ThumbsUp,
   MessageCircle,
   Share2,
@@ -530,24 +528,6 @@ export default function CommonFeedPage() {
                   className="flex-1 text-left px-4 py-3 rounded-full border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium transition-colors"
                 >
                   Start a post
-                </button>
-              </div>
-              <div className="flex justify-between mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors">
-                  <ImageIcon className="w-5 h-5 text-teal-500" />
-                  <span className="hidden sm:inline">Photo</span>
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors">
-                  <Video className="w-5 h-5 text-emerald-500" />
-                  <span className="hidden sm:inline">Video</span>
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors">
-                  <Calendar className="w-5 h-5 text-orange-500" />
-                  <span className="hidden sm:inline">Event</span>
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400 font-medium transition-colors">
-                  <FileText className="w-5 h-5 text-rose-500" />
-                  <span className="hidden sm:inline">Article</span>
                 </button>
               </div>
             </div>

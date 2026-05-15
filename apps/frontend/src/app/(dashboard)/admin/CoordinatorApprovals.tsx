@@ -162,12 +162,15 @@ const CoordinatorApprovals = ({ onActionComplete, hideHero = false }: Props) => 
                         type="button"
                         onClick={() => {
                           setDocumentViewedUserIds((prev) => new Set(prev).add(c.userId));
-                          setDocUrl(c.user.verification_document);
+                          setDocUrl(c.user.verification_document!);
                         }}
                         className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium"
                       >
                         <FileText className="w-4 h-4" />
                         {ta("viewDoc")}
+                        {documentViewedUserIds.has(c.userId) && (
+                          <CheckCircle className="w-3 h-3 text-emerald-500" />
+                        )}
                       </button>
                     ) : (
                       <span className="text-xs text-slate-400 italic">{ta("noDocument")}</span>

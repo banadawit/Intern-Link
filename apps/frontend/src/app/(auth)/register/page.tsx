@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   GraduationCap, ArrowRight, ArrowLeft, Upload, CheckCircle2,
   Mail, Lock, UserCircle, AlertCircle, Eye, EyeOff, X,
@@ -58,13 +58,19 @@ interface FormErrors {
 
 const RegisterPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { register, isLoading: authLoading } = useAuth();
   const t = useTranslations('Auth.register');
   const tErr = useTranslations('Auth.register.errors');
-  
-  const [step, setStep] = useState(1);
+
+  const roleFromUrl = (() => {
+    const p = searchParams.get('role') as Role;
+    return p && ['student', 'coordinator', 'hod', 'supervisor'].includes(p) ? p : null;
+  })();
+
+  const [step, setStep] = useState(roleFromUrl ? 2 : 1);
   const [showSupport, setShowSupport] = useState(false);
-  const [role, setRole] = useState<Role>(null);
+  const [role, setRole] = useState<Role>(roleFromUrl);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);

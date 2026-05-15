@@ -838,30 +838,18 @@ export const updateOpenLetterProposal = async (req: AuthRequest, res: Response) 
             // ── In-app notification to student ────────────────────────────────
             await sendNotification(
                 student.user.id,
-                `✅ Your open letter request for ${proposal.company.name} was approved by your HoD. The proposal has been forwarded to the company.`
+                `✅ Your open letter request for ${proposal.company.name} was approved by your HoD. An invitation has been sent to the company to register on InternLink.`
             );
 
-            // ── Email to student ──────────────────────────────────────────────
+            // ── Send invite email to the COMPANY (not the student) ────────────
             const hodUser = await prisma.user.findUnique({ where: { id: uid! }, select: { full_name: true } });
-            sendStudentHodDecisionEmail({
-                to: student.user.email,
-                studentName: student.user.full_name,
+            sendCompanyInviteEmail({
+                to: proposal.company.official_email,
+                companyName: proposal.company.name,
                 universityName: hod.university.name,
-                department: hod.department,
-                decision: 'approved',
-            }).catch((e: any) => console.error('Open letter approval email error:', e?.message));
-
-            // ── Notify all supervisors at the target company ──────────────────
-            const supervisors = await prisma.supervisor.findMany({
-                where: { companyId: proposal.companyId },
-                select: { userId: true },
-            });
-            for (const sup of supervisors) {
-                await sendNotification(
-                    sup.userId,
-                    `📋 New internship proposal: ${student.user.full_name} from ${hod.university.name} is applying for an internship at your company. Please review and respond.`
-                );
-            }
+                hodName: hodUser?.full_name ?? 'Head of Department',
+                studentName: student.user.full_name,
+            }).catch((e: any) => console.error('Open letter company invite email error:', e?.message));
 
         } else {
             // ── REJECTED: notify student with reason ──────────────────────────

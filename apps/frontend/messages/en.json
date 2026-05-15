@@ -173,8 +173,9 @@
     "subtitle": "InternLink is rapidly becoming the standard for internship management",
     "activeStudents": "Active Students",
     "industryPartners": "Industry Partners",
-    "universityDepartments": "University Departments",
-    "reportsGenerated": "Reports Generated"
+    "universityDepartments": "Partner Universities",
+    "reportsGenerated": "Reports Generated",
+    "placementRate": "Student Placement Rate"
   },
   "Testimonials": {
     "badge": "Rating",
@@ -514,7 +515,7 @@
       "didntReceiveLabel": "Didn't receive the email?",
       "enterEmailToResend": "Enter your email to resend",
       "needHelpContact": "Need help? Contact the",
-      "ictOffice": "Haramaya University ICT Office",
+      "ictOffice": "InternLink Support Team",
       "orEmail": "or email"
     },
     "verificationPending": {
@@ -1558,8 +1559,8 @@
     }
   },
   "AuthBranding": {
-    "quote": "Connecting the brightest minds of Haramaya University with the leading industries of Ethiopia.",
-    "quoteAuthor": "— Official Career Management Portal"
+    "quote": "Bridging universities and industries to build the next generation of professionals.",
+    "quoteAuthor": "— InternLink Platform"
   },
   "LogoutModal": {
     "title": "Sign out?",
